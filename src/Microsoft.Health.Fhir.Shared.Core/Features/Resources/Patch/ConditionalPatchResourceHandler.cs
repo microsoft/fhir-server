@@ -16,13 +16,11 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public sealed class ConditionalPatchResourceHandler : ConditionalResourceHandler<ConditionalPatchResourceRequest, UpsertResourceResponse>
+    public class ConditionalPatchResourceHandler : ConditionalResourceHandler<ConditionalPatchResourceRequest, UpsertResourceResponse>
     {
-        private readonly JsonPatchService _patchService;
         private readonly IMediator _mediator;
 
         public ConditionalPatchResourceHandler(
@@ -32,14 +30,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService,
-            IModelInfoProvider modelInfoProvider)
+            IAuthorizationService<DataActions> authorizationService)
             : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-
-            _patchService = new JsonPatchService(modelInfoProvider);
             _mediator = mediator;
         }
 
@@ -50,8 +44,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
         public override async Task<UpsertResourceResponse> HandleSingleMatch(ConditionalPatchResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
         {
-            var patchedResource = _patchService.Patch(match.Resource, request.PatchDocument, request.WeakETag);
+            if (match.Resource.IsHistory)
+            {
+                throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
+            }
 
+            if (request.WeakETag != null && request.WeakETag.VersionId != match.Resource.Version)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
+            }
+
+            var patchedResource = request.Payload.Patch(match.Resource);
             return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
         }
     }

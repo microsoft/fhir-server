@@ -1439,7 +1439,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to WeakETag must be in the weak ETag format..
+        ///   Looks up a localized string similar to WeakETag &apos;{0}&apos; must be in the weak ETag format..
         /// </summary>
         internal static string WeakETagFormatRequired {
             get {

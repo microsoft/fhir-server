@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (!UrlLookup.TryRemove(url, out searchParameterInfo))
             {
-                throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, url));
+                throw new ResourceNotFoundException(string.Format(Core.Resources.CustomSearchParameterNotfound, url));
             }
 
             // for search parameters with a base resource type we need to delete the search parameter

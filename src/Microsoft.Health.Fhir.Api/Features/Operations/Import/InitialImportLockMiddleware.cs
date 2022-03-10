@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
         public async Task Invoke(HttpContext context)
         {
-            if (!_importTaskConfiguration.Enabled || !_importTaskConfiguration.InitialImportMode)
+            if (!context.Request.IsFhirRequest() || !_importTaskConfiguration.Enabled || !_importTaskConfiguration.InitialImportMode)
             {
                 await _next(context);
                 return;

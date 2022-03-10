@@ -16,7 +16,7 @@ using Microsoft.Health.Abstractions.Data;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
     /// </summary>
     public class SqlServerFhirResourceChangeDataStore : IChangeFeedSource<ResourceChangeData>
     {
-        private readonly ISqlConnectionFactory _sqlConnectionFactory;
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
         private static readonly ConcurrentDictionary<short, string> ResourceTypeIdToTypeNameMap = new ConcurrentDictionary<short, string>();
 
@@ -39,16 +39,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         /// <summary>
         /// Creates a new instance of the <see cref="SqlServerFhirResourceChangeDataStore"/> class.
         /// </summary>
-        /// <param name="sqlConnectionFactory">The SQL Connection factory.</param>
+        /// <param name="sqlConnectionWrapperFactory">The SQL Connection wrapper factory.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="schemaInformation">The database schema information.</param>
-        public SqlServerFhirResourceChangeDataStore(ISqlConnectionFactory sqlConnectionFactory, ILogger<SqlServerFhirResourceChangeDataStore> logger, SchemaInformation schemaInformation)
+        public SqlServerFhirResourceChangeDataStore(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, ILogger<SqlServerFhirResourceChangeDataStore> logger, SchemaInformation schemaInformation)
         {
-            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
-            _sqlConnectionFactory = sqlConnectionFactory;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
             _schemaInformation = schemaInformation;
         }
@@ -98,49 +98,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 // The GetRecordsAsync function would be called every second by one agent.
                 // So, it would be a good option that opens and closes a connection for each call,
                 // and there is no database connection pooling in the Application at this time.
-                using (SqlConnection sqlConnection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    await sqlConnection.OpenAsync(cancellationToken);
                     if (ResourceTypeIdToTypeNameMap.IsEmpty)
                     {
                         lock (ResourceTypeIdToTypeNameMap)
                         {
                             if (ResourceTypeIdToTypeNameMap.IsEmpty)
                             {
-                                UpdateResourceTypeMapAsync(sqlConnection);
+                                UpdateResourceTypeMapAsync(sqlCommandWrapper);
                             }
                         }
                     }
 
-                    using (SqlCommand sqlCommand = sqlConnection.CreateCommand())
+                    PopulateFetchResourceChangesCommand(sqlCommandWrapper, startId, lastProcessedDateTime, pageSize);
+
+                    using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
-                        PopulateFetchResourceChangesCommand(sqlCommand, startId, lastProcessedDateTime, pageSize);
-
-                        using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                        while (await sqlDataReader.ReadAsync(cancellationToken))
                         {
-                            while (await sqlDataReader.ReadAsync(cancellationToken))
-                            {
-                                (long id, DateTime timestamp, string resourceId, short resourceTypeId, int resourceVersion, byte resourceChangeTypeId) = sqlDataReader.ReadRow(
-                                        VLatest.ResourceChangeData.Id,
-                                        VLatest.ResourceChangeData.Timestamp,
-                                        VLatest.ResourceChangeData.ResourceId,
-                                        VLatest.ResourceChangeData.ResourceTypeId,
-                                        VLatest.ResourceChangeData.ResourceVersion,
-                                        VLatest.ResourceChangeData.ResourceChangeTypeId);
+                            (long id, DateTime timestamp, string resourceId, short resourceTypeId, int resourceVersion, byte resourceChangeTypeId) = sqlDataReader.ReadRow(
+                                    VLatest.ResourceChangeData.Id,
+                                    VLatest.ResourceChangeData.Timestamp,
+                                    VLatest.ResourceChangeData.ResourceId,
+                                    VLatest.ResourceChangeData.ResourceTypeId,
+                                    VLatest.ResourceChangeData.ResourceVersion,
+                                    VLatest.ResourceChangeData.ResourceChangeTypeId);
 
-                                listResourceChangeData.Add(new ResourceChangeData(
-                                    id: id,
-                                    timestamp: DateTime.SpecifyKind(timestamp, DateTimeKind.Utc),
-                                    resourceId: resourceId,
-                                    resourceTypeId: resourceTypeId,
-                                    resourceVersion: resourceVersion,
-                                    resourceChangeTypeId: resourceChangeTypeId,
-                                    resourceTypeName: ResourceTypeIdToTypeNameMap[resourceTypeId]));
-                            }
+                            listResourceChangeData.Add(new ResourceChangeData(
+                                id: id,
+                                timestamp: DateTime.SpecifyKind(timestamp, DateTimeKind.Utc),
+                                resourceId: resourceId,
+                                resourceTypeId: resourceTypeId,
+                                resourceVersion: resourceVersion,
+                                resourceChangeTypeId: resourceChangeTypeId,
+                                resourceTypeName: ResourceTypeIdToTypeNameMap[resourceTypeId]));
                         }
-
-                        return listResourceChangeData;
                     }
+
+                    return listResourceChangeData;
                 }
             }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
@@ -166,38 +163,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
         }
 
-        private void PopulateFetchResourceChangesCommand(SqlCommand sqlCommand, long startId, DateTime lastProcessedDateTime, short pageSize)
+        private void PopulateFetchResourceChangesCommand(SqlCommandWrapper sqlCommandWrapper, long startId, DateTime lastProcessedDateTime, short pageSize)
         {
-            sqlCommand.CommandType = CommandType.StoredProcedure;
-            sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
-            sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.SmallInt).Value = pageSize;
+            sqlCommandWrapper.CommandType = CommandType.StoredProcedure;
+            sqlCommandWrapper.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
+            sqlCommandWrapper.Parameters.AddWithValue("@pageSize", SqlDbType.SmallInt).Value = pageSize;
             if (_schemaInformation.Current >= SchemaVersionConstants.SupportsClusteredIdOnResourceChangesVersion)
             {
-                sqlCommand.CommandText = "dbo.FetchResourceChanges_3";
-                sqlCommand.Parameters.AddWithValue("@lastProcessedUtcDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
+                sqlCommandWrapper.CommandText = "dbo.FetchResourceChanges_3";
+                sqlCommandWrapper.Parameters.AddWithValue("@lastProcessedUtcDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
-                sqlCommand.CommandText = "dbo.FetchResourceChanges_2";
-                sqlCommand.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
+                sqlCommandWrapper.CommandText = "dbo.FetchResourceChanges_2";
+                sqlCommandWrapper.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
             }
             else
             {
-                sqlCommand.CommandText = "dbo.FetchResourceChanges";
+                sqlCommandWrapper.CommandText = "dbo.FetchResourceChanges";
             }
         }
 
-        private static void UpdateResourceTypeMapAsync(SqlConnection sqlConnection)
+        private static void UpdateResourceTypeMapAsync(SqlCommandWrapper sqlCommandWrapper)
         {
-            using (SqlCommand sqlCommand = new SqlCommand("SELECT ResourceTypeId, Name FROM dbo.ResourceType", sqlConnection))
+            sqlCommandWrapper.CommandText = "SELECT ResourceTypeId, Name FROM dbo.ResourceType";
+            using (SqlDataReader sqlDataReader = sqlCommandWrapper.ExecuteReader(CommandBehavior.SequentialAccess))
             {
-                sqlCommand.CommandType = CommandType.Text;
-                using (SqlDataReader sqlDataReader = sqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
+                while (sqlDataReader.Read())
                 {
-                    while (sqlDataReader.Read())
-                    {
-                        ResourceTypeIdToTypeNameMap.TryAdd((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
-                    }
+                    ResourceTypeIdToTypeNameMap.TryAdd((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
                 }
             }
         }

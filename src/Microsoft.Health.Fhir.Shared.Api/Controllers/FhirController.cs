@@ -34,10 +34,10 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -416,9 +416,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPatch]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
-        public async Task<IActionResult> Patch(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        [Consumes("application/json-patch+json")]
+        public async Task<IActionResult> PatchJson(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
-            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), patchDocument, ifMatchHeader, HttpContext.RequestAborted);
+            var payload = new JsonPatchPayload(patchDocument);
+            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), payload, ifMatchHeader, HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -432,17 +434,51 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPatch]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalPatch)]
-        public async Task<IActionResult> ConditionalPatch(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        [Consumes("application/json-patch+json")]
+        public async Task<IActionResult> ConditionalPatchJson(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
+            var payload = new JsonPatchPayload(patchDocument);
 
-            UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalPatchResourceRequest(typeParameter, patchDocument, conditionalParameters, ifMatchHeader),
-                HttpContext.RequestAborted);
+            UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(typeParameter, payload, conditionalParameters, ifMatchHeader, HttpContext.RequestAborted);
+            return ToSaveOutcomeResult(response.Outcome);
+        }
 
-            SaveOutcome saveOutcome = response.Outcome;
+        /// <summary>
+        /// Patches the specified resource.
+        /// </summary>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        /// <param name="paramsResource">The JSON FHIR Parameters Resource.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header.</param>
+        [HttpPatch]
+        [Route(KnownRoutes.ResourceTypeById)]
+        [AuditEventType(AuditEventSubType.Patch)]
+        [Consumes("application/fhir+json")]
+        public async Task<IActionResult> PatchFhir(string typeParameter, string idParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        {
+            var payload = new FhirPathPatchPayload(paramsResource);
+            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), payload, ifMatchHeader, HttpContext.RequestAborted);
+            return ToSaveOutcomeResult(response.Outcome);
+        }
 
-            return ToSaveOutcomeResult(saveOutcome);
+        /// <summary>
+        /// Conditionally patches a specified resource.
+        /// </summary>
+        /// <param name="typeParameter">Type of resource to patch.</param>
+        /// <param name="paramsResource">The JSON FHIR Parameters Resource.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header.</param>
+        [HttpPatch]
+        [Route(KnownRoutes.ResourceType)]
+        [AuditEventType(AuditEventSubType.ConditionalPatch)]
+        [Consumes("application/fhir+json")]
+        public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        {
+            IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
+            var payload = new FhirPathPatchPayload(paramsResource);
+
+            UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(typeParameter, payload, conditionalParameters, ifMatchHeader, HttpContext.RequestAborted);
+            return ToSaveOutcomeResult(response.Outcome);
         }
 
         /// <summary>

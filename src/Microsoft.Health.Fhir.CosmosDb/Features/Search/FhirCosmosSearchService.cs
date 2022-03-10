@@ -573,6 +573,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             var includes = new List<FhirCosmosResourceWrapper>();
+            var matchIds = matches.Select(x => new ResourceKey(x.ResourceTypeName, x.ResourceId)).ToHashSet();
 
             if (includeExpressions.Count > 0)
             {
@@ -581,13 +582,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 var referencesToInclude = matches
                     .SelectMany(m => m.ReferencesToInclude)
                     .Where(r => r.ResourceTypeName != null) // exclude untyped references to align with the current SQL behavior
+                    .Select(x => new ResourceKey(x.ResourceTypeName, x.ResourceId))
                     .Distinct()
+                    .Where(x => !matchIds.Contains(x))
                     .ToList();
 
-                foreach (IEnumerable<ResourceTypeAndId> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
+                foreach (IEnumerable<ResourceKey> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
                 {
                     // issue the requests in parallel
-                    var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(new ResourceKey(r.ResourceTypeName, r.ResourceId), cancellationToken)).ToList();
+                    var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(r, cancellationToken)).ToList();
 
                     foreach (Task<ResourceWrapper> task in tasks)
                     {
@@ -617,15 +620,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
                     SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
-                    SearchParameterExpression referenceExpression = Expression.SearchParameter(
-                        referenceSearchParameter,
-                        Expression.Or(
-                            matches
-                                .GroupBy(m => m.ResourceTypeName)
-                                .Select(g =>
-                                    Expression.And(
-                                        Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
-                                        Expression.Or(g.Select(m => Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId)).ToList()))).ToList()));
+
+                    IEnumerable<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName);
+
+                    Expression referenceExpression = Expression.And(
+                        Expression.SearchParameter(
+                            referenceSearchParameter,
+                            Expression.Or(matchesGroupedByType
+                                    .Select(g =>
+                                        Expression.And(
+                                            Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
+                                            new InExpression(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId).ToArray()))).ToList())),
+                        /* This part of the expression ensures that the reference isn't the same as a resource that has already been selected as a match */
+                        Expression.Not(Expression.Or(matchesGroupedByType
+                            .Select(g =>
+                                Expression.And(
+                                    Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, g.Key, false)),
+                                    Expression.SearchParameter(_resourceIdSearchParameter, new InExpression(FieldName.TokenCode, null, g.Select(x => x.ResourceId).ToArray())))).ToList())));
 
                     Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
 

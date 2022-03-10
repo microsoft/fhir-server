@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _searchParamGenerator = searchParamGenerator;
         }
 
+        internal static BulkTokenDateTimeCompositeSearchParamTableTypeV1RowComparer Comparer { get; } = new BulkTokenDateTimeCompositeSearchParamTableTypeV1RowComparer();
+
         internal override string TableName
         {
             get
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkTokenDateTimeCompositeSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkTokenDateTimeCompositeSearchParamTableTypeV1Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
@@ -73,6 +77,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+        }
+
+        internal static IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> Distinct(IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> input)
+        {
+            return input.Distinct(Comparer);
+        }
+
+        internal class BulkTokenDateTimeCompositeSearchParamTableTypeV1RowComparer : IEqualityComparer<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row>
+        {
+            public bool Equals(BulkTokenDateTimeCompositeSearchParamTableTypeV1Row x, BulkTokenDateTimeCompositeSearchParamTableTypeV1Row y)
+            {
+                if (x.SearchParamId != y.SearchParamId)
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.Code1, y.Code1, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<int?>.Default.Equals(x.SystemId1, y.SystemId1))
+                {
+                    return false;
+                }
+
+                if (!DateTimeOffset.Equals(x.StartDateTime2, y.StartDateTime2))
+                {
+                    return false;
+                }
+
+                if (!DateTimeOffset.Equals(x.EndDateTime2, y.EndDateTime2))
+                {
+                    return false;
+                }
+
+                if (x.IsLongerThanADay2 != y.IsLongerThanADay2)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public int GetHashCode(BulkTokenDateTimeCompositeSearchParamTableTypeV1Row obj)
+            {
+                int hashCode = obj.SearchParamId.GetHashCode();
+
+                hashCode ^= obj.Code1?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.SystemId1?.GetHashCode() ?? 0;
+                hashCode ^= obj.StartDateTime2.GetHashCode();
+                hashCode ^= obj.EndDateTime2.GetHashCode();
+                hashCode ^= obj.IsLongerThanADay2.GetHashCode();
+
+                return hashCode.GetHashCode();
+            }
         }
     }
 }

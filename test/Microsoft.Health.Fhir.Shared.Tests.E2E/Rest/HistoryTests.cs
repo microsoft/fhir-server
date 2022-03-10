@@ -26,6 +26,14 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    /// <summary>
+    /// This class covers history tests with different supported query parameters
+    /// Other test collections are run parallelly causing some of the tests to fail intermittently as during the same timeframe resources could get created by other tests
+    /// We generally use _tag query parameter to filter out the resources but since history search doesn't support _tag, filtering is done explicitly in the test
+    /// While returning the search response default maxItem count is set to lower value, due to multiple tests running at the same time this could return entries with different tag code
+    /// hence using the NextLink to keep querying for the next set
+    /// Some tests have Thread.Sleep to avoid query time to fall in future
+    /// </summary>
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     [CollectionDefinition("History", DisableParallelization = true)]
     [Collection("History")]
@@ -87,7 +95,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAType_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfullyWithResponseStatus()
         {
             Observation newCreatedResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
-            await _client.UpdateAsync(newCreatedResource, int.Parse(newCreatedResource.Meta.VersionId).ToString());
+
+            var weakETag = $"W/\"{int.Parse(newCreatedResource.Meta.VersionId).ToString()}\"";
+
+            await _client.UpdateAsync(newCreatedResource, weakETag);
             await _client.DeleteAsync(newCreatedResource);
             await _client.DeleteAsync(newCreatedResource);
 
@@ -116,31 +127,47 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var tag = Guid.NewGuid().ToString();
 
-            var since = await GetStartTimeForHistoryTest(tag);
+            var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
             Thread.Sleep(500);  // put a small gap between since and the first edits
-            _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
+            _createdResource.Resource.Text = new Narrative { Div = $"<div>Changed by E2E test {tag}</div>" };
 
             var updatedResource = await CreateResourceWithTag(_createdResource.Resource, tag);
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}");
+            FhirResponse<Bundle> response;
+            List<Bundle.EntryComponent> readResponse = new List<Bundle.EntryComponent>();
+            string searchString = $"_history?_since={sinceUriString}";
+            string selfLink = searchString;
+            while (!string.IsNullOrEmpty(searchString))
+            {
+                response = await _client.SearchAsync(searchString);
+                var readResponseWithMatchingTag = response.Resource.Entry.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
 
-            AssertCount(1, readResponse.Resource.Entry);
+                readResponse.AddRange(readResponseWithMatchingTag);
+                searchString = response.Resource.NextLink?.ToString();
 
-            var obsHistory = readResponse.Resource.Entry[0].Resource as Observation;
+                if (readResponseWithMatchingTag.Count == 1)
+                {
+                    selfLink = response.Resource.SelfLink?.ToString();
+                }
+            }
+
+            AssertCount(1, readResponse);
+
+            var obsHistory = readResponse[0].Resource as Observation;
 
             Assert.NotNull(obsHistory);
-            Assert.Contains("Changed by E2E test", obsHistory.Text.Div);
+            Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
 
-            using FhirResponse<Bundle> selfLinkResponse = await _client.SearchAsync(readResponse.Resource.SelfLink.ToString());
+            List<Bundle.EntryComponent> selfLinkResponseWithmatchingTag = await GetAllResultsWithMatchingTagForGivenSearch(selfLink, tag);
 
-            AssertCount(1, selfLinkResponse.Resource.Entry);
+            AssertCount(1, selfLinkResponseWithmatchingTag);
 
-            obsHistory = selfLinkResponse.Resource.Entry[0].Resource as Observation;
+            obsHistory = selfLinkResponseWithmatchingTag[0].Resource as Observation;
 
             Assert.NotNull(obsHistory);
-            Assert.Contains("Changed by E2E test", obsHistory.Text.Div);
+            Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
         }
 
         [Fact]
@@ -148,41 +175,41 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var tag = Guid.NewGuid().ToString();
 
-            var since = await GetStartTimeForHistoryTest(tag);
+            var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
 
             Thread.Sleep(500);  // put a small gap between since and the first edits
 
-            _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
+            _createdResource.Resource.Text = new Narrative { Div = $"<div>Changed by E2E test {tag}</div>" };
 
             await CreateResourceWithTag(_createdResource.Resource, tag);
             var newPatient = await CreateResourceWithTag(Samples.GetDefaultPatient().ToPoco(), tag);
 
-            var before = newPatient.Meta.LastUpdated.Value.AddMilliseconds(100);
             Thread.Sleep(500);  // make sure that the before time is not in the future
+            var before = newPatient.Meta.LastUpdated.Value.AddMilliseconds(100);
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
+            List<Bundle.EntryComponent> readResponseWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            AssertCount(2, readResponse.Resource.Entry);
+            AssertCount(2, readResponseWithMatchingTag);
 
             Patient patientHistory;
-            var obsHistory = readResponse.Resource.Entry[0].Resource as Observation;
+            var obsHistory = readResponseWithMatchingTag[0].Resource as Observation;
 
             if (obsHistory == null)
             {
-                patientHistory = readResponse.Resource.Entry[0].Resource as Patient;
-                obsHistory = readResponse.Resource.Entry[1].Resource as Observation;
+                patientHistory = readResponseWithMatchingTag[0].Resource as Patient;
+                obsHistory = readResponseWithMatchingTag[1].Resource as Observation;
             }
             else
             {
-                patientHistory = readResponse.Resource.Entry[1].Resource as Patient;
+                patientHistory = readResponseWithMatchingTag[1].Resource as Patient;
             }
 
             Assert.NotNull(obsHistory);
             Assert.NotNull(patientHistory);
-            Assert.Contains("Changed by E2E test", obsHistory.Text.Div);
+            Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
             Assert.Equal(newPatient.Id, patientHistory.Id);
 
             if (newPatient != null)
@@ -196,17 +223,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var tag = Guid.NewGuid().ToString();
 
-            var since = await GetStartTimeForHistoryTest(tag);
+            var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
 
             var newResources = new List<Resource>();
 
             // First make a few edits
-            _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
+            _createdResource.Resource.Text = new Narrative { Div = $"<div>Changed by E2E test {tag}</div>" };
             await CreateResourceWithTag(_createdResource.Resource, tag);
 
             newResources.Add(await CreateResourceWithTag(Samples.GetDefaultPatient().ToPoco(), tag));
             newResources.Add(await CreateResourceWithTag(Samples.GetDefaultOrganization().ToPoco(), tag));
-            Thread.Sleep(1000);
             newResources.Add(await CreateResourceWithTag(Samples.GetJsonSample("BloodGlucose").ToPoco(), tag));
             newResources.Add(await CreateResourceWithTag(Samples.GetJsonSample("BloodPressure").ToPoco(), tag));
             newResources.Add(await CreateResourceWithTag(Samples.GetJsonSample("Patient-f001").ToPoco(), tag));
@@ -215,27 +241,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
             // Query all the recent changes
-            using FhirResponse<Bundle> allChanges = await _client.SearchAsync($"_history?_tag={tag}&_since=" + sinceUriString);
+            List<Bundle.EntryComponent> allChangesWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
 
-            AssertCount(7, allChanges.Resource.Entry);
+            AssertCount(7, allChangesWithMatchingTag);
 
             // now choose a value of before that is as close as possible to one of the last updated times
-            var lastUpdatedTimes = allChanges.Resource.Entry.Select(e => e.Resource.Meta.LastUpdated).OrderBy(d => d.Value);
+            var lastUpdatedTimes = allChangesWithMatchingTag.Select(e => e.Resource.Meta.LastUpdated).OrderBy(d => d.Value);
 
             var before = lastUpdatedTimes.ToList()[4];
             var beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
-            Thread.Sleep(500);
-            var firstSet = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
 
-            AssertCount(4, firstSet.Resource.Entry);
+            var firstSetWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
+
+            AssertCount(4, firstSetWithMatchingTag);
+
+            var obsHistory = firstSetWithMatchingTag.OrderBy(d => d.Resource.Meta.LastUpdated).ToList()[0].Resource as Observation;
+            Assert.NotNull(obsHistory);
+            Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
 
             sinceUriString = beforeUriString;
             before = DateTime.UtcNow;
             beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
             Thread.Sleep(500); // wait 500 milliseconds to make sure that the value passed to the server for _before is not a time in the future
-            var secondSet = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
 
-            AssertCount(3, secondSet.Resource.Entry);
+            var secondSetWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
+
+            AssertCount(3, secondSetWithMatchingTag);
 
             foreach (var r in newResources)
             {
@@ -247,12 +278,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAQueryThatReturnsMoreThan10Results_WhenGettingSystemHistory_TheServerShouldBatchTheResponse()
         {
             var tag = Guid.NewGuid().ToString();
-            var since = await GetStartTimeForHistoryTest(tag);
+            var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
 
             var newResources = new List<Resource>();
 
             // First make 11 edits
-            _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
+            _createdResource.Resource.Text = new Narrative { Div = $"<div>Changed by E2E test {tag}</div>" };
             await CreateResourceWithTag(_createdResource.Resource, tag);
             newResources.Add(await CreateResourceWithTag(Samples.GetDefaultPatient().ToPoco(), tag));
             newResources.Add(await CreateResourceWithTag(Samples.GetDefaultOrganization().ToPoco(), tag));
@@ -271,24 +302,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}");
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
 
-            AssertCount(10, readResponse.Resource.Entry);
+            AssertCount(11, readResponse);
 
-            Thread.Sleep(500);
+            var obsHistory = readResponse.OrderBy(d => d.Resource.Meta.LastUpdated).ToList()[0].Resource as Observation;
+            Assert.NotNull(obsHistory);
+            Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
 
             newResources.Add(await _client.CreateByUpdateAsync(Samples.GetJsonSample("ObservationWithBloodPressure").ToPoco()));
             newResources.Add(await _client.CreateByUpdateAsync(Samples.GetJsonSample("ObservationWithEyeColor").ToPoco()));
 
             Thread.Sleep(500);
 
-            using FhirResponse<Bundle> firstBatch = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
+            readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            AssertCount(10, firstBatch.Resource.Entry);
-
-            var secondBatch = await _client.SearchAsync(firstBatch.Resource.NextLink.ToString());
-
-            AssertCount(1, secondBatch.Resource.Entry);
+            AssertCount(11, readResponse);
 
             foreach (var r in newResources)
             {
@@ -299,29 +328,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValueForSinceAfterAllModificatons_WhenGettingSystemHistory_TheServerShouldReturnAnEmptyResult()
         {
-            _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
             var tag = Guid.NewGuid().ToString();
             var updatedResource = await CreateResourceWithTag(_createdResource.Resource, tag);
 
             // ensure that the server has fully processed the PUT
-            var since = await GetStartTimeForHistoryTest(tag);
+            var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}");
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
 
-            Assert.Empty(readResponse.Resource.Entry);
+            Assert.Empty(readResponse);
         }
 
         [Fact]
         public async Task GivenAValueForSinceAndBeforeWithNoModifications_WhenGettingSystemHistory_TheServerShouldReturnAnEmptyResult()
         {
-            _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
             var tag = Guid.NewGuid().ToString();
             var updatedResource = await CreateResourceWithTag(_createdResource.Resource, tag);
 
             // ensure that the server has fully processed the PUT
-            var since = await GetStartTimeForHistoryTest(tag);
+            var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
             var before = updatedResource.Meta.LastUpdated.Value.AddMilliseconds(100);
 
             Thread.Sleep(500);
@@ -333,9 +360,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            Assert.Empty(readResponse.Resource.Entry);
+            Assert.Empty(readResponse);
 
             if (newPatient?.Resource != null)
             {
@@ -357,7 +384,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAValueForUnSupportedAt_WhenGettingSystemHistory_TheAtIsDroppedFromUrl()
         {
             var tag = Guid.NewGuid().ToString();
-            var at = await GetStartTimeForHistoryTest(tag);
+            var at = await CreatePatientAndGetStartTimeForHistoryTest(tag);
             var atUriString = HttpUtility.UrlEncode(at.ToString("o"));
 
             using FhirResponse<Bundle> readResponse = await _client.SearchAsync("_history?_at=" + atUriString);
@@ -373,7 +400,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// so we can start from clean start point
         /// </summary>
         /// <returns>DateTimeOffset set to a good value for _since</returns>
-        private async Task<DateTimeOffset> GetStartTimeForHistoryTest(string tag)
+        private async Task<DateTimeOffset> CreatePatientAndGetStartTimeForHistoryTest(string tag)
         {
             Resource resource = Samples.GetDefaultPatient().ToPoco();
             resource.Meta = new Meta();
@@ -381,8 +408,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             resource.Meta.Tag.Add(new Coding(string.Empty, "startTimeResource"));
 
             using FhirResponse<Resource> response = await _client.CreateByUpdateAsync(resource);
-            await Task.Delay(10);
             return response.Resource.Meta.LastUpdated.Value.AddMilliseconds(1);
+        }
+
+        /// <summary>
+        /// Get all the results for given search string
+        /// </summary>
+        /// <returns>List<Bundle.EntryComponent> for the given search string</returns>
+        private async Task<List<Bundle.EntryComponent>> GetAllResultsWithMatchingTagForGivenSearch(string searchString, string tag)
+        {
+            FhirResponse<Bundle> response;
+            List<Bundle.EntryComponent> readResponse = new List<Bundle.EntryComponent>();
+            while (!string.IsNullOrEmpty(searchString))
+            {
+                response = await _client.SearchAsync(searchString);
+                readResponse.AddRange(response.Resource.Entry);
+                searchString = response.Resource.NextLink?.ToString();
+            }
+
+            return readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
         }
 
         private async Task<T> CreateResourceWithTag<T>(T resource, string tag)

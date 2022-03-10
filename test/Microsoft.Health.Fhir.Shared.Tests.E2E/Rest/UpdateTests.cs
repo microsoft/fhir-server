@@ -159,7 +159,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(createdResource, createdResource.Meta.VersionId);
+            var weakETag = $"W/\"{createdResource.Meta.VersionId}\"";
+            using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(createdResource, weakETag);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
 
@@ -172,6 +173,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Contains(updatedResource.Meta.VersionId, updateResponse.Headers.ETag.Tag);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
+        }
+
+        [Theory]
+        [InlineData("\"invalidVersion\"")]
+        [InlineData("\"-1\"")]
+        [InlineData("\"0\"")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnInvalidETagHeader_WhenUpdatingAResource_TheServerShouldReturnABadRequestResponse(string invalidETag)
+        {
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(createdResource, invalidETag));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnIncorrectETagHeader_WhenUpdatingAResource_TheServerShouldReturnAnError()
+        {
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+
+            // Specify a version that is one off from the version of the existing resource
+            var incorrectVersionId = int.Parse(createdResource.Meta.VersionId) + 1;
+            var weakETag = $"W/\"{incorrectVersionId.ToString()}\"";
+
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(createdResource, weakETag));
+#if Stu3
+            Assert.Equal(HttpStatusCode.Conflict, ex.StatusCode);
+#else
+            Assert.Equal(HttpStatusCode.PreconditionFailed, ex.StatusCode);
+#endif
+
         }
     }
 }

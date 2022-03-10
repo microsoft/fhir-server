@@ -33,6 +33,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string Immunization = "Immunization";
 
+        public const string Medication = "Medication";
+
         public const string Observation = "Observation";
 
         public const string OperationOutcome = "OperationOutcome";

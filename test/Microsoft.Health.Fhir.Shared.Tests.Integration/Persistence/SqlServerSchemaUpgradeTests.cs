@@ -23,8 +23,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Xunit;
@@ -123,17 +125,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var connectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
+            IOptions<SqlServerDataStoreConfiguration> config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
+            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, config);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
+
+            var sqlTransactionHandler = new SqlTransactionHandler();
+            var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, new SqlCommandWrapperFactory(), defaultSqlConnectionBuilder);
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,
                 defManager,
                 () => statusStore,
                 Options.Create(securityConfiguration),
-                sqlConnectionFactory,
+                () => defaultSqlConnectionWrapperFactory.CreateMockScope(),
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
 
@@ -141,21 +146,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 initialConnectionString,
                 MasterDatabaseName,
                 sqlServerFhirModel,
-                sqlConnectionFactory);
+                defaultSqlConnectionBuilder);
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
 
             var schemaManagerDataStore = new SchemaManagerDataStore(
-                sqlConnectionFactory,
+                defaultSqlConnectionBuilder,
                 config,
                 NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(
                 scriptProvider,
                 baseScriptProvider,
                 NullLogger<SchemaUpgradeRunner>.Instance,
-                sqlConnectionFactory,
+                defaultSqlConnectionBuilder,
                 schemaManagerDataStore);
 
             var schemaInitializer = new SchemaInitializer(
@@ -163,7 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 schemaManagerDataStore,
                 schemaUpgradeRunner,
                 schemaInformation,
-                sqlConnectionFactory,
+                defaultSqlConnectionBuilder,
                 sqlConnectionStringProvider,
                 mediator,
                 NullLogger<SchemaInitializer>.Instance);
@@ -202,6 +207,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
                 ("Procedure", "[dbo].[UpsertResource_4]"),
+                ("Procedure", "[dbo].[UpsertResource_5]"),
                 ("Procedure", "[dbo].[ReindexResource]"),
                 ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[CreateTask]"),

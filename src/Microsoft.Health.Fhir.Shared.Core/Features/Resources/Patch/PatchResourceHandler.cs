@@ -15,13 +15,11 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, UpsertResourceResponse>
     {
-        private readonly JsonPatchService _patchService;
         private readonly IMediator _mediator;
 
         public PatchResourceHandler(
@@ -30,14 +28,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService,
-            IModelInfoProvider modelInfoProvider)
+            IAuthorizationService<DataActions> authorizationService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-
-            _patchService = new JsonPatchService(modelInfoProvider);
             _mediator = mediator;
         }
 
@@ -63,8 +57,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, key.ResourceType, key.Id));
             }
 
-            var patchedResource = _patchService.Patch(currentDoc, request.PatchDocument, request.WeakETag);
+            if (currentDoc.IsHistory)
+            {
+                throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
+            }
 
+            if (request.WeakETag != null && request.WeakETag.VersionId != currentDoc.Version)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
+            }
+
+            var patchedResource = request.Payload.Patch(currentDoc);
             return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
         }
     }

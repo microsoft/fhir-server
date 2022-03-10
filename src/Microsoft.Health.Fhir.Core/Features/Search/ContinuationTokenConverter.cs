@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             catch (FormatException)
             {
-                throw new BadRequestException(Resources.InvalidContinuationToken);
+                throw new BadRequestException(Core.Resources.InvalidContinuationToken);
             }
         }
 
