@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
             SwitchPartitionsInAllTables();
         }
 
-        private CancelRequest RunCommands(IList<(string table, IList<string> sqlCommands)> commands)
+        private CancelRequest RunCommands(IList<(string Table, IList<string> SqlCommands)> commands)
         {
             var cancelInt = new CancelRequest();
             BatchExtensions.ParallelForEach(
@@ -58,17 +58,17 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
                 _threads,
                 (thread, sqlPlus) =>
                 {
-                    if (sqlPlus.sqlCommands.Any(_ => _.EndsWith("REBUILD", StringComparison.OrdinalIgnoreCase)))
+                    if (sqlPlus.SqlCommands.Any(_ => _.EndsWith("REBUILD", StringComparison.OrdinalIgnoreCase)))
                     {
-                        foreach (var rebuildIndex in sqlPlus.sqlCommands)
+                        foreach (var rebuildIndex in sqlPlus.SqlCommands)
                         {
-                            ExecuteSqlCommand(sqlPlus.table, rebuildIndex, cancelInt);
+                            ExecuteSqlCommand(sqlPlus.Table, rebuildIndex, cancelInt);
                         }
                     }
                     else
                     {
-                        var cmd = sqlPlus.sqlCommands.Single(); // there should be single cmd in the list
-                        ExecuteSqlCommand(sqlPlus.table, cmd, cancelInt);
+                        var cmd = sqlPlus.SqlCommands.Single(); // there should be single cmd in the list
+                        ExecuteSqlCommand(sqlPlus.Table, cmd, cancelInt);
                     }
                 },
                 cancelInt);
