@@ -8,8 +8,9 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using Microsoft.Health.Fhir.Store.Utils;
 
-namespace IndexRebuilder
+namespace Microsoft.Health.Fhir.IndexRebuilder
 {
     internal class IndexRebuilder
     {
@@ -24,7 +25,7 @@ namespace IndexRebuilder
             _rebuildClustered = rebuildClustered;
         }
 
-        internal void Run(out StoreUtils.CancelRequest cancel, out int numberOfTables)
+        internal void Run(out CancelRequest cancel, out int numberOfTables)
         {
             SwitchPartitionsOutAllTables(_rebuildClustered);
             var commands = GetCommandsForRebuildIndexes(_rebuildClustered);
@@ -49,10 +50,10 @@ namespace IndexRebuilder
             SwitchPartitionsInAllTables();
         }
 
-        private StoreUtils.CancelRequest RunCommands(IList<Tuple<string, IList<string>>> commands)
+        private CancelRequest RunCommands(IList<Tuple<string, IList<string>>> commands)
         {
-            var cancelInt = new StoreUtils.CancelRequest();
-            StoreUtils.ParallelForEach(
+            var cancelInt = new CancelRequest();
+            BatchExtensions.ParallelForEach(
                 commands,
                 _threads,
                 (thread, sqlPlus) =>
@@ -140,7 +141,7 @@ namespace IndexRebuilder
             command.ExecuteNonQuery();
         }
 
-        private void ExecuteSqlCommand(string tbl, string cmd, StoreUtils.CancelRequest cancel)
+        private void ExecuteSqlCommand(string tbl, string cmd, CancelRequest cancel)
         {
             if (cancel.IsSet)
             {

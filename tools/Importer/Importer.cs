@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Importer
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
             Console.WriteLine($"{globalPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
-            var blobs = blobContainerClient.GetBlobs().OrderBy(_ => _.Name).Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).ToList();
+            var blobs = blobContainerClient.GetBlobs().Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).ToList();
             Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
             var take = MaxBlobIndexForImport == 0 ? blobs.Count : MaxBlobIndexForImport - NumberOfBlobsToSkip;
             blobs = blobs.Skip(NumberOfBlobsToSkip).Take(take).ToList();

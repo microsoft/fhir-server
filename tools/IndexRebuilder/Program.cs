@@ -7,7 +7,7 @@ using System;
 using System.Configuration;
 using System.Diagnostics;
 
-namespace IndexRebuilder
+namespace Microsoft.Health.Fhir.IndexRebuilder
 {
     public static class Program
     {
