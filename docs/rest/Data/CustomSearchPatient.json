@@ -87,7 +87,7 @@
     "birthDate": "2016-01-15",
     "address": [
         {
-            "use": "usual",
+            "use": "home",
             "line": [
                 "49 Meadow St"
             ],
