@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
         {
             SwitchPartitionsOutAllTables(_rebuildClustered);
             var commands = GetCommandsForRebuildIndexes(_rebuildClustered);
-            numberOfTables = commands.Select(_ => _.Item1).Distinct().Count();
+            numberOfTables = commands.Select(_ => _.Table).Distinct().Count();
             cancel = RunCommands(commands);
             if (cancel.IsSet)
             {
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
             if (_rebuildClustered) // do other indexes because others were already done before
             {
                 commands = GetCommandsForRebuildIndexes(false);
-                numberOfTables = commands.Select(_ => _.Item1).Distinct().Count();
+                numberOfTables = commands.Select(_ => _.Table).Distinct().Count();
                 cancel = RunCommands(commands);
                 if (cancel.IsSet)
                 {
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
             SwitchPartitionsInAllTables();
         }
 
-        private CancelRequest RunCommands(IList<Tuple<string, IList<string>>> commands)
+        private CancelRequest RunCommands(IList<(string table, IList<string> sqlCommands)> commands)
         {
             var cancelInt = new CancelRequest();
             BatchExtensions.ParallelForEach(
@@ -58,19 +58,17 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
                 _threads,
                 (thread, sqlPlus) =>
                 {
-                    var tbl = sqlPlus.Item1;
-                    var cmds = sqlPlus.Item2;
-                    if (cmds.Any(_ => _.EndsWith("REBUILD", StringComparison.OrdinalIgnoreCase)))
+                    if (sqlPlus.sqlCommands.Any(_ => _.EndsWith("REBUILD", StringComparison.OrdinalIgnoreCase)))
                     {
-                        foreach (var rebuildIndex in cmds)
+                        foreach (var rebuildIndex in sqlPlus.sqlCommands)
                         {
-                            ExecuteSqlCommand(tbl, rebuildIndex, cancelInt);
+                            ExecuteSqlCommand(sqlPlus.table, rebuildIndex, cancelInt);
                         }
                     }
                     else
                     {
-                        var cmd = sqlPlus.Item2.Single(); // there should be single cmd in the list
-                        ExecuteSqlCommand(tbl, cmd, cancelInt);
+                        var cmd = sqlPlus.sqlCommands.Single(); // there should be single cmd in the list
+                        ExecuteSqlCommand(sqlPlus.table, cmd, cancelInt);
                     }
                 },
                 cancelInt);
@@ -78,7 +76,7 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
             return cancelInt;
         }
 
-        private IList<Tuple<string, IList<string>>> GetCommandsForRebuildIndexes(bool rebuildClustered) // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
+        private IList<(string Table, IList<string> SqlCommands)> GetCommandsForRebuildIndexes(bool rebuildClustered) // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
         {
             var resultsDic = new Dictionary<string, List<string>>();
             var tablesWithPreservedOrder = new List<string>();
@@ -104,7 +102,7 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
                 }
             }
 
-            var results = new List<Tuple<string, IList<string>>>();
+            var results = new List<(string table, IList<string> commands)>();
             foreach (var table in tablesWithPreservedOrder)
             {
                 // unbundle index creates
@@ -112,12 +110,12 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
                 {
                     foreach (var cmd in resultsDic[table])
                     {
-                        results.Add(Tuple.Create(table, (IList<string>)new List<string> { cmd }));
+                        results.Add((table, new List<string> { cmd }));
                     }
                 }
                 else
                 {
-                    results.Add(Tuple.Create(table, (IList<string>)resultsDic[table]));
+                    results.Add((table, resultsDic[table]));
                 }
             }
 
