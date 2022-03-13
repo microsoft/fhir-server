@@ -7,9 +7,9 @@
     Code                        varchar(128)            COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory                   bit                     NOT NULL,
 )
-
-ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )
-
+GO
+--ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )
+GO
 CREATE CLUSTERED INDEX IXC_TokenSearchParam
 ON dbo.TokenSearchParam
 (
@@ -19,7 +19,7 @@ ON dbo.TokenSearchParam
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
 ON dbo.TokenSearchParam
 (
@@ -35,3 +35,4 @@ INCLUDE
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO
