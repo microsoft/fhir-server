@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Store.Utils
 {
     public static class BatchExtensions
     {
-        private static Task StartTask(Action action, bool longRunning = true)
+        public static Task StartTask(Action action, bool longRunning = true)
         {
             var task = new Task(action, longRunning ? TaskCreationOptions.LongRunning : TaskCreationOptions.None);
             task.Start(TaskScheduler.Default);
