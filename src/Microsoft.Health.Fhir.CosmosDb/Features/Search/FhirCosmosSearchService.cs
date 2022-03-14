@@ -542,6 +542,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             long count = (await _fhirDataStore.ExecuteDocumentQueryAsync<long>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
             if (count > int.MaxValue)
             {
+                _requestContextAccessor.RequestContext.BundleIssues.Add(
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Error,
+                        OperationOutcomeConstants.IssueType.NotSupported,
+                        string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
                 throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
             }
 

@@ -312,6 +312,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         long count = reader.GetInt64(0);
                         if (count > int.MaxValue)
                         {
+                            _requestContextAccessor.RequestContext.BundleIssues.Add(
+                                new OperationOutcomeIssue(
+                                    OperationOutcomeConstants.IssueSeverity.Error,
+                                    OperationOutcomeConstants.IssueType.NotSupported,
+                                    string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
                             throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
                         }
 
