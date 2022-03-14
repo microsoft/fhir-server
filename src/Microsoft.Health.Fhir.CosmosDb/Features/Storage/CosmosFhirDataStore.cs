@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelet
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IO;
+using Newtonsoft.Json.Linq;
 using Polly;
 using Task = System.Threading.Tasks.Task;
 
@@ -207,6 +208,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
                 {
                     return null;
+                }
+
+                // If not delete then check if its an update with no data change
+                if (!cosmosWrapper.IsDeleted)
+                {
+                    // check if the new resource data is same as existing resource data
+                    if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource.RawResource.Data), RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper.RawResource.Data), StringComparison.Ordinal))
+                    {
+                        // Do not store the duplicate data, for a update with no impact - returning existingItemResource as no updates
+                        return new UpsertOutcome(existingItemResource, SaveOutcomeType.Updated);
+                    }
                 }
 
                 cosmosWrapper.Version = int.TryParse(existingItemResource.Version, out int existingVersion) ? (existingVersion + 1).ToString(CultureInfo.InvariantCulture) : Guid.NewGuid().ToString();
@@ -541,6 +553,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 cosmosWrapper.SortValues?.Clear();
             }
+        }
+
+        private static string RemoveVersionIdAndLastUpdatedFromMeta(string rawResource)
+        {
+            // Removing versionId and lastUpdated from meta
+            // We are ignoring meta.versionId and meta.lastUpdated
+            // if other meta elements like Source/Tag/Profile/Security are updated then we will have to insert a new veriosn for a resource
+
+            JObject jObject = JObject.Parse(rawResource);
+            JObject header = (JObject)jObject.SelectToken("meta");
+            header.Property("versionId", StringComparison.Ordinal)?.Remove();
+            header.Property("lastUpdated", StringComparison.Ordinal)?.Remove();
+
+            return jObject.ToString();
         }
 
         public void Build(ICapabilityStatementBuilder builder)

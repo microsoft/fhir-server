@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private FhirResponse<Observation> _createdResource;
         private readonly TestFhirClient _client;
+        private const string ContentUpdated = "Updated resource content";
 
         public HistoryTests(HttpIntegrationTestFixture fixture)
         {
@@ -75,6 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATypeAndId_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
+            UpdateObservation(_createdResource.Resource);
             await _client.UpdateAsync(_createdResource.Resource);
 
             using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"Observation/{_createdResource.Resource.Id}/_history");
@@ -98,6 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var weakETag = $"W/\"{int.Parse(newCreatedResource.Meta.VersionId).ToString()}\"";
 
+            UpdateObservation(newCreatedResource);
             await _client.UpdateAsync(newCreatedResource, weakETag);
             await _client.DeleteAsync(newCreatedResource);
             await _client.DeleteAsync(newCreatedResource);
@@ -412,7 +415,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         /// <summary>
-        /// Get all the results for given search string
+        /// Get all the results for given search string matching the tag
         /// </summary>
         /// <returns>List<Bundle.EntryComponent> for the given search string</returns>
         private async Task<List<Bundle.EntryComponent>> GetAllResultsWithMatchingTagForGivenSearch(string searchString, string tag)
@@ -455,6 +458,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             throw new XunitException(sb.ToString());
+        }
+
+        private static void UpdateObservation(Observation observationResource)
+        {
+            observationResource.Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>{ContentUpdated}</div>",
+            };
         }
     }
 }
