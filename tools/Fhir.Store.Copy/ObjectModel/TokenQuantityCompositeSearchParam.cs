@@ -21,9 +21,9 @@ namespace Microsoft.Health.Fhir.Store.Copy
             Code1 = reader.IsDBNull(4) ? null : reader.GetString(4);
             SystemId2 = reader.IsDBNull(5) ? null : reader.GetInt32(5);
             QuantityCodeId2 = reader.IsDBNull(6) ? null : reader.GetInt32(6);
-            SingleValue2 = reader.IsDBNull(7) ? null : reader.GetDouble(7);
-            LowValue2 = reader.IsDBNull(8) ? null : reader.GetDouble(8);
-            HighValue2 = reader.IsDBNull(9) ? null : reader.GetDouble(9);
+            SingleValue2 = reader.IsDBNull(7) ? null : reader.GetDecimal(7);
+            LowValue2 = reader.IsDBNull(8) ? null : reader.GetDecimal(8);
+            HighValue2 = reader.IsDBNull(9) ? null : reader.GetDecimal(9);
             IsHistory = reader.GetBoolean(10);
         }
 
@@ -41,11 +41,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         public int? QuantityCodeId2 { get; }
 
-        public double? SingleValue2 { get; }
+        public decimal? SingleValue2 { get; }
 
-        public double? LowValue2 { get; }
+        public decimal? LowValue2 { get; }
 
-        public double? HighValue2 { get; }
+        public decimal? HighValue2 { get; }
 
         public bool IsHistory { get; }
     }
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
                 if (row.SingleValue2.HasValue)
                 {
-                    record.SetDouble(7, row.SingleValue2.Value);
+                    record.SetDecimal(7, row.SingleValue2.Value);
                 }
                 else
                 {
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
                 if (row.LowValue2.HasValue)
                 {
-                    record.SetDouble(8, row.LowValue2.Value);
+                    record.SetDecimal(8, row.LowValue2.Value);
                 }
                 else
                 {
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
                 if (row.HighValue2.HasValue)
                 {
-                    record.SetDouble(9, row.HighValue2.Value);
+                    record.SetDecimal(9, row.HighValue2.Value);
                 }
                 else
                 {
