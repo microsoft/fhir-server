@@ -8,6 +8,8 @@ CREATE PROCEDURE dbo.MergeResources
  ,@TokenTexts TokenTextList READONLY
  ,@DateTimeSearchParams DateTimeSearchParamList READONLY
  ,@TokenQuantityCompositeSearchParams TokenQuantityCompositeSearchParamList READONLY
+ ,@QuantitySearchParams QuantitySearchParamList READONLY
+ ,@StringSearchParams StringSearchParamList READONLY
  ,@AffectedRows int = NULL OUT
 AS
 set nocount on
@@ -69,6 +71,18 @@ BEGIN TRY
             (ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,QuantityCodeId2,SingleValue2,LowValue2,HighValue2,IsHistory)
       SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,QuantityCodeId2,SingleValue2,LowValue2,HighValue2,IsHistory
         FROM @TokenQuantityCompositeSearchParams A
+    SET @AffectedRows = @AffectedRows + @@rowcount
+
+    INSERT INTO dbo.QuantitySearchParam
+            (ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,QuantityCodeId,SingleValue,LowValue,HighValue,IsHistory)
+      SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,QuantityCodeId,SingleValue,LowValue,HighValue,IsHistory
+        FROM @QuantitySearchParams A
+    SET @AffectedRows = @AffectedRows + @@rowcount
+
+    INSERT INTO dbo.StringSearchParam
+            (ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsHistory,IsMin,IsMax)
+      SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsHistory,IsMin,IsMax
+        FROM @StringSearchParams A
     SET @AffectedRows = @AffectedRows + @@rowcount
   END
 

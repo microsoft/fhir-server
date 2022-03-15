@@ -93,6 +93,8 @@
     <Build Include="Schema Objects\Schemas\dbo\Types\TokenTextList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Types\DateTimeSearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Types\TokenQuantityCompositeSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\QuantitySearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\StringSearchParamList.sql" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Scripts\" />
