@@ -95,6 +95,8 @@
     <Build Include="Schema Objects\Schemas\dbo\Types\TokenQuantityCompositeSearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Types\QuantitySearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Types\StringSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\TokenTokenCompositeSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\TokenStringCompositeSearchParamList.sql" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Scripts\" />

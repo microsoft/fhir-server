@@ -10,6 +10,8 @@ CREATE PROCEDURE dbo.MergeResources
  ,@TokenQuantityCompositeSearchParams TokenQuantityCompositeSearchParamList READONLY
  ,@QuantitySearchParams QuantitySearchParamList READONLY
  ,@StringSearchParams StringSearchParamList READONLY
+ ,@TokenTokenCompositeSearchParams TokenTokenCompositeSearchParamList READONLY
+ ,@TokenStringCompositeSearchParams TokenStringCompositeSearchParamList READONLY
  ,@AffectedRows int = NULL OUT
 AS
 set nocount on
@@ -20,6 +22,8 @@ DECLARE @st datetime = getUTCdate()
                                     +' MaxR='+convert(varchar,max(ResourceSurrogateId))
                                     +' Cnt='+convert(varchar,count(*)) 
                                 FROM @Resources)
+
+
 
 SET @AffectedRows = 0
 
@@ -83,6 +87,18 @@ BEGIN TRY
             (ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsHistory,IsMin,IsMax)
       SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsHistory,IsMin,IsMax
         FROM @StringSearchParams A
+    SET @AffectedRows = @AffectedRows + @@rowcount
+
+    INSERT INTO dbo.TokenTokenCompositeSearchParam
+            (ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,Code2,IsHistory)
+      SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,Code2,IsHistory
+        FROM @TokenTokenCompositeSearchParams A
+    SET @AffectedRows = @AffectedRows + @@rowcount
+
+    INSERT INTO dbo.TokenStringCompositeSearchParam
+            (ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId1,Code1,Text2,TextOverflow2,IsHistory)
+      SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId1,Code1,Text2,TextOverflow2,IsHistory
+        FROM @TokenStringCompositeSearchParams A
     SET @AffectedRows = @AffectedRows + @@rowcount
   END
 

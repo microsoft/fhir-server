@@ -20,7 +20,9 @@ namespace Microsoft.Health.Fhir.Store.Copy
                         IEnumerable<DateTimeSearchParam> dateTimeSearchParams,
                         IEnumerable<TokenQuantityCompositeSearchParam> tokenQuantityCompositeSearchParams,
                         IEnumerable<QuantitySearchParam> quantitySearchParams,
-                        IEnumerable<StringSearchParam> stringSearchParams)
+                        IEnumerable<StringSearchParam> stringSearchParams,
+                        IEnumerable<TokenTokenCompositeSearchParam> tokenTokenCompositeSearchParams,
+                        IEnumerable<TokenStringCompositeSearchParam> tokenStringCompositeSearchParams)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
@@ -61,6 +63,14 @@ namespace Microsoft.Health.Fhir.Store.Copy
             var stringSearchParamsParam = new SqlParameter { ParameterName = "@StringSearchParams" };
             stringSearchParamsParam.AddStringSearchParamList(stringSearchParams);
             cmd.Parameters.Add(stringSearchParamsParam);
+
+            var tokenTokenCompositeSearchParamsParam = new SqlParameter { ParameterName = "@TokenTokenCompositeSearchParams" };
+            tokenTokenCompositeSearchParamsParam.AddTokenTokenCompositeSearchParamList(tokenTokenCompositeSearchParams);
+            cmd.Parameters.Add(tokenTokenCompositeSearchParamsParam);
+
+            var tokenStringCompositeSearchParamsParam = new SqlParameter { ParameterName = "@TokenStringCompositeSearchParams" };
+            tokenStringCompositeSearchParamsParam.AddTokenStringCompositeSearchParamList(tokenStringCompositeSearchParams);
+            cmd.Parameters.Add(tokenStringCompositeSearchParamsParam);
 
             var rows = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(rows);

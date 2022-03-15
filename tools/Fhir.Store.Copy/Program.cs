@@ -205,8 +205,20 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     stringSearchParams = null;
                 }
 
+                var tokenTokenCompositeSearchParams = Source.GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
+                if (tokenTokenCompositeSearchParams.Count == 0)
+                {
+                    tokenTokenCompositeSearchParams = null;
+                }
+
+                var tokenStringCompositeSearchParams = Source.GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
+                if (tokenStringCompositeSearchParams.Count == 0)
+                {
+                    tokenStringCompositeSearchParams = null;
+                }
+
                 Target.MergeResources(resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams,
-                                      tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams);
+                                      tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
             }
             catch (Exception e)
             {
