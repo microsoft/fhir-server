@@ -8,14 +8,13 @@ using System.Data.SqlClient;
 
 namespace Microsoft.Health.Fhir.Store.Copy
 {
-    internal class SqlService : SqlUtils.SqlService
+    internal partial class SqlService : SqlUtils.SqlService
     {
         internal SqlService(string connectionString)
             : base(connectionString)
         {
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
         internal long GetCorrectedMinResourceSurrogateId(int retries, string tbl, short resourceTypeId, long minSurId, long maxSurId)
         {
             if (retries == 0)

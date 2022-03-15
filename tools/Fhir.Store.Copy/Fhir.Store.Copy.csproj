@@ -5,6 +5,7 @@
     <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>Fhir.Store.Copy</AssemblyName>
     <RootNamespace>Microsoft.Health.Fhir.Store.Copy</RootNamespace>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,6 @@
   </ItemGroup>
   
   <PropertyGroup>
-    <PreBuildEvent>copy "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" *</PreBuildEvent>
+    <PostBuildEvent>copy "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
   </PropertyGroup>
 </Project>

@@ -28,18 +28,25 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly string BcpSourceConnStr = Source.GetBcpConnectionString();
         private static readonly string BcpTargetConnStr = Target.GetBcpConnectionString();
 
-        public static void Main()
+        public static void Main(string[] args)
         {
             Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
             Console.WriteLine($"Target=[{Target.ShowConnectionString()}]");
-            SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
-            SetupDb.Publish(TargetConnectionString, "Fhir.Store.Copy.Database.dacpac");
-            Target.RegisterDatabaseLogging();
-            PopulateStoreCopyWorkQueue();
-            CopyViaBcp();
+            var method = args.Length > 0 ? args[0] : "merge";
+            if (method == "publish")
+            {
+                SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
+                SetupDb.Publish(TargetConnectionString, "Fhir.Store.Copy.Database.dacpac");
+            }
+            else
+            {
+                Target.RegisterDatabaseLogging();
+                PopulateStoreCopyWorkQueue();
+                Copy(method);
+            }
         }
 
-        public static void CopyViaBcp()
+        public static void Copy(string method)
         {
             var tasks = new List<Task>();
             for (var i = (byte)0; i < Threads; i++)
@@ -47,14 +54,14 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 var thread = i;
                 tasks.Add(BatchExtensions.StartTask(() =>
                 {
-                    CopyViaBcp(thread);
+                    Copy(thread, method);
                 }));
             }
 
             Task.WaitAll(tasks.ToArray());
         }
 
-        private static void CopyViaBcp(byte thread)
+        private static void Copy(byte thread, string method)
         {
             Console.WriteLine($"CopyFhir.{thread}: started at {DateTime.UtcNow:s}");
             var sw = Stopwatch.StartNew();
@@ -64,7 +71,14 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 Target.DequeueStoreCopyWorkQueue(thread, out resourceTypeId, out var unitId, out var minSurId, out var maxSurId);
                 if (resourceTypeId.HasValue)
                 {
-                    CopyViaBcp(thread, resourceTypeId.Value, unitId, minSurId, maxSurId);
+                    if (method == "bcp")
+                    {
+                        CopyViaBcp(thread, resourceTypeId.Value, unitId, minSurId, maxSurId);
+                    }
+                    else
+                    {
+                        CopyViaMerge(thread, resourceTypeId.Value, unitId, minSurId, maxSurId);
+                    }
                 }
             }
 
@@ -73,7 +87,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private static void CopyViaBcp(byte thread, short resourceTypeId, int unitId, long minSurId, long maxSurId)
         {
-            Console.WriteLine($"BcpFhir.{thread}.{resourceTypeId}.{minSurId}: started at {DateTime.UtcNow:s}");
+            Console.WriteLine($"CopyViaBcp.{thread}.{resourceTypeId}.{minSurId}: started at {DateTime.UtcNow:s}");
             var sw = Stopwatch.StartNew();
             var rand = new Random();
             foreach (var tbl in Tables.Split(',').OrderBy(_ => rand.NextDouble()))
@@ -89,19 +103,10 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     Target.LogEvent("BcpOut", "Start", mode, text: param);
                     RunOsCommand("cmd.exe ", param, true);
                     Target.LogEvent("BcpOut", "End", mode, startTime: st, text: param);
-
-                    if (tbl == "Resource")
-                    {
-                        param = $@"/C bcp.exe ""SELECT * FROM (SELECT ResourceTypeId,ResourceId,Version,ResourceSurrogateId,PartitionId=isnull(convert(tinyint,ResourceSurrogateId % 16),0) FROM dbo.{tbl} WHERE ResourceTypeId = {resourceTypeId} AND ResourceSurrogateId BETWEEN {(correctedMinSurId == minSurId ? minSurId : correctedMinSurId + 1)} AND {maxSurId}) A ORDER BY PartitionId,ResourceId"" queryout {Path}\ResourceIds_{thread}.dat /c {BcpSourceConnStr}";
-                        st = DateTime.UtcNow;
-                        Target.LogEvent("BcpOut", "Start", mode, text: param);
-                        RunOsCommand("cmd.exe ", param, true);
-                        Target.LogEvent("BcpOut", "End", mode, startTime: st, text: param);
-                    }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"BcpFhir.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
+                    Console.WriteLine($"CopyViaBcp.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
                     Target.LogEvent("BcpOut", "Error", mode, text: e.ToString());
                     retries++;
                     if (retries < 5)
@@ -122,19 +127,10 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     Target.LogEvent("BcpIn", "Start", mode, text: param);
                     RunOsCommand("cmd.exe ", param, true);
                     Target.LogEvent("BcpIn", "End", mode, startTime: st, text: param);
-
-                    if (tbl == "Resource")
-                    {
-                        param = $@"/C bcp.exe dbo.ResourceIds in {Path}\ResourceIds_{thread}.dat /c /q {BcpTargetConnStr} /b10000";
-                        st = DateTime.UtcNow;
-                        Target.LogEvent("BcpIn", "Start", mode, text: param);
-                        RunOsCommand("cmd.exe ", param, true);
-                        Target.LogEvent("BcpIn", "End", mode, startTime: st, text: param);
-                    }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"BcpFhir.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
+                    Console.WriteLine($"CopyViaBcp.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
                     Target.LogEvent("BcpIn", "Error", mode, text: e.ToString());
                     retries++;
                     if (retries < 5)
@@ -149,7 +145,73 @@ namespace Microsoft.Health.Fhir.Store.Copy
             }
 
             Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, false);
-            Console.WriteLine($"BcpFhir.{thread}.{resourceTypeId}.{minSurId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"CopyViaBcp.{thread}.{resourceTypeId}.{minSurId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+        }
+
+        private static void CopyViaMerge(byte thread, short resourceTypeId, int unitId, long minSurId, long maxSurId)
+        {
+            Console.WriteLine($"CopyViaMerge.{thread}.{resourceTypeId}.{minSurId}: started at {DateTime.UtcNow:s}");
+            var sw = Stopwatch.StartNew();
+            var retries = 0;
+        retry:
+            try
+            {
+                var resources = Source.GetData(_ => new Resource(_), resourceTypeId, minSurId, maxSurId).ToList();
+                var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
+                if (referenceSearchParams.Count == 0)
+                {
+                    referenceSearchParams = null;
+                }
+
+                var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
+                if (tokenSearchParams.Count == 0)
+                {
+                    tokenSearchParams = null;
+                }
+
+                var compartmentAssignments = Source.GetData(_ => new CompartmentAssignment(_), resourceTypeId, minSurId, maxSurId).ToList();
+                if (compartmentAssignments.Count == 0)
+                {
+                    compartmentAssignments = null;
+                }
+
+                var tokenTexts = Source.GetData(_ => new TokenText(_), resourceTypeId, minSurId, maxSurId).ToList();
+                if (tokenTexts.Count == 0)
+                {
+                    tokenTexts = null;
+                }
+
+                var dateTimeSearchParams = Source.GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
+                if (dateTimeSearchParams.Count == 0)
+                {
+                    dateTimeSearchParams = null;
+                }
+
+                var tokenQuantityCompositeSearchParams = Source.GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
+                if (tokenQuantityCompositeSearchParams.Count == 0)
+                {
+                    tokenQuantityCompositeSearchParams = null;
+                }
+
+                Target.MergeResources(resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"CopyViaMerge.{thread}.{resourceTypeId}.{minSurId}: error={e}");
+                Target.LogEvent("Merge", "Error", $"{thread}.{resourceTypeId}.{minSurId}", text: e.ToString());
+                retries++;
+                if (retries < 5)
+                {
+                    goto retry;
+                }
+
+                stop = true;
+                Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, true);
+                throw;
+            }
+
+            Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, false);
+            Console.WriteLine($"CopyViaMerge.{thread}.{resourceTypeId}.{minSurId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
         private static void RunOsCommand(string filename, string arguments, bool redirectOutput)
@@ -192,7 +254,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 return;
             }
 
-            const int unitSize = (int)1e6;
+            const int unitSize = (int)1e4;
             var sourceConn = new SqlConnection(Source.ConnectionString);
             sourceConn.Open();
             using var sourceCommand = new SqlCommand(
