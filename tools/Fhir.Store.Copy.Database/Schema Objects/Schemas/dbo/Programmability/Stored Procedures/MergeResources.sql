@@ -22,7 +22,7 @@ DECLARE @st datetime = getUTCdate()
 SET @AffectedRows = 0
 
 BEGIN TRY
-  BEGIN TRANSACTION
+  --BEGIN TRANSACTION
 
   INSERT INTO dbo.Resource
           (ResourceTypeId,ResourceSurrogateId,ResourceId,Version,IsHistory,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
@@ -72,7 +72,7 @@ BEGIN TRY
     SET @AffectedRows = @AffectedRows + @@rowcount
   END
 
-  COMMIT TRANSACTION
+  --COMMIT TRANSACTION
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows
 END TRY
