@@ -56,35 +56,35 @@ namespace FHIRDataSynth
                 {
                     Console.WriteLine("Command line instructions:");
                     Console.WriteLine();
-                    Console.WriteLine("To create blob blend:");
+                    Console.WriteLine("To create target ratios file:");
+                    Console.WriteLine(" FHIRDataSynth.exe 'target' BlobGroupsInfoFile OneGroupInfoFile BlendRatiosFile TargetRatiosFile, TargetRatiosFileCsv");
+                    Console.WriteLine("example:");
+                    Console.WriteLine(" FHIRDataSynth.exe target ..\\bgi.json ..\\ogi.json ..\\br.json ..\\tr.json ..\\tr.csv");
+                    Console.WriteLine();
+                    Console.WriteLine("To create blob blend (if different storage account is used for output then use optional OutConnectionString parameter):");
                     Console.WriteLine(" FHIRDataSynth.exe 'blob' in-blob-container-name out-blend-blob-container-name TaskCount TargetRatiosFile ConnectionString [OutConnectionString]");
                     Console.WriteLine("example:");
-                    Console.WriteLine(" FHIRDataSynth.exe blob in-container test-out 2 \"..\\T R.json\" \"Storage Account Connection String\"");
+                    Console.WriteLine(" FHIRDataSynth.exe blob in-container out-container 2 ..\\tr.json \"Storage Account Connection String\"");
                     Console.WriteLine();
                     Console.WriteLine("To verify blob blend:");
-                    Console.WriteLine(" FHIRDataSynth.exe 'verifyblob' in-blob-container-name TaskCount TargetRatiosFile ConnectionString");
+                    Console.WriteLine(" FHIRDataSynth.exe 'verifyblob' blob-container-name TaskCount TargetRatiosFile ConnectionString");
                     Console.WriteLine("example:");
-                    Console.WriteLine(" FHIRDataSynth.exe verifyblob in-container 2 \"..\\T R.json\" \"Storage Account Connection String\"");
+                    Console.WriteLine(" FHIRDataSynth.exe verifyblob out-container 2 ..\\tr.json \"Storage Account Connection String\"");
                     Console.WriteLine();
                     Console.WriteLine("To create file blend:");
                     Console.WriteLine(" FHIRDataSynth.exe 'file' InDir OutDir TaskCount TargetRatiosFile");
                     Console.WriteLine("example:");
-                    Console.WriteLine(" FHIRDataSynth.exe file \"..\\In Dir\" \"..\\My Dir\" 2 \"..\\T R.json\"");
+                    Console.WriteLine(" FHIRDataSynth.exe file ..\\in-dir ..\\out-dir 2 ..\\tr.json");
                     Console.WriteLine();
                     Console.WriteLine("To verify file blend:");
                     Console.WriteLine(" FHIRDataSynth.exe 'verifyfile' DirToBeVerified TaskCount TargetRatiosFile");
                     Console.WriteLine("example:");
-                    Console.WriteLine(" FHIRDataSynth.exe verifyfile \"..\\V Dir\" 1 \"..\\T R.json\"");
-                    Console.WriteLine();
-                    Console.WriteLine("To create target ratios file:");
-                    Console.WriteLine(" FHIRDataSynth.exe 'target' BlobGroupsInfoFile OneGroupInfoFile BlendRatiosFile TargetRatiosFile, TargetRatiosFileCsv");
-                    Console.WriteLine("example:");
-                    Console.WriteLine(" FHIRDataSynth.exe target ..\\BGI.json \"..\\OGI.json\" \"..\\B R.json\" \"..\\T R.json\" ..\\TR.csv");
+                    Console.WriteLine(" FHIRDataSynth.exe verifyfile ..\\out-dir 1 ..\\tr.json");
                     Console.WriteLine();
                     Console.WriteLine("To import blend to server:");
-                    Console.WriteLine(" FHIRDataSynth.exe 'import' ServerUrl ResourceGroupCount InputStrorageUrl input-blob-container importResultFileName InputConnectionString");
+                    Console.WriteLine(" FHIRDataSynth.exe 'import' ServerUrl ResourceGroupCount InputStrorageUrl import-blob-container importResultFileName InputConnectionString");
                     Console.WriteLine("example:");
-                    Console.WriteLine(" FHIRDataSynth.exe import http://svr.azurewebsites.net 4 https://syntheadatastore.blob.core.windows.net blend-container ..\\importresult.json \"Storage Account Connection String\"");
+                    Console.WriteLine(" FHIRDataSynth.exe import http://svr.azurewebsites.net 4 https://syntheadatastore.blob.core.windows.net out-container ..\\importresult.json \"Storage Account Connection String\"");
                     Console.WriteLine();
                     Console.WriteLine("To check if served finished writting blend to database:");
                     Console.WriteLine(" FHIRDataSynth.exe 'isfinished' importResultFileName");
@@ -97,17 +97,34 @@ namespace FHIRDataSynth
                     Console.WriteLine(string.Join(' ', args));
                     Console.WriteLine();
 
-                    const string fileCommand = "file";
-                    const string verifyFileCommand = "verifyfile";
+                    const string targetCommand = "target";
                     const string blobCommand = "blob";
                     const string verifyBlobCommand = "verifyblob";
-                    const string targetCommand = "target";
+                    const string fileCommand = "file";
+                    const string verifyFileCommand = "verifyfile";
                     const string importCommand = "import";
                     const string isFinishedCommand = "isfinished";
 
                     string command = args[0];
                     switch (command)
                     {
+                        case targetCommand:
+                            {
+                                if (args.Length != 6)
+                                {
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
+                                }
+
+                                string blobGroupsInfoPath = args[1];
+                                string oneGroupInfoPath = args[2];
+                                string blendRatiosFilePath = args[3];
+                                string targetRatiosPath = args[4];
+                                string targetRatiosPathCsv = args[5];
+                                CalculatorTargetRatios.Calculate(blobGroupsInfoPath, oneGroupInfoPath, blendRatiosFilePath, targetRatiosPath, targetRatiosPathCsv);
+                                ret = 0;
+                            }
+
+                            break;
                         case blobCommand:
                             {
                                 string inContainerName;
@@ -233,23 +250,6 @@ namespace FHIRDataSynth
                                     fileResourceProcessor.Process(taskCount, tp);
                                 }
 
-                                ret = 0;
-                            }
-
-                            break;
-                        case targetCommand:
-                            {
-                                if (args.Length != 6)
-                                {
-                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
-                                }
-
-                                string blobGroupsInfoPath = args[1];
-                                string oneGroupInfoPath = args[2];
-                                string blendRatiosFilePath = args[3];
-                                string targetRatiosPath = args[4];
-                                string targetRatiosPathCsv = args[5];
-                                CalculatorTargetRatios.Calculate(blobGroupsInfoPath, oneGroupInfoPath, blendRatiosFilePath, targetRatiosPath, targetRatiosPathCsv);
                                 ret = 0;
                             }
 
