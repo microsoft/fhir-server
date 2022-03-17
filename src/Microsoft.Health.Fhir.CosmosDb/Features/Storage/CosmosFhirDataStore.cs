@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -34,7 +35,6 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelet
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IO;
-using Newtonsoft.Json.Linq;
 using Polly;
 using Task = System.Threading.Tasks.Task;
 
@@ -210,11 +210,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     return null;
                 }
 
-                // If not delete then check if its an update with no data change
+                // If not a delete then check if its an update with no data change
                 if (!cosmosWrapper.IsDeleted)
                 {
                     // check if the new resource data is same as existing resource data
-                    if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource.RawResource.Data), RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper.RawResource.Data), StringComparison.Ordinal))
+                    if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource), RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper), StringComparison.Ordinal))
                     {
                         // Do not store the duplicate data, for a update with no impact - returning existingItemResource as no updates
                         return new UpsertOutcome(existingItemResource, SaveOutcomeType.Updated);
@@ -555,18 +555,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private static string RemoveVersionIdAndLastUpdatedFromMeta(string rawResource)
+        private static string RemoveTrailingZerosFromMilisecondsForAGivenDate(DateTimeOffset date)
         {
-            // Removing versionId and lastUpdated from meta
-            // We are ignoring meta.versionId and meta.lastUpdated
-            // if other meta elements like Source/Tag/Profile/Security are updated then we will have to insert a new veriosn for a resource
+            // 0000000+ -> +, 0010000+ -> 001+, 0100000+ -> 01+, 0180000+ -> 018+, 1000000 -> 1+, 1100000+ -> 11+, 1010000+ -> 101+
+            // ToString("o") - Formats to 2022-03-09T01:40:52.0690000+02:00 but serialized value to string in dB is 2022-03-09T01:40:52.069+02:00
+            var formattedDate = date.ToString("o", CultureInfo.InvariantCulture);
+            var milliseconds = formattedDate.Substring(20, 7); // get 0690000
+            var trimmedMilliseconds = milliseconds.TrimEnd('0'); // get 069
+            if (milliseconds.Equals("0000000", StringComparison.Ordinal))
+            {
+                // when date = 2022-03-09T01:40:52.0000000+02:00, value in dB is 2022-03-09T01:40:52+02:00, we need to replace the . after second
+                return formattedDate.Replace("." + milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
+            }
 
-            JObject jObject = JObject.Parse(rawResource);
-            JObject header = (JObject)jObject.SelectToken("meta");
-            header.Property("versionId", StringComparison.Ordinal)?.Remove();
-            header.Property("lastUpdated", StringComparison.Ordinal)?.Remove();
+            return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
+        }
 
-            return jObject.ToString();
+        private static string RemoveVersionIdAndLastUpdatedFromMeta(FhirCosmosResourceWrapper resourceWrapper)
+        {
+            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{resourceWrapper.Version}\"", string.Empty, StringComparison.Ordinal);
+            return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMilisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
         }
 
         public void Build(ICapabilityStatementBuilder builder)
