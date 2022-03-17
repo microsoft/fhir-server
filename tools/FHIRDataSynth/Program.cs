@@ -56,10 +56,15 @@ namespace FHIRDataSynth
                 {
                     Console.WriteLine("Command line instructions:");
                     Console.WriteLine();
-                    Console.WriteLine("To create target ratios file:");
-                    Console.WriteLine(" FHIRDataSynth.exe 'target' BlobGroupsInfoFile OneGroupInfoFile BlendRatiosFile TargetRatiosFile, TargetRatiosFileCsv");
+                    Console.WriteLine("To get blobs info:");
+                    Console.WriteLine(" FHIRDataSynth.exe 'blobinfo' OneGroupDir OneGroupInfoFile BlobGroupsInfoFile BlobGroupsInfoTotalsFile in-container \"Storage Account Connection String\"");
                     Console.WriteLine("example:");
-                    Console.WriteLine(" FHIRDataSynth.exe target ..\\bgi.json ..\\ogi.json ..\\br.json ..\\tr.json ..\\tr.csv");
+                    Console.WriteLine(" FHIRDataSynth.exe blobinfo ..\\ogd ..\\ogi.json ..\\bgi.json ..\\bgit.json in-container \"Storage Account Connection String\"");
+                    Console.WriteLine();
+                    Console.WriteLine("To create target ratios file:");
+                    Console.WriteLine(" FHIRDataSynth.exe 'target' BlobGroupsInfoTotalsFile OneGroupInfoFile BlendRatiosFile TargetRatiosFile, TargetRatiosFileCsv");
+                    Console.WriteLine("example:");
+                    Console.WriteLine(" FHIRDataSynth.exe target ..\\bgit.json ..\\ogi.json ..\\br.json ..\\tr.json ..\\tr.csv");
                     Console.WriteLine();
                     Console.WriteLine("To create blob blend (if different storage account is used for output then use optional OutConnectionString parameter):");
                     Console.WriteLine(" FHIRDataSynth.exe 'blob' in-blob-container-name out-blend-blob-container-name TaskCount TargetRatiosFile ConnectionString [OutConnectionString]");
@@ -97,6 +102,7 @@ namespace FHIRDataSynth
                     Console.WriteLine(string.Join(' ', args));
                     Console.WriteLine();
 
+                    const string blobInfoCommand = "blobinfo";
                     const string targetCommand = "target";
                     const string blobCommand = "blob";
                     const string verifyBlobCommand = "verifyblob";
@@ -108,6 +114,31 @@ namespace FHIRDataSynth
                     string command = args[0];
                     switch (command)
                     {
+                        case blobInfoCommand:
+                            {
+                                if (args.Length != 7)
+                                {
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
+                                }
+
+                                string oneGroupBlobDir = args[1];
+                                string oneGroupBlobInfoPath = args[2];
+                                string blobGroupsInfoPath = args[3];
+                                string blobGroupsInfoTotalsPath = args[4];
+
+                                if (!CalculatorTargetRatios.IsValidBlobContainerName(args[5]))
+                                {
+                                    throw new FHIRDataSynthException($"Invalid blend profile name '{args[5]}'. Follow Azure Blob naming rules.");
+                                }
+
+                                string inContainerName = args[5];
+                                string connectionString = args[6];
+                                RDUtility.GetBlobGroupInfo(oneGroupBlobDir, oneGroupBlobInfoPath);
+                                RDUtility.GetResourceBlobsInfoAsync(connectionString, inContainerName, blobGroupsInfoPath, blobGroupsInfoTotalsPath).Wait();
+                                ret = 0;
+                            }
+
+                            break;
                         case targetCommand:
                             {
                                 if (args.Length != 6)

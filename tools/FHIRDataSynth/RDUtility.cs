@@ -74,7 +74,9 @@ namespace FHIRDataSynth
                     int delimiter = blobItem.Name.IndexOf('/', StringComparison.Ordinal);
                     if (delimiter < 0)
                     {
-                        throw new FHIRDataSynthException("Incorrect blob path!");
+                        continue;
+
+                        // throw new FHIRDataSynthException("Incorrect blob path!");
                     }
 
                     string blobGroupDirName = blobItem.Name.Substring(0, delimiter + 1);
@@ -221,49 +223,42 @@ namespace FHIRDataSynth
             return blobInfo;
         }
 
-        public static void GetBlobGroupInfo(string localPath, string blobGroupDir, string outputPath)
+        public static void GetBlobGroupInfo(string blobGroupDir, string outputPath)
         {
-            try
+            if (File.Exists(outputPath))
             {
-                if (File.Exists(outputPath))
+                // Safety check, so we don't start overwriting if we already calculated.
+                throw new FHIRDataSynthException($"File '{outputPath}' already exists!");
+            }
+
+            Dictionary<string, BlobInfo> blobInfo = new Dictionary<string, BlobInfo>();
+            string[] fileEntries = Directory.GetFiles(blobGroupDir);
+            foreach (string fileName in fileEntries)
+            {
+                if (Path.GetExtension(fileName) != ".ndjson")
                 {
-                    // Safety check, so we don't start overwriting if we already calculated.
-                    throw new FHIRDataSynthException($"File '{outputPath}' already exists!");
+                    continue;
                 }
 
-                Dictionary<string, BlobInfo> blobInfo = new Dictionary<string, BlobInfo>();
-                string[] fileEntries = Directory.GetFiles(localPath + blobGroupDir);
-                foreach (string fileName in fileEntries)
+                string resourceName = Path.GetFileNameWithoutExtension(fileName);
+                using (StreamReader streamReader = new StreamReader(fileName))
                 {
-                    if (Path.GetExtension(fileName) != ".ndjson")
-                    {
-                        continue;
-                    }
-
-                    string resourceName = Path.GetFileNameWithoutExtension(fileName);
-                    using (StreamReader streamReader = new StreamReader(fileName))
-                    {
-                        blobInfo.Add(resourceName, GetBlobInfo(resourceName, streamReader));
-                    }
-                }
-
-                foreach (KeyValuePair<string, BlobInfo> info in blobInfo)
-                {
-                    info.Value.ConsoleWriteLine(info.Key, blobInfo["Patient"].Ids);
-                }
-
-                using (StreamWriter streamWriter = new StreamWriter(outputPath))
-                {
-                    streamWriter.WriteLine(CalculatorTargetRatios.OneResourceGroupInfoHeader);
-                    foreach (KeyValuePair<string, BlobInfo> info in blobInfo)
-                    {
-                        streamWriter.WriteLine(info.Value.Line(info.Key, blobInfo["Patient"].Ids));
-                    }
+                    blobInfo.Add(resourceName, GetBlobInfo(resourceName, streamReader));
                 }
             }
-            catch (Exception ex)
+
+            foreach (KeyValuePair<string, BlobInfo> info in blobInfo)
             {
-                Console.WriteLine($"ERROR: {ex.Message}");
+                info.Value.ConsoleWriteLine(info.Key, blobInfo["Patient"].Ids);
+            }
+
+            using (StreamWriter streamWriter = new StreamWriter(outputPath))
+            {
+                streamWriter.WriteLine(CalculatorTargetRatios.OneResourceGroupInfoHeader);
+                foreach (KeyValuePair<string, BlobInfo> info in blobInfo)
+                {
+                    streamWriter.WriteLine(info.Value.Line(info.Key, blobInfo["Patient"].Ids));
+                }
             }
         }
 
@@ -303,8 +298,9 @@ namespace FHIRDataSynth
             }
         }
 
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
 #pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
-        public abstract class RDResourceJSON
+        public class RDResourceJSON
         {
             public string resourceType { get; set; }
 
@@ -320,5 +316,6 @@ namespace FHIRDataSynth
             }
         }
 #pragma warning restore SA1300
+#pragma warning restore CA1812
     }
 }
