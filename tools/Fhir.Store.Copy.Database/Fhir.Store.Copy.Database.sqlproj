@@ -97,6 +97,9 @@
     <Build Include="Schema Objects\Schemas\dbo\Types\StringSearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Types\TokenTokenCompositeSearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Types\TokenStringCompositeSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\ResourceSurrogateIdMaxSequence.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetResourceSurrogateIdMaxSequence.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\InsertResources.sql" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Scripts\" />

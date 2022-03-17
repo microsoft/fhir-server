@@ -46,12 +46,12 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return cnt > 0;
         }
 
-        internal void DequeueStoreCopyWorkQueue(byte thread, out short? resourceTypeId, out int unitId, out long minSurId, out long maxSurId)
+        internal void DequeueStoreCopyWorkQueue(byte thread, out short? resourceTypeId, out int unitId, out string minSurId, out string maxSurId)
         {
             resourceTypeId = null;
             unitId = 0;
-            minSurId = 0;
-            maxSurId = 0;
+            minSurId = string.Empty;
+            maxSurId = string.Empty;
 
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
@@ -63,8 +63,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
             {
                 resourceTypeId = reader.GetInt16(0);
                 unitId = reader.GetInt32(1);
-                minSurId = reader.GetInt64(2);
-                maxSurId = reader.GetInt64(3);
+                minSurId = reader.GetString(2);
+                maxSurId = reader.GetString(3);
             }
         }
 

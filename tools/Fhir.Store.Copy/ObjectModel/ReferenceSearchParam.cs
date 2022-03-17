@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         }
 
         public short ResourceTypeId { get; }
-        public long ResourceSurrogateId { get; }
+        public long ResourceSurrogateId { get; set; }
         public short SearchParamId { get; }
         public string BaseUri { get; }
         public short ReferenceResourceTypeId { get; }

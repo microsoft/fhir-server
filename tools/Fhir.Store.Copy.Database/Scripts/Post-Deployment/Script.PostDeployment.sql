@@ -15,3 +15,8 @@ INSERT INTO dbo.Parameters
     FROM sys.objects 
     WHERE type = 'p' AND NOT EXISTS (SELECT * FROM Parameters WHERE Id = name)
 GO
+INSERT INTO dbo.ResourceSurrogateIdMaxSequence 
+  SELECT 0
+    WHERE NOT EXISTS (SELECT * FROM dbo.ResourceSurrogateIdMaxSequence)
+GO
+

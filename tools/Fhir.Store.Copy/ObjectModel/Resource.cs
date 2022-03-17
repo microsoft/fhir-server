@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -13,26 +12,6 @@ namespace Microsoft.Health.Fhir.Store.Copy
 {
     public class Resource
     {
-        public Resource(string line)
-        {
-            var split = line.Split('\t');
-            if (split.Length != 10)
-            {
-                throw new ArgumentException($"Input string contains {split.Length} fields. Expected number 10.");
-            }
-
-            ResourceTypeId = short.Parse(split[0]);
-            ResourceId = split[1];
-            Version = int.Parse(split[2]);
-            IsHistory = split[3] == "1";
-            ResourceSurrogateId = long.Parse(split[4]);
-            IsDeleted = split[5] == "1";
-            RequestMethod = split[6];
-            RawResource = Convert.FromBase64String(split[7]);
-            IsRawResourceMetaSet = split[8] == "1";
-            SearchParamHash = split[9];
-        }
-
         public Resource(SqlDataReader reader)
         {
             ResourceTypeId = reader.GetInt16(0);
@@ -51,7 +30,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         public string ResourceId { get; }
         public int Version { get; }
         public bool IsHistory { get; }
-        public long ResourceSurrogateId { get; }
+        public long ResourceSurrogateId { get; set; }
         public bool IsDeleted { get; }
         public string RequestMethod { get; }
         public byte[] RawResource { get; }

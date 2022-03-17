@@ -45,8 +45,8 @@ BEGIN TRY
   IF @UnitId IS NOT NULL
     SELECT ResourceTypeId
           ,UnitId
-          ,MinResourceSurrogateId
-          ,MaxResourceSurrogateId
+          ,MinId
+          ,MaxId
           ,ResourceCount
       FROM dbo.StoreCopyWorkQueue
       WHERE ResourceTypeId = @ResourceTypeId

@@ -11,7 +11,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
 {
     internal partial class SqlService : SqlUtils.SqlService
     {
-        internal int MergeResources(
+        internal int InsertResources(
+                        bool isMerge,
                         IEnumerable<Resource> resources,
                         IEnumerable<ReferenceSearchParam> referenceSearchParams,
                         IEnumerable<TokenSearchParam> tokenSearchParams,
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand("dbo.MergeResources", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            using var cmd = new SqlCommand(isMerge ? "dbo.MergeResources" : "dbo.InsertResources", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
 
             var resourcesParam = new SqlParameter { ParameterName = "@Resources" };
             resourcesParam.AddResourceList(resources);
@@ -78,14 +79,40 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return (int)rows.Value;
         }
 
-        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minSurId, long maxSurId)
+        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand($"SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinSurId AND @MaxSurId ORDER BY ResourceSurrogateId", conn) { CommandTimeout = 600 };
+            using var cmd = new SqlCommand(
+                @$"
+SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId ORDER BY ResourceSurrogateId",
+                conn) { CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-            cmd.Parameters.AddWithValue("@MinSurId", minSurId);
-            cmd.Parameters.AddWithValue("@MaxSurId", maxSurId);
+            cmd.Parameters.AddWithValue("@MinId", minId);
+            cmd.Parameters.AddWithValue("@MaxId", maxId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                yield return toT(reader);
+            }
+        }
+
+        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, string minId, string maxId)
+        {
+            using var conn = new SqlConnection(ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand(
+                @$"
+SELECT * 
+  FROM dbo.{typeof(T).Name} WITH (INDEX = 1)
+  WHERE ResourceTypeId = @ResourceTypeId
+    AND ResourceSurrogateId IN (SELECT TOP 2000 ResourceSurrogateId FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) WHERE ResourceTypeId = @ResourceTypeId AND ResourceId BETWEEN @MinId AND @MaxId AND IsHistory = 0)
+  ORDER BY ResourceSurrogateId
+  OPTION (MAXDOP 1)",
+                conn) { CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@MinId", minId);
+            cmd.Parameters.AddWithValue("@MaxId", maxId);
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
