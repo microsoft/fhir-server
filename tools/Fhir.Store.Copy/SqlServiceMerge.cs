@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
                         IEnumerable<QuantitySearchParam> quantitySearchParams,
                         IEnumerable<StringSearchParam> stringSearchParams,
                         IEnumerable<TokenTokenCompositeSearchParam> tokenTokenCompositeSearchParams,
-                        IEnumerable<TokenStringCompositeSearchParam> tokenStringCompositeSearchParams)
+                        IEnumerable<TokenStringCompositeSearchParam> tokenStringCompositeSearchParams,
+                        bool singleTransaction)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
@@ -73,6 +74,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
             tokenStringCompositeSearchParamsParam.AddTokenStringCompositeSearchParamList(tokenStringCompositeSearchParams);
             cmd.Parameters.Add(tokenStringCompositeSearchParamsParam);
 
+            if (isMerge)
+            {
+                cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
+            }
+
             var rows = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(rows);
             cmd.ExecuteNonQuery();
@@ -103,12 +109,13 @@ SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND Re
             conn.Open();
             using var cmd = new SqlCommand(
                 @$"
+DECLARE @DummyTop bigint = 9223372036854775807
 SELECT * 
   FROM dbo.{typeof(T).Name} WITH (INDEX = 1)
   WHERE ResourceTypeId = @ResourceTypeId
-    AND ResourceSurrogateId IN (SELECT TOP 2000 ResourceSurrogateId FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) WHERE ResourceTypeId = @ResourceTypeId AND ResourceId BETWEEN @MinId AND @MaxId AND IsHistory = 0)
+    AND ResourceSurrogateId IN (SELECT TOP (@DummyTop) ResourceSurrogateId FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) WHERE ResourceTypeId = @ResourceTypeId AND ResourceId BETWEEN @MinId AND @MaxId AND IsHistory = 0)
   ORDER BY ResourceSurrogateId
-  OPTION (MAXDOP 1)",
+  OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))",
                 conn) { CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@MinId", minId);

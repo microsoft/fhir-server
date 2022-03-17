@@ -20,5 +20,7 @@ CREATE TABLE dbo.StoreCopyWorkQueue
      CONSTRAINT PKC_StoreCopyWorkQueue_ResourceTypeId_UnitId PRIMARY KEY CLUSTERED (ResourceTypeId, UnitId)
 )
 GO
-CREATE INDEX IX_Thread_Status ON StoreCopyWorkQueue (Thread, Status)
+--CREATE INDEX IX_Thread_Status ON StoreCopyWorkQueue (Thread, Status)
+GO
+CREATE INDEX IX_Status ON StoreCopyWorkQueue (Status)
 GO

@@ -99,6 +99,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
             {
                 command.ExecuteNonQuery();
             }
+
+            using (var command = new SqlCommand("INSERT INTO Parameters (Id, Char) SELECT 'GetData', 'LogEvent' WHERE NOT EXISTS (SELECT * FROM Parameters WHERE Id = 'GetData')", conn) { CommandTimeout = 120 })
+            {
+                command.ExecuteNonQuery();
+            }
         }
     }
 }

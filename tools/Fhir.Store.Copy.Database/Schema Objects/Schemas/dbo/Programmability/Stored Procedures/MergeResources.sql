@@ -1,7 +1,8 @@
 --DROP PROCEDURE dbo.MergeResources 
 GO
-CREATE PROCEDURE dbo.MergeResources 
-  @Resources ResourceList READONLY
+CREATE PROCEDURE dbo.MergeResources
+  @SingleTransaction bit = 1
+ ,@Resources ResourceList READONLY
  ,@ReferenceSearchParams ReferenceSearchParamList READONLY
  ,@TokenSearchParams TokenSearchParamList READONLY
  ,@CompartmentAssignments CompartmentAssignmentList READONLY
@@ -17,12 +18,16 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'MergeResources'
-       ,@InputRows int = (SELECT count(*) FROM @Resources)
+       ,@ResourceTypeId smallint
+       ,@InputRows int
        ,@OldRows int = 0
        ,@MaxSequence bigint
        ,@Offset bigint
+       ,@DummyTop bigint = 9223372036854775807
 
-DECLARE @Mode varchar(100) = 'Rows='+convert(varchar,@InputRows)
+SELECT @ResourceTypeId = max(ResourceTypeId), @InputRows = count(*) FROM @Resources
+
+DECLARE @Mode varchar(100) = 'RT='+convert(varchar,@ResourceTypeId)+' Rows='+convert(varchar,@InputRows)+' TR='+convert(varchar,@SingleTransaction)
 
 SET @AffectedRows = 0
 
@@ -68,10 +73,11 @@ BEGIN TRY
           ,A.RawResource
           ,A.IsRawResourceMetaSet
           ,A.SearchParamHash
-      FROM @Resources A
-           LEFT OUTER JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0 -- How do we handle input matching deleted record?
+      FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
+           LEFT OUTER JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0 -- How do we handle input matching deleted record?
       WHERE B.ResourceId IS NULL OR A.RawResource <> B.RawResource
-  
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+
   INSERT INTO @PreviousSurrogateIds
     SELECT PreviousSurrogateId, ResourceTypeId
       FROM @TrueResources 
@@ -82,7 +88,7 @@ BEGIN TRY
     INSERT INTO @CurrentOffsets SELECT ResourceSurrogateId FROM @TrueResources
 
   -- This transaction assumes that a given resource is processed only by one thread
-  BEGIN TRANSACTION
+  IF @SingleTransaction = 1 BEGIN TRANSACTION
   
   IF @OldRows > 0
   BEGIN
@@ -122,8 +128,8 @@ BEGIN TRY
   END
 
   INSERT INTO dbo.Resource
-          (ResourceTypeId,          ResourceSurrogateId,ResourceId,Version,IsHistory,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
-    SELECT ResourceTypeId,@Offset + ResourceSurrogateId,ResourceId,Version,        0,        0,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash
+          ( ResourceTypeId,          ResourceSurrogateId,ResourceId,Version,IsHistory,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
+    SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,ResourceId,Version,        0,        0,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash
       FROM @TrueResources
       WHERE PreviousSurrogateId IS NULL
   SET @AffectedRows = @AffectedRows + @@rowcount
@@ -131,62 +137,62 @@ BEGIN TRY
   IF @OldRows = 0 -- use simple inserts
   BEGIN
     INSERT INTO dbo.ReferenceSearchParam
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,BaseUri,ReferenceResourceTypeId,ReferenceResourceId,ReferenceResourceVersion,IsHistory)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,BaseUri,ReferenceResourceTypeId,ReferenceResourceId,ReferenceResourceVersion,        0
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,BaseUri,ReferenceResourceTypeId,ReferenceResourceId,ReferenceResourceVersion,IsHistory)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,BaseUri,ReferenceResourceTypeId,ReferenceResourceId,ReferenceResourceVersion,        0
         FROM @ReferenceSearchParams
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.TokenSearchParam
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId,Code,IsHistory)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId,Code,        0
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId,Code,IsHistory)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId,Code,        0
         FROM @TokenSearchParams
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.CompartmentAssignment
-            (ResourceTypeId,          ResourceSurrogateId,CompartmentTypeId,ReferenceResourceId,IsHistory)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,CompartmentTypeId,ReferenceResourceId,        0
+            ( ResourceTypeId,          ResourceSurrogateId,CompartmentTypeId,ReferenceResourceId,IsHistory)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,CompartmentTypeId,ReferenceResourceId,        0
         FROM @CompartmentAssignments
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.TokenText
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,Text,IsHistory)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,Text,        0
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,Text,IsHistory)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,Text,        0
         FROM @TokenTexts
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.DateTimeSearchParam
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,StartDateTime,EndDateTime,IsLongerThanADay,IsHistory,IsMin,IsMax)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,StartDateTime,EndDateTime,IsLongerThanADay,        0,IsMin,IsMax
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,StartDateTime,EndDateTime,IsLongerThanADay,IsHistory,IsMin,IsMax)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,StartDateTime,EndDateTime,IsLongerThanADay,        0,IsMin,IsMax
         FROM @DateTimeSearchParams
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.TokenQuantityCompositeSearchParam
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,QuantityCodeId2,SingleValue2,LowValue2,HighValue2,IsHistory)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,QuantityCodeId2,SingleValue2,LowValue2,HighValue2,        0
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,QuantityCodeId2,SingleValue2,LowValue2,HighValue2,IsHistory)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,QuantityCodeId2,SingleValue2,LowValue2,HighValue2,        0
         FROM @TokenQuantityCompositeSearchParams
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.QuantitySearchParam
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId,QuantityCodeId,SingleValue,LowValue,HighValue,IsHistory)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId,QuantityCodeId,SingleValue,LowValue,HighValue,        0
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId,QuantityCodeId,SingleValue,LowValue,HighValue,IsHistory)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId,QuantityCodeId,SingleValue,LowValue,HighValue,        0
         FROM @QuantitySearchParams
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.StringSearchParam
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsHistory,IsMin,IsMax)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,Text,TextOverflow,        0,IsMin,IsMax
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsHistory,IsMin,IsMax)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,Text,TextOverflow,        0,IsMin,IsMax
         FROM @StringSearchParams
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.TokenTokenCompositeSearchParam
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,Code2,IsHistory)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,Code2,        0
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,Code2,IsHistory)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId1,Code1,SystemId2,Code2,        0
         FROM @TokenTokenCompositeSearchParams
     SET @AffectedRows = @AffectedRows + @@rowcount
 
     INSERT INTO dbo.TokenStringCompositeSearchParam
-            (ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId1,Code1,Text2,TextOverflow2,IsHistory)
-      SELECT ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId1,Code1,Text2,TextOverflow2,        0
+            ( ResourceTypeId,          ResourceSurrogateId,SearchParamId,SystemId1,Code1,Text2,TextOverflow2,IsHistory)
+      SELECT @ResourceTypeId,@Offset + ResourceSurrogateId,SearchParamId,SystemId1,Code1,Text2,TextOverflow2,        0
         FROM @TokenStringCompositeSearchParams
     SET @AffectedRows = @AffectedRows + @@rowcount
   END
@@ -263,9 +269,9 @@ BEGIN TRY
     SET @AffectedRows = @AffectedRows + @@rowcount
   END
 
-  COMMIT TRANSACTION
+  IF @SingleTransaction = 1 COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows,@Text=@OldRows
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
