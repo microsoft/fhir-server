@@ -75,8 +75,6 @@ namespace FHIRDataSynth
                     if (delimiter < 0)
                     {
                         continue;
-
-                        // throw new FHIRDataSynthException("Incorrect blob path!");
                     }
 
                     string blobGroupDirName = blobItem.Name.Substring(0, delimiter + 1);
