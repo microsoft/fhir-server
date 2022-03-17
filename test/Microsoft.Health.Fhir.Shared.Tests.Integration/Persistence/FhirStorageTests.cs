@@ -732,34 +732,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task GivenAValidResource_WhenUpdatingAResourceWithSameDataImmaterialKeepHistoryValue_ServerShouldNotCreateANewVersionAndReturnOk()
+        public async Task GivenAValidResource_WhenUpdatingAResourceWithSameDataImmaterialKeepHistoryValue_ServerShouldNotCreateANewVersionAndReturnOk(bool keepHistory)
         {
-            // Upserting a resource twice with no data change and KeepHistory as true
-            UpsertOutcome createResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), null, allowCreate: true, keepHistory: true, CancellationToken.None);
-            UpsertOutcome upsertResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(createResult.Wrapper.ResourceId), null, allowCreate: true, keepHistory: true, CancellationToken.None);
+            // Upserting a resource twice with no data change
+            UpsertOutcome createResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), null, allowCreate: true, keepHistory: keepHistory, CancellationToken.None);
+            UpsertOutcome upsertResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(createResult.Wrapper.ResourceId), null, allowCreate: true, keepHistory: keepHistory, CancellationToken.None);
 
             Assert.NotNull(createResult);
             Assert.NotNull(upsertResult);
 
             var createResource = new RawResourceElement(createResult.Wrapper);
             var updatedeResource = new RawResourceElement(upsertResult.Wrapper);
-
-            Assert.Equal(createResult.Wrapper.ResourceId, upsertResult.Wrapper.ResourceId);
-            Assert.Equal(createResult.Wrapper.Version, upsertResult.Wrapper.Version);
-            Assert.Equal(createResource.LastUpdated, updatedeResource.LastUpdated);
-            Assert.Equal(createResult.Wrapper.LastModified, upsertResult.Wrapper.LastModified);
-
-            // Upserting a resource twice with no data change and KeepHistory as false
-            createResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), null, allowCreate: true, keepHistory: false, CancellationToken.None);
-            upsertResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(createResult.Wrapper.ResourceId), null, allowCreate: true, keepHistory: false, CancellationToken.None);
-
-            Assert.NotNull(createResult);
-            Assert.NotNull(upsertResult);
-
-            createResource = new RawResourceElement(createResult.Wrapper);
-            updatedeResource = new RawResourceElement(upsertResult.Wrapper);
 
             Assert.Equal(createResult.Wrapper.ResourceId, upsertResult.Wrapper.ResourceId);
             Assert.Equal(createResult.Wrapper.Version, upsertResult.Wrapper.Version);

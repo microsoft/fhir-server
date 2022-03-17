@@ -10,7 +10,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -555,7 +554,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private static string RemoveTrailingZerosFromMilisecondsForAGivenDate(DateTimeOffset date)
+        private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)
         {
             // 0000000+ -> +, 0010000+ -> 001+, 0100000+ -> 01+, 0180000+ -> 018+, 1000000 -> 1+, 1100000+ -> 11+, 1010000+ -> 101+
             // ToString("o") - Formats to 2022-03-09T01:40:52.0690000+02:00 but serialized value to string in dB is 2022-03-09T01:40:52.069+02:00
@@ -565,7 +564,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             if (milliseconds.Equals("0000000", StringComparison.Ordinal))
             {
                 // when date = 2022-03-09T01:40:52.0000000+02:00, value in dB is 2022-03-09T01:40:52+02:00, we need to replace the . after second
-                return formattedDate.Replace("." + milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
+                return formattedDate.Replace("." + milliseconds, string.Empty, StringComparison.Ordinal);
             }
 
             return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
@@ -574,7 +573,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static string RemoveVersionIdAndLastUpdatedFromMeta(FhirCosmosResourceWrapper resourceWrapper)
         {
             var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{resourceWrapper.Version}\"", string.Empty, StringComparison.Ordinal);
-            return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMilisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
+            return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
         }
 
         public void Build(ICapabilityStatementBuilder builder)
