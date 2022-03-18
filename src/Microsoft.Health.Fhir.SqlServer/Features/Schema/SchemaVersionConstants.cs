@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int AddPrimaryKeyForResourceTable = (int)SchemaVersion.V25;
         public const int RenamedIndexForResourceTable = (int)SchemaVersion.V26;
         public const int PutCreateWithVersionedUpdatePolicyVersion = (int)SchemaVersion.V27;
+        public const int RemoveCountForGexNextTaskStoredProcedure = (int)SchemaVersion.V29;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

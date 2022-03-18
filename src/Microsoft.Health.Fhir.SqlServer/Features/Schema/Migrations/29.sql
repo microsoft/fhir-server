@@ -607,11 +607,19 @@ CREATE TABLE [dbo].[TaskInfo] (
     [InputData]         VARCHAR (MAX) NOT NULL,
     [TaskContext]       VARCHAR (MAX) NULL,
     [Result]            VARCHAR (MAX) NULL,
+    [CreateDateTime]    DATETIME2 (7) NOT NULL CONSTRAINT DF_TaskInfo_CreateDate DEFAULT SYSUTCDATETIME(),
+    [StartDateTime]     DATETIME2 (7) NULL,
+    [EndDateTime]       DATETIME2 (7) NULL,
+    [Worker]            varchar(100) NULL,
+    [RestartInfo]       varchar(max) NULL,
     CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
 
-CREATE INDEX IX_Status ON dbo.TaskInfo (Status)
-GO
+CREATE NONCLUSTERED INDEX IX_Status_QueueId ON dbo.TaskInfo
+(
+    QueueId,
+    Status
+)
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
@@ -1670,68 +1678,65 @@ FROM   dbo.ExportJob
 WHERE  Id = @id;
 
 GO
-CREATE PROCEDURE [dbo].[GetNextTask_2]
-@queueId VARCHAR (64), @count SMALLINT, @taskHeartbeatTimeoutThresholdInSeconds INT=600
+CREATE PROCEDURE [dbo].[GetNextTask_3]
+@queueId VARCHAR (64), @taskHeartbeatTimeoutThresholdInSeconds INT=600
 AS
-SET NOCOUNT ON;
-DECLARE @Lock varchar(200) = 'GetNextTask_Q='+@queueId
-DECLARE @expirationDateTime AS DATETIME2 (7);
-SELECT @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME());
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-DECLARE @availableJobs TABLE (
-    TaskId            VARCHAR (64)
-	);
 
+SET NOCOUNT ON;
+DECLARE @lock VARCHAR(200) = 'GetNextTask_Q='+@queueId
+        ,@taskId VARCHAR (64) = NULL
+        ,@expirationDateTime AS DATETIME2 (7)
+        ,@heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+SELECT @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME());
+ 
 BEGIN TRY
     BEGIN TRANSACTION
 
-    EXECUTE sp_getapplock @Lock, 'Exclusive'
+    EXECUTE sp_getapplock @lock, 'Exclusive'
 
-    INSERT INTO @availableJobs
-    SELECT TOP (@count) TaskId
-    FROM dbo.TaskInfo WITH (INDEX = IX_Status)
-    WHERE QueueId = @QueueId
-        AND Status = 2 
-        AND HeartbeatDateTime <= @expirationDateTime
-    ORDER BY 
-        TaskId
+-- try new tasks first
+    UPDATE T
+      SET Status = 2 -- running
+         ,StartDateTime = SYSUTCDATETIME()
+         ,HeartbeatDateTime = SYSUTCDATETIME()
+         ,Worker = host_name()
+         ,RunId = CAST (NEWID() AS NVARCHAR (50))
+         ,@taskId = T.TaskId
+      FROM dbo.TaskInfo T WITH (PAGLOCK)
+           JOIN (SELECT TOP 1 
+                        TaskId
+                   FROM dbo.TaskInfo WITH (INDEX = IX_Status_QueueId)
+                   WHERE QueueId = @queueId
+                     AND Status = 1 -- Created
+                   ORDER BY 
+                        TaskId
+                ) S
+             ON T.QueueId = @queueId AND T.TaskId = S.TaskId 
 
-	SET @count = (SELECT @count - (SELECT COUNT(*) FROM  @availableJobs) )
+  IF @taskId IS NULL
+  -- old ones now
+    UPDATE T
+      SET StartDateTime = SYSUTCDATETIME()
+        ,HeartbeatDateTime = SYSUTCDATETIME()
+        ,Worker = HOST_NAME()
+        ,RunId = CAST (NEWID() AS NVARCHAR (50)) 
+        ,@taskId = T.TaskId
+        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,SYSUTCDATETIME(),121) 
+      FROM dbo.TaskInfo T WITH (PAGLOCK)
+          JOIN (SELECT TOP 1 
+                        TaskId
+                  FROM dbo.TaskInfo WITH (INDEX = IX_Status_QueueId)
+                  WHERE QueueId = @queueId
+                    AND Status = 2 -- running
+                    AND HeartbeatDateTime <= @expirationDateTime
+                  ORDER BY 
+                        TaskId
+                ) S
+            ON T.QueueId = @queueId AND T.TaskId = S.TaskId 
 
-	INSERT INTO @availableJobs
-	SELECT TOP (@count) TaskId
-	FROM dbo.TaskInfo WITH (INDEX = IX_Status)
-	WHERE QueueId = @QueueId
-		AND Status = 1 -- Created
-	ORDER BY 
-		TaskId
-
-	UPDATE dbo.TaskInfo
-		SET    Status            = 2,
-		HeartbeatDateTime = @heartbeatDateTime,
-		RunId             = CAST (NEWID() AS NVARCHAR (50))
-		FROM dbo.TaskInfo T WITH (PAGLOCK)
-		JOIN @availableJobs AS J
-       ON T.TaskId = J.TaskId;
   COMMIT TRANSACTION
 
-SELECT T.TaskId,
-       T.QueueId,
-       T.Status,
-       T.TaskTypeId,
-       T.RunId,
-       T.IsCanceled,
-       T.RetryCount,
-       T.MaxRetryCount,
-       T.HeartbeatDateTime,
-       T.InputData,
-       T.TaskContext,
-       T.Result
-FROM   dbo.TaskInfo AS T
-       INNER JOIN
-       @availableJobs AS J
-       ON T.TaskId = J.TaskId;
-
+  EXECUTE dbo.GetTaskDetails @TaskId = @taskId
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
