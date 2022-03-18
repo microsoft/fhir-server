@@ -1,11 +1,10 @@
-﻿
-/*************************************************************
+﻿/*************************************************************
     Stored procedures for creating and deleting
 **************************************************************/
 
 --
 -- STORED PROCEDURE
---     UpsertResource_6
+--     UpsertResource_7
 --
 -- DESCRIPTION
 --     Creates or updates (including marking deleted) a FHIR resource
@@ -68,11 +67,13 @@
 --         * Extracted token$number$number search params
 --     @isResourceChangeCaptureEnabled
 --         * Whether capturing resource change data
+--     @newRawResourceData
+--         * Raw data of a new resource
 --
 -- RETURN VALUE
 --     The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_6
+CREATE PROCEDURE dbo.UpsertResource_7
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -100,7 +101,8 @@ CREATE PROCEDURE dbo.UpsertResource_6
     @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
     @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
-    @isResourceChangeCaptureEnabled bit = 0
+    @isResourceChangeCaptureEnabled bit = 0,
+    @newRawResourceData VARCHAR(MAX) = NULl
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -110,11 +112,13 @@ BEGIN TRANSACTION;
 DECLARE @previousResourceSurrogateId AS BIGINT;
 DECLARE @previousVersion AS BIGINT;
 DECLARE @previousIsDeleted AS BIT;
+DECLARE @existingRawResource AS VARBINARY(MAX);
 
 -- This should place a range lock on a row in the IX_Resource_ResourceTypeId_ResourceId nonclustered filtered index
 SELECT @previousResourceSurrogateId = ResourceSurrogateId,
        @previousVersion = Version,
-       @previousIsDeleted = IsDeleted
+       @previousIsDeleted = IsDeleted,
+       @existingRawResource = RawResource
 FROM   dbo.Resource WITH (UPDLOCK, HOLDLOCK)
 WHERE  ResourceTypeId = @resourceTypeId
        AND ResourceId = @resourceId
@@ -163,6 +167,58 @@ ELSE
 				COMMIT TRANSACTION;
                 RETURN;
             END
+       
+        IF @isDeleted = 0
+        BEGIN
+            -- Check if the existing resource content is same as a new resource content
+	        DECLARE @versionId AS VARCHAR (100);
+            DECLARE @lastUpdated AS VARCHAR (100);
+            DECLARE @existingRawResourceData AS VARCHAR (MAX);
+
+            -- Decompress existing raw resource content and strip out meta.verisonId and meta.lastUpdated
+	        SET @existingRawResourceData = REPLACE(CAST(DECOMPRESS(@existingRawResource) AS VARCHAR(MAX)),'ï»¿', ''); 
+	        SELECT @versionId = [value]
+            FROM   OPENJSON (@existingRawResourceData, '$.meta')
+            WHERE  [key] = 'versionId';
+            SELECT @lastUpdated = [value]
+            FROM   OPENJSON (@existingRawResourceData, '$.meta')
+            WHERE  [key] = 'lastUpdated';
+
+	        IF @versionId IS NOT NULL
+	        BEGIN
+		        SET @existingRawResourceData = REPLACE(@existingRawResourceData, '"versionId":"'+ @versionId + '"', '');
+	        END
+	        IF @lastUpdated IS NOT NULL
+	        BEGIN
+		        SET @existingRawResourceData = REPLACE(@existingRawResourceData, '"lastUpdated":"'+ @lastUpdated + '"', '');
+	        END
+
+            -- Strip out meta.verisonId and meta.lastUpdated from new raw resource content 
+            SELECT @versionId = [value]
+            FROM   OPENJSON (@newRawResourceData, '$.meta')
+            WHERE  [key] = 'versionId';
+            SELECT @lastUpdated = [value]
+            FROM   OPENJSON (@newRawResourceData, '$.meta')
+            WHERE  [key] = 'lastUpdated';
+
+	        IF @versionId IS NOT NULL
+	        BEGIN
+		        SET @newRawResourceData = REPLACE(@newRawResourceData, '"versionId":"'+ @versionId + '"', '');
+	        END
+	        IF @lastUpdated IS NOT NULL
+	        BEGIN
+		        SET @newRawResourceData = REPLACE(@newRawResourceData, '"lastUpdated":"'+ @lastUpdated + '"', '');
+	        END
+
+	        IF @existingRawResourceData = @newRawResourceData
+            BEGIN
+                -- Resource content is same - don't create a new version
+			    COMMIT TRANSACTION;
+                SELECT CAST(@previousVersion * -1  AS INT);
+                RETURN;
+            END
+        END
+
         SET @version = @previousVersion + 1;
         IF (@keepHistory = 1)
             BEGIN
