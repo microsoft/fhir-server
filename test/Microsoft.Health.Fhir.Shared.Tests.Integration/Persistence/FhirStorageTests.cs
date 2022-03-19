@@ -753,6 +753,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(createResult.Wrapper.LastModified, upsertResult.Wrapper.LastModified);
         }
 
+
         [Fact]
         public async Task GivenUpdatedResources_WhenBulkUpdatingSearchParameterIndicesAsync_ThenResourceMetadataIsUnchanged()
         {

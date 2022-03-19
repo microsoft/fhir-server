@@ -66,6 +66,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAValidBundle_WhenSubmittingABatchTwiceWithAndWithoutChanges_ThenVersionIsCreatedWhenDataIsChanged()
+        {
+            var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+            Bundle resource = fhirResponse.Resource;
+
+            Assert.Equal("201", resource.Entry[0].Response.Status);
+            Assert.Equal("201", resource.Entry[1].Response.Status);
+            Assert.Equal("201", resource.Entry[2].Response.Status);
+            Assert.Equal("1", resource.Entry[2].Resource.VersionId);
+            Assert.Equal("201", resource.Entry[3].Response.Status);
+            Assert.Equal(((int)Constants.IfMatchFailureStatus).ToString(), resource.Entry[4].Response.Status);
+            Assert.Equal("204", resource.Entry[5].Response.Status);
+            Assert.Equal("204", resource.Entry[6].Response.Status);
+            ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            Assert.Equal("200", resource.Entry[8].Response.Status);
+            ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+
+            // WhenSubmittingABatchTwiceWithNoDataChange_ThenServerShouldNotCreateAVersionSecondTimeAndSendOk
+            using FhirResponse<Bundle> fhirResponseAfterPostingSameBundle = await _client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponseAfterPostingSameBundle);
+            Assert.Equal(HttpStatusCode.OK, fhirResponseAfterPostingSameBundle.StatusCode);
+
+            Bundle resourceAfterPostingSameBundle = fhirResponseAfterPostingSameBundle.Resource;
+
+            Assert.Equal("201", resourceAfterPostingSameBundle.Entry[0].Response.Status);
+            Assert.Equal("200", resourceAfterPostingSameBundle.Entry[1].Response.Status);
+            Assert.Equal("200", resourceAfterPostingSameBundle.Entry[2].Response.Status);
+            Assert.Equal(resource.Entry[2].Resource.VersionId, resourceAfterPostingSameBundle.Entry[2].Resource.VersionId);
+            Assert.Equal("200", resourceAfterPostingSameBundle.Entry[3].Response.Status);
+            Assert.Equal(resource.Entry[3].Resource.VersionId, resourceAfterPostingSameBundle.Entry[3].Resource.VersionId);
+            Assert.Equal(((int)Constants.IfMatchFailureStatus).ToString(), resourceAfterPostingSameBundle.Entry[4].Response.Status);
+            Assert.Equal("204", resourceAfterPostingSameBundle.Entry[5].Response.Status);
+            Assert.Equal("204", resourceAfterPostingSameBundle.Entry[6].Response.Status);
+            ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[7].Response.Status, resourceAfterPostingSameBundle.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            Assert.Equal("200", resourceAfterPostingSameBundle.Entry[8].Response.Status);
+            Assert.Equal(resource.Entry[8].Resource.VersionId, resourceAfterPostingSameBundle.Entry[8].Resource.VersionId);
+            ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+        }
+
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithReadonlyUser_WhenSubmittingABatch_ThenForbiddenAndOutcomeIsReturned()

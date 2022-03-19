@@ -273,6 +273,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Status = Narrative.NarrativeStatus.Generated,
                 Div = $"<div>{ContentUpdated}</div>",
             };
+            };
         }
     }
 }
