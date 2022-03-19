@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
         private static readonly int UnitSize = int.Parse(ConfigurationManager.AppSettings["UnitSize"]);
         private static readonly bool SingleTransation = bool.Parse(ConfigurationManager.AppSettings["SingleTransaction"]);
+        private static readonly bool SortBySurrogateId = bool.Parse(ConfigurationManager.AppSettings["SortBySurrogateId"]);
         private static bool stop = false;
         private static readonly SqlService Target = new SqlService(TargetConnectionString);
         private static readonly SqlService Source = new SqlService(SourceConnectionString);
@@ -83,7 +84,14 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     }
                     else
                     {
-                        CopyViaInsert(true, thread, resourceTypeId.Value, unitId, minId, maxId);
+                        if (SortBySurrogateId)
+                        {
+                            CopyViaInsert(true, thread, resourceTypeId.Value, unitId, long.Parse(minId), long.Parse(maxId));
+                        }
+                        else
+                        {
+                            CopyViaInsert(true, thread, resourceTypeId.Value, unitId, minId, maxId);
+                        }
                     }
                 }
             }
@@ -318,10 +326,10 @@ namespace Microsoft.Health.Fhir.Store.Copy
             {
                 var mode = $"RT={resourceTypeId} min={minId} max={maxId}";
                 var stTot = DateTime.UtcNow;
-                var st = DateTime.UtcNow;
                 var surrIdMap = new Dictionary<long, int>();
                 var count = 0;
                 List<Resource> resources;
+                var st = DateTime.UtcNow;
                 var resourcesOrig = Source.GetData(_ => new Resource(_), resourceTypeId, minId, maxId).ToList();
                 Target.LogEvent("GetData", "End", mode, target: "Resource", rows: resourcesOrig.Count, startTime: st);
                 if (isMerge) // redefine surr id
@@ -345,11 +353,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     resources = resourcesOrig.ToList();
                 }
 
-                Target.LogEvent("GetData", "End", mode, target: "ResourceDedup", rows: resources.Count, startTime: st);
-
-                st = DateTime.UtcNow;
                 var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "ReferenceSearchParam", rows: referenceSearchParams.Count, startTime: st);
                 if (referenceSearchParams.Count == 0)
                 {
                     referenceSearchParams = null;
@@ -359,9 +363,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     referenceSearchParams = referenceSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "TokenSearchParam", rows: tokenSearchParams.Count, startTime: st);
                 if (tokenSearchParams.Count == 0)
                 {
                     tokenSearchParams = null;
@@ -371,9 +373,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     tokenSearchParams = tokenSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var compartmentAssignments = Source.GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "CompartmentAssignment", rows: compartmentAssignments.Count, startTime: st);
                 if (compartmentAssignments.Count == 0)
                 {
                     compartmentAssignments = null;
@@ -383,9 +383,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     compartmentAssignments = compartmentAssignments.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var tokenTexts = Source.GetData(_ => new TokenText(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "TokenText", rows: tokenTexts.Count, startTime: st);
                 if (tokenTexts.Count == 0)
                 {
                     tokenTexts = null;
@@ -395,9 +393,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     tokenTexts = tokenTexts.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var dateTimeSearchParams = Source.GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "DateTimeSearchParam", rows: dateTimeSearchParams.Count, startTime: st);
                 if (dateTimeSearchParams.Count == 0)
                 {
                     dateTimeSearchParams = null;
@@ -407,9 +403,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     dateTimeSearchParams = dateTimeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var tokenQuantityCompositeSearchParams = Source.GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "TokenQuantityCompositeSearchParam", rows: tokenQuantityCompositeSearchParams.Count, startTime: st);
                 if (tokenQuantityCompositeSearchParams.Count == 0)
                 {
                     tokenQuantityCompositeSearchParams = null;
@@ -419,9 +413,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     tokenQuantityCompositeSearchParams = tokenQuantityCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var quantitySearchParams = Source.GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "QuantitySearchParam", rows: quantitySearchParams.Count, startTime: st);
                 if (quantitySearchParams.Count == 0)
                 {
                     quantitySearchParams = null;
@@ -431,9 +423,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     quantitySearchParams = quantitySearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var stringSearchParams = Source.GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "StringSearchParam", rows: stringSearchParams.Count, startTime: st);
                 if (stringSearchParams.Count == 0)
                 {
                     stringSearchParams = null;
@@ -443,9 +433,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     stringSearchParams = stringSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var tokenTokenCompositeSearchParams = Source.GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "TokenTokenCompositeSearchParam", rows: tokenTokenCompositeSearchParams.Count, startTime: st);
                 if (tokenTokenCompositeSearchParams.Count == 0)
                 {
                     tokenTokenCompositeSearchParams = null;
@@ -455,9 +443,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     tokenTokenCompositeSearchParams = tokenTokenCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
                 }
 
-                st = DateTime.UtcNow;
                 var tokenStringCompositeSearchParams = Source.GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "TokenStringCompositeSearchParam", rows: tokenStringCompositeSearchParams.Count, startTime: st);
                 if (tokenStringCompositeSearchParams.Count == 0)
                 {
                     tokenStringCompositeSearchParams = null;
@@ -532,43 +518,54 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
             var sourceConn = new SqlConnection(Source.ConnectionString);
             sourceConn.Open();
-////            using var sourceCommand = new SqlCommand(
-////                @"
-////SELECT ResourceTypeId
-////      ,UnitId
-////      ,MinId = convert(varchar(64),min(ResourceSurrogateId))
-////      ,MaxId = convert(varchar(64),max(ResourceSurrogateId))
-////      ,ResourceCount = count(*)
-////  INTO ##StoreCopyWorkQueue
-////  FROM (SELECT UnitId = isnull(convert(int, (row_number() OVER (PARTITION BY ResourceTypeId ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0)
-////              ,ResourceTypeId
-////              ,ResourceSurrogateId
-////          FROM dbo.Resource
-////       ) A
-////  GROUP BY
-////       ResourceTypeId
-////      ,UnitId
-////                 ",
-////                sourceConn) { CommandTimeout = 3600 };
-            using var sourceCommand = new SqlCommand(
-                @"
-SELECT ResourceTypeId
-      ,UnitId
-      ,MinId = min(ResourceId)
-      ,MaxId = max(ResourceId)
-      ,ResourceCount = count(*)
+            var sql = SortBySurrogateId ?
+                                @"
+SELECT UnitId = convert(int, row_number() OVER (ORDER BY MinId))
+      ,ResourceTypeId
+      ,MinId
+      ,MaxId
+      ,ResourceCount
   INTO ##StoreCopyWorkQueue
-  FROM (SELECT UnitId = isnull(convert(int, (row_number() OVER (PARTITION BY ResourceTypeId ORDER BY ResourceId) - 1) / @UnitSize), 0)
+  FROM (SELECT PartUnitId
               ,ResourceTypeId
-              ,ResourceId
-          FROM dbo.Resource
+              ,MinId = min(ResourceSurrogateId)
+              ,MaxId = max(ResourceSurrogateId)
+              ,ResourceCount = count(*)
+          FROM (SELECT PartUnitId = isnull(convert(int, (row_number() OVER (PARTITION BY ResourceTypeId ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0)
+                      ,ResourceTypeId
+                      ,ResourceSurrogateId
+                  FROM dbo.Resource
+               ) A
+          GROUP BY
+               ResourceTypeId
+              ,PartUnitId
        ) A
-  GROUP BY
-       ResourceTypeId
-      ,UnitId
-                 ",
-                sourceConn)
-            { CommandTimeout = 3600 };
+                                 "
+                                :
+                                @"
+SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
+      ,ResourceTypeId
+      ,MinId
+      ,MaxId
+      ,ResourceCount
+  INTO ##StoreCopyWorkQueue
+  FROM (SELECT RandId = newid()
+              ,PartUnitId
+              ,ResourceTypeId
+              ,MinId = min(ResourceId)
+              ,MaxId = max(ResourceId)
+              ,ResourceCount = count(*)
+          FROM (SELECT PartUnitId = isnull(convert(int, (row_number() OVER (PARTITION BY ResourceTypeId ORDER BY ResourceId) - 1) / @UnitSize), 0)
+                      ,ResourceTypeId
+                      ,ResourceId
+                  FROM dbo.Resource
+               ) A
+          GROUP BY
+               ResourceTypeId
+              ,PartUnitId
+       ) A
+                                ";
+            using var sourceCommand = new SqlCommand(sql, sourceConn) { CommandTimeout = 7200 }; // this takes 30 minutes on db with 2B resources
             sourceCommand.Parameters.AddWithValue("@UnitSize", unitSize);
             sourceCommand.ExecuteNonQuery();
 
@@ -582,7 +579,7 @@ SELECT ResourceTypeId
             targetConn.Open();
             using var command = new SqlCommand(
                 @"
-SELECT ResourceTypeId,UnitId,MinId,MaxId,ResourceCount INTO ##StoreCopyWorkQueue FROM dbo.StoreCopyWorkQueue WHERE 1 = 2",
+SELECT UnitId,ResourceTypeId,MinId,MaxId,ResourceCount INTO ##StoreCopyWorkQueue FROM dbo.StoreCopyWorkQueue WHERE 1 = 2",
                 targetConn) { CommandTimeout = 120 };
             command.ExecuteNonQuery();
 
@@ -593,8 +590,8 @@ SELECT ResourceTypeId,UnitId,MinId,MaxId,ResourceCount INTO ##StoreCopyWorkQueue
             using var insert = new SqlCommand(
                 @"
 INSERT INTO dbo.StoreCopyWorkQueue 
-        (ResourceTypeId,UnitId,MinId,MaxId,ResourceCount) 
-  SELECT ResourceTypeId,UnitId,MinId,MaxId,ResourceCount 
+        (UnitId,ResourceTypeId,MinId,MaxId,ResourceCount) 
+  SELECT UnitId,ResourceTypeId,MinId,MaxId,ResourceCount 
     FROM ##StoreCopyWorkQueue",
                 targetConn) { CommandTimeout = 120 };
             insert.ExecuteNonQuery();
@@ -603,8 +600,8 @@ INSERT INTO dbo.StoreCopyWorkQueue
                 @"
 UPDATE A
   SET Thread = RowId % @Threads
-  FROM (SELECT *, RowId = row_number() OVER (ORDER BY ResourceTypeId, UnitId) - 1 FROM StoreCopyWorkQueue) B
-       JOIN StoreCopyWorkQueue A ON A.ResourceTypeId = B.ResourceTypeId AND A.UnitId = B.UnitId
+  FROM (SELECT *, RowId = row_number() OVER (ORDER BY UnitId) - 1 FROM StoreCopyWorkQueue) B
+       JOIN StoreCopyWorkQueue A ON A.UnitId = B.UnitId
                  ",
                 targetConn) { CommandTimeout = 120 };
             update.Parameters.AddWithValue("@Threads", Threads);

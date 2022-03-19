@@ -31,15 +31,13 @@ BEGIN TRY
          ,@UnitId = T.UnitId
       FROM dbo.StoreCopyWorkQueue T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
-                        ResourceTypeId
-                       ,UnitId
+                        UnitId
                    FROM dbo.StoreCopyWorkQueue WITH (INDEX = IX_Status)
                    WHERE Status = 0
                    ORDER BY 
-                        ResourceTypeId
-                       ,UnitId
+                        UnitId
                 ) S
-             ON T.ResourceTypeId = S.ResourceTypeId AND T.UnitId = S.UnitId 
+             ON T.UnitId = S.UnitId
     SET @Rows = @@rowcount
 
     COMMIT TRANSACTION
@@ -52,10 +50,9 @@ BEGIN TRY
           ,MaxId
           ,ResourceCount
       FROM dbo.StoreCopyWorkQueue
-      WHERE ResourceTypeId = @ResourceTypeId
-        AND UnitId = @UnitId
+      WHERE UnitId = @UnitId
   
-  SET @msg = 'RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' U='+isnull(convert(varchar,@UnitId),'NULL')+' S='+convert(varchar,@Stop)
+  SET @msg = 'U='+isnull(convert(varchar,@UnitId),'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' S='+convert(varchar,@Stop)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Text=@msg
 END TRY

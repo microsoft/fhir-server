@@ -2,8 +2,8 @@
 GO
 CREATE TABLE dbo.StoreCopyWorkQueue
 (
-     ResourceTypeId  smallint      NOT NULL
-    ,UnitId          int           NOT NULL
+     UnitId          int           NOT NULL
+    ,ResourceTypeId  smallint      NOT NULL
     ,Thread          tinyint       NOT NULL CONSTRAINT DF_StoreCopyWorkQueue_Thread DEFAULT 0
     ,MinId           varchar(64)   NOT NULL
     ,MaxId           varchar(64)   NOT NULL
@@ -17,7 +17,7 @@ CREATE TABLE dbo.StoreCopyWorkQueue
     ,Result          xml           NULL
     ,Info            varchar(1000) NULL
 
-     CONSTRAINT PKC_StoreCopyWorkQueue_ResourceTypeId_UnitId PRIMARY KEY CLUSTERED (ResourceTypeId, UnitId)
+     CONSTRAINT PKC_StoreCopyWorkQueue_UnitId PRIMARY KEY CLUSTERED (UnitId)
 )
 GO
 --CREATE INDEX IX_Thread_Status ON StoreCopyWorkQueue (Thread, Status)
