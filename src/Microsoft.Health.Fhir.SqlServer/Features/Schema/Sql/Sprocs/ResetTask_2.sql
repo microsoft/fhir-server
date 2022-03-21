@@ -1,4 +1,5 @@
-﻿/*************************************************************
+﻿
+/*************************************************************
     Stored procedures for reset task
 **************************************************************/
 --
@@ -13,17 +14,15 @@
 --         * The ID of the task record
 --     @runId
 --         * Current runId for this exuction of the task
+--     @result
+--         * The result of the task
 --
-CREATE PROCEDURE [dbo].[ResetTask]
-    @taskId varchar(64),
-    @runId varchar(50),
-    @result varchar(max)
+CREATE PROCEDURE [dbo].[ResetTask_2]
+@taskId VARCHAR (64), @runId VARCHAR (50), @result VARCHAR (MAX)
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
-
--- Can only reset task with same runid
 DECLARE @retryCount AS SMALLINT;
 DECLARE @status AS SMALLINT;
 DECLARE @maxRetryCount AS SMALLINT;
@@ -33,18 +32,16 @@ SELECT @retryCount = RetryCount,
 FROM   [dbo].[TaskInfo]
 WHERE  TaskId = @taskId
        AND RunId = @runId;
-
--- We will timestamp the jobs when we update them to track stale jobs.
 IF (@retryCount IS NULL)
     BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
 DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-IF (@retryCount >= @maxRetryCount)
+IF (@maxRetryCount != -1 AND @retryCount > @maxRetryCount)  -- -1 means retry infinitely 
     BEGIN
         UPDATE dbo.TaskInfo
         SET    Status            = 3,
-               HeartbeatDateTime = @heartbeatDateTime,
+               EndDateTime       = @heartbeatDateTime,
                Result            = @result
         WHERE  TaskId = @taskId;
     END
@@ -58,19 +55,8 @@ ELSE
                    RetryCount        = @retryCount + 1
             WHERE  TaskId = @taskId;
         END
-SELECT TaskId,
-       QueueId,
-       Status,
-       TaskTypeId,
-       RunId,
-       IsCanceled,
-       RetryCount,
-       MaxRetryCount,
-       HeartbeatDateTime,
-       InputData,
-       TaskContext,
-       Result
-FROM   [dbo].[TaskInfo]
-WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
+
+EXECUTE dbo.GetTaskDetails @TaskId = @taskId
+
 GO

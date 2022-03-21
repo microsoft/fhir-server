@@ -2171,7 +2171,7 @@ BEGIN
 END
 
 GO
-CREATE PROCEDURE [dbo].[ResetTask]
+CREATE PROCEDURE [dbo].[ResetTask_2]
 @taskId VARCHAR (64), @runId VARCHAR (50), @result VARCHAR (MAX)
 AS
 SET NOCOUNT ON;
@@ -2191,11 +2191,11 @@ IF (@retryCount IS NULL)
         THROW 50404, 'Task not exist or runid not match', 1;
     END
 DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-IF (@retryCount >= @maxRetryCount)
+IF (@maxRetryCount != -1 AND @retryCount > @maxRetryCount)  -- -1 means retry infinitely 
     BEGIN
         UPDATE dbo.TaskInfo
         SET    Status            = 3,
-               HeartbeatDateTime = @heartbeatDateTime,
+               EndDateTime       = @heartbeatDateTime,
                Result            = @result
         WHERE  TaskId = @taskId;
     END
@@ -2209,21 +2209,9 @@ ELSE
                    RetryCount        = @retryCount + 1
             WHERE  TaskId = @taskId;
         END
-SELECT TaskId,
-       QueueId,
-       Status,
-       TaskTypeId,
-       RunId,
-       IsCanceled,
-       RetryCount,
-       MaxRetryCount,
-       HeartbeatDateTime,
-       InputData,
-       TaskContext,
-       Result
-FROM   [dbo].[TaskInfo]
-WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
+
+EXECUTE dbo.GetTaskDetails @TaskId = @taskId
 
 GO
 CREATE PROCEDURE [dbo].[TaskKeepAlive]
