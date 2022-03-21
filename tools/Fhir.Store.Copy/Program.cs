@@ -520,13 +520,14 @@ namespace Microsoft.Health.Fhir.Store.Copy
             sourceConn.Open();
             var sql = SortBySurrogateId ?
                                 @"
-SELECT UnitId = convert(int, row_number() OVER (ORDER BY MinId))
+SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
       ,ResourceTypeId
       ,MinId
       ,MaxId
       ,ResourceCount
   INTO ##StoreCopyWorkQueue
-  FROM (SELECT PartUnitId
+  FROM (SELECT RandId = newid()
+              ,PartUnitId
               ,ResourceTypeId
               ,MinId = min(ResourceSurrogateId)
               ,MaxId = max(ResourceSurrogateId)

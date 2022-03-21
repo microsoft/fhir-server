@@ -25,7 +25,7 @@ DECLARE @st datetime = getUTCdate()
        ,@Offset bigint
        ,@DummyTop bigint = 9223372036854775807
 
-SELECT @ResourceTypeId = max(ResourceTypeId), @InputRows = count(*) FROM @Resources
+SELECT @ResourceTypeId = max(ResourceTypeId), @InputRows = count(*) FROM @Resources -- validate whether "all resources have same RT" assumption is acually needed
 
 DECLARE @Mode varchar(100) = 'RT='+convert(varchar,@ResourceTypeId)+' Rows='+convert(varchar,@InputRows)+' TR='+convert(varchar,@SingleTransaction)
 
@@ -75,7 +75,7 @@ BEGIN TRY
           ,A.SearchParamHash
       FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
            LEFT OUTER JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0 -- How do we handle input matching deleted record?
-      WHERE B.ResourceId IS NULL OR A.RawResource <> B.RawResource
+      WHERE B.ResourceId IS NULL -- OR A.RawResource <> B.RawResource -- raw resource contains updated date and cannot be compared with input as-is. we need to fix this. 
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
   INSERT INTO @PreviousSurrogateIds
