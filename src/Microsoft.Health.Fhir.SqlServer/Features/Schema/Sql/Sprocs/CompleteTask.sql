@@ -39,6 +39,7 @@ DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 UPDATE dbo.TaskInfo
 SET    Status            = 3,
        HeartbeatDateTime = @heartbeatDateTime,
+       EndDateTime       = @heartbeatDateTime,
        Result            = @taskResult
 WHERE  TaskId = @taskId;
 SELECT TaskId,

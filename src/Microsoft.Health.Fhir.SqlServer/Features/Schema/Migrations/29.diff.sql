@@ -156,7 +156,7 @@ IF (@maxRetryCount != -1 AND @retryCount > @maxRetryCount)  -- -1 means retry in
     BEGIN
         UPDATE dbo.TaskInfo
         SET    Status            = 3,
-               EndDateTime       = @heartbeatDateTime,
+               HeartbeatDateTime = @heartbeatDateTime,
                Result            = @result
         WHERE  TaskId = @taskId;
     END
@@ -173,5 +173,64 @@ ELSE
 COMMIT TRANSACTION;
 
 EXECUTE dbo.GetTaskDetails @TaskId = @taskId
+
+GO
+
+
+/*************************************************************
+    Stored procedures for complete task with result
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     CompleteTask
+--
+-- DESCRIPTION
+--     Complete the task and update task result.
+--
+-- PARAMETERS
+--     @taskId
+--         * The ID of the task record
+--     @taskResult
+--         * The result for the task execution
+--     @runId
+--         * Current runId for this exuction of the task
+--
+
+GO
+CREATE PROCEDURE [dbo].[CompleteTask]
+@taskId VARCHAR (64), @taskResult VARCHAR (MAX), @runId VARCHAR (50)
+AS
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+IF NOT EXISTS (SELECT *
+               FROM   [dbo].[TaskInfo]
+               WHERE  TaskId = @taskId
+                      AND RunId = @runId)
+    BEGIN
+        THROW 50404, 'Task not exist or runid not match', 1;
+    END
+DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+UPDATE dbo.TaskInfo
+SET    Status            = 3,
+       HeartbeatDateTime = @heartbeatDateTime,
+       EndDateTime       = @heartbeatDateTime,
+       Result            = @taskResult
+WHERE  TaskId = @taskId;
+SELECT TaskId,
+       QueueId,
+       Status,
+       TaskTypeId,
+       RunId,
+       IsCanceled,
+       RetryCount,
+       MaxRetryCount,
+       HeartbeatDateTime,
+       InputData,
+       TaskContext,
+       Result
+FROM   [dbo].[TaskInfo]
+WHERE  TaskId = @taskId;
+COMMIT TRANSACTION;
 
 GO

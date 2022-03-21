@@ -41,7 +41,7 @@ IF (@maxRetryCount != -1 AND @retryCount > @maxRetryCount)  -- -1 means retry in
     BEGIN
         UPDATE dbo.TaskInfo
         SET    Status            = 3,
-               EndDateTime       = @heartbeatDateTime,
+               HeartbeatDateTime = @heartbeatDateTime,
                Result            = @result
         WHERE  TaskId = @taskId;
     END
