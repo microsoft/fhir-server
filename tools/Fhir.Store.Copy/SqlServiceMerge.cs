@@ -85,9 +85,9 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return (int)rows.Value;
         }
 
-        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, string minId, string maxId, bool convertToLog)
+        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, string minId, string maxId, bool convertToLong)
         {
-            return convertToLog ? GetData(toT, resourceTypeId, long.Parse(minId), long.Parse(maxId)) : GetData(toT, resourceTypeId, minId, maxId);
+            return convertToLong ? GetData(toT, resourceTypeId, long.Parse(minId), long.Parse(maxId)) : GetData(toT, resourceTypeId, minId, maxId);
         }
 
         private IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
