@@ -19,15 +19,18 @@ namespace Microsoft.Health.Fhir.Store.Copy
     {
         private static readonly string SourceConnectionString = ConfigurationManager.ConnectionStrings["SourceDatabase"].ConnectionString;
         private static readonly string TargetConnectionString = ConfigurationManager.ConnectionStrings["TargetDatabase"].ConnectionString;
+        private static readonly string QueueConnectionString = ConfigurationManager.ConnectionStrings["QueueDatabase"].ConnectionString;
         private static readonly string Path = ConfigurationManager.AppSettings["Path"];
         private static readonly string Tables = ConfigurationManager.AppSettings["Tables"];
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
         private static readonly int UnitSize = int.Parse(ConfigurationManager.AppSettings["UnitSize"]);
         private static readonly bool SingleTransation = bool.Parse(ConfigurationManager.AppSettings["SingleTransaction"]);
         private static readonly bool SortBySurrogateId = bool.Parse(ConfigurationManager.AppSettings["SortBySurrogateId"]);
+        private static readonly int Retries = int.Parse(ConfigurationManager.AppSettings["Retries"]);
         private static bool stop = false;
         private static readonly SqlService Target = new SqlService(TargetConnectionString);
         private static readonly SqlService Source = new SqlService(SourceConnectionString);
+        private static readonly SqlService Queue = new SqlService(QueueConnectionString);
         private static readonly string BcpSourceConnStr = Source.GetBcpConnectionString();
         private static readonly string BcpTargetConnStr = Target.GetBcpConnectionString();
 
@@ -35,11 +38,14 @@ namespace Microsoft.Health.Fhir.Store.Copy
         {
             Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
             Console.WriteLine($"Target=[{Target.ShowConnectionString()}]");
+            Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
             var method = args.Length > 0 ? args[0] : "merge";
-            if (method == "publish")
+            if (method == "setupdb")
             {
                 SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
                 SetupDb.Publish(TargetConnectionString, "Fhir.Store.Copy.Database.dacpac");
+                SetupDb.Publish(QueueConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
+                SetupDb.Publish(QueueConnectionString, "Fhir.Store.Copy.Database.dacpac");
             }
             else
             {
@@ -66,42 +72,54 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private static void Copy(byte thread, string method)
         {
-            Console.WriteLine($"CopyFhir.{thread}: started at {DateTime.UtcNow:s}");
+            Console.WriteLine($"Copy.{thread}: started at {DateTime.UtcNow:s}");
             var sw = Stopwatch.StartNew();
             var resourceTypeId = (short?)0;
             while (resourceTypeId.HasValue && !stop)
             {
-                Target.DequeueStoreCopyWorkQueue(thread, out resourceTypeId, out var unitId, out var minId, out var maxId);
-                if (resourceTypeId.HasValue)
+                string minId = null;
+                var unitId = 0;
+                var retries = 0;
+            retry:
+                try
                 {
-                    if (method == "bcp")
+                    Queue.DequeueStoreCopyWorkQueue(thread, out resourceTypeId, out unitId, out minId, out var maxId);
+                    if (resourceTypeId.HasValue)
                     {
-                        CopyViaBcp(thread, resourceTypeId.Value, unitId, long.Parse(minId), long.Parse(maxId));
-                    }
-                    else if (method == "insert")
-                    {
-                        CopyViaInsert(false, thread, resourceTypeId.Value, unitId, long.Parse(minId), long.Parse(maxId));
-                    }
-                    else
-                    {
-                        if (SortBySurrogateId)
+                        if (method == "bcp")
                         {
-                            CopyViaInsert(true, thread, resourceTypeId.Value, unitId, long.Parse(minId), long.Parse(maxId));
+                            CopyViaBcp(thread, resourceTypeId.Value, unitId, long.Parse(minId), long.Parse(maxId));
                         }
                         else
                         {
-                            CopyViaInsert(true, thread, resourceTypeId.Value, unitId, minId, maxId);
+                            CopyViaSql(method == "merge", thread, resourceTypeId.Value, unitId, minId, maxId, SortBySurrogateId);
                         }
                     }
                 }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Copy.{method}.{thread}.{resourceTypeId}.{minId}: error={e}");
+                    Target.LogEvent($"Copy.{method}", "Error", $"{thread}.{resourceTypeId}.{minId}", text: e.ToString());
+                    retries++;
+                    if (retries < Retries)
+                    {
+                        goto retry;
+                    }
+
+                    stop = true;
+                    Target.CompleteStoreCopyWorkUnit(resourceTypeId.Value, unitId, true);
+                    throw;
+                }
+
+                Queue.CompleteStoreCopyWorkUnit(resourceTypeId.Value, unitId, false);
             }
 
-            Console.WriteLine($"CopyFhir.{thread}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"Copy.{method}.{thread}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
         private static void CopyViaBcp(byte thread, short resourceTypeId, int unitId, long minSurId, long maxSurId)
         {
-            Console.WriteLine($"CopyViaBcp.{thread}.{resourceTypeId}.{minSurId}: started at {DateTime.UtcNow:s}");
+            Console.WriteLine($"Copy.bcp.{thread}.{resourceTypeId}.{minSurId}: started at {DateTime.UtcNow:s}");
             var sw = Stopwatch.StartNew();
             var rand = new Random();
             foreach (var tbl in Tables.Split(',').OrderBy(_ => rand.NextDouble()))
@@ -120,10 +138,10 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"CopyViaBcp.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
+                    Console.WriteLine($"Copy.bcp.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
                     Target.LogEvent("BcpOut", "Error", mode, text: e.ToString());
                     retries++;
-                    if (retries < 5)
+                    if (retries < Retries)
                     {
                         goto retryBcp;
                     }
@@ -144,10 +162,10 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"CopyViaBcp.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
+                    Console.WriteLine($"Copy.bcp.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
                     Target.LogEvent("BcpIn", "Error", mode, text: e.ToString());
                     retries++;
-                    if (retries < 5)
+                    if (retries < Retries)
                     {
                         goto retryBcp;
                     }
@@ -159,321 +177,146 @@ namespace Microsoft.Health.Fhir.Store.Copy
             }
 
             Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, false);
-            Console.WriteLine($"CopyViaBcp.{thread}.{resourceTypeId}.{minSurId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"Copy.bcp.{thread}.{resourceTypeId}.{minSurId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
-        private static void CopyViaInsert(bool isMerge, byte thread, short resourceTypeId, int unitId, long minSurId, long maxSurId)
+        private static void CopyViaSql(bool isMerge, byte thread, short resourceTypeId, int unitId, string minId, string maxId, bool convertToLong)
         {
-            Console.WriteLine($"CopyViaInsert.{thread}.{resourceTypeId}.{minSurId}: started at {DateTime.UtcNow:s}");
             var sw = Stopwatch.StartNew();
-            var retries = 0;
-        retry:
-            try
+            var mode = $"RT={resourceTypeId} min={minId} max={maxId}";
+            var stTot = DateTime.UtcNow;
+            var surrIdMap = new Dictionary<long, int>();
+            var count = 0;
+            List<Resource> resources;
+            var st = DateTime.UtcNow;
+            var resourcesOrig = Source.GetData(_ => new Resource(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            Target.LogEvent("GetData", "End", mode, target: "Resource", rows: resourcesOrig.Count, startTime: st);
+            if (isMerge) // redefine surr id
             {
-                var surrIdMap = new Dictionary<long, int>();
-                var count = 0;
-                List<Resource> resources;
-                var resourcesOrig = Source.GetData(_ => new Resource(_), resourceTypeId, minSurId, maxSurId);
-                if (isMerge) // redefine surr id
-                {
-                    var resourcesDedup = new List<Resource>();
+                var resourcesDedup = new List<Resource>();
 
-                    foreach (var resource in resourcesOrig)
+                foreach (var resource in resourcesOrig)
+                {
+                    if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
                     {
-                        if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
-                        {
-                            count++;
-                            surrIdMap.Add(resource.ResourceSurrogateId, count);
-                            resourcesDedup.Add(resource);
-                        }
+                        count++;
+                        surrIdMap.Add(resource.ResourceSurrogateId, count);
+                        resourcesDedup.Add(resource);
                     }
-
-                    resources = resourcesDedup.Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-                else
-                {
-                    resources = resourcesOrig.ToList();
                 }
 
-                var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (referenceSearchParams.Count == 0)
-                {
-                    referenceSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    referenceSearchParams = referenceSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (tokenSearchParams.Count == 0)
-                {
-                    tokenSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    tokenSearchParams = tokenSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var compartmentAssignments = Source.GetData(_ => new CompartmentAssignment(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (compartmentAssignments.Count == 0)
-                {
-                    compartmentAssignments = null;
-                }
-                else if (isMerge)
-                {
-                    compartmentAssignments = compartmentAssignments.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenTexts = Source.GetData(_ => new TokenText(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (tokenTexts.Count == 0)
-                {
-                    tokenTexts = null;
-                }
-                else if (isMerge)
-                {
-                    tokenTexts = tokenTexts.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var dateTimeSearchParams = Source.GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (dateTimeSearchParams.Count == 0)
-                {
-                    dateTimeSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    dateTimeSearchParams = dateTimeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenQuantityCompositeSearchParams = Source.GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (tokenQuantityCompositeSearchParams.Count == 0)
-                {
-                    tokenQuantityCompositeSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    tokenQuantityCompositeSearchParams = tokenQuantityCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var quantitySearchParams = Source.GetData(_ => new QuantitySearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (quantitySearchParams.Count == 0)
-                {
-                    quantitySearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    quantitySearchParams = quantitySearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var stringSearchParams = Source.GetData(_ => new StringSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (stringSearchParams.Count == 0)
-                {
-                    stringSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    stringSearchParams = stringSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenTokenCompositeSearchParams = Source.GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (tokenTokenCompositeSearchParams.Count == 0)
-                {
-                    tokenTokenCompositeSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    tokenTokenCompositeSearchParams = tokenTokenCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenStringCompositeSearchParams = Source.GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minSurId, maxSurId).ToList();
-                if (tokenStringCompositeSearchParams.Count == 0)
-                {
-                    tokenStringCompositeSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    tokenStringCompositeSearchParams = tokenStringCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                Target.InsertResources(isMerge, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams, SingleTransation);
+                resources = resourcesDedup.Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
             }
-            catch (Exception e)
+            else
             {
-                Console.WriteLine($"CopyViaInsert.{thread}.{resourceTypeId}.{minSurId}: error={e}");
-                Target.LogEvent("Merge", "Error", $"{thread}.{resourceTypeId}.{minSurId}", text: e.ToString());
-                retries++;
-                if (retries < 5)
-                {
-                    goto retry;
-                }
-
-                stop = true;
-                Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, true);
-                throw;
+                resources = resourcesOrig.ToList();
             }
 
-            Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, false);
-            Console.WriteLine($"CopyViaInsert.{thread}.{resourceTypeId}.{minSurId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
-        }
-
-        private static void CopyViaInsert(bool isMerge, byte thread, short resourceTypeId, int unitId, string minId, string maxId)
-        {
-            Console.WriteLine($"CopyViaInsert.{thread}.{resourceTypeId}.{minId}: started at {DateTime.UtcNow:s}");
-            var sw = Stopwatch.StartNew();
-            var retries = 0;
-        retry:
-            try
+            var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (referenceSearchParams.Count == 0)
             {
-                var mode = $"RT={resourceTypeId} min={minId} max={maxId}";
-                var stTot = DateTime.UtcNow;
-                var surrIdMap = new Dictionary<long, int>();
-                var count = 0;
-                List<Resource> resources;
-                var st = DateTime.UtcNow;
-                var resourcesOrig = Source.GetData(_ => new Resource(_), resourceTypeId, minId, maxId).ToList();
-                Target.LogEvent("GetData", "End", mode, target: "Resource", rows: resourcesOrig.Count, startTime: st);
-                if (isMerge) // redefine surr id
-                {
-                    var resourcesDedup = new List<Resource>();
-
-                    foreach (var resource in resourcesOrig)
-                    {
-                        if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
-                        {
-                            count++;
-                            surrIdMap.Add(resource.ResourceSurrogateId, count);
-                            resourcesDedup.Add(resource);
-                        }
-                    }
-
-                    resources = resourcesDedup.Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-                else
-                {
-                    resources = resourcesOrig.ToList();
-                }
-
-                var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                if (referenceSearchParams.Count == 0)
-                {
-                    referenceSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    referenceSearchParams = referenceSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                if (tokenSearchParams.Count == 0)
-                {
-                    tokenSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    tokenSearchParams = tokenSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var compartmentAssignments = Source.GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId).ToList();
-                if (compartmentAssignments.Count == 0)
-                {
-                    compartmentAssignments = null;
-                }
-                else if (isMerge)
-                {
-                    compartmentAssignments = compartmentAssignments.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenTexts = Source.GetData(_ => new TokenText(_), resourceTypeId, minId, maxId).ToList();
-                if (tokenTexts.Count == 0)
-                {
-                    tokenTexts = null;
-                }
-                else if (isMerge)
-                {
-                    tokenTexts = tokenTexts.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var dateTimeSearchParams = Source.GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                if (dateTimeSearchParams.Count == 0)
-                {
-                    dateTimeSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    dateTimeSearchParams = dateTimeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenQuantityCompositeSearchParams = Source.GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                if (tokenQuantityCompositeSearchParams.Count == 0)
-                {
-                    tokenQuantityCompositeSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    tokenQuantityCompositeSearchParams = tokenQuantityCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var quantitySearchParams = Source.GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId).ToList();
-                if (quantitySearchParams.Count == 0)
-                {
-                    quantitySearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    quantitySearchParams = quantitySearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var stringSearchParams = Source.GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                if (stringSearchParams.Count == 0)
-                {
-                    stringSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    stringSearchParams = stringSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenTokenCompositeSearchParams = Source.GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                if (tokenTokenCompositeSearchParams.Count == 0)
-                {
-                    tokenTokenCompositeSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    tokenTokenCompositeSearchParams = tokenTokenCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                var tokenStringCompositeSearchParams = Source.GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-                if (tokenStringCompositeSearchParams.Count == 0)
-                {
-                    tokenStringCompositeSearchParams = null;
-                }
-                else if (isMerge)
-                {
-                    tokenStringCompositeSearchParams = tokenStringCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-                }
-
-                Target.LogEvent("GetData", "End", mode, startTime: stTot);
-
-                Target.InsertResources(isMerge, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams, SingleTransation);
+                referenceSearchParams = null;
             }
-            catch (Exception e)
+            else if (isMerge)
             {
-                Console.WriteLine($"CopyViaInsert.{thread}.{resourceTypeId}.{minId}: error={e}");
-                Target.LogEvent("Merge", "Error", $"{thread}.{resourceTypeId}.{minId}", text: e.ToString());
-                retries++;
-                if (retries < 5)
-                {
-                    goto retry;
-                }
-
-                stop = true;
-                Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, true);
-                throw;
+                referenceSearchParams = referenceSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
             }
 
-            Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, false);
-            Console.WriteLine($"CopyViaInsert.{thread}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (tokenSearchParams.Count == 0)
+            {
+                tokenSearchParams = null;
+            }
+            else if (isMerge)
+            {
+                tokenSearchParams = tokenSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            var compartmentAssignments = Source.GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (compartmentAssignments.Count == 0)
+            {
+                compartmentAssignments = null;
+            }
+            else if (isMerge)
+            {
+                compartmentAssignments = compartmentAssignments.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            var tokenTexts = Source.GetData(_ => new TokenText(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (tokenTexts.Count == 0)
+            {
+                tokenTexts = null;
+            }
+            else if (isMerge)
+            {
+                tokenTexts = tokenTexts.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            var dateTimeSearchParams = Source.GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (dateTimeSearchParams.Count == 0)
+            {
+                dateTimeSearchParams = null;
+            }
+            else if (isMerge)
+            {
+                dateTimeSearchParams = dateTimeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            var tokenQuantityCompositeSearchParams = Source.GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (tokenQuantityCompositeSearchParams.Count == 0)
+            {
+                tokenQuantityCompositeSearchParams = null;
+            }
+            else if (isMerge)
+            {
+                tokenQuantityCompositeSearchParams = tokenQuantityCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            var quantitySearchParams = Source.GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (quantitySearchParams.Count == 0)
+            {
+                quantitySearchParams = null;
+            }
+            else if (isMerge)
+            {
+                quantitySearchParams = quantitySearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            var stringSearchParams = Source.GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (stringSearchParams.Count == 0)
+            {
+                stringSearchParams = null;
+            }
+            else if (isMerge)
+            {
+                stringSearchParams = stringSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            var tokenTokenCompositeSearchParams = Source.GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (tokenTokenCompositeSearchParams.Count == 0)
+            {
+                tokenTokenCompositeSearchParams = null;
+            }
+            else if (isMerge)
+            {
+                tokenTokenCompositeSearchParams = tokenTokenCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            var tokenStringCompositeSearchParams = Source.GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            if (tokenStringCompositeSearchParams.Count == 0)
+            {
+                tokenStringCompositeSearchParams = null;
+            }
+            else if (isMerge)
+            {
+                tokenStringCompositeSearchParams = tokenStringCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+            }
+
+            Target.LogEvent("GetData", "End", mode, startTime: stTot);
+
+            Target.InsertResources(isMerge, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams, SingleTransation);
+
+            Console.WriteLine($"Copy.{(isMerge ? "merge" : "insert")}.sort=ResourceId.{thread}.{unitId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
         private static void RunOsCommand(string filename, string arguments, bool redirectOutput)

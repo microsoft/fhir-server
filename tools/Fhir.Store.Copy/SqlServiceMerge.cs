@@ -85,7 +85,12 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return (int)rows.Value;
         }
 
-        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
+        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, string minId, string maxId, bool convertToLog)
+        {
+            return convertToLog ? GetData(toT, resourceTypeId, long.Parse(minId), long.Parse(maxId)) : GetData(toT, resourceTypeId, minId, maxId);
+        }
+
+        private IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
@@ -103,7 +108,7 @@ SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND Re
             }
         }
 
-        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, string minId, string maxId)
+        private IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, string minId, string maxId)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();

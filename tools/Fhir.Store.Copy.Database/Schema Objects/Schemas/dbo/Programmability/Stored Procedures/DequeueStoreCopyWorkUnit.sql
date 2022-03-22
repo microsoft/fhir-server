@@ -18,6 +18,8 @@ DECLARE @SP varchar(100) = 'DequeueStoreCopyWorkUnit'
 BEGIN TRY
   IF @Stop = 0
   BEGIN
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
+
     BEGIN TRANSACTION  
 
     EXECUTE sp_getapplock 'DequeueStoreCopyWorkUnit', 'Exclusive'

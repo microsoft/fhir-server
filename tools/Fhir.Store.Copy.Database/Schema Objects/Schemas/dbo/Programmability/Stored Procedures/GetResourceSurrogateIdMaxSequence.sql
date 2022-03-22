@@ -17,10 +17,10 @@ BEGIN TRY
   --IF @Rows <> 1 RAISERROR('Unexpected number of rows in dbo.ResourceSurrogateIdMaxSequence table.', 18, 127)
 
   -- Below logic is SQL implementation of current C# surrogate id helper.
-  -- I don't like it  because it is not full proof, and, unlike commented out above, can produce identical ids for different calls.
+  -- I don't like it because it is not full proof, and, unlike commented out above, can produce identical ids for different calls.
   EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = NULL, @range_last_value = @LastValueVar OUT
   
-  SET @MaxSequence = (datediff_big(microsecond,'00010101',@st)*10+(datepart(nanosecond,@st)%1000)/100)*8 + convert(int,@LastValueVar)
+  SET @MaxSequence = datediff_big(millisecond,'0001-01-01',@st) * 80000 + convert(int,@LastValueVar)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=NULL,@Text=@MaxSequence
 END TRY
@@ -32,3 +32,7 @@ GO
 --DECLARE @MaxSequence bigint
 --EXECUTE dbo.GetResourceSurrogateIdMaxSequence2 @Count = 500, @MaxSequence = @MaxSequence OUT
 --SELECT @MaxSequence
+--DECLARE @st datetime2 = '2022-01-01 00:00:00.012'
+--SELECT (datediff_big(microsecond,'0001-01-01',@st) * 10 + (datepart(nanosecond,@st) % 1000) / 100) * 8
+--SELECT datediff_big(millisecond,'0001-01-01',@st) * 80000
+
