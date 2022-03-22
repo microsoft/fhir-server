@@ -79,9 +79,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             UpdateObservation(_createdResource.Resource);
             await _client.UpdateAsync(_createdResource.Resource);
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"Observation/{_createdResource.Resource.Id}/_history");
-
-            AssertCount(2, readResponse.Resource.Entry);
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"Observation/{_createdResource.Resource.Id}/_history", string.Empty);
+            AssertCount(2, readResponse);
         }
 
         [Fact]
@@ -105,10 +104,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await _client.DeleteAsync(newCreatedResource);
             await _client.DeleteAsync(newCreatedResource);
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"Observation/{newCreatedResource.Id}/_history");
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"Observation/{newCreatedResource.Id}/_history", string.Empty);
 
-            AssertCount(3, readResponse.Resource.Entry);
-            foreach (var ent in readResponse.Resource.Entry)
+            AssertCount(3, readResponse);
+            foreach (var ent in readResponse)
             {
                 if (ent.Request.Method == Bundle.HTTPVerb.POST)
                 {
@@ -429,7 +428,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 searchString = response.Resource.NextLink?.ToString();
             }
 
-            return readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
+            if (!string.IsNullOrEmpty(tag))
+            {
+                return readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
+            }
+
+            return readResponse;
         }
 
         private async Task<T> CreateResourceWithTag<T>(T resource, string tag)
