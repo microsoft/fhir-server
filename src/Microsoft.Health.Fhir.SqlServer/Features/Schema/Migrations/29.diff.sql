@@ -13,21 +13,19 @@ ADD
     RestartInfo varchar(max) NULL,
     CONSTRAINT DF_TaskInfo_CreateDate DEFAULT SYSUTCDATETIME() FOR CreateDateTime
 END
-
 GO
 
 /*************************************************************
     QueueId and status combined Index 
 **************************************************************/
-IF NOT EXISTS (SELECT 'X' FROM SYS.INDEXES WHERE name = 'IX_Status_QueueId' AND OBJECT_ID = OBJECT_ID('TaskInfo'))
+IF NOT EXISTS (SELECT 'X' FROM SYS.INDEXES WHERE name = 'IX_QueueId_Status' AND OBJECT_ID = OBJECT_ID('TaskInfo'))
 BEGIN
-CREATE NONCLUSTERED INDEX IX_Status_QueueId ON dbo.TaskInfo
+CREATE NONCLUSTERED INDEX IX_QueueId_Status ON dbo.TaskInfo
 (
     QueueId,
     Status
 )
 END
-
 GO
 
 /*************************************************************
@@ -47,7 +45,7 @@ GO
 --         * Timeout threshold in seconds for heart keep alive
 
 GO
-CREATE OR ALTER PROCEDURE [dbo].[GetNextTask_3]
+CREATE OR ALTER PROCEDURE dbo.GetNextTask_3
 @queueId VARCHAR (64), @taskHeartbeatTimeoutThresholdInSeconds INT=600
 AS
 
@@ -55,8 +53,8 @@ SET NOCOUNT ON;
 DECLARE @lock VARCHAR(200) = 'GetNextTask_Q='+@queueId
         ,@taskId VARCHAR (64) = NULL
         ,@expirationDateTime AS DATETIME2 (7)
-        ,@heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-SELECT @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME());
+        ,@startDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+SET @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, @startDateTime);
  
 BEGIN TRY
     BEGIN TRANSACTION
@@ -66,15 +64,15 @@ BEGIN TRY
 -- try new tasks first
     UPDATE T
       SET Status = 2 -- running
-         ,StartDateTime = SYSUTCDATETIME()
-         ,HeartbeatDateTime = SYSUTCDATETIME()
+         ,StartDateTime = @startDateTime
+         ,HeartbeatDateTime = @startDateTime
          ,Worker = host_name()
          ,RunId = CAST (NEWID() AS NVARCHAR (50)) 
          ,@taskId = T.TaskId
       FROM dbo.TaskInfo T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
                         TaskId
-                   FROM dbo.TaskInfo WITH (INDEX = IX_Status_QueueId)
+                   FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
                    WHERE QueueId = @queueId
                      AND Status = 1 -- Created
                    ORDER BY 
@@ -85,16 +83,16 @@ BEGIN TRY
   IF @taskId IS NULL
   -- old ones now
     UPDATE T
-      SET StartDateTime = SYSUTCDATETIME()
-        ,HeartbeatDateTime = SYSUTCDATETIME()
-        ,Worker = HOST_NAME()
+      SET StartDateTime = @startDateTime
+        ,HeartbeatDateTime = @startDateTime
+        ,Worker = host_name()
         ,RunId = CAST (NEWID() AS NVARCHAR (50))
         ,@taskId = T.TaskId
-        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,SYSUTCDATETIME(),121) 
+        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121)
       FROM dbo.TaskInfo T WITH (PAGLOCK)
           JOIN (SELECT TOP 1 
                         TaskId
-                  FROM dbo.TaskInfo WITH (INDEX = IX_Status_QueueId)
+                  FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
                   WHERE QueueId = @queueId
                     AND Status = 2 -- running
                     AND HeartbeatDateTime <= @expirationDateTime
@@ -111,6 +109,7 @@ BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
   THROW
 END CATCH
+Go
 
 /*************************************************************
     Stored procedures for reset task
@@ -132,7 +131,7 @@ END CATCH
 --
 
 GO
-CREATE OR ALTER PROCEDURE [dbo].[ResetTask_2]
+CREATE OR ALTER PROCEDURE dbo.ResetTask_2
 @taskId VARCHAR (64), @runId VARCHAR (50), @result VARCHAR (MAX)
 AS
 SET NOCOUNT ON;
@@ -173,9 +172,7 @@ ELSE
 COMMIT TRANSACTION;
 
 EXECUTE dbo.GetTaskDetails @TaskId = @taskId
-
 GO
-
 
 /*************************************************************
     Stored procedures for complete task with result
@@ -197,7 +194,7 @@ GO
 --
 
 GO
-CREATE PROCEDURE [dbo].[CompleteTask]
+CREATE OR ALTER PROCEDURE dbo.CompleteTask
 @taskId VARCHAR (64), @taskResult VARCHAR (MAX), @runId VARCHAR (50)
 AS
 SET NOCOUNT ON;
@@ -213,7 +210,6 @@ IF NOT EXISTS (SELECT *
 DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 UPDATE dbo.TaskInfo
 SET    Status            = 3,
-       HeartbeatDateTime = @heartbeatDateTime,
        EndDateTime       = @heartbeatDateTime,
        Result            = @taskResult
 WHERE  TaskId = @taskId;
@@ -232,5 +228,4 @@ SELECT TaskId,
 FROM   [dbo].[TaskInfo]
 WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
-
 GO

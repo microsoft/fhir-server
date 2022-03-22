@@ -610,12 +610,12 @@ CREATE TABLE [dbo].[TaskInfo] (
     [CreateDateTime]    DATETIME2 (7) NOT NULL CONSTRAINT DF_TaskInfo_CreateDate DEFAULT SYSUTCDATETIME(),
     [StartDateTime]     DATETIME2 (7) NULL,
     [EndDateTime]       DATETIME2 (7) NULL,
-    [Worker]            varchar(100) NULL,
-    [RestartInfo]       varchar(max) NULL,
+    [Worker]            varchar(100)  NULL,
+    [RestartInfo]       varchar(MAX)  NULL,
     CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
 
-CREATE NONCLUSTERED INDEX IX_Status_QueueId ON dbo.TaskInfo
+CREATE NONCLUSTERED INDEX IX_QueueId_Status ON dbo.TaskInfo
 (
     QueueId,
     Status
@@ -1448,7 +1448,6 @@ IF NOT EXISTS (SELECT *
 DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 UPDATE dbo.TaskInfo
 SET    Status            = 3,
-       HeartbeatDateTime = @heartbeatDateTime,
        EndDateTime       = @heartbeatDateTime,
        Result            = @taskResult
 WHERE  TaskId = @taskId;
@@ -1679,7 +1678,7 @@ FROM   dbo.ExportJob
 WHERE  Id = @id;
 
 GO
-CREATE PROCEDURE [dbo].[GetNextTask_3]
+CREATE PROCEDURE dbo.GetNextTask_3
 @queueId VARCHAR (64), @taskHeartbeatTimeoutThresholdInSeconds INT=600
 AS
 
@@ -1687,8 +1686,8 @@ SET NOCOUNT ON;
 DECLARE @lock VARCHAR(200) = 'GetNextTask_Q='+@queueId
         ,@taskId VARCHAR (64) = NULL
         ,@expirationDateTime AS DATETIME2 (7)
-        ,@heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-SELECT @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME());
+        ,@startDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+SET @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, @startDateTime);
  
 BEGIN TRY
     BEGIN TRANSACTION
@@ -1698,15 +1697,15 @@ BEGIN TRY
 -- try new tasks first
     UPDATE T
       SET Status = 2 -- running
-         ,StartDateTime = SYSUTCDATETIME()
-         ,HeartbeatDateTime = SYSUTCDATETIME()
+         ,StartDateTime = @startDateTime
+         ,HeartbeatDateTime = @startDateTime
          ,Worker = host_name()
          ,RunId = CAST (NEWID() AS NVARCHAR (50))
          ,@taskId = T.TaskId
       FROM dbo.TaskInfo T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
                         TaskId
-                   FROM dbo.TaskInfo WITH (INDEX = IX_Status_QueueId)
+                   FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
                    WHERE QueueId = @queueId
                      AND Status = 1 -- Created
                    ORDER BY 
@@ -1717,16 +1716,16 @@ BEGIN TRY
   IF @taskId IS NULL
   -- old ones now
     UPDATE T
-      SET StartDateTime = SYSUTCDATETIME()
-        ,HeartbeatDateTime = SYSUTCDATETIME()
-        ,Worker = HOST_NAME()
-        ,RunId = CAST (NEWID() AS NVARCHAR (50)) 
+      SET StartDateTime = @startDateTime
+        ,HeartbeatDateTime = @startDateTime
+        ,Worker = host_name()
+        ,RunId = CAST (NEWID() AS NVARCHAR (50))
         ,@taskId = T.TaskId
-        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,SYSUTCDATETIME(),121) 
+        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121)
       FROM dbo.TaskInfo T WITH (PAGLOCK)
           JOIN (SELECT TOP 1 
                         TaskId
-                  FROM dbo.TaskInfo WITH (INDEX = IX_Status_QueueId)
+                  FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
                   WHERE QueueId = @queueId
                     AND Status = 2 -- running
                     AND HeartbeatDateTime <= @expirationDateTime

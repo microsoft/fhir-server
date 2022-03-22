@@ -16,7 +16,7 @@
 --     @runId
 --         * Current runId for this exuction of the task
 --
-CREATE PROCEDURE [dbo].[CompleteTask]
+CREATE PROCEDURE dbo.CompleteTask
     @taskId varchar(64),
     @taskResult varchar(max),
     @runId varchar(50)
@@ -38,7 +38,6 @@ IF NOT EXISTS (SELECT *
 DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 UPDATE dbo.TaskInfo
 SET    Status            = 3,
-       HeartbeatDateTime = @heartbeatDateTime,
        EndDateTime       = @heartbeatDateTime,
        Result            = @taskResult
 WHERE  TaskId = @taskId;

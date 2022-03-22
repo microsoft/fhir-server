@@ -17,7 +17,7 @@
 --     @result
 --         * The result of the task
 --
-CREATE PROCEDURE [dbo].[ResetTask_2]
+CREATE PROCEDURE dbo.ResetTask_2
 @taskId VARCHAR (64), @runId VARCHAR (50), @result VARCHAR (MAX)
 AS
 SET NOCOUNT ON;

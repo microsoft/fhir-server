@@ -1,4 +1,4 @@
-﻿/*************************************************************
+/*************************************************************
     Stored procedures for get next available task
 **************************************************************/
 --
@@ -14,7 +14,8 @@
 --     @taskHeartbeatTimeoutThresholdInSeconds
 --         * Timeout threshold in seconds for heart keep alive
 --
-CREATE PROCEDURE [dbo].[GetNextTask_3]
+GO
+CREATE PROCEDURE dbo.GetNextTask_3
 @queueId VARCHAR (64), @taskHeartbeatTimeoutThresholdInSeconds INT=600
 AS
 
@@ -22,8 +23,8 @@ SET NOCOUNT ON;
 DECLARE @lock VARCHAR(200) = 'GetNextTask_Q='+@queueId
         ,@taskId VARCHAR (64) = NULL
         ,@expirationDateTime AS DATETIME2 (7)
-        ,@heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-SELECT @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME());
+        ,@startDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+SET @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, @startDateTime);
  
 BEGIN TRY
     BEGIN TRANSACTION
@@ -33,15 +34,15 @@ BEGIN TRY
 -- try new tasks first
     UPDATE T
       SET Status = 2 -- running
-         ,StartDateTime = SYSUTCDATETIME()
-         ,HeartbeatDateTime = SYSUTCDATETIME()
+         ,StartDateTime = @startDateTime
+         ,HeartbeatDateTime = @startDateTime
          ,Worker = host_name()
          ,RunId = CAST (NEWID() AS NVARCHAR (50)) 
          ,@taskId = T.TaskId
       FROM dbo.TaskInfo T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
                         TaskId
-                   FROM dbo.TaskInfo WITH (INDEX = IX_Status_QueueId)
+                   FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
                    WHERE QueueId = @queueId
                      AND Status = 1 -- Created
                    ORDER BY 
@@ -52,16 +53,16 @@ BEGIN TRY
   IF @taskId IS NULL
   -- old ones now
     UPDATE T
-      SET StartDateTime = SYSUTCDATETIME()
-        ,HeartbeatDateTime = SYSUTCDATETIME()
-        ,Worker = HOST_NAME()
+      SET StartDateTime = @startDateTime
+        ,HeartbeatDateTime = @startDateTime
+        ,Worker = host_name()
         ,RunId = CAST (NEWID() AS NVARCHAR (50))
         ,@taskId = T.TaskId
-        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,SYSUTCDATETIME(),121) 
+        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121) 
       FROM dbo.TaskInfo T WITH (PAGLOCK)
           JOIN (SELECT TOP 1 
                         TaskId
-                  FROM dbo.TaskInfo WITH (INDEX = IX_Status_QueueId)
+                  FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
                   WHERE QueueId = @queueId
                     AND Status = 2 -- running
                     AND HeartbeatDateTime <= @expirationDateTime
