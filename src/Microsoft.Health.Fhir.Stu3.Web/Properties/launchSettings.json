@@ -21,7 +21,7 @@
         "SqlServer": {
             "commandName": "Project",
             "environmentVariables": {
-                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3_5;Integrated Security=true;TrustServerCertificate=true",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3;Integrated Security=true;TrustServerCertificate=true",
                 "SqlServer:Initialize": "true",
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",

@@ -268,12 +268,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private static void UpdateObservation(Observation observationResource)
         {
-            observationResource.Text = new Narrative
-            {
-                Status = Narrative.NarrativeStatus.Generated,
-                Div = $"<div>{ContentUpdated}</div>",
-            };
-            };
+                observationResource.Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div>{ContentUpdated}</div>",
+                };
+            }
         }
     }
-}

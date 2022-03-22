@@ -1,4 +1,5 @@
-﻿/*************************************************************
+﻿
+/*************************************************************
     Stored procedures for creating and deleting
 **************************************************************/
 
@@ -67,8 +68,10 @@
 --         * Extracted token$number$number search params
 --     @isResourceChangeCaptureEnabled
 --         * Whether capturing resource change data
---     @newRawResourceData
---         * Raw data of a new resource
+--     @comparedVersion
+--         *  If specified, the version of the resource that was compared in the code
+--     @isResourceChange
+--         * Whether the new resource content matches with existing resource conetent compared in code
 --
 -- RETURN VALUE
 --     The version of the resource as a result set. Will be empty if no insertion was done.
@@ -102,7 +105,8 @@ CREATE PROCEDURE dbo.UpsertResource_7
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
     @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
     @isResourceChangeCaptureEnabled bit = 0,
-    @newRawResourceData VARCHAR(MAX) = NULl
+    @comparedVersion int = NULL,
+    @isResourceChange bit
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -112,112 +116,47 @@ BEGIN TRANSACTION;
 DECLARE @previousResourceSurrogateId AS BIGINT;
 DECLARE @previousVersion AS BIGINT;
 DECLARE @previousIsDeleted AS BIT;
-DECLARE @existingRawResource AS VARBINARY(MAX);
 
 -- This should place a range lock on a row in the IX_Resource_ResourceTypeId_ResourceId nonclustered filtered index
 SELECT @previousResourceSurrogateId = ResourceSurrogateId,
        @previousVersion = Version,
-       @previousIsDeleted = IsDeleted,
-       @existingRawResource = RawResource
+       @previousIsDeleted = IsDeleted
 FROM   dbo.Resource WITH (UPDLOCK, HOLDLOCK)
 WHERE  ResourceTypeId = @resourceTypeId
        AND ResourceId = @resourceId
        AND IsHistory = 0;
-IF (@etag IS NOT NULL
-    AND @etag <> @previousVersion)
-    BEGIN
-        THROW 50412, 'Precondition failed', 1;
-    END
+
 DECLARE @version AS INT; -- the version of the resource being written
 IF (@previousResourceSurrogateId IS NULL)
     BEGIN
-        
-		-- There is no previous version of this resource
-		IF (@isDeleted = 1)
-            BEGIN
-                -- Don't bother marking the resource as deleted since it already does not exist.
-				COMMIT TRANSACTION;
-                RETURN;
-            END
-        IF (@etag IS NOT NULL)
-            BEGIN
-                -- You can't update a resource with a specified version if the resource does not exist
-				THROW 50404, 'Resource with specified version not found', 1;
-            END
-        IF (@allowCreate = 0)
-            BEGIN
-                THROW 50405, 'Resource does not exist and create is not allowed', 1;
-            END
+        -- There is no previous version
         SET @version = 1;
     END
 ELSE
     BEGIN
         -- There is a previous version
-        IF (@requireETagOnUpdate = 1
-            AND @etag IS NULL)
+        IF (@isDeleted = 0) -- When not a delete
             BEGIN
-                -- This is a versioned update and no version was specified
-                THROW 50400, 'Bad request', 1;
+                -- Check if @comparedVersion matches the @previousVersion in the DB
+                IF (@comparedVersion = @previousVersion)
+                    BEGIN
+                        -- If match means the version we compared in code is still the latest version
+                        -- If @isResourceChange = true, create new version
+                        IF (@isResourceChange = 0)
+                            BEGIN
+                                -- If @isResourceChange = false, resource content matches so safely return from SP
+                                COMMIT TRANSACTION;
+                                SELECT -1;
+                                RETURN;
+                            END
+                    END
+                ELSE
+                    BEGIN
+                        -- If not match means the version we compared in the code is not the latest version anymore
+                        -- Go back to code and compare the latest
+                        THROW 50409, 'Resource has been recently updated, please compare the resource content in code for any duplicate updates', 1;
+                    END
             END
-
-        IF (@isDeleted = 1
-            AND @previousIsDeleted = 1)
-            BEGIN
-                -- Already deleted - don't create a new version
-				COMMIT TRANSACTION;
-                RETURN;
-            END
-       
-        IF @isDeleted = 0
-        BEGIN
-            -- Check if the existing resource content is same as a new resource content
-	        DECLARE @versionId AS VARCHAR (100);
-            DECLARE @lastUpdated AS VARCHAR (100);
-            DECLARE @existingRawResourceData AS VARCHAR (MAX);
-
-            -- Decompress existing raw resource content and strip out meta.verisonId and meta.lastUpdated
-	        SET @existingRawResourceData = REPLACE(CAST(DECOMPRESS(@existingRawResource) AS VARCHAR(MAX)),'ï»¿', ''); 
-	        SELECT @versionId = [value]
-            FROM   OPENJSON (@existingRawResourceData, '$.meta')
-            WHERE  [key] = 'versionId';
-            SELECT @lastUpdated = [value]
-            FROM   OPENJSON (@existingRawResourceData, '$.meta')
-            WHERE  [key] = 'lastUpdated';
-
-	        IF @versionId IS NOT NULL
-	        BEGIN
-		        SET @existingRawResourceData = REPLACE(@existingRawResourceData, '"versionId":"'+ @versionId + '"', '');
-	        END
-	        IF @lastUpdated IS NOT NULL
-	        BEGIN
-		        SET @existingRawResourceData = REPLACE(@existingRawResourceData, '"lastUpdated":"'+ @lastUpdated + '"', '');
-	        END
-
-            -- Strip out meta.verisonId and meta.lastUpdated from new raw resource content 
-            SELECT @versionId = [value]
-            FROM   OPENJSON (@newRawResourceData, '$.meta')
-            WHERE  [key] = 'versionId';
-            SELECT @lastUpdated = [value]
-            FROM   OPENJSON (@newRawResourceData, '$.meta')
-            WHERE  [key] = 'lastUpdated';
-
-	        IF @versionId IS NOT NULL
-	        BEGIN
-		        SET @newRawResourceData = REPLACE(@newRawResourceData, '"versionId":"'+ @versionId + '"', '');
-	        END
-	        IF @lastUpdated IS NOT NULL
-	        BEGIN
-		        SET @newRawResourceData = REPLACE(@newRawResourceData, '"lastUpdated":"'+ @lastUpdated + '"', '');
-	        END
-
-	        IF @existingRawResourceData = @newRawResourceData
-            BEGIN
-                -- Resource content is same - don't create a new version
-			    COMMIT TRANSACTION;
-                SELECT CAST(@previousVersion * -1  AS INT);
-                RETURN;
-            END
-        END
 
         SET @version = @previousVersion + 1;
         IF (@keepHistory = 1)
@@ -348,6 +287,7 @@ ELSE
                        AND ResourceSurrogateId = @previousResourceSurrogateId;
             END
     END
+
 DECLARE @resourceSurrogateId AS BIGINT = @baseResourceSurrogateId + ( NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence);
 DECLARE @isRawResourceMetaSet AS BIT;
 IF (@version = 1)

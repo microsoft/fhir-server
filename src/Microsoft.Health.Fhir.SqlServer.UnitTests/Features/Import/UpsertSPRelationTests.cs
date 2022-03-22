@@ -50,7 +50,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 "tokenStringCompositeSearchParams",
                 "tokenNumberNumberCompositeSearchParams",
                 "isResourceChangeCaptureEnabled",
-                "newRawResourceData",
+                "comparedRawResource",
+                "isResourceChange",
             };
             MethodInfo methodInfo = typeof(VLatest.UpsertResourceProcedure).GetMethods().Where(m => m.Name.Equals("PopulateCommand")).OrderBy(m => -m.GetParameters().Count()).First();
             string[] upsertStoredProcedureParameters = methodInfo.GetParameters().Select(p => p.Name).ToArray();

@@ -2359,7 +2359,7 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpsertResource_7
-@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0, @newRawResourceData VARCHAR (MAX)=NULL
+@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0, @comparedVersion INT=NULL, @isResourceChange BIT
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -2367,90 +2367,34 @@ BEGIN TRANSACTION;
 DECLARE @previousResourceSurrogateId AS BIGINT;
 DECLARE @previousVersion AS BIGINT;
 DECLARE @previousIsDeleted AS BIT;
-DECLARE @existingRawResource AS VARBINARY (MAX);
 SELECT @previousResourceSurrogateId = ResourceSurrogateId,
        @previousVersion = Version,
-       @previousIsDeleted = IsDeleted,
-       @existingRawResource = RawResource
+       @previousIsDeleted = IsDeleted
 FROM   dbo.Resource WITH (UPDLOCK, HOLDLOCK)
 WHERE  ResourceTypeId = @resourceTypeId
        AND ResourceId = @resourceId
        AND IsHistory = 0;
-IF (@etag IS NOT NULL
-    AND @etag <> @previousVersion)
-    BEGIN
-        THROW 50412, 'Precondition failed', 1;
-    END
 DECLARE @version AS INT;
 IF (@previousResourceSurrogateId IS NULL)
     BEGIN
-        IF (@isDeleted = 1)
-            BEGIN
-                COMMIT TRANSACTION;
-                RETURN;
-            END
-        IF (@etag IS NOT NULL)
-            BEGIN
-                THROW 50404, 'Resource with specified version not found', 1;
-            END
-        IF (@allowCreate = 0)
-            BEGIN
-                THROW 50405, 'Resource does not exist and create is not allowed', 1;
-            END
         SET @version = 1;
     END
 ELSE
     BEGIN
-        IF (@requireETagOnUpdate = 1
-            AND @etag IS NULL)
+        IF (@isDeleted = 0)
             BEGIN
-                THROW 50400, 'Bad request', 1;
-            END
-        IF (@isDeleted = 1
-            AND @previousIsDeleted = 1)
-            BEGIN
-                COMMIT TRANSACTION;
-                RETURN;
-            END
-        IF @isDeleted = 0
-            BEGIN
-                DECLARE @versionId AS VARCHAR (100);
-                DECLARE @lastUpdated AS VARCHAR (100);
-                DECLARE @existingRawResourceData AS VARCHAR (MAX);
-                SET @existingRawResourceData = REPLACE(CAST (DECOMPRESS(@existingRawResource) AS VARCHAR (MAX)), 'ï»¿', '');
-                SELECT @versionId = [value]
-                FROM   OPENJSON (@existingRawResourceData, '$.meta')
-                WHERE  [key] = 'versionId';
-                SELECT @lastUpdated = [value]
-                FROM   OPENJSON (@existingRawResourceData, '$.meta')
-                WHERE  [key] = 'lastUpdated';
-                IF @versionId IS NOT NULL
+                IF (@comparedVersion = @previousVersion)
                     BEGIN
-                        SET @existingRawResourceData = REPLACE(@existingRawResourceData, '"versionId":"' + @versionId + '"', '');
+                        IF (@isResourceChange = 0)
+                            BEGIN
+                                COMMIT TRANSACTION;
+                                SELECT -1;
+                                RETURN;
+                            END
                     END
-                IF @lastUpdated IS NOT NULL
+                ELSE
                     BEGIN
-                        SET @existingRawResourceData = REPLACE(@existingRawResourceData, '"lastUpdated":"' + @lastUpdated + '"', '');
-                    END
-                SELECT @versionId = [value]
-                FROM   OPENJSON (@newRawResourceData, '$.meta')
-                WHERE  [key] = 'versionId';
-                SELECT @lastUpdated = [value]
-                FROM   OPENJSON (@newRawResourceData, '$.meta')
-                WHERE  [key] = 'lastUpdated';
-                IF @versionId IS NOT NULL
-                    BEGIN
-                        SET @newRawResourceData = REPLACE(@newRawResourceData, '"versionId":"' + @versionId + '"', '');
-                    END
-                IF @lastUpdated IS NOT NULL
-                    BEGIN
-                        SET @newRawResourceData = REPLACE(@newRawResourceData, '"lastUpdated":"' + @lastUpdated + '"', '');
-                    END
-                IF @existingRawResourceData = @newRawResourceData
-                    BEGIN
-                        COMMIT TRANSACTION;
-                        SELECT CAST (@previousVersion * -1 AS INT);
-                        RETURN;
+                        THROW 50409, 'Resource has been recently updated, please compare the resource content in code for any duplicate updates', 1;
                     END
             END
         SET @version = @previousVersion + 1;

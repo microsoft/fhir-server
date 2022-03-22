@@ -749,10 +749,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Assert.Equal(createResult.Wrapper.ResourceId, upsertResult.Wrapper.ResourceId);
             Assert.Equal(createResult.Wrapper.Version, upsertResult.Wrapper.Version);
-            Assert.Equal(createResource.LastUpdated, updatedeResource.LastUpdated);
-            Assert.Equal(createResult.Wrapper.LastModified, upsertResult.Wrapper.LastModified);
-        }
 
+            // With current "o" format for date we only store upto 3 digits for millisconds
+            // CreateResult.LastUpdated has date as 2008-10-31T17:04:32:3210000
+            // upsertResult.lastUpdated will return what is stored in DB 2008-10-31T17:04:32:321 mismatching the milliseconds value
+            // Hence comparing milliseconds separately. s Format Specifier 2008-10-31T17:04:32
+            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updatedeResource.LastUpdated.Value.ToString("s"));
+            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updatedeResource.LastUpdated.Value.Millisecond);
+            Assert.Equal(createResult.Wrapper.LastModified.ToString("s"), createResult.Wrapper.LastModified.ToString("s"));
+            Assert.Equal(createResult.Wrapper.LastModified.Millisecond, createResult.Wrapper.LastModified.Millisecond);
+        }
 
         [Fact]
         public async Task GivenUpdatedResources_WhenBulkUpdatingSearchParameterIndicesAsync_ThenResourceMetadataIsUnchanged()
@@ -1020,7 +1026,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             observationResource.VersionId = "1";
 
             var resourceElement = observationResource.ToResourceElement();
-            var rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            var rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = _searchIndexer.Extract(resourceElement);
@@ -1033,7 +1039,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private ResourceWrapper UpdatePatientResourceWrapper(Patient patientResource)
         {
             var resourceElement = patientResource.ToResourceElement();
-            var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = _searchIndexer.Extract(resourceElement);
