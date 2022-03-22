@@ -9,7 +9,6 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -18,7 +17,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -123,6 +121,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
                 using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
@@ -192,9 +192,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        resource.Version = int.TryParse(existingResource.Version, out int currentVersion) ? (currentVersion + 1).ToString(CultureInfo.InvariantCulture) : null;
-                        existingVersion = currentVersion;
-
                         // check if reosurces are equal if its not a Delete action
                         if (!resource.IsDeleted)
                         {
@@ -204,6 +201,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 isResourceChange = false;
                             }
                         }
+
+                        // existing version in the SQL db should never be null
+                        existingVersion = int.Parse(existingResource.Version);
+                        resource.Version = (existingVersion + 1).Value.ToString(CultureInfo.InvariantCulture);
                     }
 
                     _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
