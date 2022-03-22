@@ -44,16 +44,18 @@ Ensure the following settings are set correctly in your FHIR server:
 - **FhirServer__Operations__Import__Enabled**: True
 - **TaskHosting__Enabled**: True
 - **FhirServer__Operations__Import__MaxRunningProcessingTaskCount**: Not set as default or have value >0. We suggest it has a value >= instance count for performance.
-- **FhirServer__Operations__IntegrationDataStore__StorageAccountUri**: The URL of the Azure Storage Account used as adata source. For example: https://<accountName>.blob.core.windows.net/.<br>
+- **FhirServer__Operations__IntegrationDataStore__StorageAccountUri**: The URL of the Azure Storage Account used as adata source. For example: https://{accountName}.blob.core.windows.net/.<br>
                         **OR**
 - **FhirServer__Operations__IntegrationDataStore__StorageAccountConnection**: The connection string of the Azure Storage Account that's used as a data source.
-- 
+    
 ---
 **NOTE**
 
 There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection` setting. The FHIR server will use the connection string to connect to the storage account and import data.
 
 The other option would be to use the `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` setting with the URI of the storage account. For this option, we assume that the FHIR server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the FHIR server code in the App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
+
+With either option, you will specify the input ndjson files. These files can be stored in the same or different containers within the storage account.
 
 ---
 
@@ -128,7 +130,7 @@ Content-Type:application/fhir+json
                 },
                 {
                     "name": "etag",
-                    "valueUri": "0x8D92A7342657F4F"
+                    "valueUri": "\"0x8D92A7342657F4F\""
                 }
             ]
         },
@@ -151,7 +153,9 @@ Content-Type:application/fhir+json
 
 ### Check import status
 
-Make the REST call with the ```GET``` method to the **callback** link returned in the previous step. You can interpret the response using the following table:
+Make the REST call with the ```GET``` method to the link you can find in the **Content-Location** of the response in the previous step. For OSS deployment, you can look up the info in the TaskInfo table. 
+
+You can interpret the response using the following table:
 
 | Response code      | Reponse body |Description |
 | ----------- | -----------  |-----------  |
@@ -200,7 +204,7 @@ Below are some of the important fields in the response body:
 ## Troubleshooting
 
 Below are some errors you may encounter:
-
+   
 ### 200 OK, but error URL in response
 
 **Behavior:** Import operation succeeds and returns ```200 OK```. However, `error.url` are present in the response body. Files present at the `error.url` location contains JSON fragments like in the example below:
@@ -266,6 +270,27 @@ Below are some errors you may encounter:
 
 **Solution:** Assign _Storage Blob Data Contributor_ role to the FHIR server following [the RBAC guide.](https://docs.microsoft.com/en-us/azure/role-based-access-control/role-assignments-portal?tabs=current)
 
+### 404 The requested route was not found
+
+**Behavior:** Import operation fails and returns `404` error. 
+    
+```json
+{
+  "resourceType": "OperationOutcome",
+  "id": "e2e8aff8-418f-4d23-b809-845176e66fb2",
+  "issue": [
+    {
+      "severity": "error",
+      "code": "not-found",
+      "diagnostics": "The requested route was not found."
+    }
+  ]
+}
+```
+**Cause:** Get method is used. 
+    
+**Solution:**: Replace Get methond with Post method.
+    
 ### 500 Internal Server Error
 
 **Behavior:** Import operation failed and ```500 Internal Server Error``` is returned. Response body has this content:
