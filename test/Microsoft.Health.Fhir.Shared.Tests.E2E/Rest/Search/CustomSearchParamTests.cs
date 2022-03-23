@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(10000);
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
                 while (!success && retryCount < 10);
@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(10000);
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
 
                     // now searching for patient with same search parameter should not work
@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact(Skip = "Re-enable this test when https://microsofthealth.visualstudio.com/Health/_boards/board/t/Olympus/Stories/?workitem=83531 is fixed")]
+        [SkippableFact]
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToSameListOfResourceTypes_ThenSearchParametersMarkedFullyIndexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -440,7 +440,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(10000);
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
                 while (!success && retryCount < 3);

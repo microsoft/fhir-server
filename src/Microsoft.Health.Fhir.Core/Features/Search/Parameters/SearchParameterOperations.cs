@@ -65,6 +65,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // verify the parameter is supported before continuing
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+
+                if (searchParameterInfo.Component?.Any() == true)
+                {
+                    foreach (SearchParameterComponentInfo c in searchParameterInfo.Component)
+                    {
+                        c.ResolvedSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl.OriginalString);
+                    }
+                }
+
                 (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                 if (!supportedResult.Supported)
@@ -237,7 +246,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
                 {
-                    // if the search parameter exists we should delete the old information currently stored
+                    // if the previous version of the search parameter exists we should delete the old information currently stored
                     DeleteSearchParameter(searchParam.Uri.OriginalString);
                 }
 

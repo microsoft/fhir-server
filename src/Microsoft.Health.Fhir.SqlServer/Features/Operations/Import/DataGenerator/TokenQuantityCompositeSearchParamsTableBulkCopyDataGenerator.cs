@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _searchParamGenerator = searchParamGenerator;
         }
 
+        internal static BulkTokenQuantityCompositeSearchParamTableTypeV1RowComparer Comparer { get; } = new BulkTokenQuantityCompositeSearchParamTableTypeV1RowComparer();
+
         internal override string TableName
         {
             get
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             IEnumerable<BulkTokenQuantityCompositeSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkTokenQuantityCompositeSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkTokenQuantityCompositeSearchParamTableTypeV1Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
@@ -76,6 +80,74 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+        }
+
+        internal static IEnumerable<BulkTokenQuantityCompositeSearchParamTableTypeV1Row> Distinct(IEnumerable<BulkTokenQuantityCompositeSearchParamTableTypeV1Row> input)
+        {
+            return input.Distinct(Comparer);
+        }
+
+        internal class BulkTokenQuantityCompositeSearchParamTableTypeV1RowComparer : IEqualityComparer<BulkTokenQuantityCompositeSearchParamTableTypeV1Row>
+        {
+            public bool Equals(BulkTokenQuantityCompositeSearchParamTableTypeV1Row x, BulkTokenQuantityCompositeSearchParamTableTypeV1Row y)
+            {
+                if (x.SearchParamId != y.SearchParamId)
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.Code1, y.Code1, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<int?>.Default.Equals(x.SystemId1, y.SystemId1))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<int?>.Default.Equals(x.SystemId2, y.SystemId2))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<int?>.Default.Equals(x.QuantityCodeId2, y.QuantityCodeId2))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.SingleValue2, y.SingleValue2))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.LowValue2, y.LowValue2))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.HighValue2, y.HighValue2))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public int GetHashCode(BulkTokenQuantityCompositeSearchParamTableTypeV1Row obj)
+            {
+                int hashCode = obj.SearchParamId.GetHashCode();
+
+                hashCode ^= obj.Code1?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.SystemId1?.GetHashCode() ?? 0;
+                hashCode ^= obj.SystemId2?.GetHashCode() ?? 0;
+                hashCode ^= obj.QuantityCodeId2?.GetHashCode() ?? 0;
+                hashCode ^= obj.SingleValue2?.GetHashCode() ?? 0;
+                hashCode ^= obj.LowValue2?.GetHashCode() ?? 0;
+                hashCode ^= obj.HighValue2?.GetHashCode() ?? 0;
+
+                return hashCode.GetHashCode();
+            }
         }
     }
 }

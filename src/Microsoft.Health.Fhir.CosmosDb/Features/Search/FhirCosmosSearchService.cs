@@ -539,7 +539,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency, // execute counts across all partitions
             };
 
-            return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
+            long count = (await _fhirDataStore.ExecuteDocumentQueryAsync<long>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
+            if (count > int.MaxValue)
+            {
+                _requestContextAccessor.RequestContext.BundleIssues.Add(
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Error,
+                        OperationOutcomeConstants.IssueType.NotSupported,
+                        string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
+                throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+            }
+
+            return (int)count;
         }
 
         private SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)
