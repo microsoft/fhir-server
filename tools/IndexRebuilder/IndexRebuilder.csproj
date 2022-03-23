@@ -18,6 +18,6 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <PostBuildEvent>copy "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
+    <PostBuildEvent>copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
   </PropertyGroup>
 </Project>
