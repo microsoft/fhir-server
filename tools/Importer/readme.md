@@ -2,7 +2,11 @@
 
 The Importer is a .net console application that loads data to the FHIR server at high speed. It improves the data loading speed significantly through batch multi-thread processing. The tool is very easy to use. Download the code, update the settings in the app.config file, compile and run.
 
-Note that you can use the built-in bulk import ($import) feature in the managed service of Azure Health Data Services. For more info on other data loading tools and options, check the [documentation](https://docs.microsoft.com/azure/healthcare-apis/fhir/bulk-importing-fhir-data).
+Note that the Importer targets Cosmos DB backend primarily and can accomplish high throughput rates as noted in the app.config file. You will not obtain such high throughput rates with SQL database mainly because resources in bundles are processed one by one, which is not optimized for SQL performance.
+
+For SQL database backend, you can use the [bulk import](../../docs/BulkImport.md) ($import) feature for initial data loading. 
+
+For more info on other data loading tools and options, check the [documentation](https://docs.microsoft.com/azure/healthcare-apis/fhir/bulk-importing-fhir-data).
 
 ## Features
 
