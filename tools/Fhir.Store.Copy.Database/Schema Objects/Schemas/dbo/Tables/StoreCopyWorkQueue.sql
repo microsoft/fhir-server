@@ -1,8 +1,13 @@
+CREATE PARTITION FUNCTION StoreCopyWorkQueuePartitionFunction (tinyint) AS RANGE RIGHT FOR VALUES (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)
+GO
+CREATE PARTITION SCHEME StoreCopyWorkQueuePartitionScheme AS PARTITION StoreCopyWorkQueuePartitionFunction ALL TO ([PRIMARY])
+GO
 --DROP TABLE dbo.StoreCopyWorkQueue
 GO
 CREATE TABLE dbo.StoreCopyWorkQueue
 (
-     UnitId          int           NOT NULL
+     PartitionId     AS convert(tinyint,UnitId % 16) PERSISTED
+    ,UnitId          int           NOT NULL
     ,ResourceTypeId  smallint      NOT NULL
     ,Thread          tinyint       NOT NULL CONSTRAINT DF_StoreCopyWorkQueue_Thread DEFAULT 0
     ,MinId           varchar(64)   NOT NULL
@@ -17,10 +22,12 @@ CREATE TABLE dbo.StoreCopyWorkQueue
     ,Result          xml           NULL
     ,Info            varchar(1000) NULL
 
-     CONSTRAINT PKC_StoreCopyWorkQueue_UnitId PRIMARY KEY CLUSTERED (UnitId)
+     CONSTRAINT PKC_StoreCopyWorkQueue_PartitionId_UnitId PRIMARY KEY CLUSTERED (PartitionId, UnitId) ON StoreCopyWorkQueuePartitionScheme(PartitionId)
 )
+GO
+ALTER TABLE dbo.StoreCopyWorkQueue ADD CONSTRAINT U_StoreCopyWorkQueue_UnitId UNIQUE (UnitId) ON [PRIMARY]
 GO
 --CREATE INDEX IX_Thread_Status ON StoreCopyWorkQueue (Thread, Status)
 GO
-CREATE INDEX IX_Status ON StoreCopyWorkQueue (Status)
+CREATE INDEX IX_Status_PartitionId ON StoreCopyWorkQueue (Status, PartitionId) ON StoreCopyWorkQueuePartitionScheme(PartitionId)
 GO

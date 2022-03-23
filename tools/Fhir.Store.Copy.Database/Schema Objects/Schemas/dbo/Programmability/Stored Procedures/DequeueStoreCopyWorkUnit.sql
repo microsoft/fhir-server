@@ -14,15 +14,19 @@ DECLARE @SP varchar(100) = 'DequeueStoreCopyWorkUnit'
        ,@ResourceTypeId smallint
        ,@msg varchar(100)
        ,@Stop bit = CASE WHEN EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'StoreCopy.Stop' AND Number = 1) THEN 1 ELSE 0 END
+       ,@PartitionId tinyint = 16 * rand()
+       ,@Lock varchar(100)
 
 BEGIN TRY
+  SET @Lock = 'DequeueStoreCopyWorkUnit_'+convert(varchar, @PartitionId)
+
   IF @Stop = 0
   BEGIN
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
 
     BEGIN TRANSACTION  
 
-    EXECUTE sp_getapplock 'DequeueStoreCopyWorkUnit', 'Exclusive'
+    EXECUTE sp_getapplock @Lock, 'Exclusive'
 
     UPDATE T
       SET StartDate = getUTCdate()
@@ -34,12 +38,13 @@ BEGIN TRY
       FROM dbo.StoreCopyWorkQueue T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
                         UnitId
-                   FROM dbo.StoreCopyWorkQueue WITH (INDEX = IX_Status)
-                   WHERE Status = 0
+                   FROM dbo.StoreCopyWorkQueue WITH (INDEX = IX_Status_PartitionId)
+                   WHERE PartitionId = @PartitionId
+                     AND Status = 0
                    ORDER BY 
                         UnitId
                 ) S
-             ON T.UnitId = S.UnitId
+             ON PartitionId = @PartitionId AND T.UnitId = S.UnitId
     SET @Rows = @@rowcount
 
     COMMIT TRANSACTION
@@ -54,7 +59,7 @@ BEGIN TRY
       FROM dbo.StoreCopyWorkQueue
       WHERE UnitId = @UnitId
   
-  SET @msg = 'U='+isnull(convert(varchar,@UnitId),'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' S='+convert(varchar,@Stop)
+  SET @msg = 'P='+convert(varchar,@PartitionId)+' U='+isnull(convert(varchar,@UnitId),'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' S='+convert(varchar,@Stop)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Text=@msg
 END TRY
