@@ -9,6 +9,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.SqlServer.Database;
 using Microsoft.Health.Fhir.Store.Utils;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly int UnitSize = int.Parse(ConfigurationManager.AppSettings["UnitSize"]);
         private static readonly bool SingleTransation = bool.Parse(ConfigurationManager.AppSettings["SingleTransaction"]);
         private static readonly bool SortBySurrogateId = bool.Parse(ConfigurationManager.AppSettings["SortBySurrogateId"]);
-        private static readonly int Retries = int.Parse(ConfigurationManager.AppSettings["Retries"]);
+        private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static bool stop = false;
         private static readonly SqlService Target = new SqlService(TargetConnectionString);
         private static readonly SqlService Source = new SqlService(SourceConnectionString);
@@ -80,6 +81,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 string minId = null;
                 var unitId = 0;
                 var retries = 0;
+                var maxRetries = MaxRetries;
             retry:
                 try
                 {
@@ -101,13 +103,24 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     Console.WriteLine($"Copy.{method}.{thread}.{resourceTypeId}.{minId}: error={e}");
                     Target.LogEvent($"Copy.{method}", "Error", $"{thread}.{resourceTypeId}.{minId}", text: e.ToString());
                     retries++;
-                    if (retries < Retries)
+                    var isRetryable = e.IsRetryable();
+                    if (isRetryable)
                     {
+                        maxRetries++;
+                    }
+
+                    if (retries < maxRetries)
+                    {
+                        Thread.Sleep(isRetryable ? 1000 : 200 * retries);
                         goto retry;
                     }
 
                     stop = true;
-                    Target.CompleteStoreCopyWorkUnit(resourceTypeId.Value, unitId, true);
+                    if (resourceTypeId.HasValue)
+                    {
+                        Target.CompleteStoreCopyWorkUnit(resourceTypeId.Value, unitId, true);
+                    }
+
                     throw;
                 }
 
@@ -141,7 +154,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     Console.WriteLine($"Copy.bcp.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
                     Target.LogEvent("BcpOut", "Error", mode, text: e.ToString());
                     retries++;
-                    if (retries < Retries)
+                    if (retries < MaxRetries)
                     {
                         goto retryBcp;
                     }
@@ -165,7 +178,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     Console.WriteLine($"Copy.bcp.{thread}.{resourceTypeId}.{minSurId}.{tbl}: error={e}");
                     Target.LogEvent("BcpIn", "Error", mode, text: e.ToString());
                     retries++;
-                    if (retries < Retries)
+                    if (retries < MaxRetries)
                     {
                         goto retryBcp;
                     }
