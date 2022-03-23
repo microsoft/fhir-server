@@ -17,6 +17,7 @@
 --     @result
 --         * The result of the task
 --
+GO
 CREATE PROCEDURE dbo.ResetTask_2
 @taskId VARCHAR (64), @runId VARCHAR (50), @result VARCHAR (MAX)
 AS

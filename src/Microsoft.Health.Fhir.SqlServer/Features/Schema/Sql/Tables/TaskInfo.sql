@@ -17,11 +17,12 @@ CREATE TABLE [dbo].[TaskInfo] (
     [CreateDateTime]    DATETIME2 (7) NOT NULL CONSTRAINT DF_TaskInfo_CreateDate DEFAULT SYSUTCDATETIME(),
     [StartDateTime]     DATETIME2 (7) NULL,
     [EndDateTime]       DATETIME2 (7) NULL,
-    [Worker]            varchar(100)  NULL,
-    [RestartInfo]       varchar(MAX)  NULL,
+    [Worker]            VARCHAR (100) NULL,
+    [RestartInfo]       VARCHAR (MAX) NULL,
     CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
 
+GO
 CREATE NONCLUSTERED INDEX IX_QueueId_Status ON dbo.TaskInfo
 (
     QueueId,

@@ -67,7 +67,7 @@ BEGIN TRY
          ,StartDateTime = @startDateTime
          ,HeartbeatDateTime = @startDateTime
          ,Worker = host_name()
-         ,RunId = CAST (NEWID() AS NVARCHAR (50)) 
+         ,RunId = NEWID()
          ,@taskId = T.TaskId
       FROM dbo.TaskInfo T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
@@ -86,7 +86,7 @@ BEGIN TRY
       SET StartDateTime = @startDateTime
         ,HeartbeatDateTime = @startDateTime
         ,Worker = host_name()
-        ,RunId = CAST (NEWID() AS NVARCHAR (50))
+        ,RunId = NEWID()
         ,@taskId = T.TaskId
         ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121)
       FROM dbo.TaskInfo T WITH (PAGLOCK)
@@ -207,25 +207,13 @@ IF NOT EXISTS (SELECT *
     BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 UPDATE dbo.TaskInfo
 SET    Status            = 3,
-       EndDateTime       = @heartbeatDateTime,
+       EndDateTime       = SYSUTCDATETIME(),
        Result            = @taskResult
 WHERE  TaskId = @taskId;
-SELECT TaskId,
-       QueueId,
-       Status,
-       TaskTypeId,
-       RunId,
-       IsCanceled,
-       RetryCount,
-       MaxRetryCount,
-       HeartbeatDateTime,
-       InputData,
-       TaskContext,
-       Result
-FROM   [dbo].[TaskInfo]
-WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
+
+EXECUTE dbo.GetTaskDetails @TaskId = @taskId
+
 GO
