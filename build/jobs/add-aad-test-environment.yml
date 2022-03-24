@@ -20,7 +20,7 @@ steps:
 
       # Get admin token
       $username = "$(tenant-admin-user-name)"
-      $password_raw = '$(tenant-admin-user-password)'
+      $password_raw = "$(tenant-admin-user-password)"
       $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
       $adminCredential = New-Object PSCredential $username,$password
 
