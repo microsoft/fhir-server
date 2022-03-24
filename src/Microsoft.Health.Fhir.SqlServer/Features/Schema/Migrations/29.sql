@@ -1685,7 +1685,7 @@ BEGIN TRY
          ,StartDateTime = @startDateTime
          ,HeartbeatDateTime = @startDateTime
          ,Worker = host_name()
-        ,RunId = NEWID()
+         ,RunId = NEWID()
          ,@taskId = T.TaskId
       FROM dbo.TaskInfo T WITH (PAGLOCK)
            JOIN (SELECT TOP 1
@@ -1706,7 +1706,7 @@ BEGIN TRY
         ,Worker = host_name()
         ,RunId = NEWID()
         ,@taskId = T.TaskId
-        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121) 
+        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121)
       FROM dbo.TaskInfo T WITH (PAGLOCK)
           JOIN (SELECT TOP 1
                         TaskId
@@ -1727,8 +1727,8 @@ BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
   THROW
 END CATCH
+Go
 
-GO
 CREATE PROCEDURE dbo.GetReindexJobById
 @id VARCHAR (64)
 AS

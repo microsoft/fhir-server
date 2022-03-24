@@ -15,7 +15,7 @@
 --         * Timeout threshold in seconds for heart keep alive
 --
 GO
-CREATE PROCEDURE dbo.GetNextTask_3
+CREATE OR ALTER PROCEDURE dbo.GetNextTask_3
 @queueId VARCHAR (64), @taskHeartbeatTimeoutThresholdInSeconds INT=600
 AS
 
@@ -25,7 +25,7 @@ DECLARE @lock VARCHAR(200) = 'GetNextTask_Q='+@queueId
         ,@expirationDateTime AS DATETIME2 (7)
         ,@startDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 SET @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, @startDateTime);
- 
+
 BEGIN TRY
     BEGIN TRANSACTION
 
@@ -37,18 +37,18 @@ BEGIN TRY
          ,StartDateTime = @startDateTime
          ,HeartbeatDateTime = @startDateTime
          ,Worker = host_name()
-        ,RunId = NEWID()
+         ,RunId = NEWID()
          ,@taskId = T.TaskId
       FROM dbo.TaskInfo T WITH (PAGLOCK)
-           JOIN (SELECT TOP 1 
+           JOIN (SELECT TOP 1
                         TaskId
                    FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
                    WHERE QueueId = @queueId
                      AND Status = 1 -- Created
-                   ORDER BY 
+                   ORDER BY
                         TaskId
                 ) S
-             ON T.QueueId = @queueId AND T.TaskId = S.TaskId 
+             ON T.QueueId = @queueId AND T.TaskId = S.TaskId
 
   IF @taskId IS NULL
   -- old ones now
@@ -58,18 +58,18 @@ BEGIN TRY
         ,Worker = host_name()
         ,RunId = NEWID()
         ,@taskId = T.TaskId
-        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121) 
+        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121)
       FROM dbo.TaskInfo T WITH (PAGLOCK)
-          JOIN (SELECT TOP 1 
+          JOIN (SELECT TOP 1
                         TaskId
                   FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
                   WHERE QueueId = @queueId
                     AND Status = 2 -- running
                     AND HeartbeatDateTime <= @expirationDateTime
-                  ORDER BY 
+                  ORDER BY
                         TaskId
                 ) S
-            ON T.QueueId = @queueId AND T.TaskId = S.TaskId 
+            ON T.QueueId = @queueId AND T.TaskId = S.TaskId
 
   COMMIT TRANSACTION
 
@@ -79,4 +79,4 @@ BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
   THROW
 END CATCH
-GO
+Go

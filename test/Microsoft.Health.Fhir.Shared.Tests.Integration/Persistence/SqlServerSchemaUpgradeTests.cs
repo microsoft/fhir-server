@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerSchemaUpgradeTests
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
+        private const string LocalConnectionString = "Server=tcp:f22108pr252415-r4-sql.database.windows.net,1433;Persist Security Info=False;User ID=fhirAdmin;Password=Zz+4121691;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
         private const string MasterDatabaseName = "master";
 
         public SqlServerSchemaUpgradeTests()
@@ -43,25 +43,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldNotEquivalent()
+        public void GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldNotEquivalent()
         {
-            var snapshotDatabaseName = $"SNAPSHOT_TEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var diffDatabaseName = $"DIFF_TEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-
-            SqlServerFhirStorageTestHelper testHelper1 = null;
-            SqlServerFhirStorageTestHelper testHelper2 = null;
-
-            // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-            (testHelper1, _) = await SetupTestHelperAndCreateDatabase(
-                snapshotDatabaseName,
-                SchemaVersionConstants.Max,
-                forceIncrementalSchemaUpgrade: false);
-
-            // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-            (testHelper2, _) = await SetupTestHelperAndCreateDatabase(
-                diffDatabaseName,
-                SchemaVersionConstants.Max,
-                forceIncrementalSchemaUpgrade: true);
+            var snapshotDatabaseName = "SNAPSHOT_TEST_1648118371_83391810347196796088914895934935983369";
+            var diffDatabaseName = "DIFF_TEST_1648118371_19022022021749327993634348158828505468 ";
 
             bool isEqual = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
             Assert.True(isEqual);
@@ -94,8 +79,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                testHelper1.GetHashCode();
-                testHelper2.GetHashCode();
+                await testHelper1.DeleteDatabase(snapshotDatabaseName);
+                await testHelper2.DeleteDatabase(diffDatabaseName);
             }
         }
 
