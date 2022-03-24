@@ -43,10 +43,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
+        public async Task Temp()
         {
-            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var diffDatabaseName = $"DIFF_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var snapshotDatabaseName = $"SNAPSHOT_TEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var diffDatabaseName = $"DIFF_TEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
 
             SqlServerFhirStorageTestHelper testHelper1 = null;
             SqlServerFhirStorageTestHelper testHelper2 = null;
@@ -65,6 +65,38 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             bool isEqual = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
             Assert.True(isEqual);
+        }
+
+        [Fact]
+        public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
+        {
+            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var diffDatabaseName = $"DIFF_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+
+            SqlServerFhirStorageTestHelper testHelper1 = null;
+            SqlServerFhirStorageTestHelper testHelper2 = null;
+            try
+            {
+                // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
+                (testHelper1, _) = await SetupTestHelperAndCreateDatabase(
+                    snapshotDatabaseName,
+                    SchemaVersionConstants.Max,
+                    forceIncrementalSchemaUpgrade: false);
+
+                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
+                (testHelper2, _) = await SetupTestHelperAndCreateDatabase(
+                    diffDatabaseName,
+                    SchemaVersionConstants.Max,
+                    forceIncrementalSchemaUpgrade: true);
+
+                bool isEqual = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                Assert.False(isEqual);
+            }
+            finally
+            {
+                await testHelper1.DeleteDatabase(snapshotDatabaseName);
+                await testHelper2.DeleteDatabase(diffDatabaseName);
+            }
         }
 
         [Theory]
