@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
 
                         importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
-                        FillResourceParamsBuffer(mergedResources, resourceParamsBuffer);
+                        await FillResourceParamsBuffer(mergedResources.ToArray(), resourceParamsBuffer);
                         AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
 
                         succeedCount += mergedResources.Count();
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
                     importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
 
-                    FillResourceParamsBuffer(mergedResources, resourceParamsBuffer);
+                    await FillResourceParamsBuffer(mergedResources.ToArray(), resourceParamsBuffer);
 
                     AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
                     succeedCount += mergedResources.Count();
@@ -312,19 +312,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private void FillResourceParamsBuffer(IEnumerable<SqlBulkCopyDataWrapper> mergedResources, Dictionary<string, DataTable> resourceParamsBuffer)
+        private async Task FillResourceParamsBuffer(SqlBulkCopyDataWrapper[] mergedResources, Dictionary<string, DataTable> resourceParamsBuffer)
         {
-            foreach (SqlBulkCopyDataWrapper resourceWrapper in mergedResources)
-            {
-                foreach (TableBulkCopyDataGenerator generator in _generators)
-                {
-                    if (!resourceParamsBuffer.ContainsKey(generator.TableName))
-                    {
-                        resourceParamsBuffer[generator.TableName] = generator.GenerateDataTable();
-                    }
+            List<Task> runningTasks = new List<Task>();
 
-                    generator.FillDataTable(resourceParamsBuffer[generator.TableName], resourceWrapper);
+            foreach (TableBulkCopyDataGenerator generator in _generators)
+            {
+                if (!resourceParamsBuffer.ContainsKey(generator.TableName))
+                {
+                    resourceParamsBuffer[generator.TableName] = generator.GenerateDataTable();
                 }
+
+                while (runningTasks.Count >= _importTaskConfiguration.SqlMaxDatatableProcessConcurrentCount)
+                {
+                    Task completeTask = await Task.WhenAny(runningTasks);
+                    await completeTask;
+
+                    runningTasks.Remove(completeTask);
+                }
+
+                DataTable table = resourceParamsBuffer[generator.TableName];
+
+                runningTasks.Add(Task.Run(() =>
+                {
+                    foreach (SqlBulkCopyDataWrapper resourceWrapper in mergedResources)
+                    {
+                        generator.FillDataTable(table, resourceWrapper);
+                    }
+                }));
+            }
+
+            while (runningTasks.Count > 0)
+            {
+                Task completeTask = await Task.WhenAny(runningTasks);
+                await completeTask;
+
+                runningTasks.Remove(completeTask);
             }
         }
 
@@ -361,8 +384,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             try
             {
-                table = RemoveDuplicatesRecords(table);
-
                 await Policy.Handle<SqlException>()
                     .WaitAndRetryAsync(
                         retryCount: 10,

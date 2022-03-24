@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _searchParamGenerator = searchParamGenerator;
         }
 
+        internal static BulkTokenNumberNumberCompositeSearchParamTableTypeV1RowComparer Comparer { get; } = new BulkTokenNumberNumberCompositeSearchParamTableTypeV1RowComparer();
+
         internal override string TableName
         {
             get
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
@@ -80,6 +84,86 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.HighValue3.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.HighValue3.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.HasRange.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.HasRange.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+        }
+
+        internal static IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row> Distinct(IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row> input)
+        {
+            return input.Distinct(Comparer);
+        }
+
+        internal class BulkTokenNumberNumberCompositeSearchParamTableTypeV1RowComparer : IEqualityComparer<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row>
+        {
+            public bool Equals(BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row x, BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row y)
+            {
+                if (x.SearchParamId != y.SearchParamId)
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.Code1, y.Code1, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<int?>.Default.Equals(x.SystemId1, y.SystemId1))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.SingleValue2, y.SingleValue2))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.LowValue2, y.LowValue2))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.HighValue2, y.HighValue2))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.SingleValue3, y.SingleValue3))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.LowValue3, y.LowValue3))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.HighValue3, y.HighValue3))
+                {
+                    return false;
+                }
+
+                if (x.HasRange != y.HasRange)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public int GetHashCode(BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row obj)
+            {
+                int hashCode = obj.SearchParamId.GetHashCode();
+
+                hashCode ^= obj.Code1?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.SystemId1?.GetHashCode() ?? 0;
+                hashCode ^= obj.SingleValue2?.GetHashCode() ?? 0;
+                hashCode ^= obj.LowValue2?.GetHashCode() ?? 0;
+                hashCode ^= obj.HighValue2?.GetHashCode() ?? 0;
+                hashCode ^= obj.SingleValue3?.GetHashCode() ?? 0;
+                hashCode ^= obj.LowValue3?.GetHashCode() ?? 0;
+                hashCode ^= obj.HighValue3?.GetHashCode() ?? 0;
+                hashCode ^= obj.HasRange.GetHashCode();
+
+                return hashCode.GetHashCode();
+            }
         }
     }
 }
