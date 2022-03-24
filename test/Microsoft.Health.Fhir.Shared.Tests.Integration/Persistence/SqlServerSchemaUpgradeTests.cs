@@ -50,26 +50,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlServerFhirStorageTestHelper testHelper1 = null;
             SqlServerFhirStorageTestHelper testHelper2 = null;
-            try
-            {
-                // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-                (testHelper1, _) = await SetupTestHelperAndCreateDatabase(
-                    snapshotDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: false);
 
-                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-                (testHelper2, _) = await SetupTestHelperAndCreateDatabase(
-                    diffDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: true);
+            // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
+            (testHelper1, _) = await SetupTestHelperAndCreateDatabase(
+                snapshotDatabaseName,
+                SchemaVersionConstants.Max,
+                forceIncrementalSchemaUpgrade: false);
 
-                bool isEqual = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
-                Assert.True(isEqual);
-            }
-            finally
-            {
-            }
+            // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
+            (testHelper2, _) = await SetupTestHelperAndCreateDatabase(
+                diffDatabaseName,
+                SchemaVersionConstants.Max,
+                forceIncrementalSchemaUpgrade: true);
+
+            bool isEqual = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+            Assert.True(isEqual);
         }
 
         [Theory]
