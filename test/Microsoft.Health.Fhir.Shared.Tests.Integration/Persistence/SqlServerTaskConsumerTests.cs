@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
-                MaxRetryCount = 0,
+                MaxRetryCount = 1,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);

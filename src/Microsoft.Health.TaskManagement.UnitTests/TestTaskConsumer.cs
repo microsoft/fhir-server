@@ -98,7 +98,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             taskInfo.Result = JsonConvert.SerializeObject(result);
             taskInfo.RetryCount += 1;
 
-            if (taskInfo.RetryCount > taskInfo.MaxRetryCount)
+            if (taskInfo.RetryCount >= taskInfo.MaxRetryCount)
             {
                 taskInfo.Status = TaskStatus.Completed;
             }
