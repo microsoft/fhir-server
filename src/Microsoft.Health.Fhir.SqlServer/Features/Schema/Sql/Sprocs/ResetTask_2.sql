@@ -30,7 +30,7 @@ DECLARE @maxRetryCount AS SMALLINT;
 SELECT @retryCount = RetryCount,
        @status = Status,
        @maxRetryCount = MaxRetryCount
-FROM   [dbo].[TaskInfo]
+FROM   dbo.TaskInfo
 WHERE  TaskId = @taskId
        AND RunId = @runId;
 IF (@retryCount IS NULL)
