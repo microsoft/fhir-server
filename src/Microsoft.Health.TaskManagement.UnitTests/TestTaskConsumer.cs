@@ -96,7 +96,6 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             }
 
             taskInfo.Result = JsonConvert.SerializeObject(result);
-            taskInfo.RetryCount += 1;
 
             if (taskInfo.RetryCount >= taskInfo.MaxRetryCount)
             {
@@ -104,6 +103,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             }
             else
             {
+                taskInfo.RetryCount += 1;
                 taskInfo.Status = TaskStatus.Queued;
             }
 
