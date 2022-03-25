@@ -145,7 +145,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    bool isResourceChange = true;
                     int? existingVersion = null;
 
                     // There is no previous version of this resource, check validations and then simply call SP to create new version
@@ -198,7 +197,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             // check if the new resource data is same as existing resource data
                             if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingResource), RemoveVersionIdAndLastUpdatedFromMeta(resource), StringComparison.Ordinal))
                             {
-                                isResourceChange = false;
+                                // Send the existing resource in the response
+                                return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
                             }
                         }
 
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
-                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, isResourceChange, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
+                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
 
                     try
                     {
@@ -269,7 +269,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             bool allowCreate,
             bool keepHistory,
             bool requireETagOnUpdate,
-            bool isResourceChange,
             int? eTag,
             int? comparedVersion,
             RecyclableMemoryStream stream,
@@ -295,8 +294,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     rawResource: stream,
                     tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
                     isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled,
-                    comparedVersion: comparedVersion,
-                    isResourceChange: isResourceChange);
+                    comparedVersion: comparedVersion);
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.PutCreateWithVersionedUpdatePolicyVersion)
             {

@@ -6,7 +6,6 @@ EXEC dbo.LogSchemaMigrationProgress 'Beginning schema migration to version 29.';
 GO
 
 
-
 /*************************************************************
     Stored procedures for creating and deleting
 **************************************************************/
@@ -78,8 +77,6 @@ GO
 --         * Whether capturing resource change data
 --     @comparedVersion
 --         *  If specified, the version of the resource that was compared in the code
---     @isResourceChange
---         * Whether the new resource content matches with existing resource conetent compared in code
 --
 -- RETURN VALUE
 --     The version of the resource as a result set. Will be empty if no insertion was done.
@@ -113,8 +110,7 @@ CREATE OR ALTER PROCEDURE dbo.UpsertResource_7
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
     @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
     @isResourceChangeCaptureEnabled bit = 0,
-    @comparedVersion int = NULL,
-    @isResourceChange bit
+    @comparedVersion int = NULL
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -143,27 +139,12 @@ IF (@previousResourceSurrogateId IS NULL)
 ELSE
     BEGIN
         -- There is a previous version
-        IF (@isDeleted = 0) -- When not a delete
+        -- When not a delete and if @comparedVersion deosn't matche the @previousVersion in the DB
+        IF (@isDeleted = 0 AND @comparedVersion <> @previousVersion) -- When not a delete
             BEGIN
-                -- Check if @comparedVersion matches the @previousVersion in the DB
-                IF (@comparedVersion = @previousVersion)
-                    BEGIN
-                        -- If match means the version we compared in code is still the latest version
-                        -- If @isResourceChange = true, create new version
-                        IF (@isResourceChange = 0)
-                            BEGIN
-                                -- If @isResourceChange = false, resource content matches so safely return from SP
-                                COMMIT TRANSACTION;
-                                SELECT -1;
-                                RETURN;
-                            END
-                    END
-                ELSE
-                    BEGIN
-                        -- If not match means the version we compared in the code is not the latest version anymore
-                        -- Go back to code and compare the latest
-                        THROW 50409, 'Resource has been recently updated, please compare the resource content in code for any duplicate updates', 1;
-                    END
+                -- If not match means the version we compared in the code is not the latest version anymore
+                -- Go back to code and compare the latest
+                THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
             END
 
         SET @version = @previousVersion + 1;
@@ -471,6 +452,8 @@ IF (@isResourceChangeCaptureEnabled = 1)
 		EXECUTE dbo.CaptureResourceChanges @isDeleted = @isDeleted, @version = @version, @resourceId = @resourceId, @resourceTypeId = @resourceTypeId;
     END
 COMMIT TRANSACTION;
+
+GO
 
 GO
 
