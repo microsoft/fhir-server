@@ -1716,6 +1716,16 @@ END CATCH
 GO
 
 GO
+CREATE PROCEDURE dbo.GetReindexJobById
+@id VARCHAR (64)
+AS
+SET NOCOUNT ON;
+SELECT RawJobRecord,
+       JobVersion
+FROM   dbo.ReindexJob
+WHERE  Id = @id;
+
+GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
 SET NOCOUNT ON;
