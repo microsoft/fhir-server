@@ -1,20 +1,19 @@
 --DROP PROCEDURE dbo.DequeueStoreCopyWorkUnit
 GO
 CREATE PROCEDURE dbo.DequeueStoreCopyWorkUnit
-   @Thread tinyint -- thread separation is turned off for now
+   @PartitionId tinyint
   ,@Worker varchar(100)
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueStoreCopyWorkUnit'
-       ,@Mode varchar(100) = 'W='+isnull(@Worker,'NULL')
-                           +' T='+isnull(convert(varchar,@Thread),'NULL')
+       ,@Mode varchar(100) = 'P='+isnull(convert(varchar,@PartitionId),'NULL')
+                           +' W='+isnull(@Worker,'NULL')
        ,@Rows int = 0
        ,@st datetime = getUTCdate()
+       ,@ResourceTypeId tinyint
        ,@UnitId int
-       ,@ResourceTypeId smallint
        ,@msg varchar(100)
        ,@Stop bit = CASE WHEN EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'StoreCopy.Stop' AND Number = 1) THEN 1 ELSE 0 END
-       ,@PartitionId tinyint = 16 * rand()
        ,@Lock varchar(100)
 
 BEGIN TRY
@@ -57,7 +56,7 @@ BEGIN TRY
           ,MaxId
           ,ResourceCount
       FROM dbo.StoreCopyWorkQueue
-      WHERE UnitId = @UnitId
+      WHERE PartitionId = @PartitionId AND UnitId = @UnitId 
   
   SET @msg = 'P='+convert(varchar,@PartitionId)+' U='+isnull(convert(varchar,@UnitId),'NULL')+' RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')+' S='+convert(varchar,@Stop)
 

@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand(isMerge ? "dbo.MergeResources" : "dbo.InsertResources", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            using var cmd = new SqlCommand(isMerge ? "dbo.MergeResources" : "dbo.InsertResources", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 3600 };
 
             var resourcesParam = new SqlParameter { ParameterName = "@Resources" };
             resourcesParam.AddResourceList(resources);

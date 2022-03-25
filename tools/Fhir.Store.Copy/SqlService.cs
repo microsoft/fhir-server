@@ -10,9 +10,24 @@ namespace Microsoft.Health.Fhir.Store.Copy
 {
     internal partial class SqlService : SqlUtils.SqlService
     {
+        private Random _rand = new Random();
+
+        private byte _partitionId;
+        private object _partitioinLocker = new object();
+
         internal SqlService(string connectionString)
             : base(connectionString)
         {
+            _partitionId = (byte)(16 * _rand.NextDouble());
+        }
+
+        private byte GetNextPartitionId()
+        {
+            lock (_partitioinLocker)
+            {
+                _partitionId = _partitionId == 15 ? (byte)0 : ++_partitionId;
+                return _partitionId;
+            }
         }
 
         internal long GetCorrectedMinResourceSurrogateId(int retries, string tbl, short resourceTypeId, long minSurId, long maxSurId)
@@ -46,7 +61,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return cnt > 0;
         }
 
-        internal void DequeueStoreCopyWorkQueue(byte thread, out short? resourceTypeId, out int unitId, out string minSurId, out string maxSurId)
+        internal void DequeueStoreCopyWorkQueue(out short? resourceTypeId, out int unitId, out string minSurId, out string maxSurId)
         {
             resourceTypeId = null;
             unitId = 0;
@@ -56,7 +71,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.DequeueStoreCopyWorkUnit", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@Thread", thread);
+            ////command.Parameters.AddWithValue("@PartitionId", GetNextPartitionId());
+            command.Parameters.AddWithValue("@PartitionId", 0);
             command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -68,12 +84,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
             }
         }
 
-        internal void CompleteStoreCopyWorkUnit(short resourceTypeId, int unitId, bool failed)
+        internal void CompleteStoreCopyWorkUnit(int unitId, bool failed)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.PutStoreCopyWorkUnitStatus", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             command.Parameters.AddWithValue("@UnitId", unitId);
             command.Parameters.AddWithValue("@Failed", failed);
             command.ExecuteNonQuery();

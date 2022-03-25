@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly bool SingleTransation = bool.Parse(ConfigurationManager.AppSettings["SingleTransaction"]);
         private static readonly bool SortBySurrogateId = bool.Parse(ConfigurationManager.AppSettings["SortBySurrogateId"]);
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
+        private static readonly bool QueueOnly = bool.Parse(ConfigurationManager.AppSettings["QueueOnly"]);
         private static bool stop = false;
         private static readonly SqlService Target = new SqlService(TargetConnectionString);
         private static readonly SqlService Source = new SqlService(SourceConnectionString);
@@ -85,8 +86,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
             retry:
                 try
                 {
-                    Queue.DequeueStoreCopyWorkQueue(thread, out resourceTypeId, out unitId, out minId, out var maxId);
-                    if (resourceTypeId.HasValue)
+                    Queue.DequeueStoreCopyWorkQueue(out resourceTypeId, out unitId, out minId, out var maxId);
+                    if (!QueueOnly && resourceTypeId.HasValue)
                     {
                         if (method == "bcp")
                         {
@@ -118,13 +119,13 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     stop = true;
                     if (resourceTypeId.HasValue)
                     {
-                        Target.CompleteStoreCopyWorkUnit(resourceTypeId.Value, unitId, true);
+                        Target.CompleteStoreCopyWorkUnit(unitId, true);
                     }
 
                     throw;
                 }
 
-                Queue.CompleteStoreCopyWorkUnit(resourceTypeId.Value, unitId, false);
+                Queue.CompleteStoreCopyWorkUnit(unitId, false);
             }
 
             Console.WriteLine($"Copy.{method}.{thread}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
@@ -160,7 +161,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     }
 
                     stop = true;
-                    Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, true);
+                    Target.CompleteStoreCopyWorkUnit(unitId, true);
                     throw;
                 }
 
@@ -184,12 +185,12 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     }
 
                     stop = true;
-                    Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, true);
+                    Target.CompleteStoreCopyWorkUnit(unitId, true);
                     throw;
                 }
             }
 
-            Target.CompleteStoreCopyWorkUnit(resourceTypeId, unitId, false);
+            Target.CompleteStoreCopyWorkUnit(unitId, false);
             Console.WriteLine($"Copy.bcp.{thread}.{resourceTypeId}.{minSurId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
