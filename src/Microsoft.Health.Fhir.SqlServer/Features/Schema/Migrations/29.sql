@@ -1666,77 +1666,54 @@ GO
 CREATE PROCEDURE dbo.GetNextTask_3
 @queueId VARCHAR (64), @taskHeartbeatTimeoutThresholdInSeconds INT=600
 AS
-
 SET NOCOUNT ON;
-DECLARE @lock VARCHAR(200) = 'GetNextTask_Q='+@queueId
-        ,@taskId VARCHAR (64) = NULL
-        ,@expirationDateTime AS DATETIME2 (7)
-        ,@startDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+DECLARE @lock AS VARCHAR (200) = 'GetNextTask_Q=' + @queueId, @taskId AS VARCHAR (64) = NULL, @expirationDateTime AS DATETIME2 (7), @startDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 SET @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, @startDateTime);
-
 BEGIN TRY
-    BEGIN TRANSACTION
-
-    EXECUTE sp_getapplock @lock, 'Exclusive'
-
--- try new tasks first
+    BEGIN TRANSACTION;
+    EXECUTE sp_getapplock @lock, 'Exclusive';
     UPDATE T
-      SET Status = 2 -- running
-         ,StartDateTime = @startDateTime
-         ,HeartbeatDateTime = @startDateTime
-         ,Worker = host_name()
-        ,RunId = NEWID()
-         ,@taskId = T.TaskId
-      FROM dbo.TaskInfo T WITH (PAGLOCK)
-           JOIN (SELECT TOP 1
-                        TaskId
-                   FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
-                   WHERE QueueId = @queueId
-                     AND Status = 1 -- Created
-                   ORDER BY
-                        TaskId
-                ) S
-             ON T.QueueId = @queueId AND T.TaskId = S.TaskId
-
-  IF @taskId IS NULL
-  -- old ones now
-    UPDATE T
-      SET StartDateTime = @startDateTime
-        ,HeartbeatDateTime = @startDateTime
-        ,Worker = host_name()
-        ,RunId = NEWID()
-        ,@taskId = T.TaskId
-        ,RestartInfo = ISNULL(RestartInfo,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,@startDateTime,121) 
-      FROM dbo.TaskInfo T WITH (PAGLOCK)
-          JOIN (SELECT TOP 1
-                        TaskId
-                  FROM dbo.TaskInfo WITH (INDEX = IX_QueueId_Status)
-                  WHERE QueueId = @queueId
-                    AND Status = 2 -- running
-                    AND HeartbeatDateTime <= @expirationDateTime
-                  ORDER BY
-                        TaskId
-                ) S
-            ON T.QueueId = @queueId AND T.TaskId = S.TaskId
-
-  COMMIT TRANSACTION
-
-  EXECUTE dbo.GetTaskDetails @TaskId = @taskId
+    SET    Status            = 2,
+           StartDateTime     = @startDateTime,
+           HeartbeatDateTime = @startDateTime,
+           Worker            = host_name(),
+           RunId             = NEWID(),
+           @taskId           = T.TaskId
+    FROM   dbo.TaskInfo AS T WITH (PAGLOCK)
+           INNER JOIN
+           (SELECT   TOP 1 TaskId
+            FROM     dbo.TaskInfo WITH (INDEX (IX_QueueId_Status))
+            WHERE    QueueId = @queueId
+                     AND Status = 1
+            ORDER BY TaskId) AS S
+           ON T.QueueId = @queueId
+              AND T.TaskId = S.TaskId;
+    IF @taskId IS NULL
+        UPDATE T
+        SET    StartDateTime     = @startDateTime,
+               HeartbeatDateTime = @startDateTime,
+               Worker            = host_name(),
+               RunId             = NEWID(),
+               @taskId           = T.TaskId,
+               RestartInfo       = ISNULL(RestartInfo, '') + ' Prev: Worker=' + Worker + ' Start=' + CONVERT (VARCHAR, @startDateTime, 121)
+        FROM   dbo.TaskInfo AS T WITH (PAGLOCK)
+               INNER JOIN
+               (SELECT   TOP 1 TaskId
+                FROM     dbo.TaskInfo WITH (INDEX (IX_QueueId_Status))
+                WHERE    QueueId = @queueId
+                         AND Status = 2
+                         AND HeartbeatDateTime <= @expirationDateTime
+                ORDER BY TaskId) AS S
+               ON T.QueueId = @queueId
+                  AND T.TaskId = S.TaskId;
+    COMMIT TRANSACTION;
+    EXECUTE dbo.GetTaskDetails @TaskId = @taskId;
 END TRY
 BEGIN CATCH
-  IF @@trancount > 0 ROLLBACK TRANSACTION
-  THROW
+    IF @@trancount > 0
+        ROLLBACK TRANSACTION THROW;
 END CATCH
-
 GO
-CREATE PROCEDURE dbo.GetReindexJobById
-@id VARCHAR (64)
-AS
-SET NOCOUNT ON;
-SELECT RawJobRecord,
-       JobVersion
-FROM   dbo.ReindexJob
-WHERE  Id = @id;
 
 GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
@@ -2160,43 +2137,34 @@ CREATE PROCEDURE dbo.ResetTask_2
 @taskId VARCHAR (64), @runId VARCHAR (50), @result VARCHAR (MAX)
 AS
 SET NOCOUNT ON;
-SET XACT_ABORT ON;
-BEGIN TRANSACTION;
-DECLARE @retryCount AS SMALLINT;
-DECLARE @status AS SMALLINT;
-DECLARE @maxRetryCount AS SMALLINT;
-SELECT @retryCount = RetryCount,
-       @status = Status,
-       @maxRetryCount = MaxRetryCount
-FROM   [dbo].[TaskInfo]
-WHERE  TaskId = @taskId
-       AND RunId = @runId;
-IF (@retryCount IS NULL)
-    BEGIN
-        THROW 50404, 'Task not exist or runid not match', 1;
-    END
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-IF (@maxRetryCount != -1
-    AND @retryCount > @maxRetryCount)
-    BEGIN
-        UPDATE dbo.TaskInfo
-        SET    Status            = 3,
-               HeartbeatDateTime = @heartbeatDateTime,
-               Result            = @result
-        WHERE  TaskId = @taskId;
-    END
-ELSE
-    IF (@status <> 3)
-        BEGIN
-            UPDATE dbo.TaskInfo
-            SET    Status            = 1,
-                   HeartbeatDateTime = @heartbeatDateTime,
-                   Result            = @result,
-                   RetryCount        = @retryCount + 1
-            WHERE  TaskId = @taskId;
-        END
-COMMIT TRANSACTION;
-EXECUTE dbo.GetTaskDetails @TaskId = @taskId;
+DECLARE @retryCount AS SMALLINT = NULL;
+BEGIN TRY
+    BEGIN TRANSACTION;
+        UPDATE  dbo.TaskInfo
+        SET     Status            = 3,
+                HeartbeatDateTime = SYSUTCDATETIME(),
+                Result            = @result,
+                @retryCount = retryCount
+        WHERE   TaskId = @taskId
+                AND RunId = @runId
+                AND (MaxRetryCount <> -1 AND RetryCount >= MaxRetryCount)
+        IF @retryCount IS NULL
+            UPDATE  dbo.TaskInfo
+            SET     Status            = 1,
+                    HeartbeatDateTime = SYSUTCDATETIME(),
+                    Result            = @result,
+                    RetryCount        = RetryCount + 1
+            WHERE   TaskId = @taskId
+                    AND RunId = @runId
+                    AND Status <> 3
+                    AND (MaxRetryCount = -1 OR RetryCount < MaxRetryCount)
+    COMMIT TRANSACTION;
+    EXECUTE dbo.GetTaskDetails @TaskId = @taskId
+END TRY
+BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK TRANSACTION THROW;
+END CATCH
 
 GO
 CREATE PROCEDURE [dbo].[TaskKeepAlive]
