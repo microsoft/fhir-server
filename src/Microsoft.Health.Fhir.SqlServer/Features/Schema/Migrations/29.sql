@@ -2381,10 +2381,13 @@ IF (@previousResourceSurrogateId IS NULL)
     END
 ELSE
     BEGIN
-        IF (@isDeleted = 0
-            AND @comparedVersion <> @previousVersion)
+        IF (@isDeleted = 0)
             BEGIN
-                THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+                IF (@comparedVersion IS NULL
+                    OR @comparedVersion <> @previousVersion)
+                    BEGIN
+                        THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+                    END
             END
         SET @version = @previousVersion + 1;
         IF (@keepHistory = 1)

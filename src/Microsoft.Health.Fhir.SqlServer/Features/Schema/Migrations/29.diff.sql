@@ -138,13 +138,16 @@ IF (@previousResourceSurrogateId IS NULL)
     END
 ELSE
     BEGIN
-        -- There is a previous version
-        -- When not a delete and if @comparedVersion deosn't matche the @previousVersion in the DB
-        IF (@isDeleted = 0 AND @comparedVersion <> @previousVersion) -- When not a delete
+        -- There is a previous version so @previousVersion will not be null
+        IF (@isDeleted = 0) -- When not a delete
             BEGIN
-                -- If not match means the version we compared in the code is not the latest version anymore
-                -- Go back to code and compare the latest
-                THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+                IF (@comparedVersion IS NULL OR @comparedVersion <> @previousVersion)
+                    BEGIN
+                        -- If @comparedVersion is null then resource was recently added
+                        -- Otherwise if @comparedVersion doesn't match the @previousVersion in the DB means the version we compared in the code is not the latest version anymore
+                        -- Go back to code and compare the latest
+                        THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+                    END
             END
 
         SET @version = @previousVersion + 1;
