@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static void PopulateStoreCopyWorkQueue(int unitSize)
         {
             // if target is populated don't do anything
-            if (Target.StoreCopyWorkQueueIsNotEmpty())
+            if (Queue.StoreCopyWorkQueueIsNotEmpty())
             {
                 return;
             }
@@ -429,7 +429,7 @@ SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
 
             var param = $@"/C bcp.exe ##StoreCopyWorkQueue out {Path}\StoreCopyWorkQueue.dat /c {BcpSourceConnStr}";
             RunOsCommand("cmd.exe ", param, true);
-            Target.LogEvent("BcpOut", "End", "StoreCopyWorkQueue", text: param);
+            Queue.LogEvent("BcpOut", "End", "StoreCopyWorkQueue", text: param);
 
             sourceConn.Close(); // close connection after bcp
 
@@ -443,7 +443,7 @@ SELECT UnitId,ResourceTypeId,MinId,MaxId,ResourceCount INTO ##StoreCopyWorkQueue
 
             param = $@"/C bcp.exe ##StoreCopyWorkQueue in {Path}\StoreCopyWorkQueue.dat /c {BcpTargetConnStr}";
             RunOsCommand("cmd.exe ", param, true);
-            Target.LogEvent("BcpIn", "End", "StoreCopyWorkQueue", text: param);
+            Queue.LogEvent("BcpIn", "End", "StoreCopyWorkQueue", text: param);
 
             using var insert = new SqlCommand(
                 @"

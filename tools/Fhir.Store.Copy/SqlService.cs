@@ -71,8 +71,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.DequeueStoreCopyWorkUnit", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            ////command.Parameters.AddWithValue("@PartitionId", GetNextPartitionId());
-            command.Parameters.AddWithValue("@PartitionId", 0);
+            command.Parameters.AddWithValue("@StartPartitionId", GetNextPartitionId());
             command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
             using var reader = command.ExecuteReader();
             while (reader.Read())
