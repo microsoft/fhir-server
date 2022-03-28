@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly SqlService Queue = new SqlService(QueueConnectionString);
         private static readonly string BcpSourceConnStr = Source.GetBcpConnectionString();
         private static readonly string BcpTargetConnStr = Target.GetBcpConnectionString();
+        private static readonly string BcpQueueConnStr = Queue.GetBcpConnectionString();
 
         public static void Main(string[] args)
         {
@@ -433,15 +434,15 @@ SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
 
             sourceConn.Close(); // close connection after bcp
 
-            var targetConn = new SqlConnection(Target.ConnectionString);
-            targetConn.Open();
+            var queueConn = new SqlConnection(Target.ConnectionString);
+            queueConn.Open();
             using var command = new SqlCommand(
                 @"
 SELECT UnitId,ResourceTypeId,MinId,MaxId,ResourceCount INTO ##StoreCopyWorkQueue FROM dbo.StoreCopyWorkQueue WHERE 1 = 2",
-                targetConn) { CommandTimeout = 120 };
+                queueConn) { CommandTimeout = 60 };
             command.ExecuteNonQuery();
 
-            param = $@"/C bcp.exe ##StoreCopyWorkQueue in {Path}\StoreCopyWorkQueue.dat /c {BcpTargetConnStr}";
+            param = $@"/C bcp.exe ##StoreCopyWorkQueue in {Path}\StoreCopyWorkQueue.dat /c {BcpQueueConnStr}";
             RunOsCommand("cmd.exe ", param, true);
             Queue.LogEvent("BcpIn", "End", "StoreCopyWorkQueue", text: param);
 
@@ -451,7 +452,7 @@ INSERT INTO dbo.StoreCopyWorkQueue
         (UnitId,ResourceTypeId,MinId,MaxId,ResourceCount) 
   SELECT UnitId,ResourceTypeId,MinId,MaxId,ResourceCount 
     FROM ##StoreCopyWorkQueue",
-                targetConn) { CommandTimeout = 120 };
+                queueConn) { CommandTimeout = 600 };
             insert.ExecuteNonQuery();
 
             using var update = new SqlCommand(
@@ -461,11 +462,11 @@ UPDATE A
   FROM (SELECT *, RowId = row_number() OVER (ORDER BY UnitId) - 1 FROM StoreCopyWorkQueue) B
        JOIN StoreCopyWorkQueue A ON A.UnitId = B.UnitId
                  ",
-                targetConn) { CommandTimeout = 120 };
+                queueConn) { CommandTimeout = 600 };
             update.Parameters.AddWithValue("@Threads", Threads);
             update.ExecuteNonQuery();
 
-            targetConn.Close();
+            queueConn.Close();
         }
     }
 }
