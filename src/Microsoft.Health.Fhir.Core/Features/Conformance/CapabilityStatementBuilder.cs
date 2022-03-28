@@ -265,8 +265,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
-                Debug.WriteLine("Processing " + resource);
-
                 // Parameters is a non-persisted resource used to pass information into and back from an operation.
                 if (string.Equals(resource, KnownResourceTypes.Parameters, StringComparison.Ordinal))
                 {
