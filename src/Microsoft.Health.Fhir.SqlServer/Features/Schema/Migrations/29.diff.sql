@@ -123,7 +123,6 @@ AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 DECLARE @retryCount AS SMALLINT = NULL;
-BEGIN TRANSACTION;
 IF NOT EXISTS  (SELECT *
                 FROM   dbo.TaskInfo
                 WHERE  TaskId = @taskId
@@ -133,24 +132,22 @@ IF NOT EXISTS  (SELECT *
     END
 UPDATE  dbo.TaskInfo
 SET     Status            = 3,
-        HeartbeatDateTime = SYSUTCDATETIME(),
+        EndDateTime       = SYSUTCDATETIME(),
         Result            = @result,
         @retryCount = retryCount
 WHERE   TaskId = @taskId
         AND RunId = @runId
         AND (MaxRetryCount <> -1 AND RetryCount >= MaxRetryCount)
-
 IF @retryCount IS NULL
     UPDATE  dbo.TaskInfo
     SET     Status            = 1,
-            HeartbeatDateTime = SYSUTCDATETIME(),
             Result            = @result,
-            RetryCount        = RetryCount + 1
+            RetryCount        = RetryCount + 1,
+            RestartInfo       = ISNULL(RestartInfo, '') + ' Prev: Worker=' + Worker + ' Start=' + CONVERT (VARCHAR, StartDateTime, 121)
     WHERE   TaskId = @taskId
             AND RunId = @runId
             AND Status <> 3
             AND (MaxRetryCount = -1 OR RetryCount < MaxRetryCount)
-COMMIT TRANSACTION;
 EXECUTE dbo.GetTaskDetails @TaskId = @taskId
 GO
 
