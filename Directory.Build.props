@@ -25,8 +25,8 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
-    <AspNetPackageVersion>5.0.14</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>4.0.25</HealthcareSharedPackageVersion>
+    <AspNetPackageVersion>5.0.15</AspNetPackageVersion>
+    <HealthcareSharedPackageVersion>4.0.28</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>3.6.0</Hl7FhirVersion>
   </PropertyGroup>
 
