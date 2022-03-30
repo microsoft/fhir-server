@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.SqlServer.Configuration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
@@ -226,6 +227,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlServerConfiguration>()
+                .Singleton()
                 .AsImplementedInterfaces();
 
             return fhirServerBuilder;

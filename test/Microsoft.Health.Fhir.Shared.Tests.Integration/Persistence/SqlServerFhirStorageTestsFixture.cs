@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Configuration;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -49,6 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
+        private readonly int _sqlCommandTimeout = 30;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
@@ -63,6 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly ISqlServerConfiguration _sqlServerConfiguration = Substitute.For<ISqlServerConfiguration>();
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
@@ -73,6 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
+            _sqlServerConfiguration.GetCommandTimeout().Returns(_sqlCommandTimeout);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
@@ -166,7 +170,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CompressedRawResourceConverter(),
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
-                ModelInfoProvider.Instance);
+                ModelInfoProvider.Instance,
+                _sqlServerConfiguration);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
@@ -203,7 +208,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
-                NullLogger<SqlServerSearchService>.Instance);
+                NullLogger<SqlServerSearchService>.Instance,
+                _sqlServerConfiguration);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));

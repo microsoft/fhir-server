@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Configuration;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -59,6 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
+        private readonly ISqlServerConfiguration _sqlServerConfiguration;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -72,7 +74,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
-            ILogger<SqlServerSearchService> logger)
+            ILogger<SqlServerSearchService> logger,
+            ISqlServerConfiguration sqlServerConfiguration)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
@@ -82,6 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            _sqlServerConfiguration = EnsureArg.IsNotNull(sqlServerConfiguration, nameof(sqlServerConfiguration));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
@@ -301,6 +305,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
                 sqlCommandWrapper.CommandText = stringBuilder.ToString();
+                sqlCommandWrapper.CommandTimeout = _sqlServerConfiguration.GetCommandTimeout();
 
                 LogSqlCommand(sqlCommandWrapper);
 
@@ -642,6 +647,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             sb.AppendLine();
 
             sb.AppendLine(sqlCommandWrapper.CommandText);
+            sb.AppendLine("CommandTimeout (seconds): " + sqlCommandWrapper.CommandTimeout.ToString(CultureInfo.InvariantCulture));
             _logger.LogInformation(sb.ToString());
         }
 

@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Configuration;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
@@ -56,6 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISqlServerConfiguration _sqlServerConfiguration;
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -75,7 +77,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ISqlServerConfiguration sqlServerConfiguration)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -95,6 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            _sqlServerConfiguration = EnsureArg.IsNotNull(sqlServerConfiguration, nameof(sqlServerConfiguration));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -123,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
 
                 stream.Seek(0, 0);
-
+                sqlCommandWrapper.CommandTimeout = _sqlServerConfiguration.GetCommandTimeout();
                 PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, stream, _coreFeatures.SupportsResourceChangeCapture);
 
                 try
