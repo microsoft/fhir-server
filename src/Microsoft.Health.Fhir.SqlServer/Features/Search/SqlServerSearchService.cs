@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
