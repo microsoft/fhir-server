@@ -25,10 +25,10 @@ namespace BlobReaderWriter
         private static readonly string TargetContainerName = ConfigurationManager.AppSettings["TargetContainerName"];
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
         private static readonly int ReportingPeriodSec = int.Parse(ConfigurationManager.AppSettings["ReportingPeriodSec"]);
-        ////private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static readonly int LinesPerBlob = int.Parse(ConfigurationManager.AppSettings["LinesPerBlob"]);
         private static readonly int SourceBlobs = int.Parse(ConfigurationManager.AppSettings["SourceBlobs"]);
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
+        private static readonly bool SplitBySize = bool.Parse(ConfigurationManager.AppSettings["SplitBySize"]);
 
         public static void Main()
         {
@@ -51,34 +51,10 @@ namespace BlobReaderWriter
             var targetBlobs = 0L;
             BatchExtensions.ExecuteInParallelBatches(blobs, Threads, 1, (thread, blobInt) =>
             {
-                var lines = 0L;
                 var blobIndex = blobInt.Item1;
                 var blob = blobInt.Item2.First();
 
-                var batch = new List<string>();
-                var batchIndex = 0;
-                foreach (var line in GetLinesInBlob(sourceContainer, blob))
-                {
-                    lines++;
-                    if (WritesEnabled)
-                    {
-                        batch.Add(line);
-                        if (batch.Count == LinesPerBlob)
-                        {
-                            WriteBatchOfLines(targetContainer, batch, GetTargetBlobName(blob.Name, batchIndex));
-                            Interlocked.Increment(ref targetBlobs);
-                            batch = new List<string>();
-                            batchIndex++;
-                        }
-                    }
-                }
-
-                if (batch.Count > 0)
-                {
-                    WriteBatchOfLines(targetContainer, batch, GetTargetBlobName(blob.Name, batchIndex));
-                    Interlocked.Increment(ref targetBlobs);
-                }
-
+                var lines = SplitBySize ? SplitBlobBySize(sourceContainer, blob, targetContainer, ref targetBlobs) : SplitBlobByResourceId(sourceContainer, blob, targetContainer, ref targetBlobs);
                 Interlocked.Add(ref totalLines, lines);
                 Interlocked.Increment(ref sourceBlobs);
 
@@ -97,13 +73,113 @@ namespace BlobReaderWriter
             Console.WriteLine($"{gPrefix}.Total: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
         }
 
-        private static string GetTargetBlobName(string sourceBlobName, int batchIndex)
+        private static long SplitBlobByResourceId(BlobContainerClient sourceContainer, BlobItem blob, BlobContainerClient targetContainer, ref long targetBlobs)
         {
-            return $"{sourceBlobName.Substring(0, sourceBlobName.Length - 7)}-{batchIndex}.ndjson";
+            var lines = 0L;
+            var partitions = new Dictionary<string, List<string>>();
+            foreach (var line in GetLinesInBlob(sourceContainer, blob))
+            {
+                lines++;
+                var partitionKey = GetPartitionKey(line);
+                if (!partitions.TryGetValue(partitionKey, out var list))
+                {
+                    list = new List<string>();
+                    partitions.Add(partitionKey, list);
+                }
+
+                list.Add(line);
+            }
+
+            foreach (var partitionKey in partitions.Keys)
+            {
+                WriteBatchOfLines(targetContainer, partitions[partitionKey], GetTargetBlobName(blob.Name, partitionKey));
+                Interlocked.Increment(ref targetBlobs);
+            }
+
+            return lines;
+        }
+
+        private static string GetPartitionKey(string jsonString)
+        {
+            var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
+            var firstLetter = jsonString.Substring(idStart, 1);
+            if (string.IsNullOrEmpty(firstLetter))
+            {
+                throw new ArgumentException("Cannot parse resource id with string parser");
+            }
+
+            return firstLetter;
+        }
+
+        private static long SplitBlobBySize(BlobContainerClient sourceContainer, BlobItem blob, BlobContainerClient targetContainer, ref long targetBlobs)
+        {
+            var lines = 0L;
+            var batch = new List<string>();
+            var batchIndex = 0;
+            foreach (var line in GetLinesInBlob(sourceContainer, blob))
+            {
+                lines++;
+                if (WritesEnabled)
+                {
+                    batch.Add(line);
+                    if (batch.Count == LinesPerBlob)
+                    {
+                        WriteBatchOfLines(targetContainer, batch, GetTargetBlobName(blob.Name, batchIndex));
+                        Interlocked.Increment(ref targetBlobs);
+                        batch = new List<string>();
+                        batchIndex++;
+                    }
+                }
+            }
+
+            if (batch.Count > 0)
+            {
+                WriteBatchOfLines(targetContainer, batch, GetTargetBlobName(blob.Name, batchIndex));
+                Interlocked.Increment(ref targetBlobs);
+            }
+
+            return lines;
+        }
+
+        private static string GetTargetBlobName(string origBlobName, int batchIndex)
+        {
+            return $"{origBlobName.Substring(0, origBlobName.Length - 7)}-{batchIndex}.ndjson";
         }
 
         private static void WriteBatchOfLines(BlobContainerClient container, IList<string> batch, string blobName)
         {
+        retry:
+            try
+            {
+                using var stream = container.GetBlockBlobClient(blobName).OpenWrite(true);
+                using var writer = new StreamWriter(stream);
+                foreach (var line in batch)
+                {
+                    writer.WriteLine(line);
+                }
+
+                writer.Flush();
+            }
+            catch (Exception e)
+            {
+                if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine(e);
+                    goto retry;
+                }
+
+                throw;
+            }
+        }
+
+        private static string GetTargetBlobName(string origBlobName, string partition)
+        {
+            return $"{partition}/{origBlobName}";
+        }
+
+        private static void WriteBatchOfLines(BlobContainerClient container, IList<string> batch, string origBlobName, string partition)
+        {
+            var blobName = GetTargetBlobName(origBlobName, partition);
         retry:
             try
             {
