@@ -9,7 +9,6 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -18,7 +17,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -123,6 +121,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
                 using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
@@ -145,7 +145,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    bool isResourceChange = true;
                     int? existingVersion = null;
 
                     // There is no previous version of this resource, check validations and then simply call SP to create new version
@@ -192,25 +191,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        resource.Version = int.TryParse(existingResource.Version, out int currentVersion) ? (currentVersion + 1).ToString(CultureInfo.InvariantCulture) : null;
-                        existingVersion = currentVersion;
-
                         // check if reosurces are equal if its not a Delete action
                         if (!resource.IsDeleted)
                         {
                             // check if the new resource data is same as existing resource data
                             if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingResource), RemoveVersionIdAndLastUpdatedFromMeta(resource), StringComparison.Ordinal))
                             {
-                                isResourceChange = false;
+                                // Send the existing resource in the response
+                                return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
                             }
                         }
+
+                        // existing version in the SQL db should never be null
+                        existingVersion = int.Parse(existingResource.Version);
+                        resource.Version = (existingVersion + 1).Value.ToString(CultureInfo.InvariantCulture);
                     }
 
                     _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
 
                     stream.Seek(0, 0);
 
-                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, isResourceChange, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
+                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
 
                     try
                     {
@@ -268,7 +269,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             bool allowCreate,
             bool keepHistory,
             bool requireETagOnUpdate,
-            bool isResourceChange,
             int? eTag,
             int? comparedVersion,
             RecyclableMemoryStream stream,
@@ -294,8 +294,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     rawResource: stream,
                     tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
                     isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled,
-                    comparedVersion: comparedVersion,
-                    isResourceChange: isResourceChange);
+                    comparedVersion: comparedVersion);
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.PutCreateWithVersionedUpdatePolicyVersion)
             {

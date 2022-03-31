@@ -70,8 +70,6 @@
 --         * Whether capturing resource change data
 --     @comparedVersion
 --         *  If specified, the version of the resource that was compared in the code
---     @isResourceChange
---         * Whether the new resource content matches with existing resource conetent compared in code
 --
 -- RETURN VALUE
 --     The version of the resource as a result set. Will be empty if no insertion was done.
@@ -105,8 +103,7 @@ CREATE PROCEDURE dbo.UpsertResource_7
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
     @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
     @isResourceChangeCaptureEnabled bit = 0,
-    @comparedVersion int = NULL,
-    @isResourceChange bit
+    @comparedVersion int = NULL
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -134,27 +131,15 @@ IF (@previousResourceSurrogateId IS NULL)
     END
 ELSE
     BEGIN
-        -- There is a previous version
+        -- There is a previous version so @previousVersion will not be null
         IF (@isDeleted = 0) -- When not a delete
             BEGIN
-                -- Check if @comparedVersion matches the @previousVersion in the DB
-                IF (@comparedVersion = @previousVersion)
+                IF (@comparedVersion IS NULL OR @comparedVersion <> @previousVersion)
                     BEGIN
-                        -- If match means the version we compared in code is still the latest version
-                        -- If @isResourceChange = true, create new version
-                        IF (@isResourceChange = 0)
-                            BEGIN
-                                -- If @isResourceChange = false, resource content matches so safely return from SP
-                                COMMIT TRANSACTION;
-                                SELECT -1;
-                                RETURN;
-                            END
-                    END
-                ELSE
-                    BEGIN
-                        -- If not match means the version we compared in the code is not the latest version anymore
+                        -- If @comparedVersion is null then resource was recently added
+                        -- Otherwise if @comparedVersion doesn't match the @previousVersion in the DB means the version we compared in the code is not the latest version anymore
                         -- Go back to code and compare the latest
-                        THROW 50409, 'Resource has been recently updated, please compare the resource content in code for any duplicate updates', 1;
+                        THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
                     END
             END
 
