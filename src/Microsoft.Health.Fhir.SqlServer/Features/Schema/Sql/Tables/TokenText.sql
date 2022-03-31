@@ -6,9 +6,9 @@
     Text                        nvarchar(400)       COLLATE Latin1_General_CI_AI NOT NULL,
     IsHistory                   bit                 NOT NULL
 )
-
-ALTER TABLE dbo.TokenText SET ( LOCK_ESCALATION = AUTO )
-
+GO
+--ALTER TABLE dbo.TokenText SET ( LOCK_ESCALATION = AUTO )
+GO
 CREATE CLUSTERED INDEX IXC_TokenText
 ON dbo.TokenText
 (
@@ -18,7 +18,7 @@ ON dbo.TokenText
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
 ON dbo.TokenText
 (
@@ -30,3 +30,4 @@ ON dbo.TokenText
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO

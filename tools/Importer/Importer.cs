@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static readonly bool UseStringJsonParser = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParser"]);
         private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
+        private static readonly bool ReadsOnly = bool.Parse(ConfigurationManager.AppSettings["ReadsOnly"]);
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Importer
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
             Console.WriteLine($"{globalPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
-            var blobs = blobContainerClient.GetBlobs().OrderBy(_ => _.Name).Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).ToList();
+            var blobs = blobContainerClient.GetBlobs().Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).ToList();
             Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
             var take = MaxBlobIndexForImport == 0 ? blobs.Count : MaxBlobIndexForImport - NumberOfBlobsToSkip;
             blobs = blobs.Skip(NumberOfBlobsToSkip).Take(take).ToList();
@@ -183,6 +184,11 @@ namespace Microsoft.Health.Fhir.Importer
 
         private static void PutResource(string jsonString, IndexIncrementor incrementor)
         {
+            if (ReadsOnly)
+            {
+                return;
+            }
+
             var (resourceType, resourceId) = ParseJson(jsonString);
             using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
             var maxRetries = MaxRetries;
@@ -198,7 +204,6 @@ namespace Microsoft.Health.Fhir.Importer
                 Interlocked.Increment(ref epCalls);
                 try
                 {
-                    Thread.Sleep(40);
                     var response = HttpClient.PutAsync(uri, content).Result;
                     switch (response.StatusCode)
                     {

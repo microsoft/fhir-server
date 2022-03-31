@@ -13,14 +13,14 @@ namespace Microsoft.Health.Fhir.Store.Utils
 {
     public static class BatchExtensions
     {
-        private static Task StartTask(Action action, bool longRunning = true)
+        public static Task StartTask(Action action, bool longRunning = true)
         {
             var task = new Task(action, longRunning ? TaskCreationOptions.LongRunning : TaskCreationOptions.None);
             task.Start(TaskScheduler.Default);
             return task;
         }
 
-        internal static void ParallelForEach<T>(IEnumerable<T> objects, int threads, Action<int, T> action, CancelRequest cancel = null)
+        public static void ParallelForEach<T>(IEnumerable<T> objects, int threads, Action<int, T> action, CancelRequest cancel = null)
         {
             ExecuteInParallelBatches(objects, threads, 1, (thread, batch) => { action(thread, batch.Item2.First()); }, null, cancel);
         }
