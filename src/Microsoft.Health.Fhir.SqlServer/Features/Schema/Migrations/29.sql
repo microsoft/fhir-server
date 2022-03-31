@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (29, 'started');
+VALUES (28, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -607,8 +607,18 @@ CREATE TABLE [dbo].[TaskInfo] (
     [InputData]         VARCHAR (MAX) NOT NULL,
     [TaskContext]       VARCHAR (MAX) NULL,
     [Result]            VARCHAR (MAX) NULL,
+    [CreateDateTime]    DATETIME2 (7) CONSTRAINT DF_TaskInfo_CreateDate DEFAULT SYSUTCDATETIME() NOT NULL,
+    [StartDateTime]     DATETIME2 (7) NULL,
+    [EndDateTime]       DATETIME2 (7) NULL,
+    [Worker]            VARCHAR (100) NULL,
+    [RestartInfo]       VARCHAR (MAX) NULL,
     CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
+
+
+GO
+CREATE NONCLUSTERED INDEX IX_QueueId_Status
+    ON dbo.TaskInfo(QueueId, Status);
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
@@ -1421,7 +1431,7 @@ WHERE  Status = 'Running'
        OR Status = 'Paused';
 
 GO
-CREATE PROCEDURE [dbo].[CompleteTask]
+CREATE PROCEDURE dbo.CompleteTask
 @taskId VARCHAR (64), @taskResult VARCHAR (MAX), @runId VARCHAR (50)
 AS
 SET NOCOUNT ON;
@@ -1434,27 +1444,13 @@ IF NOT EXISTS (SELECT *
     BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 UPDATE dbo.TaskInfo
-SET    Status            = 3,
-       HeartbeatDateTime = @heartbeatDateTime,
-       Result            = @taskResult
-WHERE  TaskId = @taskId;
-SELECT TaskId,
-       QueueId,
-       Status,
-       TaskTypeId,
-       RunId,
-       IsCanceled,
-       RetryCount,
-       MaxRetryCount,
-       HeartbeatDateTime,
-       InputData,
-       TaskContext,
-       Result
-FROM   [dbo].[TaskInfo]
+SET    Status      = 3,
+       EndDateTime = SYSUTCDATETIME(),
+       Result      = @taskResult
 WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
+EXECUTE dbo.GetTaskDetails @TaskId = @taskId;
 
 GO
 CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
@@ -1667,69 +1663,57 @@ FROM   dbo.ExportJob
 WHERE  Id = @id;
 
 GO
-CREATE PROCEDURE [dbo].[GetNextTask_2]
-@queueId VARCHAR (64), @count SMALLINT, @taskHeartbeatTimeoutThresholdInSeconds INT=600
+CREATE PROCEDURE dbo.GetNextTask_3
+@queueId VARCHAR (64), @taskHeartbeatTimeoutThresholdInSeconds INT=600
 AS
 SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-BEGIN TRANSACTION;
-DECLARE @expirationDateTime AS DATETIME2 (7);
-SELECT @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME());
-DECLARE @availableJobs TABLE (
-    TaskId            VARCHAR (64) ,
-    QueueId           VARCHAR (64) ,
-    Status            SMALLINT     ,
-    TaskTypeId        SMALLINT     ,
-    IsCanceled        BIT          ,
-    RetryCount        SMALLINT     ,
-    HeartbeatDateTime DATETIME2    ,
-    InputData         VARCHAR (MAX),
-    TaskContext       VARCHAR (MAX),
-    Result            VARCHAR (MAX));
-INSERT INTO @availableJobs
-SELECT   TOP (@count) TaskId,
-                      QueueId,
-                      Status,
-                      TaskTypeId,
-                      IsCanceled,
-                      RetryCount,
-                      HeartbeatDateTime,
-                      InputData,
-                      TaskContext,
-                      Result
-FROM     dbo.TaskInfo
-WHERE    (QueueId = @queueId
-          AND (Status = 1
-               OR (Status = 2
-                   AND HeartbeatDateTime <= @expirationDateTime)))
-ORDER BY HeartbeatDateTime;
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-UPDATE dbo.TaskInfo
-SET    Status            = 2,
-       HeartbeatDateTime = @heartbeatDateTime,
-       RunId             = CAST (NEWID() AS NVARCHAR (50))
-FROM   dbo.TaskInfo AS task
-       INNER JOIN
-       @availableJobs AS availableJob
-       ON task.TaskId = availableJob.TaskId;
-SELECT task.TaskId,
-       task.QueueId,
-       task.Status,
-       task.TaskTypeId,
-       task.RunId,
-       task.IsCanceled,
-       task.RetryCount,
-       task.MaxRetryCount,
-       task.HeartbeatDateTime,
-       task.InputData,
-       task.TaskContext,
-       task.Result
-FROM   dbo.TaskInfo AS task
-       INNER JOIN
-       @availableJobs AS availableJob
-       ON task.TaskId = availableJob.TaskId;
-COMMIT TRANSACTION;
+DECLARE @lock AS VARCHAR (200) = 'GetNextTask_Q=' + @queueId, @taskId AS VARCHAR (64) = NULL, @expirationDateTime AS DATETIME2 (7), @startDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+SET @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, @startDateTime);
+BEGIN TRY
+    BEGIN TRANSACTION;
+    EXECUTE sp_getapplock @lock, 'Exclusive';
+    UPDATE T
+    SET    Status            = 2,
+           StartDateTime     = @startDateTime,
+           HeartbeatDateTime = @startDateTime,
+           Worker            = host_name(),
+           RunId             = NEWID(),
+           @taskId           = T.TaskId
+    FROM   dbo.TaskInfo AS T WITH (PAGLOCK)
+           INNER JOIN
+           (SELECT   TOP 1 TaskId
+            FROM     dbo.TaskInfo WITH (INDEX (IX_QueueId_Status))
+            WHERE    QueueId = @queueId
+                     AND Status = 1
+            ORDER BY TaskId) AS S
+           ON T.QueueId = @queueId
+              AND T.TaskId = S.TaskId;
+    IF @taskId IS NULL
+        UPDATE T
+        SET    StartDateTime     = @startDateTime,
+               HeartbeatDateTime = @startDateTime,
+               Worker            = host_name(),
+               RunId             = NEWID(),
+               @taskId           = T.TaskId,
+               RestartInfo       = ISNULL(RestartInfo, '') + ' Prev: Worker=' + Worker + ' Start=' + CONVERT (VARCHAR, @startDateTime, 121)
+        FROM   dbo.TaskInfo AS T WITH (PAGLOCK)
+               INNER JOIN
+               (SELECT   TOP 1 TaskId
+                FROM     dbo.TaskInfo WITH (INDEX (IX_QueueId_Status))
+                WHERE    QueueId = @queueId
+                         AND Status = 2
+                         AND HeartbeatDateTime <= @expirationDateTime
+                ORDER BY TaskId) AS S
+               ON T.QueueId = @queueId
+                  AND T.TaskId = S.TaskId;
+    COMMIT TRANSACTION;
+    EXECUTE dbo.GetTaskDetails @TaskId = @taskId;
+END TRY
+BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK TRANSACTION THROW;
+END CATCH
+GO
 
 GO
 CREATE PROCEDURE dbo.GetReindexJobById
@@ -2159,59 +2143,39 @@ BEGIN
 END
 
 GO
-CREATE PROCEDURE [dbo].[ResetTask]
+CREATE PROCEDURE dbo.ResetTask_2
 @taskId VARCHAR (64), @runId VARCHAR (50), @result VARCHAR (MAX)
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
-BEGIN TRANSACTION;
-DECLARE @retryCount AS SMALLINT;
-DECLARE @status AS SMALLINT;
-DECLARE @maxRetryCount AS SMALLINT;
-SELECT @retryCount = RetryCount,
-       @status = Status,
-       @maxRetryCount = MaxRetryCount
-FROM   [dbo].[TaskInfo]
-WHERE  TaskId = @taskId
-       AND RunId = @runId;
-IF (@retryCount IS NULL)
+DECLARE @retryCount AS SMALLINT = NULL;
+IF NOT EXISTS  (SELECT *
+                FROM   dbo.TaskInfo
+                WHERE  TaskId = @taskId
+                       AND RunId = @runId)
     BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
-IF (@retryCount >= @maxRetryCount)
-    BEGIN
-        UPDATE dbo.TaskInfo
-        SET    Status            = 3,
-               HeartbeatDateTime = @heartbeatDateTime,
-               Result            = @result
-        WHERE  TaskId = @taskId;
-    END
-ELSE
-    IF (@status <> 3)
-        BEGIN
-            UPDATE dbo.TaskInfo
-            SET    Status            = 1,
-                   HeartbeatDateTime = @heartbeatDateTime,
-                   Result            = @result,
-                   RetryCount        = @retryCount + 1
-            WHERE  TaskId = @taskId;
-        END
-SELECT TaskId,
-       QueueId,
-       Status,
-       TaskTypeId,
-       RunId,
-       IsCanceled,
-       RetryCount,
-       MaxRetryCount,
-       HeartbeatDateTime,
-       InputData,
-       TaskContext,
-       Result
-FROM   [dbo].[TaskInfo]
-WHERE  TaskId = @taskId;
-COMMIT TRANSACTION;
+UPDATE  dbo.TaskInfo
+SET     Status            = 3,
+        EndDateTime       = SYSUTCDATETIME(),
+        Result            = @result,
+        @retryCount = retryCount
+WHERE   TaskId = @taskId
+        AND RunId = @runId
+        AND (MaxRetryCount <> -1 AND RetryCount >= MaxRetryCount)
+
+IF @retryCount IS NULL
+    UPDATE  dbo.TaskInfo
+    SET     Status            = 1,
+            Result            = @result,
+            RetryCount        = RetryCount + 1,
+            RestartInfo       = ISNULL(RestartInfo, '') + ' Prev: Worker=' + Worker + ' Start=' + CONVERT (VARCHAR, StartDateTime, 121)
+    WHERE   TaskId = @taskId
+            AND RunId = @runId
+            AND Status <> 3
+            AND (MaxRetryCount = -1 OR RetryCount < MaxRetryCount)
+EXECUTE dbo.GetTaskDetails @TaskId = @taskId
 
 GO
 CREATE PROCEDURE [dbo].[TaskKeepAlive]
@@ -2358,8 +2322,8 @@ WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
 
 GO
-CREATE PROCEDURE dbo.UpsertResource_7
-@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0, @comparedVersion INT=NULL, @isResourceChange BIT
+CREATE PROCEDURE dbo.UpsertResource_6
+@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -2374,28 +2338,41 @@ FROM   dbo.Resource WITH (UPDLOCK, HOLDLOCK)
 WHERE  ResourceTypeId = @resourceTypeId
        AND ResourceId = @resourceId
        AND IsHistory = 0;
+IF (@etag IS NOT NULL
+    AND @etag <> @previousVersion)
+    BEGIN
+        THROW 50412, 'Precondition failed', 1;
+    END
 DECLARE @version AS INT;
 IF (@previousResourceSurrogateId IS NULL)
     BEGIN
+        IF (@isDeleted = 1)
+            BEGIN
+                COMMIT TRANSACTION;
+                RETURN;
+            END
+        IF (@etag IS NOT NULL)
+            BEGIN
+                THROW 50404, 'Resource with specified version not found', 1;
+            END
+        IF (@allowCreate = 0)
+            BEGIN
+                THROW 50405, 'Resource does not exist and create is not allowed', 1;
+            END
         SET @version = 1;
     END
 ELSE
     BEGIN
-        IF (@isDeleted = 0)
+        IF (@requireETagOnUpdate = 1
+            AND @etag IS NULL)
             BEGIN
-                IF (@comparedVersion = @previousVersion)
-                    BEGIN
-                        IF (@isResourceChange = 0)
-                            BEGIN
-                                COMMIT TRANSACTION;
-                                SELECT -1;
-                                RETURN;
-                            END
-                    END
-                ELSE
-                    BEGIN
-                        THROW 50409, 'Resource has been recently updated, please compare the resource content in code for any duplicate updates', 1;
-                    END
+                THROW 50400, 'Bad request', 1;
+            END
+        IF (@isDeleted = 1
+            AND @previousIsDeleted = 1)
+            BEGIN
+                COMMIT TRANSACTION;
+                RETURN;
             END
         SET @version = @previousVersion + 1;
         IF (@keepHistory = 1)
