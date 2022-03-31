@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     else
                     {
-                        V28.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, taskHeartbeatTimeoutThresholdInSeconds);
+                        V28.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, 1, taskHeartbeatTimeoutThresholdInSeconds);
                     }
 
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
