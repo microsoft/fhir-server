@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (28, 'started');
+VALUES (29, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -1713,7 +1713,6 @@ BEGIN CATCH
     IF @@trancount > 0
         ROLLBACK TRANSACTION THROW;
 END CATCH
-GO
 
 GO
 CREATE PROCEDURE dbo.GetReindexJobById
@@ -2149,33 +2148,34 @@ AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 DECLARE @retryCount AS SMALLINT = NULL;
-IF NOT EXISTS  (SELECT *
-                FROM   dbo.TaskInfo
-                WHERE  TaskId = @taskId
-                       AND RunId = @runId)
+IF NOT EXISTS (SELECT *
+               FROM   dbo.TaskInfo
+               WHERE  TaskId = @taskId
+                      AND RunId = @runId)
     BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
-UPDATE  dbo.TaskInfo
-SET     Status            = 3,
-        EndDateTime       = SYSUTCDATETIME(),
-        Result            = @result,
-        @retryCount = retryCount
-WHERE   TaskId = @taskId
-        AND RunId = @runId
-        AND (MaxRetryCount <> -1 AND RetryCount >= MaxRetryCount)
-
+UPDATE dbo.TaskInfo
+SET    Status      = 3,
+       EndDateTime = SYSUTCDATETIME(),
+       Result      = @result,
+       @retryCount = retryCount
+WHERE  TaskId = @taskId
+       AND RunId = @runId
+       AND (MaxRetryCount <> -1
+            AND RetryCount >= MaxRetryCount);
 IF @retryCount IS NULL
-    UPDATE  dbo.TaskInfo
-    SET     Status            = 1,
-            Result            = @result,
-            RetryCount        = RetryCount + 1,
-            RestartInfo       = ISNULL(RestartInfo, '') + ' Prev: Worker=' + Worker + ' Start=' + CONVERT (VARCHAR, StartDateTime, 121)
-    WHERE   TaskId = @taskId
-            AND RunId = @runId
-            AND Status <> 3
-            AND (MaxRetryCount = -1 OR RetryCount < MaxRetryCount)
-EXECUTE dbo.GetTaskDetails @TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET    Status      = 1,
+           Result      = @result,
+           RetryCount  = RetryCount + 1,
+           RestartInfo = ISNULL(RestartInfo, '') + ' Prev: Worker=' + Worker + ' Start=' + CONVERT (VARCHAR, StartDateTime, 121)
+    WHERE  TaskId = @taskId
+           AND RunId = @runId
+           AND Status <> 3
+           AND (MaxRetryCount = -1
+                OR RetryCount < MaxRetryCount);
+EXECUTE dbo.GetTaskDetails @TaskId = @taskId;
 
 GO
 CREATE PROCEDURE [dbo].[TaskKeepAlive]
