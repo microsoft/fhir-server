@@ -2702,5 +2702,3 @@ WHERE  upsertedSearchParam.Action = 'INSERT';
 COMMIT TRANSACTION;
 
 GO
-
-   

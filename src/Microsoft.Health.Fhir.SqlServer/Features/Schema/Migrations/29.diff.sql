@@ -192,4 +192,3 @@ WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
 EXECUTE dbo.GetTaskDetails @TaskId = @taskId
 GO
-
