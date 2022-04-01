@@ -5,6 +5,7 @@
 
 using System.Linq;
 using System.Reflection;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -31,11 +32,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            SqlTransactionHandler sqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(Substitute.For<SqlTransactionHandler>(), new SqlCommandWrapperFactory(), Substitute.For<ISqlConnectionBuilder>());
-            var sqlServerTransient = Substitute.For<ISqlServerTransientFaultRetryPolicyFactory>();
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(Substitute.For<SqlTransactionHandler>(), Substitute.For<ISqlConnectionBuilder>(), SqlConfigurableRetryFactory.CreateNoneRetryProvider());
 
-            _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerTransient, Substitute.For<ISqlServerFhirModel>(), operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
+            _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, Substitute.For<ISqlServerFhirModel>(), operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
         }
 
         [Fact]

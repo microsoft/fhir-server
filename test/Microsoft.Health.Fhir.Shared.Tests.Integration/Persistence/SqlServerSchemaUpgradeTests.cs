@@ -127,12 +127,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             IOptions<SqlServerDataStoreConfiguration> config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
+            var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
+
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, config);
+            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             var sqlTransactionHandler = new SqlTransactionHandler();
-            var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, new SqlCommandWrapperFactory(), defaultSqlConnectionBuilder);
+            var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider);
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,
