@@ -142,6 +142,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 try
                 {
                     SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
+
+                    if (searchParameterInfo.Code == "_profile" && searchParameterInfo.Type == SearchParamType.Reference)
+                    {
+                        // _profile can't be handled as a reference since it points to an external permalink
+                        searchParameterInfo.Type = SearchParamType.Uri;
+                    }
+
                     uriDictionary.Add(searchParameter.Url, searchParameterInfo);
                 }
                 catch (FormatException)
