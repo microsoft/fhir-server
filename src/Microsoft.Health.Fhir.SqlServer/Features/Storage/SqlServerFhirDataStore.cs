@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.LastModifiedClaims);
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
             {
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestedVersion = parsedVersion;
                 }
 
-                using (SqlCommandWrapper commandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                using (SqlCommandWrapper commandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
                     VLatest.ReadResource.PopulateCommand(
                         commandWrapper,
@@ -385,7 +385,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 if (_schemaInformation.Current >= SchemaVersionConstants.PurgeHistoryVersion)
                 {
@@ -407,7 +407,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
                 {
@@ -501,7 +501,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
                 {
