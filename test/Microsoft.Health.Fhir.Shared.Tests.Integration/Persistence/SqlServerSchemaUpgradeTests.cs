@@ -298,7 +298,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
 
                 checkSchemaVersionCommand.CommandText = "SELECT count(*) FROM SchemaVersion where Status = 'started'";
-                if ((int?)await checkSchemaVersionCommand.ExecuteScalarAsync(CancellationToken.None) == 1)
+                if ((int?)await checkSchemaVersionCommand.ExecuteScalarAsync(CancellationToken.None) >= 1)
                 {
                     return true;
                 }
