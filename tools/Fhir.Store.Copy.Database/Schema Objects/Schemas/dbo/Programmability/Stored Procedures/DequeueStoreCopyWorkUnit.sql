@@ -104,9 +104,10 @@ BEGIN TRY
   END
 
   IF @UnitId IS NOT NULL
-    SELECT ResourceTypeId
+    SELECT PartitionId
+          ,ResourceTypeId
           ,UnitId
-          ,MinId
+          ,MinIdOrUrl
           ,MaxId
           ,ResourceCount
       FROM dbo.StoreCopyWorkQueue

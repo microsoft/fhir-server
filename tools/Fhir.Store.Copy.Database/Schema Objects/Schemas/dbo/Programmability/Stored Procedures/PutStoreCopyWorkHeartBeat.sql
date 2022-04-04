@@ -1,18 +1,17 @@
---DROP PROCEDURE dbo.PutStoreCopyWorkUnitStatus
+--DROP PROCEDURE dbo.PutStoreCopyWorkHeartBeat
 GO
-CREATE PROCEDURE dbo.PutStoreCopyWorkUnitStatus @PartitionId tinyint, @UnitId int, @Failed bit, @ResourceCount int = NULL
+CREATE PROCEDURE dbo.PutStoreCopyWorkHeartBeat @PartitionId tinyint, @UnitId int, @ResourceCount int = NULL
 AS
 set nocount on
-DECLARE @SP varchar(100) = 'PutStoreCopyWorkUnitStatus'
+DECLARE @SP varchar(100) = 'PutStoreCopyWorkHeartBeat'
        ,@Mode varchar(100)
        ,@st datetime = getUTCdate()
 
-SET @Mode = 'P='+convert(varchar,@PartitionId)+' U='+convert(varchar,@UnitId)+' F='+convert(varchar,@Failed)+' R='+isnull(convert(varchar,@ResourceCount),'NULL')
+SET @Mode = 'P='+convert(varchar,@PartitionId)+' U='+convert(varchar,@UnitId)+' R='+isnull(convert(varchar,@ResourceCount),'NULL')
 
 BEGIN TRY
   UPDATE dbo.StoreCopyWorkQueue
-    SET EndDate = getUTCdate()
-       ,Status = CASE WHEN @Failed = 1 THEN 3 ELSE 2 END -- 2:completed with success  3:completed with failure
+    SET HeartBeatDate = getUTCdate()
        ,ResourceCount = isnull(@ResourceCount,ResourceCount)
     WHERE PartitionId = @PartitionId
       AND UnitId = @UnitId

@@ -14,18 +14,24 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private byte _partitionId;
         private object _partitioinLocker = new object();
+        private const byte _numberOfPartitions = 16;
 
-        internal SqlService(string connectionString)
-            : base(connectionString)
+        internal SqlService(string connectionString, string secondaryConnectionString = null)
+            : base(connectionString, secondaryConnectionString)
         {
-            _partitionId = (byte)(16 * _rand.NextDouble());
+            _partitionId = (byte)(_numberOfPartitions * _rand.NextDouble());
         }
 
-        private byte GetNextPartitionId()
+        private byte GetNextPartitionId(int? thread)
         {
+            if (thread.HasValue)
+            {
+                return (byte)(thread.Value % _numberOfPartitions);
+            }
+
             lock (_partitioinLocker)
             {
-                _partitionId = _partitionId == 15 ? (byte)0 : ++_partitionId;
+                _partitionId = _partitionId == _numberOfPartitions - 1 ? (byte)0 : ++_partitionId;
                 return _partitionId;
             }
         }
@@ -61,35 +67,58 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return cnt > 0;
         }
 
-        internal void DequeueStoreCopyWorkQueue(out short? resourceTypeId, out int unitId, out string minSurId, out string maxSurId)
+        internal void DequeueStoreCopyWorkQueue(int? thread, out short? resourceTypeId, out byte partitionId, out int unitId, out string minSurIdOrUrl, out string maxSurId)
         {
             resourceTypeId = null;
+            partitionId = 0;
             unitId = 0;
-            minSurId = string.Empty;
+            minSurIdOrUrl = string.Empty;
             maxSurId = string.Empty;
 
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.DequeueStoreCopyWorkUnit", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@StartPartitionId", GetNextPartitionId());
+            command.Parameters.AddWithValue("@StartPartitionId", GetNextPartitionId(thread));
             command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                resourceTypeId = reader.GetInt16(0);
-                unitId = reader.GetInt32(1);
-                minSurId = reader.GetString(2);
-                maxSurId = reader.GetString(3);
+                partitionId = reader.GetByte(0);
+                resourceTypeId = reader.GetInt16(1);
+                unitId = reader.GetInt32(2);
+                minSurIdOrUrl = reader.GetString(3);
+                maxSurId = reader.GetString(4);
             }
         }
 
-        internal void CompleteStoreCopyWorkUnit(int unitId, bool failed)
+        internal void PutStoreCopyWorkHeartBeat(byte partitionId, int unitId, int? resourceCount = null)
+        {
+            using var conn = new SqlConnection(ConnectionString);
+            conn.Open();
+            using var command = new SqlCommand("dbo.PutStoreCopyWorkHeartBeat", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            command.Parameters.AddWithValue("@PartitionId", partitionId);
+            command.Parameters.AddWithValue("@UnitId", unitId);
+            if (resourceCount.HasValue)
+            {
+                command.Parameters.AddWithValue("@ResourceCount", resourceCount.Value);
+            }
+
+            command.ExecuteNonQuery();
+        }
+
+        internal void CompleteStoreCopyWorkUnit(byte partitionId, int unitId, bool failed, int? resourceCount = null)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.PutStoreCopyWorkUnitStatus", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            command.Parameters.AddWithValue("@PartitionId", partitionId);
             command.Parameters.AddWithValue("@UnitId", unitId);
             command.Parameters.AddWithValue("@Failed", failed);
+            if (resourceCount.HasValue)
+            {
+                command.Parameters.AddWithValue("@ResourceCount", resourceCount.Value);
+            }
+
             command.ExecuteNonQuery();
         }
 

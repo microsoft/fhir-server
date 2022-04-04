@@ -131,5 +131,36 @@ SELECT *
                 yield return toT(reader);
             }
         }
+
+        internal IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, IEnumerable<string> resourceIds, bool useSecondaryStore)
+        {
+            using var conn = new SqlConnection(GetTrueConnectionString(useSecondaryStore));
+            conn.Open();
+            using var cmd = new SqlCommand(
+                @$"
+DECLARE @DummyTop bigint = 9223372036854775807
+SELECT * 
+  FROM dbo.{typeof(T).Name} WITH (INDEX = 1)
+  WHERE ResourceTypeId = @ResourceTypeId
+    AND ResourceSurrogateId IN 
+          (SELECT TOP (@DummyTop) ResourceSurrogateId 
+             FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) 
+             WHERE ResourceTypeId = @ResourceTypeId 
+               AND ResourceId IN (SELECT TOP (@DummyTop) String FROM @ResourceIds)
+               AND IsHistory = 0
+          )
+  OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))",
+                conn)
+            { CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            var resourceIdsParam = new SqlParameter { ParameterName = "@ResourceIds" };
+            resourceIdsParam.AddStringList(resourceIds);
+            cmd.Parameters.Add(resourceIdsParam);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                yield return toT(reader);
+            }
+        }
     }
 }

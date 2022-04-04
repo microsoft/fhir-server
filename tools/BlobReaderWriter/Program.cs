@@ -102,13 +102,13 @@ namespace BlobReaderWriter
         private static string GetPartitionKey(string jsonString)
         {
             var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
-            var firstLetter = jsonString.Substring(idStart, 1);
-            if (string.IsNullOrEmpty(firstLetter))
+            var firstLetters = jsonString.Substring(idStart, 2);
+            if (string.IsNullOrEmpty(firstLetters))
             {
                 throw new ArgumentException("Cannot parse resource id with string parser");
             }
 
-            return firstLetter;
+            return firstLetters;
         }
 
         private static long SplitBlobBySize(BlobContainerClient sourceContainer, BlobItem blob, BlobContainerClient targetContainer, ref long targetBlobs)
@@ -175,33 +175,6 @@ namespace BlobReaderWriter
         private static string GetTargetBlobName(string origBlobName, string partition)
         {
             return $"{partition}/{origBlobName}";
-        }
-
-        private static void WriteBatchOfLines(BlobContainerClient container, IList<string> batch, string origBlobName, string partition)
-        {
-            var blobName = GetTargetBlobName(origBlobName, partition);
-        retry:
-            try
-            {
-                using var stream = container.GetBlockBlobClient(blobName).OpenWrite(true);
-                using var writer = new StreamWriter(stream);
-                foreach (var line in batch)
-                {
-                    writer.WriteLine(line);
-                }
-
-                writer.Flush();
-            }
-            catch (Exception e)
-            {
-                if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
-                {
-                    Console.WriteLine(e);
-                    goto retry;
-                }
-
-                throw;
-            }
         }
 
         private static IEnumerable<string> GetLinesInBlob(BlobContainerClient container, BlobItem blob)

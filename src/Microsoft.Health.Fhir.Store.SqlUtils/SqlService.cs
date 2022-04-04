@@ -10,14 +10,18 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
 {
     public class SqlService
     {
-        public SqlService(string connectionString)
+        private string _connectionString;
+        private string _secondaryConnectionString;
+
+        public SqlService(string connectionString, string secondaryConnectionString = null)
         {
-            ConnectionString = connectionString;
+            _connectionString = connectionString;
+            _secondaryConnectionString = secondaryConnectionString;
         }
 
-        public string DatabaseName => new SqlConnectionStringBuilder(ConnectionString).InitialCatalog;
+        public string ConnectionString => GetTrueConnectionString();
 
-        public string ConnectionString { get; }
+        public string DatabaseName => new SqlConnectionStringBuilder(ConnectionString).InitialCatalog;
 
         public void LogEvent(string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
         {
@@ -59,6 +63,16 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
         {
             var builder = new SqlConnectionStringBuilder(ConnectionString);
             return $"server={builder.DataSource};database={builder.InitialCatalog}";
+        }
+
+        public string GetTrueConnectionString(bool? useSecondaryStore = null)
+        {
+            if (!useSecondaryStore.HasValue || _secondaryConnectionString == null)
+            {
+                return _connectionString;
+            }
+
+            return useSecondaryStore.Value ? _secondaryConnectionString : _connectionString;
         }
     }
 }
