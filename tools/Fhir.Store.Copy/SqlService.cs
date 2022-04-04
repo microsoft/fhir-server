@@ -14,11 +14,12 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private byte _partitionId;
         private object _partitioinLocker = new object();
-        private const byte _numberOfPartitions = 16;
+        private byte _numberOfPartitions;
 
-        internal SqlService(string connectionString, string secondaryConnectionString = null)
+        internal SqlService(string connectionString, string secondaryConnectionString = null, byte? numberOfPartitions = null)
             : base(connectionString, secondaryConnectionString)
         {
+            _numberOfPartitions = numberOfPartitions.HasValue ? numberOfPartitions.Value : (byte)16;
             _partitionId = (byte)(_numberOfPartitions * _rand.NextDouble());
         }
 

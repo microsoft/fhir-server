@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static bool stop = false;
         private static readonly SqlService Target = new SqlService(TargetConnectionString);
         private static readonly SqlService Source = new SqlService(SourceConnectionString, SourceConnectionString2);
-        private static readonly SqlService Queue = new SqlService(QueueConnectionString);
+        private static readonly SqlService Queue = new SqlService(QueueConnectionString, null, (byte)Threads);
         private static readonly string BcpSourceConnStr = Source.GetBcpConnectionString();
         private static readonly string BcpTargetConnStr = Target.GetBcpConnectionString();
         private static readonly string BcpQueueConnStr = Queue.GetBcpConnectionString();
