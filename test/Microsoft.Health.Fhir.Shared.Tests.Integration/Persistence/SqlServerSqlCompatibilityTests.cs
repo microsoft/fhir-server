@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -76,13 +78,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
         /// </summary>
         [Fact]
-        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
+        public void GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
-            for (int i = SchemaVersionConstants.Min; i <= SchemaVersionConstants.Max; i++)
+            Parallel.ForEach(Enum.GetValues(typeof(SchemaVersion)).OfType<int>().ToList(), async version =>
             {
-                string databaseName = $"FHIRCOMPATIBILITYTEST_V{i}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+                string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
-                var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
+                var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName));
                 try
                 {
                     await fhirStorageTestsFixture.InitializeAsync();
@@ -98,13 +100,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
                 catch (Exception e)
                 {
-                    throw new InvalidOperationException($"Failure using schema version {i}", e);
+                    throw new InvalidOperationException($"Failure using schema version {version}", e);
                 }
                 finally
                 {
                     await fhirStorageTestsFixture?.DisposeAsync();
                 }
-            }
+            });
         }
 
         /// <summary>
