@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider);
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 SchemaInformation,
