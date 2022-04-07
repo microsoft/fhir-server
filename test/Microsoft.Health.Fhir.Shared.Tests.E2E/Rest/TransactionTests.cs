@@ -335,6 +335,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
             ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
 
+            patient.Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>Content Updated</div>",
+            };
+
             FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle);
 
             Assert.Equal(patientId, bundleResponse2.Resource.Entry[0].Resource.Id);
