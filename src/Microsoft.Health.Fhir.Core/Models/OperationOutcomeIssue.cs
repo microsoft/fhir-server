@@ -25,23 +25,20 @@ namespace Microsoft.Health.Fhir.Core.Models
             Severity = severity;
             Code = code;
             DetailsCodes = detailsCodes;
-
-            if (expression != null)
-            {
-                if (DetailsCodes == null)
-                {
-                    DetailsCodes = new CodableConceptInfo();
-                }
-
-                DetailsCodes.Coding.Add(new Hl7.Fhir.Model.Coding(Resources.Meta, Resources.Meta, Resources.OperationOutcomeLocationDeprication));
-            }
-
             DetailsText = detailsText;
             Diagnostics = diagnostics;
-#pragma warning disable CS0618 // Type or member is obsolete
-            Location = expression;
-#pragma warning restore CS0618 // Type or member is obsolete
             Expression = expression;
+
+            var location = new string[expression.Length];
+            var i = 0;
+            foreach (var ex in expression)
+            {
+                location[i] = ex + "//" + Resources.OperationOutcomeLocationDeprication;
+                i++;
+            }
+#pragma warning disable CS0618 // Type or member is obsolete
+            Location = location;
+#pragma warning restore CS0618 // Type or member is obsolete
         }
 
         public string Severity { get; }
