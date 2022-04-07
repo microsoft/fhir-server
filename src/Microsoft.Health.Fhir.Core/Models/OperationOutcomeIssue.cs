@@ -29,13 +29,18 @@ namespace Microsoft.Health.Fhir.Core.Models
             Diagnostics = diagnostics;
             Expression = expression;
 
-            var location = new string[expression.Length];
-            var i = 0;
-            foreach (var ex in expression)
+            string[] location = null;
+            if (expression != null)
             {
-                location[i] = ex + "//" + Resources.OperationOutcomeLocationDeprication;
-                i++;
+                location = new string[expression.Length];
+                var i = 0;
+                foreach (var ex in expression)
+                {
+                    location[i] = ex + " // " + Resources.OperationOutcomeLocationDeprication;
+                    i++;
+                }
             }
+
 #pragma warning disable CS0618 // Type or member is obsolete
             Location = location;
 #pragma warning restore CS0618 // Type or member is obsolete
