@@ -50,11 +50,6 @@ namespace Microsoft.Health.Fhir.Web
             {
                 fhirServerBuilder.AddSqlServer(config =>
                 {
-                    if (int.TryParse(Configuration["SqlServer:SqlCommand:CommandTimeout"], out int commandTimeout) && commandTimeout >= 0)
-                    {
-                        config.CommandTimeout = TimeSpan.FromSeconds(commandTimeout);
-                    }
-
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
             }
