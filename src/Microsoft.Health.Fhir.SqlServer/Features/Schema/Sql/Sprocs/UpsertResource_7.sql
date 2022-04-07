@@ -5,7 +5,7 @@
 
 --
 -- STORED PROCEDURE
---     UpsertResource_6
+--     UpsertResource_7
 --
 -- DESCRIPTION
 --     Creates or updates (including marking deleted) a FHIR resource
@@ -68,11 +68,13 @@
 --         * Extracted token$number$number search params
 --     @isResourceChangeCaptureEnabled
 --         * Whether capturing resource change data
+--     @comparedVersion
+--         *  If specified, the version of the resource that was compared in the code
 --
 -- RETURN VALUE
 --     The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_6
+CREATE PROCEDURE dbo.UpsertResource_7
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -100,7 +102,8 @@ CREATE PROCEDURE dbo.UpsertResource_6
     @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
     @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
-    @isResourceChangeCaptureEnabled bit = 0
+    @isResourceChangeCaptureEnabled bit = 0,
+    @comparedVersion int = NULL
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -119,50 +122,27 @@ FROM   dbo.Resource WITH (UPDLOCK, HOLDLOCK)
 WHERE  ResourceTypeId = @resourceTypeId
        AND ResourceId = @resourceId
        AND IsHistory = 0;
-IF (@etag IS NOT NULL
-    AND @etag <> @previousVersion)
-    BEGIN
-        THROW 50412, 'Precondition failed', 1;
-    END
+
 DECLARE @version AS INT; -- the version of the resource being written
 IF (@previousResourceSurrogateId IS NULL)
     BEGIN
-        
-		-- There is no previous version of this resource
-		IF (@isDeleted = 1)
-            BEGIN
-                -- Don't bother marking the resource as deleted since it already does not exist.
-				COMMIT TRANSACTION;
-                RETURN;
-            END
-        IF (@etag IS NOT NULL)
-            BEGIN
-                -- You can't update a resource with a specified version if the resource does not exist
-				THROW 50404, 'Resource with specified version not found', 1;
-            END
-        IF (@allowCreate = 0)
-            BEGIN
-                THROW 50405, 'Resource does not exist and create is not allowed', 1;
-            END
+        -- There is no previous version
         SET @version = 1;
     END
 ELSE
     BEGIN
-        -- There is a previous version
-        IF (@requireETagOnUpdate = 1
-            AND @etag IS NULL)
+        -- There is a previous version so @previousVersion will not be null
+        IF (@isDeleted = 0) -- When not a delete
             BEGIN
-                -- This is a versioned update and no version was specified
-                THROW 50400, 'Bad request', 1;
+                IF (@comparedVersion IS NULL OR @comparedVersion <> @previousVersion)
+                    BEGIN
+                        -- If @comparedVersion is null then resource was recently added
+                        -- Otherwise if @comparedVersion doesn't match the @previousVersion in the DB means the version we compared in the code is not the latest version anymore
+                        -- Go back to code and compare the latest
+                        THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+                    END
             END
 
-        IF (@isDeleted = 1
-            AND @previousIsDeleted = 1)
-            BEGIN
-                -- Already deleted - don't create a new version
-				COMMIT TRANSACTION;
-                RETURN;
-            END
         SET @version = @previousVersion + 1;
         IF (@keepHistory = 1)
             BEGIN
@@ -292,6 +272,7 @@ ELSE
                        AND ResourceSurrogateId = @previousResourceSurrogateId;
             END
     END
+
 DECLARE @resourceSurrogateId AS BIGINT = @baseResourceSurrogateId + ( NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence);
 DECLARE @isRawResourceMetaSet AS BIT;
 IF (@version = 1)

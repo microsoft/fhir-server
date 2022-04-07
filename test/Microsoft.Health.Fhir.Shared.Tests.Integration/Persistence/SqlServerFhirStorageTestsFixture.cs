@@ -129,6 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGeneratorV13 = serviceProvider.GetRequiredService<V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorV18 = serviceProvider.GetRequiredService<V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var upsertResourceTvpGeneratorV27 = serviceProvider.GetRequiredService<V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var reindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
@@ -157,6 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertResourceTvpGeneratorV13,
                 upsertResourceTvpGeneratorV17,
                 upsertResourceTvpGeneratorV18,
+                upsertResourceTvpGeneratorV27,
                 upsertResourceTvpGeneratorVLatest,
                 reindexResourceTvpGeneratorV17,
                 reindexResourceTvpGeneratorVLatest,
