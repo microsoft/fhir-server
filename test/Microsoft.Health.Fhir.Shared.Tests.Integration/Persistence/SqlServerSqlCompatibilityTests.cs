@@ -80,7 +80,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public void GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
-            Parallel.ForEach(Enum.GetValues(typeof(SchemaVersion)).OfType<int>().ToList(), async version =>
+            var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
+            Parallel.ForEach(versions, async version =>
             {
                 string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 

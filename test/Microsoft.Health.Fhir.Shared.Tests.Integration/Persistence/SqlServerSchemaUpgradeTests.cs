@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Numerics;
@@ -78,8 +77,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public void GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
         {
-            Parallel.ForEach(Enum.GetValues(typeof(SchemaVersion)).OfType<int>().ToList(), async version =>
+            var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
+            Parallel.ForEach(versions, async version =>
             {
+                // The schema upgrade scripts starting from v7 were made idempotent.
                 if (version >= 7)
                 {
                     var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
