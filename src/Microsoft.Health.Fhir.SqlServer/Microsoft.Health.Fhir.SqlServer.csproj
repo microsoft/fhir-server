@@ -5,7 +5,7 @@
 
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>29</LatestSchemaVersion>
+    <LatestSchemaVersion>30</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
   </PropertyGroup>
