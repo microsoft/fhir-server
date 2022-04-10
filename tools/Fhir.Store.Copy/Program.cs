@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static bool stop = false;
         private static readonly SqlService Target = new SqlService(TargetConnectionString);
         private static readonly SqlService Source = new SqlService(SourceConnectionString, SourceConnectionString2);
-        private static readonly SqlService Queue = new SqlService(QueueConnectionString, null, (byte)Threads);
+        private static readonly SqlService Queue = new SqlService(QueueConnectionString, null, PartitionByPartOfResourceId ? (byte)Threads : null);
         private static readonly string BcpSourceConnStr = Source.GetBcpConnectionString();
         private static readonly string BcpTargetConnStr = Target.GetBcpConnectionString();
         private static readonly string BcpQueueConnStr = Queue.GetBcpConnectionString();
@@ -551,7 +551,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 Target.InsertResources(isMerge, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams, SingleTransation);
             }
 
-            Console.WriteLine($"Copy.{(isMerge ? "merge" : "insert")}.sort=ResourceId.{thread}.{unitId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"Copy.{(isMerge ? "merge" : "insert")}.sort={(SortBySurrogateId ? "SurrogateId" : "ResourceId")}.{thread}.{unitId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
         private static void RunOsCommand(string filename, string arguments, bool redirectOutput)
@@ -588,7 +588,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private static byte GetPartitionId(string blobName)
         {
-            return (byte)(Convert.ToInt32(blobName.Split("/")[0], 16) % Threads);
+            return (byte)(Convert.ToInt32(blobName.Split("/")[0], 16) / (256 / Threads)); // Make generic
         }
 
         private static string GetRecourceType(string blobName)
@@ -637,7 +637,7 @@ INSERT INTO dbo.StoreCopyWorkQueue
         ,ResourceTypeId = (SELECT Id FROM dbo.ResourceType B WHERE B.Name = A.ResourceType)
         ,MinIdOrUrl = Url
         ,MaxId = ''
-        ,ResourceCount = -1
+        ,ResourceCount = 0
     FROM (SELECT PartitionId = max(CASE WHEN ordinal = 1 THEN value END)
                 ,ResourceType = max(CASE WHEN ordinal = 2 THEN value END)
                 ,Url = max(CASE WHEN ordinal = 3 THEN value END)
@@ -684,6 +684,23 @@ INSERT INTO dbo.StoreCopyWorkQueue
             sourceConn.Open();
             var sql = SortBySurrogateId ?
                                 @"
+SELECT PartUnitId = isnull(convert(int, (row_number() OVER (PARTITION BY ResourceTypeId ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0)
+      ,ResourceTypeId
+      ,ResourceSurrogateId
+  INTO #tmp
+  FROM dbo.Resource
+
+SELECT PartUnitId
+      ,ResourceTypeId
+      ,MinId = min(ResourceSurrogateId)
+      ,MaxId = max(ResourceSurrogateId)
+      ,ResourceCount = count(*)
+  INTO #tmp2
+  FROM #tmp
+  GROUP BY
+       ResourceTypeId
+      ,PartUnitId
+
 SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
       ,ResourceTypeId
       ,MinId
@@ -691,21 +708,13 @@ SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
       ,ResourceCount
   INTO ##StoreCopyWorkQueue
   FROM (SELECT RandId = newid()
-              ,PartUnitId
               ,ResourceTypeId
-              ,MinId = min(ResourceSurrogateId)
-              ,MaxId = max(ResourceSurrogateId)
-              ,ResourceCount = count(*)
-          FROM (SELECT PartUnitId = isnull(convert(int, (row_number() OVER (PARTITION BY ResourceTypeId ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0)
-                      ,ResourceTypeId
-                      ,ResourceSurrogateId
-                  FROM dbo.Resource
-               ) A
-          GROUP BY
-               ResourceTypeId
-              ,PartUnitId
-       ) A
-                                 "
+              ,MinId
+              ,MaxId
+              ,ResourceCount
+          FROM #tmp2
+       ) A                     
+                                "
                                 :
                                 @"
 SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
@@ -761,16 +770,16 @@ INSERT INTO dbo.StoreCopyWorkQueue
                 queueConn) { CommandTimeout = 600 };
             insert.ExecuteNonQuery();
 
-            using var update = new SqlCommand(
-                @"
-UPDATE A
-  SET Thread = RowId % @Threads
-  FROM (SELECT *, RowId = row_number() OVER (ORDER BY UnitId) - 1 FROM StoreCopyWorkQueue) B
-       JOIN StoreCopyWorkQueue A ON A.UnitId = B.UnitId
-                 ",
-                queueConn) { CommandTimeout = 600 };
-            update.Parameters.AddWithValue("@Threads", Threads);
-            update.ExecuteNonQuery();
+////            using var update = new SqlCommand(
+////                @"
+////UPDATE A
+////  SET Thread = RowId % @Threads
+////  FROM (SELECT *, RowId = row_number() OVER (ORDER BY UnitId) - 1 FROM StoreCopyWorkQueue) B
+////       JOIN StoreCopyWorkQueue A ON A.UnitId = B.UnitId
+////                 ",
+////                queueConn) { CommandTimeout = 600 };
+////            update.Parameters.AddWithValue("@Threads", Threads);
+////            update.ExecuteNonQuery();
 
             queueConn.Close();
         }

@@ -2,6 +2,7 @@
 GO
 CREATE PROCEDURE dbo.MergeResources
   @SingleTransaction bit = 1
+ ,@SimpleInsert bit = 1
  ,@Resources ResourceList READONLY
  ,@ReferenceSearchParams ReferenceSearchParamList READONLY
  ,@TokenSearchParams TokenSearchParamList READONLY
@@ -27,7 +28,7 @@ DECLARE @st datetime = getUTCdate()
 
 SELECT @ResourceTypeId = max(ResourceTypeId), @InputRows = count(*) FROM @Resources -- validate whether "all resources have same RT" assumption is acually needed
 
-DECLARE @Mode varchar(100) = 'RT='+convert(varchar,@ResourceTypeId)+' Rows='+convert(varchar,@InputRows)+' TR='+convert(varchar,@SingleTransaction)
+DECLARE @Mode varchar(100) = 'RT='+convert(varchar,@ResourceTypeId)+' Rows='+convert(varchar,@InputRows)+' TR='+convert(varchar,@SingleTransaction)+' SI='+convert(varchar,@SimpleInsert)
 
 SET @AffectedRows = 0
 
@@ -41,7 +42,7 @@ BEGIN TRY
        ResourceSurrogateId  bigint         NOT NULL PRIMARY KEY
       ,PreviousSurrogateId  bigint         NULL
       ,ResourceTypeId       smallint       NOT NULL
-      ,ResourceId           varchar(64)    NOT NULL
+      ,ResourceId           varchar(64)    COLLATE Latin1_General_100_CS_AS NOT NULL -- Collation here should not matter as we don't do any ResourceId comparisons with @TrueResources
       ,Version              int            NOT NULL
       ,RequestMethod        varchar(10)    NULL
       ,RawResource          varbinary(max) NOT NULL
@@ -52,31 +53,56 @@ BEGIN TRY
   DECLARE @PreviousSurrogateIds AS TABLE (SurrogateId bigint PRIMARY KEY, TypeId smallint NOT NULL)
   DECLARE @CurrentOffsets AS TABLE (Offset bigint PRIMARY KEY)
 
-  INSERT INTO @TrueResources
-      (
-           ResourceSurrogateId
-          ,PreviousSurrogateId
-          ,ResourceTypeId
-          ,ResourceId
-          ,Version
-          ,RequestMethod
-          ,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-      )
-    SELECT A.ResourceSurrogateId
-          ,PreviousSurrogateId = B.ResourceSurrogateId
-          ,A.ResourceTypeId
-          ,A.ResourceId
-          ,Version = isnull(B.Version + 1, 0)
-          ,A.RequestMethod
-          ,A.RawResource
-          ,A.IsRawResourceMetaSet
-          ,A.SearchParamHash
-      FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
-           LEFT OUTER JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0 -- How do we handle input matching deleted record?
-      WHERE B.ResourceId IS NULL -- OR A.RawResource <> B.RawResource -- raw resource contains updated date and cannot be compared with input as-is. we need to fix this. 
-      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  IF @SimpleInsert = 1
+    INSERT INTO @TrueResources
+        (
+             ResourceSurrogateId
+            ,PreviousSurrogateId
+            ,ResourceTypeId
+            ,ResourceId
+            ,Version
+            ,RequestMethod
+            ,RawResource
+            ,IsRawResourceMetaSet
+            ,SearchParamHash
+        )
+      SELECT A.ResourceSurrogateId
+            ,PreviousSurrogateId = NULL
+            ,A.ResourceTypeId
+            ,A.ResourceId
+            ,Version = 0
+            ,A.RequestMethod
+            ,A.RawResource
+            ,A.IsRawResourceMetaSet
+            ,A.SearchParamHash
+        FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  ELSE
+    INSERT INTO @TrueResources
+        (
+             ResourceSurrogateId
+            ,PreviousSurrogateId
+            ,ResourceTypeId
+            ,ResourceId
+            ,Version
+            ,RequestMethod
+            ,RawResource
+            ,IsRawResourceMetaSet
+            ,SearchParamHash
+        )
+      SELECT A.ResourceSurrogateId
+            ,PreviousSurrogateId = B.ResourceSurrogateId
+            ,A.ResourceTypeId
+            ,A.ResourceId
+            ,Version = isnull(B.Version + 1, 0)
+            ,A.RequestMethod
+            ,A.RawResource
+            ,A.IsRawResourceMetaSet
+            ,A.SearchParamHash
+        FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
+             LEFT OUTER JOIN dbo.Resource B ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0 -- How do we handle input matching deleted record?
+        WHERE B.ResourceId IS NULL -- OR A.RawResource <> B.RawResource -- raw resource contains updated date and cannot be compared with input as-is. we need to fix this. 
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
   INSERT INTO @PreviousSurrogateIds
     SELECT PreviousSurrogateId, ResourceTypeId
