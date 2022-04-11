@@ -1097,6 +1097,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search count returned {0} and exceeds the maximum defined limit of {1}..
+        /// </summary>
+        internal static string SearchCountResultsExceedLimit {
+            get {
+                return ResourceManager.GetString("SearchCountResultsExceedLimit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;_count&apos; parameter exceeds limit configured for server. Current limit is {0} while `_count` parameter set to {1}..
         /// </summary>
         internal static string SearchParamaterCountExceedLimit {

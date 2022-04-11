@@ -1,0 +1,26 @@
+name: Sync issue to Azure DevOps work item
+
+on:
+  issues:
+    types:
+      [opened, edited, deleted, closed, reopened, labeled, unlabeled, assigned]
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    name: Sync to DevOps workflow
+    steps:
+      - uses: danhellem/github-actions-issue-to-work-item@master
+        env:
+          ado_token: "${{ secrets.AZURE_DEVOPS_TOKEN }}"
+          github_token: "${{ secrets.GITHUB_TOKEN }}"
+          ado_organization: "${{ secrets.DEVOPS_ORGANIZATION }}"
+          ado_project: "${{ secrets.DEVOPS_PROJECT }}"
+          ado_area_path: "${{ secrets.DEVOPS_AREA_PATH }}"
+          ado_iteration_path: "${{ secrets.DEVOPS_ITERATION_PATH }}"
+          ado_wit: "User Story"
+          ado_new_state: "New"
+          ado_active_state: "Active"
+          ado_close_state: "Closed"
+          ado_bypassrules: true
+          log_level: 100

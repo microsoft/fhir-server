@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         private const int DefaultSqlCleanResourceBatchSize = 1000;
         private const int DefaultSqlMaxRebuildIndexOperationConcurrentCount = 3;
         private const int DefaultSqlMaxDeleteDuplicateOperationConcurrentCount = 3;
+        private const int DefaultSqlMaxDatatableProcessConcurrentCount = 3;
         private const int DefaultSqlLongRunningOperationTimeoutInSec = 60 * 60 * 2;
         private const int DefaultSqlBulkOperationTimeoutInSec = 60 * 10;
 
@@ -88,6 +89,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Concurrent count for delete duplicate resource operation.
         /// </summary>
         public int SqlMaxDeleteDuplicateOperationConcurrentCount { get; set; } = DefaultSqlMaxDeleteDuplicateOperationConcurrentCount;
+
+        /// <summary>
+        /// Concurrent count for data table process operation.
+        /// </summary>
+        public int SqlMaxDatatableProcessConcurrentCount { get; set; } = DefaultSqlMaxDatatableProcessConcurrentCount;
 
         /// <summary>
         /// Disable optional index during import data.

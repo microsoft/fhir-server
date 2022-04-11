@@ -3,16 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.SqlServer.Features.Client;
-using Polly;
-
-namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import
+namespace Microsoft.Health.Fhir.Importer
 {
-    public class TestSqlServerTransientFaultRetryPolicyFactory : ISqlServerTransientFaultRetryPolicyFactory
+    public static class Program
     {
-        public IAsyncPolicy Create()
+        public static void Main()
         {
-            return Policy.TimeoutAsync(60);
+            Importer.Run();
         }
     }
 }

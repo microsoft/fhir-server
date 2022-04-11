@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
     {
         /// <summary>
         /// New parameters added to upsert resource stored procedure might impact bulk import operation.
-        /// Please contact import feature ownert to review the change if this test case fail.
+        /// Please contact import feature owner to review the change if this test case fail.
         /// </summary>
         [Fact]
         public void GivenUpsertResourceStoredProcedure_WhenNewParameterAdded_ThenBulkImportShouldSupportNewParameters()
@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 "tokenStringCompositeSearchParams",
                 "tokenNumberNumberCompositeSearchParams",
                 "isResourceChangeCaptureEnabled",
+                "comparedVersion",
             };
             MethodInfo methodInfo = typeof(VLatest.UpsertResourceProcedure).GetMethods().Where(m => m.Name.Equals("PopulateCommand")).OrderBy(m => -m.GetParameters().Count()).First();
             string[] upsertStoredProcedureParameters = methodInfo.GetParameters().Select(p => p.Name).ToArray();

@@ -25,7 +25,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
-using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly ISqlConnectionFactory _sqlConnectionFactory;
+        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _scopedSqlConnectionWrapperFactory;
         private readonly IMediator _mediator;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
-            ISqlConnectionFactory sqlConnectionFactory,
+            Func<IScoped<SqlConnectionWrapperFactory>> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
             ILogger<SqlServerFhirModel> logger)
         {
@@ -72,14 +72,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
-            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
+            EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaInformation = schemaInformation;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
-            _sqlConnectionFactory = sqlConnectionFactory;
+            _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _mediator = mediator;
             _logger = logger;
         }
@@ -187,8 +187,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
-            var sqlConnection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlConnection.DataSource, sqlConnection.Database, version);
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                 _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
+            }
 
             // If we are applying a full snap shot schema file, or if the server is just starting up
             if (runAllInitialization || _highestInitializedVersion == 0)
@@ -217,15 +221,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeBase(CancellationToken cancellationToken)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                connection.Open();
-
                 // Synchronous calls are used because this code is executed on startup and doesn't need to be async.
                 // Additionally, XUnit task scheduler constraints prevent async calls from being easily tested.
-                using (SqlCommand sqlCommand = connection.CreateCommand())
-                {
-                    sqlCommand.CommandText = @"
+                sqlCommandWrapper.CommandText = @"
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
 
@@ -266,114 +268,111 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
-                    string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url }));
-                    string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
-                    string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
-                    string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
+                string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url }));
+                string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
+                string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
+                string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
 
-                    sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
-                    sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
-                    sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
-                    sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
+                sqlCommandWrapper.Parameters.AddWithValue("@searchParams", searchParametersJson);
+                sqlCommandWrapper.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
+                sqlCommandWrapper.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
+                sqlCommandWrapper.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
-                    using (SqlDataReader reader = sqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
+                using (SqlDataReader reader = sqlCommandWrapper.ExecuteReader(CommandBehavior.SequentialAccess))
+                {
+                    var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
+                    var resourceTypeIdToTypeName = new Dictionary<short, string>();
+                    var searchParamUriToId = new Dictionary<Uri, short>();
+                    var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
+                    var compartmentTypeToId = new Dictionary<string, byte>();
+
+                    // result set 1
+                    short lowestResourceTypeId = short.MaxValue;
+                    short highestResourceTypeId = short.MinValue;
+                    while (reader.Read())
                     {
-                        var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
-                        var resourceTypeIdToTypeName = new Dictionary<short, string>();
-                        var searchParamUriToId = new Dictionary<Uri, short>();
-                        var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
-                        var compartmentTypeToId = new Dictionary<string, byte>();
+                        (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
 
-                        // result set 1
-                        short lowestResourceTypeId = short.MaxValue;
-                        short highestResourceTypeId = short.MinValue;
-                        while (reader.Read())
+                        resourceTypeToId.Add(resourceTypeName, id);
+                        if (id > highestResourceTypeId)
                         {
-                            (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
-
-                            resourceTypeToId.Add(resourceTypeName, id);
-                            if (id > highestResourceTypeId)
-                            {
-                                highestResourceTypeId = id;
-                            }
-
-                            if (id < lowestResourceTypeId)
-                            {
-                                lowestResourceTypeId = id;
-                            }
-
-                            resourceTypeIdToTypeName.Add(id, resourceTypeName);
+                            highestResourceTypeId = id;
                         }
 
-                        // result set 2
-                        reader.NextResult();
-
-                        while (reader.Read())
+                        if (id < lowestResourceTypeId)
                         {
-                            (string uri, short searchParamId) = reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
-                            searchParamUriToId.Add(new Uri(uri), searchParamId);
+                            lowestResourceTypeId = id;
                         }
 
-                        // result set 3
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            (byte id, string claimTypeName) = reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
-                            claimNameToId.Add(claimTypeName, id);
-                        }
-
-                        // result set 4
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            (byte id, string compartmentName) = reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
-                            compartmentTypeToId.Add(compartmentName, id);
-                        }
-
-                        // result set 5
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
-                            systemToId.TryAdd(value, systemId);
-                        }
-
-                        // result set 6
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
-                            quantityCodeToId.TryAdd(value, quantityCodeId);
-                        }
-
-                        _resourceTypeToId = resourceTypeToId;
-                        _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
-                        _searchParamUriToId = searchParamUriToId;
-                        _systemToId = systemToId;
-                        _quantityCodeToId = quantityCodeToId;
-                        _claimNameToId = claimNameToId;
-                        _compartmentTypeToId = compartmentTypeToId;
-                        _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
+                        resourceTypeIdToTypeName.Add(id, resourceTypeName);
                     }
+
+                    // result set 2
+                    reader.NextResult();
+
+                    while (reader.Read())
+                    {
+                        (string uri, short searchParamId) = reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
+                        searchParamUriToId.Add(new Uri(uri), searchParamId);
+                    }
+
+                    // result set 3
+                    reader.NextResult();
+
+                    while (reader.Read())
+                    {
+                        (byte id, string claimTypeName) = reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
+                        claimNameToId.Add(claimTypeName, id);
+                    }
+
+                    // result set 4
+                    reader.NextResult();
+
+                    while (reader.Read())
+                    {
+                        (byte id, string compartmentName) = reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
+                        compartmentTypeToId.Add(compartmentName, id);
+                    }
+
+                    // result set 5
+                    reader.NextResult();
+
+                    while (reader.Read())
+                    {
+                        var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
+                        systemToId.TryAdd(value, systemId);
+                    }
+
+                    // result set 6
+                    reader.NextResult();
+
+                    while (reader.Read())
+                    {
+                        (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
+                        quantityCodeToId.TryAdd(value, quantityCodeId);
+                    }
+
+                    _resourceTypeToId = resourceTypeToId;
+                    _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
+                    _searchParamUriToId = searchParamUriToId;
+                    _systemToId = systemToId;
+                    _quantityCodeToId = quantityCodeToId;
+                    _claimNameToId = claimNameToId;
+                    _compartmentTypeToId = compartmentTypeToId;
+                    _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
                 }
             }
         }
 
         private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                connection.Open();
-
-                using (SqlCommand sqlCommand = connection.CreateCommand())
-                {
-                    sqlCommand.CommandText = @"
+                sqlCommandWrapper.CommandText = @"
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
                         DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
@@ -384,24 +383,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         ON dbo.SearchParam.Uri = sps.Uri
                         COMMIT TRANSACTION";
 
-                    IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
-                        .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
+                IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
+                    .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
-                    var collection = new SearchParameterStatusCollection();
-                    collection.AddRange(statuses);
+                var collection = new SearchParameterStatusCollection();
+                collection.AddRange(statuses);
 
-                    var tableValuedParameter = new SqlParameter
-                    {
-                        ParameterName = "searchParamStatuses",
-                        SqlDbType = SqlDbType.Structured,
-                        Value = collection,
-                        Direction = ParameterDirection.Input,
-                        TypeName = "dbo.SearchParamTableType_1",
-                    };
+                var tableValuedParameter = new SqlParameter
+                {
+                    ParameterName = "searchParamStatuses",
+                    SqlDbType = SqlDbType.Structured,
+                    Value = collection,
+                    Direction = ParameterDirection.Input,
+                    TypeName = "dbo.SearchParamTableType_1",
+                };
 
-                    sqlCommand.Parameters.Add(tableValuedParameter);
-                    sqlCommand.ExecuteNonQuery();
-                }
+                sqlCommandWrapper.Parameters.Add(tableValuedParameter);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 
@@ -417,16 +415,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // Forgive me father, I have sinned.
             // In ideal world I should make this method async, but that spirals out of control and forces changes in all RowGenerators (about 35 files)
             // and overall logic of preparing data for insert.
-            using (var connection = _sqlConnectionFactory.GetSqlConnectionAsync().GetAwaiter().GetResult())
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (SqlConnectionWrapper sqlConnectionWrapper = scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true).Result)
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                connection.Open();
-
-                using (SqlCommand sqlCommand = connection.CreateCommand())
-                {
-                    // This command are not using any user arguments, and can't be rewritten to parametrized command string
-                    // because you can't parameterize column or table.
+                // This command are not using any user arguments, and can't be rewritten to parametrized command string
+                // because you can't parameterize column or table.
 #pragma warning disable CA2100
-                    sqlCommand.CommandText = $@"
+                sqlCommandWrapper.CommandText = $@"
                         SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
                         BEGIN TRANSACTION
 
@@ -444,14 +440,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         SELECT @id";
 
-                    sqlCommand.Parameters.AddWithValue("@stringValue", stringValue);
+                sqlCommandWrapper.Parameters.AddWithValue("@stringValue", stringValue);
 
 #pragma warning restore CA2100
-                    id = (int)sqlCommand.ExecuteScalar();
+                id = (int)sqlCommandWrapper.ExecuteScalarAsync(CancellationToken.None).Result;
 
-                    cache.TryAdd(stringValue, id);
-                    return id;
-                }
+                cache.TryAdd(stringValue, id);
+                return id;
             }
         }
 

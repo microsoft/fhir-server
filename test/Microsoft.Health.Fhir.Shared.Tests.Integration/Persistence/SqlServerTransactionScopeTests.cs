@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
                 using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
-                using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateSqlCommand())
+                using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateRetrySqlCommand())
                 {
                     sqlCommandWrapper.CommandText = @"
                         INSERT INTO Resource
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
                 using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
-                using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateSqlCommand())
+                using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateRetrySqlCommand())
                 {
                     sqlCommandWrapper.CommandText = @"
                         INSERT INTO Resource
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private static async Task VerifyCommandResults(SqlConnectionWrapper connectionWrapper, string newId, bool shouldFind, string tableHints = "")
         {
-            using (SqlCommandWrapper sqlCommandWrapper = connectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = connectionWrapper.CreateRetrySqlCommand())
             {
                 sqlCommandWrapper.CommandText = $@"
                             SELECT * 

@@ -115,6 +115,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+
+            createdResource.Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = "<div>Updated resource content</div>",
+            };
             using FhirResponse<Observation> updateResponse = await tempClient.UpdateAsync(createdResource);
 
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
