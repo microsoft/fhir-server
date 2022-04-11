@@ -213,6 +213,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     return response;
                 }
 
+                if (_bundleType == BundleType.Collection)
+                {
+                    await FillRequestLists(bundleResource.Entry, cancellationToken, assumePOSTonEmpty: true);
+
+                    var responseBundle = new Hl7.Fhir.Model.Bundle
+                    {
+                        Type = BundleType.BatchResponse,
+                    };
+
+                    await ExecuteAllRequests(responseBundle);
+                    var response = new BundleResponse(responseBundle.ToResourceElement());
+
+                    await PublishNotification(responseBundle, BundleType.Batch);
+
+                    return response;
+                }
+
                 if (_bundleType == BundleType.Transaction)
                 {
                     // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
@@ -279,7 +296,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
+        private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken, bool assumePOSTonEmpty = false)
         {
             if (_bundleConfiguration.EntryLimit != default && bundleEntries.Count > _bundleConfiguration.EntryLimit)
             {
@@ -300,8 +317,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (entry.Request?.Method == null)
                 {
-                    _emptyRequestsOrder.Add(order++);
-                    continue;
+                    if (assumePOSTonEmpty == true)
+                    {
+                        entry.Request = new RequestComponent() { Method = HTTPVerb.POST, Url = entry.Resource?.TypeName };
+                    }
+                    else
+                    {
+                        _emptyRequestsOrder.Add(order++);
+                        continue;
+                    }
                 }
 
                 await GenerateRequest(entry, order++, cancellationToken);
