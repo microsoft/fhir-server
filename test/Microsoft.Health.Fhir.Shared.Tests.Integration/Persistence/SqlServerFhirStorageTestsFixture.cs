@@ -85,9 +85,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
+            var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, config);
+            SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
             var schemaManagerDataStore = new SchemaManagerDataStore(SqlConnectionBuilder, config, NullLogger<SchemaManagerDataStore>.Instance);
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, SqlConnectionBuilder, schemaManagerDataStore);
             _schemaInitializer = new SchemaInitializer(config, schemaManagerDataStore, _schemaUpgradeRunner, SchemaInformation, SqlConnectionBuilder, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
@@ -101,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, new SqlCommandWrapperFactory(), SqlConnectionBuilder);
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 SchemaInformation,
@@ -128,6 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGeneratorV13 = serviceProvider.GetRequiredService<V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorV18 = serviceProvider.GetRequiredService<V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var upsertResourceTvpGeneratorV27 = serviceProvider.GetRequiredService<V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var reindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
@@ -156,6 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertResourceTvpGeneratorV13,
                 upsertResourceTvpGeneratorV17,
                 upsertResourceTvpGeneratorV18,
+                upsertResourceTvpGeneratorV27,
                 upsertResourceTvpGeneratorVLatest,
                 reindexResourceTvpGeneratorV17,
                 reindexResourceTvpGeneratorVLatest,

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -126,12 +127,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             IOptions<SqlServerDataStoreConfiguration> config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
+            var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
+
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, config);
+            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             var sqlTransactionHandler = new SqlTransactionHandler();
-            var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, new SqlCommandWrapperFactory(), defaultSqlConnectionBuilder);
+            var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,
@@ -208,10 +211,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource_3]"),
                 ("Procedure", "[dbo].[UpsertResource_4]"),
                 ("Procedure", "[dbo].[UpsertResource_5]"),
+                ("Procedure", "[dbo].[UpsertResource_6]"),
                 ("Procedure", "[dbo].[ReindexResource]"),
                 ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[CreateTask]"),
                 ("Procedure", "[dbo].[GetNextTask]"),
+                ("Procedure", "[dbo].[GetNextTask_2]"),
+                ("Procedure", "[dbo].[ResetTask]"),
                 ("Procedure", "[dbo].[HardDeleteResource]"),
                 ("Procedure", "[dbo].[FetchResourceChanges]"),
                 ("Procedure", "[dbo].[FetchResourceChanges_2]"),
@@ -272,7 +278,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
             }
 
+            // if TransactionCheckWithInitialiScript(which has current version as x-1) is not updated with the new x version then x.sql will have a wrong version inserted into SchemaVersion table
+            // this will cause an entry like (x-1, started) and (x, completed) at the end of of the transaction in fullsnapshot database (testConnectionString1)
+            // If any schema version is in started state then there might be a problem
+            if (SchemaVersionInStartedState(testConnectionString1).Result || SchemaVersionInStartedState(testConnectionString2).Result)
+            {
+                // if the test hits below statement then there is a possibility that TransactionCheckWithInitialiScript is not updated with the new version
+                unexpectedDifference = true;
+            }
+
             return !unexpectedDifference;
+        }
+
+        public async Task<bool> SchemaVersionInStartedState(string connectionString)
+        {
+            using (SqlConnection sqlConnection = new SqlConnection(connectionString))
+            using (SqlCommand checkSchemaVersionCommand = sqlConnection.CreateCommand())
+            {
+                if (sqlConnection.State != ConnectionState.Open)
+                {
+                    await sqlConnection.OpenAsync(CancellationToken.None);
+                }
+
+                checkSchemaVersionCommand.CommandText = "SELECT count(*) FROM SchemaVersion where Status = 'started'";
+                if ((int?)await checkSchemaVersionCommand.ExecuteScalarAsync(CancellationToken.None) >= 1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
