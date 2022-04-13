@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     /// <summary>
     /// Test class for SearchOptionsFactory.Create
     /// </summary>
+    [Trait(Traits.Category, Categories.Search)]
     public partial class SearchOptionsFactoryTests
     {
         private const string DefaultResourceType = "Patient";
