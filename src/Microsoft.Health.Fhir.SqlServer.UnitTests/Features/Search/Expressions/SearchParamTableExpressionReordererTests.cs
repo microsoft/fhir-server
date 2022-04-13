@@ -11,6 +11,8 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
@@ -58,17 +60,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenExpressionWithMultipleTableExpressions_WhenReordered_CompartmentExpressionReturnedBeforeNormal()
+        [Trait(Traits.Category, Categories.CompartmentSearch)]
+        public void GivenExpressionWithMultipleTableExpressions_WhenReordered_CompartmentExpressionReturnedBeforeNormal_V1()
         {
-            var tableExpressions = new List<SearchParamTableExpression>
-            {
-                new SearchParamTableExpression(null, NormalExpression, SearchParamTableExpressionKind.Normal),
-                new SearchParamTableExpression(new CompartmentQueryGenerator(), NormalExpression, SearchParamTableExpressionKind.Normal),
-            };
+            TestCompartmentSearchExpressionPosition(new CompartmentQueryGeneratorV1());
+        }
 
-            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
-            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(SearchParamTableExpressionReorderer.Instance);
-            Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
+        [Fact]
+        [Trait(Traits.Category, Categories.CompartmentSearch)]
+        public void GivenExpressionWithMultipleTableExpressions_WhenReordered_CompartmentExpressionReturnedBeforeNormal_V2()
+        {
+            TestCompartmentSearchExpressionPosition(new CompartmentQueryGeneratorV2());
         }
 
         [Fact]
@@ -92,6 +94,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             {
                 new SearchParamTableExpression(new IncludeQueryGenerator(), NormalExpression, SearchParamTableExpressionKind.Include),
                 new SearchParamTableExpression(null, NormalExpression, SearchParamTableExpressionKind.Normal),
+            };
+
+            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(SearchParamTableExpressionReorderer.Instance);
+            Assert.Collection(visitedExpression.SearchParamTableExpressions, new[] { 1, 0 }.Select<int, Action<SearchParamTableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
+        }
+
+        private void TestCompartmentSearchExpressionPosition(SearchParamTableExpressionQueryGenerator quueryGenerator)
+        {
+            var tableExpressions = new List<SearchParamTableExpression>
+            {
+                new SearchParamTableExpression(null, NormalExpression, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(quueryGenerator, NormalExpression, SearchParamTableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);

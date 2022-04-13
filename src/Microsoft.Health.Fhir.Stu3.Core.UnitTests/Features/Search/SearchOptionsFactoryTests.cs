@@ -7,6 +7,8 @@ using System;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
@@ -121,6 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
+        [Trait(Traits.Category, Categories.CompartmentSearch)]
         [InlineData(ResourceType.Patient, CompartmentType.Patient, "123")]
         [InlineData(ResourceType.Appointment, CompartmentType.Device, "abc")]
         [InlineData(ResourceType.Patient, CompartmentType.Encounter, "aaa")]

@@ -39,6 +39,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string SmartOnFhir = "SmartOnFhir";
 
+        public const string CompartmentSearch = "CompartmentSearch";
+
         public const string ConvertData = "ConvertData";
 
         public const string CustomConvertData = "CustomConvertData";
