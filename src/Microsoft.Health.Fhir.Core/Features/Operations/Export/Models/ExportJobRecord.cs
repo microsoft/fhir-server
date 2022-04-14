@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
             RollingFileSizeInMB = rollingFileSizeInMB;
+            RestartCount = 0;
 
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
@@ -151,5 +152,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.RollingFileSizeInMB)]
         public uint RollingFileSizeInMB { get; private set; }
+
+        [JsonProperty(JobRecordProperties.RestartCount)]
+        public uint RestartCount { get; set; }
     }
 }
