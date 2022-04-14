@@ -243,8 +243,10 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             var blob = new CloudBlockBlob(fileUri, _blobClient);
 
             // We are going to consider only committed blocks.
+            // Having issue with invalid blocks.
+            // Testing change based on this question: https://stackoverflow.com/questions/12917857/the-specified-block-list-is-invalid-while-uploading-blobs-in-parallel
             IEnumerable<ListBlockItem> result = await blob.DownloadBlockListAsync(
-                BlockListingFilter.Committed,
+                BlockListingFilter.Uncommitted,
                 accessCondition: null,
                 options: null,
                 operationContext: null,

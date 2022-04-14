@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         runningTasks.RemoveAll(task => task.IsCompleted);
 
                         // Get list of available jobs.
-                        if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
+                        if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfJobsPerInstance)
                         {
                             using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                             {
@@ -70,9 +70,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                                 foreach (ExportJobOutcome job in jobs)
                                 {
-                                    _logger.LogTrace("Picked up job: {jobId}.", job.JobRecord.Id);
+                                    if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfJobsPerInstance)
+                                    {
+                                        _logger.LogTrace("Picked up job: {jobId}.", job.JobRecord.Id);
 
-                                    runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                                        runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                                    }
+                                    else
+                                    {
+                                        // If this instance can't take any more jobs, reset the extra jobs it was given to Queued status.
+                                        job.JobRecord.Status = OperationStatus.Queued;
+                                        await store.Value.UpdateExportJobAsync(job.JobRecord, job.ETag, cancellationToken);
+                                    }
                                 }
                             }
                         }
