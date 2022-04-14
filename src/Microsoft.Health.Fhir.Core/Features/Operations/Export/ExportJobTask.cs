@@ -148,7 +148,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // If it is null, then we know we are processing a new job.
                 if (_exportJobRecord.Progress == null)
                 {
+                    _exportJobRecord.StartTime = Clock.UtcNow;
                     _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
+                }
+                else
+                {
+                    _exportJobRecord.RestartCount++;
                 }
 
                 // The intial list of query parameters will not have a continutation token. We will add that later if we get one back
