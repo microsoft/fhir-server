@@ -46,6 +46,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
+        public bool EnsureInitializedAsync()
+        {
+            return _schemaInformation.Current != null;
+        }
+
         public async Task<TaskInfo> CompleteAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -105,11 +110,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<TaskInfo> GetNextMessagesAsync(int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
         {
-            TaskInfo taskInfo = null;
-            try
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                try
                 {
                     string queueId = _taskHostingConfiguration.QueueId;
                     if (_schemaInformation.Current >= SchemaVersionConstants.RemoveCountForGexNextTaskStoredProcedure)
@@ -141,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     string taskContext = sqlDataReader.Read(taskInfoTable.TaskContext, 10);
                     string result = sqlDataReader.Read(taskInfoTable.Result, 11);
 
-                    taskInfo = new TaskInfo()
+                    return new TaskInfo()
                     {
                         TaskId = id,
                         QueueId = queueId,
@@ -157,13 +161,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         Result = result,
                     };
                 }
-            }
-            catch (SqlException e) when (e.Number == 2812)
-            {
-                _logger.LogWarning(e, "Schema is not initialized - {ex.Message}", e.Message);
-            }
+                catch (SqlException sqlEx)
+                {
+                    if (sqlEx.Number == SqlErrorCodes.NotFound)
+                    {
+                        throw new TaskNotExistException(sqlEx.Message);
+                    }
 
-            return taskInfo;
+                    throw;
+                }
+            }
         }
 
         public async Task<TaskInfo> KeepAliveAsync(string taskId, string runId, CancellationToken cancellationToken)
