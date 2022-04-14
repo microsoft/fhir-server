@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         /// <summary>
         /// Implemented in <see cref="FhirCosmosSearchService"/>
         /// </summary>
-        /// /// <param name="expression">The expression to visit.</param>
+        /// <param name="expression">The expression to visit.</param>
         /// <param name="context">The input</param>
         public object VisitChained(ChainedExpression expression, Context context)
         {

@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (resourceTypesString.Length > 1)
             {
-                InExpression inExpression = new InExpression(FieldName.TokenCode, null, resourceTypesString);
+                Expression inExpression = Expression.In(FieldName.TokenCode, null, resourceTypesString);
                 SearchParameterExpression resourceTypesExpression = new SearchParameterExpression(_resourceTypeSearchParameter, inExpression);
                 searchExpressions.Add(resourceTypesExpression);
             }
