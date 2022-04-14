@@ -299,6 +299,7 @@
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithBloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithLongEyeColor.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithEyeColor.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidDecimalSpecification.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.xml" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithNoCode.json" />
