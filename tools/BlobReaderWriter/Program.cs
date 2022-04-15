@@ -29,6 +29,7 @@ namespace BlobReaderWriter
         private static readonly int SourceBlobs = int.Parse(ConfigurationManager.AppSettings["SourceBlobs"]);
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
         private static readonly bool SplitBySize = bool.Parse(ConfigurationManager.AppSettings["SplitBySize"]);
+        private static readonly string NameFilter = ConfigurationManager.AppSettings["NameFilter"];
 
         public static void Main()
         {
@@ -37,8 +38,8 @@ namespace BlobReaderWriter
             var gPrefix = $"BlobReaderWriter.Threads={Threads}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
             Console.WriteLine($"{gPrefix}: Starting at {DateTime.UtcNow.ToString("s")}...");
             var blobs = WritesEnabled
-                      ? sourceContainer.GetBlobs().Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
-                      : sourceContainer.GetBlobs();
+                      ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
+                      : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase));
             if (WritesEnabled)
             {
                 Console.WriteLine($"{gPrefix}: SourceBlobs={blobs.Count()} at {DateTime.UtcNow.ToString("s")}.");
