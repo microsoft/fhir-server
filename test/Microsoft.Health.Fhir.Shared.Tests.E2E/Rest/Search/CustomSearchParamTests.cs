@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [Collection(Categories.CustomSearch)]
     [Trait(Traits.Category, Categories.CustomSearch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
+    public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private ITestOutputHelper _output;
@@ -36,6 +36,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             _fixture = fixture;
             _output = output;
+        }
+
+        public async Task InitializeAsync()
+        {
+            await Client.DeleteAllResources(ResourceType.Appointment, null);
         }
 
         [SkippableFact]
@@ -529,5 +534,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Contains("Gone", ex.Message);
             }
         }
+
+        public Task DisposeAsync() => Task.CompletedTask;
     }
 }
