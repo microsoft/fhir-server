@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -34,8 +35,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     resolvedResourceTypeIds.Add(resourceTypeId);
                 }
-
-                // FHIBF: What do with invalid values? If customer pushes an invalid resource type, what should we do in such case?
+                else
+                {
+                    throw new InvalidOperationException($"Invalid resource type '{resourceType}'.");
+                }
             }
 
             return VisitSimpleIn(context, VLatest.Resource.ResourceTypeId, resolvedResourceTypeIds);
