@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,7 +18,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     public class InMemoryExportDestinationClient : IExportDestinationClient
     {
         private Dictionary<Uri, StringBuilder> _exportedData = new Dictionary<Uri, StringBuilder>();
-        private Dictionary<(Uri FileUri, string PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, string PartId), Stream>();
 
         public int ExportedDataFileCount => _exportedData.Keys.Count;
 
@@ -51,56 +49,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return await Task.FromResult(fileUri);
         }
 
-        public async Task WriteFilePartAsync(Uri fileUri, string partId, byte[] bytes, CancellationToken cancellationToken)
+        public void WriteFilePartAsync(Uri fileUri, byte[] bytes, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(fileUri, nameof(fileUri));
             EnsureArg.IsNotNull(bytes, nameof(bytes));
 
-            var key = (fileUri, partId);
-
-            if (!_streamMappings.TryGetValue(key, out Stream stream))
-            {
-                stream = new MemoryStream();
-                _streamMappings.Add(key, stream);
-            }
-
-            await stream.WriteAsync(bytes, cancellationToken);
+            _exportedData[fileUri].Append(bytes);
         }
 
-        public async Task CommitAsync(CancellationToken cancellationToken)
-        {
-            foreach (KeyValuePair<(Uri, string), Stream> mapping in _streamMappings)
-            {
-                Stream stream = mapping.Value;
-
-                // Reset the position.
-                stream.Position = 0;
-
-                StringBuilder stringBuilder = _exportedData[mapping.Key.Item1];
-
-                using (var reader = new StreamReader(stream, Encoding.UTF8))
-                {
-                    stringBuilder.Append(await reader.ReadToEndAsync());
-                }
-            }
-
-            // Now that all of the parts are committed, remove all stream mappings.
-            _streamMappings.Clear();
-        }
-
-        public async Task CommitAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
-        {
-            await CommitAsync(cancellationToken);
-        }
-
-        public Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken)
+        public void OpenFileAsync(Uri fileUri)
         {
             if (!_exportedData.ContainsKey(fileUri))
             {
                 _exportedData.Add(fileUri, new StringBuilder());
             }
-
-            return Task.CompletedTask;
         }
 
         public string GetExportedData(Uri fileUri)

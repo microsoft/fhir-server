@@ -7,7 +7,7 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.Storage.Blob;
+using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             // Set up access token provider to return access token when invoked.
             _accessTokenProvider.GetAccessTokenForResourceAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns<string>("randomAccessToken");
 
-            CloudBlobClient client = await _azureAccessTokenClientInitializer.GetAuthorizedClientAsync(CancellationToken.None);
+            BlobServiceClient client = await _azureAccessTokenClientInitializer.GetAuthorizedClientAsync(CancellationToken.None);
 
             Assert.NotNull(client);
         }
