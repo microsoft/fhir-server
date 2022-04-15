@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file1, file2, file3 });
 
-            await _exportFileManager.WriteToFile(resourceType, new byte[] { 1 }, _cancellationTokenNone);
+            await _exportFileManager.WriteToFile(resourceType, "test", _cancellationTokenNone);
 
             _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file3.FileUri));
         }
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file2, file3, file1 });
 
-            await _exportFileManager.WriteToFile(resourceType, new byte[] { 1 }, _cancellationTokenNone);
+            await _exportFileManager.WriteToFile(resourceType, "test", _cancellationTokenNone);
 
             _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file3.FileUri));
         }
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file2, file1 });
             _exportJobRecord.Output.Add(resourceType2, new List<ExportFileInfo>() { file4, file3 });
 
-            await _exportFileManager.WriteToFile(resourceType2, new byte[] { 1 }, _cancellationTokenNone);
+            await _exportFileManager.WriteToFile(resourceType2, "test", _cancellationTokenNone);
 
             _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file4.FileUri));
         }
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenNoFilesInOutput_WhenWriteToFile_ThenDoesNotCallOpenFile()
         {
-            await _exportFileManager.WriteToFile("Patient", new byte[] { 1 }, _cancellationTokenNone);
+            await _exportFileManager.WriteToFile("Patient", "test", _cancellationTokenNone);
 
             _exportDestinationClient.DidNotReceiveWithAnyArgs().OpenFileAsync(Arg.Any<Uri>());
         }
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenNoFilesInOutput_WhenWriteToFile_ThenCreatesNewFile()
         {
-            await _exportFileManager.WriteToFile("Patient", new byte[] { 1 }, _cancellationTokenNone);
+            await _exportFileManager.WriteToFile("Patient", "test", _cancellationTokenNone);
 
             await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-1.ndjson"), Arg.Is(_cancellationTokenNone));
             Assert.Single(_exportJobRecord.Output["Patient"]);
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenDataExceedsFileSizeLimit_WhenWriteToFile_ThenDoesNotCreateNewFileAfterWriting()
         {
-            byte[] data = new byte[2 * 1024 * 1024];
+            string data = "other test";
             await _exportFileManager.WriteToFile("Patient", data, _cancellationTokenNone);
 
             await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-1.ndjson"), Arg.Is(_cancellationTokenNone));
@@ -125,8 +125,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenDataExceedsFileSizeLimit_WhenWriteToFile_ThenCreatesNewFileAfterNextWriteCall()
         {
-            byte[] data = new byte[2 * 1024 * 1024];
-            byte[] data2 = new byte[1];
+            string data = "other test";
+            string data2 = "more testing";
 
             await _exportFileManager.WriteToFile("Patient", data, _cancellationTokenNone);
             await _exportFileManager.WriteToFile("Patient", data2, _cancellationTokenNone);
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             InitializeManagerWithV1ExportJobRecord();
 
-            await _exportFileManager.WriteToFile("Patient", new byte[] { 1 }, _cancellationTokenNone);
+            await _exportFileManager.WriteToFile("Patient", "test", _cancellationTokenNone);
 
             await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient.ndjson"), Arg.Is(_cancellationTokenNone));
             Assert.Single(_exportJobRecord.Output["Patient"]);
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             InitializeManagerWithV1ExportJobRecord();
 
-            byte[] data = new byte[2 * 1024 * 1024];
+            string data = "other test";
             await _exportFileManager.WriteToFile("Patient", data, _cancellationTokenNone);
             await _exportFileManager.WriteToFile("Patient", data, _cancellationTokenNone);
 
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file1 });
             _exportJobRecord.Output.Add(resourceType2, new List<ExportFileInfo>() { file2 });
 
-            await _exportFileManager.WriteToFile("Claim", new byte[] { 1 }, _cancellationTokenNone);
+            await _exportFileManager.WriteToFile("Claim", "test", _cancellationTokenNone);
 
             _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file1.FileUri));
             _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file2.FileUri));

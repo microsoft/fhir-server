@@ -642,9 +642,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 // Serialize into NDJson and write to the file.
-                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(element);
+                string data = _resourceToByteArraySerializer.StringSerialize(element);
 
-                await _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, bytesToWrite, cancellationToken);
+                await _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data, cancellationToken);
             }
         }
 

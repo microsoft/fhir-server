@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _isInitialized = true;
         }
 
-        public async Task WriteToFile(string resourceType, byte[] data, CancellationToken cancellationToken)
+        public async Task WriteToFile(string resourceType, string data, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 

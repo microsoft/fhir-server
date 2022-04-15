@@ -49,12 +49,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return await Task.FromResult(fileUri);
         }
 
-        public void WriteFilePartAsync(Uri fileUri, byte[] bytes, CancellationToken cancellationToken)
+        public void WriteFilePartAsync(Uri fileUri, string data, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(fileUri, nameof(fileUri));
-            EnsureArg.IsNotNull(bytes, nameof(bytes));
+            EnsureArg.IsNotNull(data, nameof(data));
 
-            _exportedData[fileUri].Append(bytes);
+            _exportedData[fileUri].Append(data);
         }
 
         public void OpenFileAsync(Uri fileUri)
