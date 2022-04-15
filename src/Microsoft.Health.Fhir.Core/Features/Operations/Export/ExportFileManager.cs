@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
         }
 
-        private async Task Initialize(CancellationToken cancellationToken)
+        private void Initialize()
         {
             // Each resource type can have multiple files. We need to keep track of the latest file.
             foreach (KeyValuePair<string, List<ExportFileInfo>> output in _exportJobRecord.Output)
@@ -59,19 +59,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // If there are entries in ExportJobRecord Output before FileManager gets initialized,
                 // it means we are "restarting" an export job. We have to make sure that each file
                 // has been opened on the ExportDestinationClient.
-                await _exportDestinationClient.OpenFileAsync(latestFile.FileUri, cancellationToken);
+                _exportDestinationClient.OpenFileAsync(latestFile.FileUri);
             }
 
             _isInitialized = true;
         }
 
-        public async Task WriteToFile(string resourceType, string partId, byte[] data, CancellationToken cancellationToken)
+        public async Task WriteToFile(string resourceType, byte[] data, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
             if (!_isInitialized)
             {
-                await Initialize(cancellationToken);
+                Initialize();
             }
 
             ExportFileInfo fileInfo = await GetFile(resourceType, cancellationToken);
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 fileInfo = await CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1, cancellationToken);
             }
 
-            await _exportDestinationClient.WriteFilePartAsync(fileInfo.FileUri, partId, data, cancellationToken);
+            _exportDestinationClient.WriteFilePartAsync(fileInfo.FileUri, data, cancellationToken);
             fileInfo.IncrementCount(data.Length);
         }
 

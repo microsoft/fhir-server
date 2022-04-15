@@ -47,33 +47,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// Writes part of the file.
         /// </summary>
         /// <param name="fileUri">The URI of the file.</param>
-        /// <param name="partId">The part ID.</param>
         /// <param name="bytes">The bytes array to write.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous write operation.</returns>
-        Task WriteFilePartAsync(Uri fileUri, string partId, byte[] bytes, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Commits the written parts of the file.
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
-        Task CommitAsync(CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Commits the written parts of the file to a specified location.  Must be used in tandom with the ConnectAsync that takes an ExportJobConfiguration.
-        /// </summary>
-        /// <param name="exportJobConfiguration">The job configuration to use for this call.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
-        Task CommitAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken);
+        void WriteFilePartAsync(Uri fileUri, byte[] bytes, CancellationToken cancellationToken);
 
         /// <summary>
         /// Opens an existing file from the destination.
         /// </summary>
         /// <param name="fileUri">Uri of the file to be opened.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
-        Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken);
+        void OpenFileAsync(Uri fileUri);
     }
 }
