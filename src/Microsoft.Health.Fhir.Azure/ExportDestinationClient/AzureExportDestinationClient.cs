@@ -10,7 +10,6 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -25,7 +24,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobServiceClient _blobClient = null;
         private BlobContainerClient _blobContainer = null;
 
-        private Dictionary<Uri, BlockBlobClient> _uriToBlobMapping = new Dictionary<Uri, BlockBlobClient>();
+        private Dictionary<Uri, AppendBlobClient> _uriToBlobMapping = new Dictionary<Uri, AppendBlobClient>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -89,12 +88,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNullOrWhiteSpace(fileName, nameof(fileName));
             CheckIfClientIsConnected();
 
-            BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
+            AppendBlobClient blockBlob = _blobContainer.GetAppendBlobClient(fileName);
             if (!_uriToBlobMapping.ContainsKey(blockBlob.Uri))
             {
-                var newProperties = new BlobHttpHeaders();
-                newProperties.ContentType = "application/fhir+ndjson";
-                blockBlob.SetHttpHeaders(newProperties, null, cancellationToken);
+                // var newProperties = new BlobHttpHeaders();
+                // newProperties.ContentType = "application/fhir+ndjson";
+                // blockBlob.SetHttpHeaders(newProperties, null, cancellationToken);
 
                 _uriToBlobMapping.Add(blockBlob.Uri, blockBlob);
             }
@@ -127,7 +126,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 return;
             }
 
-            BlockBlobClient blockBlob = new BlockBlobClient(fileUri);
+            AppendBlobClient blockBlob = new AppendBlobClient(fileUri);
 
             _uriToBlobMapping.Add(fileUri, blockBlob);
         }
