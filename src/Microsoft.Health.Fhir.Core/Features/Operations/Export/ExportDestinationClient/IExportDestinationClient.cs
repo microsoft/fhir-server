@@ -47,9 +47,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// Writes part of the file.
         /// </summary>
         /// <param name="fileUri">The URI of the file.</param>
-        /// <param name="bytes">The bytes array to write.</param>
+        /// <param name="data">The string to write.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        void WriteFilePartAsync(Uri fileUri, byte[] bytes, CancellationToken cancellationToken);
+        void WriteFilePartAsync(Uri fileUri, string data, CancellationToken cancellationToken);
 
         /// <summary>
         /// Opens an existing file from the destination.

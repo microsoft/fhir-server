@@ -102,17 +102,17 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             return Task.FromResult(blockBlob.Uri);
         }
 
-        public void WriteFilePartAsync(Uri fileUri, byte[] bytes, CancellationToken cancellationToken)
+        public void WriteFilePartAsync(Uri fileUri, string data, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(fileUri, nameof(fileUri));
-            EnsureArg.IsNotNull(bytes, nameof(bytes));
+            EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
 
             if (_uriToBlobMapping.TryGetValue(fileUri, out var blob))
             {
                 using var stream = blob.OpenWrite(false, null, cancellationToken);
                 using var writer = new StreamWriter(stream);
-                writer.Write(bytes);
+                writer.WriteLine(data);
             }
         }
 
