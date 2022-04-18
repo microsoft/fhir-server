@@ -44,12 +44,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Writes part of the file.
+        /// Writes part of the file to local data buffer.
         /// </summary>
         /// <param name="fileUri">The URI of the file.</param>
         /// <param name="data">The string to write.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         void WriteFilePartAsync(Uri fileUri, string data, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Commits all changes to storage.
+        /// </summary>
+        void Commit();
 
         /// <summary>
         /// Opens an existing file from the destination.

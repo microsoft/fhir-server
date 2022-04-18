@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
@@ -25,6 +26,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobContainerClient _blobContainer = null;
 
         private Dictionary<Uri, AppendBlobClient> _uriToBlobMapping = new Dictionary<Uri, AppendBlobClient>();
+        private Dictionary<Uri, StringBuilder> _dataBuffers = new Dictionary<Uri, StringBuilder>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -107,11 +109,29 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
 
-            if (_uriToBlobMapping.TryGetValue(fileUri, out var blob))
+            StringBuilder dataBuffer;
+            if (!_dataBuffers.TryGetValue(fileUri, out dataBuffer))
             {
-                using var stream = blob.OpenWrite(false, null, cancellationToken);
-                using var writer = new StreamWriter(stream);
-                writer.WriteLine(data);
+                dataBuffer = new StringBuilder();
+                _dataBuffers.Add(fileUri, dataBuffer);
+            }
+
+            dataBuffer.AppendLine(data);
+        }
+
+        public void Commit()
+        {
+            foreach (Uri fileUri in _dataBuffers.Keys)
+            {
+                if (_uriToBlobMapping.TryGetValue(fileUri, out var blob))
+                {
+                    using var stream = blob.OpenWrite(false);
+                    using var writer = new StreamWriter(stream);
+
+                    var data = _dataBuffers.GetValueOrDefault(fileUri);
+                    writer.WriteLine(data.ToString());
+                    data.Clear();
+                }
             }
         }
 
