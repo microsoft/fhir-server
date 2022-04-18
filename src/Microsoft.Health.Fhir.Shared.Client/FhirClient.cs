@@ -153,19 +153,19 @@ namespace Microsoft.Health.Fhir.Client
             return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}", cancellationToken);
         }
 
-        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchHeaderETag, provenanceHeader, cancellationToken);
         }
 
-        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchHeaderETag, provenanceHeader, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Put, uri)
@@ -174,11 +174,9 @@ namespace Microsoft.Health.Fhir.Client
             };
             message.Headers.Accept.Add(_mediaType);
 
-            if (ifMatchVersion != null)
+            if (ifMatchHeaderETag != null)
             {
-                var weakETag = $"W/\"{ifMatchVersion}\"";
-
-                message.Headers.Add(IfMatchHeaderName, weakETag);
+                message.Headers.Add(IfMatchHeaderName, ifMatchHeaderETag);
             }
 
             if (provenanceHeader != null)
@@ -217,24 +215,60 @@ namespace Microsoft.Health.Fhir.Client
             return DeleteAsync($"{resource.TypeName}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> PatchAsync<T>(T resource, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> JsonPatchAsync<T>(T resource, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return await PatchAsync<T>($"{resource.TypeName}/{resource.Id}", content, ifMatchVersion, cancellationToken);
+            return await JsonPatchAsync<T>($"{resource.TypeName}/{resource.Id}", content, ifMatchVersion, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> ConditionalPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> ConditionalJsonPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
                  where T : Resource
         {
-            return await PatchAsync<T>($"{resourceType}?{searchCriteria}", content, ifMatchVersion, cancellationToken);
+            return await JsonPatchAsync<T>($"{resourceType}?{searchCriteria}", content, ifMatchVersion, cancellationToken);
         }
 
-        private async Task<FhirResponse<T>> PatchAsync<T>(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        private async Task<FhirResponse<T>> JsonPatchAsync<T>(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
            where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
             {
                 Content = new StringContent(content, Encoding.UTF8, "application/json-patch+json"),
+            };
+
+            message.Headers.Accept.Add(_mediaType);
+
+            if (ifMatchVersion != null)
+            {
+                var weakETag = $"W/\"{ifMatchVersion}\"";
+
+                message.Headers.Add(IfMatchHeaderName, weakETag);
+            }
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<T>(response);
+        }
+
+        public async Task<FhirResponse<T>> FhirPatchAsync<T>(T resource, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            return await FhirPatchAsync<T>($"{resource.TypeName}/{resource.Id}", patchRequest, ifMatchVersion, cancellationToken);
+        }
+
+        public async Task<FhirResponse<T>> ConditionalFhirPatchAsync<T>(string resourceType, string searchCriteria, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+                 where T : Resource
+        {
+            return await FhirPatchAsync<T>($"{resourceType}?{searchCriteria}", patchRequest, ifMatchVersion, cancellationToken);
+        }
+
+        private async Task<FhirResponse<T>> FhirPatchAsync<T>(string uri, Parameters patchRequest, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+           where T : Resource
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
+            {
+                Content = CreateStringContent(patchRequest),
             };
 
             message.Headers.Accept.Add(_mediaType);
@@ -404,12 +438,12 @@ namespace Microsoft.Health.Fhir.Client
             return response.Content.Headers.ContentLocation;
         }
 
-        public async Task CancelImport(Uri contentLocation, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> CancelImport(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
             message.Headers.Add("Prefer", "respond-async");
 
-            await HttpClient.SendAsync(message, cancellationToken);
+            return await HttpClient.SendAsync(message, cancellationToken);
         }
 
         public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)

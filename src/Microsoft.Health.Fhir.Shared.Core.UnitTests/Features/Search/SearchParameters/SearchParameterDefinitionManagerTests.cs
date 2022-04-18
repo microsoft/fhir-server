@@ -226,7 +226,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
 
-            Assert.Throws<SearchParameterNotSupportedException>(() => searchableDefinitionManager.GetSearchParameter(new Uri(ResourceSecurity)));
+            Assert.Throws<SearchParameterNotSupportedException>(() => searchableDefinitionManager.GetSearchParameter(ResourceSecurity));
 
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
         }
@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
 
-            var param = searchableDefinitionManager.GetSearchParameter(new Uri(ResourceSecurity));
+            var param = searchableDefinitionManager.GetSearchParameter(ResourceSecurity);
             SearchParameterInfo expectedSearchParam = _searchParameterInfos[3];
             ValidateSearchParam(expectedSearchParam, param);
 
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASearchParameterDefinitionManager_WhenGettingExistingSearchParameterByUrl_CorrectParameterIsReturned()
         {
             SearchParameterInfo expectedSearchParam = _searchParameterInfos[0];
-            SearchParameterInfo actualSearchParam = _searchParameterDefinitionManager.GetSearchParameter(expectedSearchParam.Url);
+            SearchParameterInfo actualSearchParam = _searchParameterDefinitionManager.GetSearchParameter(expectedSearchParam.Url.OriginalString);
 
             ValidateSearchParam(expectedSearchParam, actualSearchParam);
         }
@@ -297,7 +297,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenASearchParameterDefinitionManager_WhenGettingNonexistentSearchParameterByUrl_ExceptionIsThrown()
         {
-            Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(_testSearchParamInfo.Url));
+            Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(_testSearchParamInfo.Url.OriginalString));
         }
 
         [Fact]
@@ -322,6 +322,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient");
             Assert.NotNull(searchParamHash);
+        }
+
+        [Fact]
+        public async Task GivenASearchParameterDefinitionManager_WhenAddingACompositeSearchParameter_ThenComponentsAreResolvedAndValidated()
+        {
+            #if Stu3
+            ResourceReference CreateDefinition(string reference)
+            {
+                return new ResourceReference(reference);
+            }
+            #else
+            string CreateDefinition(string reference)
+            {
+                return reference;
+            }
+            #endif
+
+            // Initialize a search parameter
+            var searchParam = new SearchParameter()
+            {
+                Url = "http://test/Patient-test",
+                Type = Hl7.Fhir.Model.SearchParamType.Composite,
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+                Expression = "Patient",
+                Name = "test",
+                Code = "test",
+                Component = new List<SearchParameter.ComponentComponent>
+                {
+                    new()
+                    {
+                        Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/Resource-id"),
+                        Expression = "id",
+                    },
+                    new()
+                    {
+                        Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/Resource-lastUpdated"),
+                        Expression = "meta.lastUpdated",
+                    },
+                },
+            };
+
+            _searchParameterSupportResolver
+                .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test" && p.Component.All(c => c.ResolvedSearchParameter != null)))
+                .Returns((true, false));
+
+            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+
+            var addedParam = _searchParameterDefinitionManager.GetSearchParameter("http://test/Patient-test");
+            Assert.NotNull(addedParam);
         }
 
         [Fact]

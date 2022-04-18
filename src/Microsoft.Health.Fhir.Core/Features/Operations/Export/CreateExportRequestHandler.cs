@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     if (parameterIndex < 0 || parameterIndex == filter.Length - 1)
                     {
-                        throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
+                        throw new BadRequestException(string.Format(Core.Resources.TypeFilterUnparseable, filter));
                     }
 
                     var filterType = filter.Substring(0, parameterIndex);
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                         if (keyValue.Length != 2)
                         {
-                            throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
+                            throw new BadRequestException(string.Format(Core.Resources.TypeFilterUnparseable, filter));
                         }
 
                         parameterTupleList.Add(new Tuple<string, string>(keyValue[0], keyValue[1]));
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (formatConfiguration == null)
                 {
-                    throw new BadRequestException(string.Format(Resources.ExportFormatNotFound, formatName));
+                    throw new BadRequestException(string.Format(Core.Resources.ExportFormatNotFound, formatName));
                 }
             }
 

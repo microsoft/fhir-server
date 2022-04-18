@@ -65,6 +65,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // verify the parameter is supported before continuing
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+
+                if (searchParameterInfo.Component?.Any() == true)
+                {
+                    foreach (SearchParameterComponentInfo c in searchParameterInfo.Component)
+                    {
+                        c.ResolvedSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl.OriginalString);
+                    }
+                }
+
                 (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                 if (!supportedResult.Supported)
@@ -219,13 +228,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // parameter will not cause conflicts
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
             {
-                DeleteSearchParameter(searchParam.Uri.ToString());
+                DeleteSearchParameter(searchParam.Uri.OriginalString);
             }
 
             var paramsToAdd = new List<ITypedElement>();
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted))
             {
-                var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.ToString(), cancellationToken);
+                var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.OriginalString, cancellationToken);
 
                 if (searchParamResource == null)
                 {
@@ -235,10 +244,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     continue;
                 }
 
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri, out var existingSearchParam))
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
                 {
-                    // if the search parameter exists we should delete the old information currently stored
-                    DeleteSearchParameter(searchParam.Uri.ToString());
+                    // if the previous version of the search parameter exists we should delete the old information currently stored
+                    DeleteSearchParameter(searchParam.Uri.OriginalString);
                 }
 
                 paramsToAdd.Add(searchParamResource);

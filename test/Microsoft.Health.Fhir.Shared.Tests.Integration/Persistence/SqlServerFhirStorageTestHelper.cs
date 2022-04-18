@@ -31,22 +31,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _masterDatabaseName;
         private readonly string _initialConnectionString;
         private readonly SqlServerFhirModel _sqlServerFhirModel;
-        private readonly ISqlConnectionFactory _sqlConnectionFactory;
+        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
             string masterDatabaseName,
             SqlServerFhirModel sqlServerFhirModel,
-            ISqlConnectionFactory sqlConnectionFactory)
+            ISqlConnectionBuilder sqlConnectionBuilder)
         {
             EnsureArg.IsNotNull(sqlServerFhirModel, nameof(sqlServerFhirModel));
-            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
+            EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
 
             _masterDatabaseName = masterDatabaseName;
             _initialConnectionString = initialConnectionString;
             _sqlServerFhirModel = sqlServerFhirModel;
-            _sqlConnectionFactory = sqlConnectionFactory;
+            _sqlConnectionBuilder = sqlConnectionBuilder;
 
             _dbSetupRetryPolicy = Policy
                 .Handle<SqlException>()
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
                 // Create the database.
-                await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
 
                 await using SqlCommand command = connection.CreateCommand();
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(databaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand sqlCommand = connection.CreateCommand();
                 sqlCommand.CommandText = "SELECT 1";
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
                 SqlConnection.ClearAllPools();
 
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
             var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
 
             await command.Connection.OpenAsync(cancellationToken);
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
             var command = new SqlCommand("DELETE FROM dbo.ExportJob WHERE Id = @id", connection);
 
             var parameter = new SqlParameter { ParameterName = "@id", Value = id };
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
             var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
             command.Parameters.AddWithValue("@uri", uri);
 
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
             var command = new SqlCommand("DELETE FROM dbo.ReindexJob", connection);
 
             await command.Connection.OpenAsync(cancellationToken);
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
             var command = new SqlCommand("DELETE FROM dbo.ReindexJob WHERE Id = @id", connection);
 
             var parameter = new SqlParameter { ParameterName = "@id", Value = id };
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
         {
-            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync();
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync();
             await connection.OpenAsync();
 
             SqlCommand command = connection.CreateCommand();
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         async Task IFhirStorageTestHelper.ValidateSnapshotTokenIsCurrent(object snapshotToken)
         {
-            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync();
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync();
             await connection.OpenAsync();
 
             var sb = new StringBuilder();
@@ -221,11 +221,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
-            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
+            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, SqlConfigurableRetryFactory.CreateNoneRetryProvider());
+            var schemaManagerDataStore = new SchemaManagerDataStore(defaultSqlConnectionBuilder, config, NullLogger<SchemaManagerDataStore>.Instance);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, defaultSqlConnectionBuilder, schemaManagerDataStore);
 
-            return new SchemaInitializer(config, schemaManagerDataStore, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer(config, schemaManagerDataStore, schemaUpgradeRunner, schemaInformation, defaultSqlConnectionBuilder, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
         }
     }
 }

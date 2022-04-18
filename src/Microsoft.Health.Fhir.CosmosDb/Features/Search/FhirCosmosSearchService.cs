@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly ICosmosDbCollectionPhysicalPartitionInfo _physicalPartitionInfo;
         private readonly QueryPartitionStatisticsCache _queryPartitionStatisticsCache;
+        private readonly Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>> _expressionRewriters;
         private readonly ILogger<FhirCosmosSearchService> _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CosmosDataStoreConfiguration cosmosConfig,
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             QueryPartitionStatisticsCache queryPartitionStatisticsCache,
+            IEnumerable<ICosmosExpressionRewriter> expressionRewriters,
             ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -62,6 +64,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(cosmosConfig, nameof(cosmosConfig));
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(queryPartitionStatisticsCache, nameof(queryPartitionStatisticsCache));
+            EnsureArg.IsNotNull(expressionRewriters, nameof(expressionRewriters));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
@@ -73,6 +76,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _logger = logger;
             _resourceTypeSearchParameter = SearchParameterInfo.ResourceTypeSearchParameter;
             _resourceIdSearchParameter = new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id);
+
+            _expressionRewriters = new Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>>(() => expressionRewriters
+                .OrderBy(x => x.Order)
+                .Cast<IExpressionVisitorWithInitialContext<object, Expression>>()
+                .Append(DateTimeEqualityRewriter.Instance)
+                .ToArray());
         }
 
         public override async Task<SearchResult> SearchAsync(
@@ -82,8 +91,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             // we're going to mutate searchOptions, so clone it first so the caller of this method does not see the changes.
             searchOptions = searchOptions.Clone();
 
-            // rewrite DateTime range expressions to be more efficient
-            searchOptions.Expression = searchOptions.Expression?.AcceptVisitor(DateTimeEqualityRewriter.Instance);
+            if (searchOptions.Expression != null)
+            {
+                // Apply Cosmos specific expression rewriters
+                searchOptions.Expression = _expressionRewriters.Value
+                    .Aggregate(searchOptions.Expression, (e, rewriter) => e.AcceptVisitor(rewriter));
+            }
 
             // pull out the _include and _revinclude expressions.
             bool hasIncludeOrRevIncludeExpressions = ExtractIncludeAndChainedExpressions(
@@ -526,7 +539,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency, // execute counts across all partitions
             };
 
-            return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
+            long count = (await _fhirDataStore.ExecuteDocumentQueryAsync<long>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
+            if (count > int.MaxValue)
+            {
+                _requestContextAccessor.RequestContext.BundleIssues.Add(
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Error,
+                        OperationOutcomeConstants.IssueType.NotSupported,
+                        string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
+                throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+            }
+
+            return (int)count;
         }
 
         private SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)
@@ -560,6 +585,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             var includes = new List<FhirCosmosResourceWrapper>();
+            var matchIds = matches.Select(x => new ResourceKey(x.ResourceTypeName, x.ResourceId)).ToHashSet();
 
             if (includeExpressions.Count > 0)
             {
@@ -568,13 +594,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 var referencesToInclude = matches
                     .SelectMany(m => m.ReferencesToInclude)
                     .Where(r => r.ResourceTypeName != null) // exclude untyped references to align with the current SQL behavior
+                    .Select(x => new ResourceKey(x.ResourceTypeName, x.ResourceId))
                     .Distinct()
+                    .Where(x => !matchIds.Contains(x))
                     .ToList();
 
-                foreach (IEnumerable<ResourceTypeAndId> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
+                foreach (IEnumerable<ResourceKey> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
                 {
                     // issue the requests in parallel
-                    var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(new ResourceKey(r.ResourceTypeName, r.ResourceId), cancellationToken)).ToList();
+                    var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(r, cancellationToken)).ToList();
 
                     foreach (Task<ResourceWrapper> task in tasks)
                     {
@@ -604,15 +632,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
                     SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
-                    SearchParameterExpression referenceExpression = Expression.SearchParameter(
-                        referenceSearchParameter,
-                        Expression.Or(
-                            matches
-                                .GroupBy(m => m.ResourceTypeName)
-                                .Select(g =>
-                                    Expression.And(
-                                        Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
-                                        Expression.Or(g.Select(m => Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId)).ToList()))).ToList()));
+
+                    IEnumerable<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName);
+
+                    Expression referenceExpression = Expression.And(
+                        Expression.SearchParameter(
+                            referenceSearchParameter,
+                            Expression.Or(matchesGroupedByType
+                                    .Select(g =>
+                                        Expression.And(
+                                            Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
+                                            new InExpression(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId).ToArray()))).ToList())),
+                        /* This part of the expression ensures that the reference isn't the same as a resource that has already been selected as a match */
+                        Expression.Not(Expression.Or(matchesGroupedByType
+                            .Select(g =>
+                                Expression.And(
+                                    Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, g.Key, false)),
+                                    Expression.SearchParameter(_resourceIdSearchParameter, new InExpression(FieldName.TokenCode, null, g.Select(x => x.ResourceId).ToArray())))).ToList())));
 
                     Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
 

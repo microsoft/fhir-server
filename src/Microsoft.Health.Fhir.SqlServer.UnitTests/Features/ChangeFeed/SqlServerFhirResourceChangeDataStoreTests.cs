@@ -8,11 +8,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
-using NSubstitute;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
@@ -23,15 +26,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
     public class SqlServerFhirResourceChangeDataStoreTests
     {
         private readonly SqlServerFhirResourceChangeDataStore resourceChangeDataStore;
-
-        private ISqlConnectionFactory connectionFactory;
+        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
 
         public SqlServerFhirResourceChangeDataStoreTests()
         {
-            connectionFactory = Substitute.For<ISqlConnectionFactory>();
-            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            schemaInformation.Current = SchemaVersionConstants.Max;
-            resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(connectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
+            resourceChangeDataStore = GetResourcChangeDataStoreWithGivenConnectionString(new SqlConnectionStringBuilder(LocalConnectionString) { InitialCatalog = "testDb" }.ToString());
         }
 
         [Fact]
@@ -66,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         [Fact]
         public async Task GivenEmptyConnectionString_WhenGetResourceChanges_ThenInvalidOperationExceptionShouldBeThrown()
         {
-            connectionFactory.GetSqlConnectionAsync(default, default).Returns(new SqlConnection(string.Empty));
+            var resourceChangeDataStore = GetResourcChangeDataStoreWithGivenConnectionString(string.Empty);
 
             try
             {
@@ -85,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             var token = source.Token;
             source.Cancel();
 
-            connectionFactory.GetSqlConnectionAsync(default, token).Returns(new SqlConnection());
+            var resourceChangeDataStore = GetResourcChangeDataStoreWithGivenConnectionString(new SqlConnectionStringBuilder(LocalConnectionString) { InitialCatalog = "testDb" }.ToString());
 
             try
             {
@@ -95,6 +94,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             {
                 Assert.Equal(nameof(TaskCanceledException), ex.GetType().Name);
             }
+        }
+
+        public SqlServerFhirResourceChangeDataStore GetResourcChangeDataStoreWithGivenConnectionString(string connectionString)
+        {
+            var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
+            var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
+            var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
+            var sqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
+
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            schemaInformation.Current = SchemaVersionConstants.Max;
+
+            return new SqlServerFhirResourceChangeDataStore(sqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
         }
     }
 }

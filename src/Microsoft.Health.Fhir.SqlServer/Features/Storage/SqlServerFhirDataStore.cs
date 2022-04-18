@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly V7.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV7;
         private readonly V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV13;
         private readonly V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV17;
+        private readonly V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV18;
+        private readonly V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV27;
         private readonly V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorV17;
         private readonly V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorV17;
         private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -62,6 +65,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             V7.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV7,
             V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV13,
             V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV17,
+            V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV18,
+            V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV27,
             VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
             V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorV17,
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
@@ -71,7 +76,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
-            SchemaInformation schemaInformation)
+            SchemaInformation schemaInformation,
+            IModelInfoProvider modelInfoProvider)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -79,6 +85,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _upsertResourceTvpGeneratorV7 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV7, nameof(upsertResourceTvpGeneratorV7));
             _upsertResourceTvpGeneratorV13 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV13, nameof(upsertResourceTvpGeneratorV13));
             _upsertResourceTvpGeneratorV17 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV17, nameof(upsertResourceTvpGeneratorV17));
+            _upsertResourceTvpGeneratorV18 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV18, nameof(upsertResourceTvpGeneratorV18));
+            _upsertResourceTvpGeneratorV27 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV27, nameof(upsertResourceTvpGeneratorV27));
             _upsertResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             _reindexResourceTvpGeneratorV17 = EnsureArg.IsNotNull(reindexResourceTvpGeneratorV17, nameof(reindexResourceTvpGeneratorV17));
             _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
@@ -86,14 +94,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
+        public async Task<UpsertOutcome> UpsertAsync(
+            ResourceWrapper resource,
+            WeakETag weakETag,
+            bool allowCreate,
+            bool keepHistory,
+            CancellationToken cancellationToken,
+            bool requireETagOnUpdate = false)
         {
             int? eTag = weakETag == null
                 ? null
@@ -104,76 +119,207 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
-            using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
+            while (true)
             {
-                _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                stream.Seek(0, 0);
-
-                PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, eTag, stream, _coreFeatures.SupportsResourceChangeCapture);
-
-                try
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
                 {
-                    var newVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-                    if (newVersion == null)
+                    // Read the latest resource
+                    var existingResource = await GetAsync(new ResourceKey(resource.ResourceTypeName, resource.ResourceId), cancellationToken);
+
+                    // Check for any validation errors
+                    if (existingResource != null && eTag.HasValue && eTag.ToString() != existingResource.Version)
                     {
-                        // indicates a redundant delete
-                        return null;
+                        if (weakETag != null)
+                        {
+                            // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
+                            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                            {
+                                throw new ResourceConflictException(weakETag);
+                            }
+
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                        }
                     }
 
-                    resource.Version = newVersion.ToString();
+                    int? existingVersion = null;
 
-                    SaveOutcomeType saveOutcomeType;
-                    if (newVersion == 1)
+                    // There is no previous version of this resource, check validations and then simply call SP to create new version
+                    if (existingResource == null)
                     {
-                        saveOutcomeType = SaveOutcomeType.Created;
-                    }
-                    else
-                    {
-                        saveOutcomeType = SaveOutcomeType.Updated;
-                        resource.RawResource.IsMetaSet = false;
-                    }
+                        if (resource.IsDeleted)
+                        {
+                            // Don't bother marking the resource as deleted since it already does not exist.
+                            return null;
+                        }
 
-                    return new UpsertOutcome(resource, saveOutcomeType);
-                }
-                catch (SqlException e)
-                {
-                    switch (e.Number)
-                    {
-                        case SqlErrorCodes.PreconditionFailed:
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
-                        case SqlErrorCodes.NotFound:
+                        if (eTag.HasValue && eTag != null)
+                        {
+                            // You can't update a resource with a specified version if the resource does not exist
                             if (weakETag != null)
                             {
                                 throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                             }
+                        }
 
-                            goto default;
-                        case SqlErrorCodes.MethodNotAllowed:
+                        if (!allowCreate)
+                        {
                             throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
-                        case SqlErrorCodes.TimeoutExpired:
-                            throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
-                        default:
-                            _logger.LogError(e, "Error from SQL database on upsert");
-                            throw;
+                        }
+                    }
+                    else
+                    {
+                        if (requireETagOnUpdate && !eTag.HasValue)
+                        {
+                            // This is a versioned update and no version was specified
+                            // TODO: Add this to SQL error codes in AB#88286
+                            // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
+                            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                            {
+                                throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                            }
+
+                            throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                        }
+
+                        if (resource.IsDeleted && existingResource.IsDeleted)
+                        {
+                            // Already deleted - don't create a new version
+                            return null;
+                        }
+
+                        // check if reosurces are equal if its not a Delete action
+                        if (!resource.IsDeleted)
+                        {
+                            // check if the new resource data is same as existing resource data
+                            if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingResource), RemoveVersionIdAndLastUpdatedFromMeta(resource), StringComparison.Ordinal))
+                            {
+                                // Send the existing resource in the response
+                                return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
+                            }
+                        }
+
+                        // existing version in the SQL db should never be null
+                        existingVersion = int.Parse(existingResource.Version);
+                        resource.Version = (existingVersion + 1).Value.ToString(CultureInfo.InvariantCulture);
+                    }
+
+                    _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
+
+                    stream.Seek(0, 0);
+
+                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
+
+                    try
+                    {
+                        var newVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                        if (newVersion == null)
+                        {
+                            // indicates a redundant delete
+                            return null;
+                        }
+
+                        if (newVersion == -1)
+                        {
+                            // indicates that resource content is same - no new version was created
+                            // We need to send the existing resource in the response matching the correct versionId and lastUpdated as the one stored in DB
+                            return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
+                        }
+
+                        resource.Version = newVersion.ToString();
+
+                        SaveOutcomeType saveOutcomeType;
+                        if (newVersion == 1)
+                        {
+                            saveOutcomeType = SaveOutcomeType.Created;
+                        }
+                        else
+                        {
+                            saveOutcomeType = SaveOutcomeType.Updated;
+                            resource.RawResource.IsMetaSet = false;
+                        }
+
+                        return new UpsertOutcome(resource, saveOutcomeType);
+                    }
+                    catch (SqlException e)
+                    {
+                        switch (e.Number)
+                        {
+                            case SqlErrorCodes.TimeoutExpired:
+                                throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
+                            case SqlErrorCodes.Conflict:
+                                // someone else beat us to it, re-read and try comparing again - Compared resource was updated
+                                continue;
+                            default:
+                                _logger.LogError(e, "Error from SQL database on upsert");
+                                throw;
+                        }
                     }
                 }
             }
         }
 
-        private void PopulateUpsertResourceCommand(SqlCommandWrapper sqlCommandWrapper, ResourceWrapper resource, ResourceMetadata resourceMetadata, bool allowCreate, bool keepHistory, int? eTag, RecyclableMemoryStream stream, bool isResourceChangeCaptureEnabled)
+        private void PopulateUpsertResourceCommand(
+            SqlCommandWrapper sqlCommandWrapper,
+            ResourceWrapper resource,
+            ResourceMetadata resourceMetadata,
+            bool allowCreate,
+            bool keepHistory,
+            bool requireETagOnUpdate,
+            int? eTag,
+            int? comparedVersion,
+            RecyclableMemoryStream stream,
+            bool isResourceChangeCaptureEnabled)
         {
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
             short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
+            if (_schemaInformation.Current >= SchemaVersionConstants.PreventUpdatesFromCreatingVersionWhenNoImpact)
             {
                 VLatest.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
-                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                    baseResourceSurrogateId: baseResourceSurrogateId,
+                    resourceTypeId: resourceTypeId,
+                    resourceId: resource.ResourceId,
+                    eTag: eTag,
+                    allowCreate: allowCreate,
+                    isDeleted: resource.IsDeleted,
+                    keepHistory: keepHistory,
+                    requireETagOnUpdate: requireETagOnUpdate,
+                    requestMethod: resource.Request.Method,
+                    searchParamHash: resource.SearchParameterHash,
+                    rawResource: stream,
+                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
+                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled,
+                    comparedVersion: comparedVersion);
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.PutCreateWithVersionedUpdatePolicyVersion)
+            {
+                V27.UpsertResource.PopulateCommand(
+                    sqlCommandWrapper,
+                    baseResourceSurrogateId: baseResourceSurrogateId,
+                    resourceTypeId: resourceTypeId,
+                    resourceId: resource.ResourceId,
+                    eTag: eTag,
+                    allowCreate: allowCreate,
+                    isDeleted: resource.IsDeleted,
+                    keepHistory: keepHistory,
+                    requireETagOnUpdate: requireETagOnUpdate,
+                    requestMethod: resource.Request.Method,
+                    searchParamHash: resource.SearchParameterHash,
+                    rawResource: stream,
+                    tableValuedParameters: _upsertResourceTvpGeneratorV27.Generate(new List<ResourceWrapper> { resource }),
+                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled);
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
+            {
+                V18.UpsertResource.PopulateCommand(
+                    sqlCommandWrapper,
+                    baseResourceSurrogateId: baseResourceSurrogateId,
+                    resourceTypeId: resourceTypeId,
                     resourceId: resource.ResourceId,
                     eTag: eTag,
                     allowCreate: allowCreate,
@@ -182,15 +328,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestMethod: resource.Request.Method,
                     searchParamHash: resource.SearchParameterHash,
                     rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
+                    tableValuedParameters: _upsertResourceTvpGeneratorV18.Generate(new List<ResourceWrapper> { resource }),
                     isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled);
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsResourceChangeCaptureSchemaVersion)
             {
                 V17.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
-                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                    baseResourceSurrogateId: baseResourceSurrogateId,
+                    resourceTypeId: resourceTypeId,
                     resourceId: resource.ResourceId,
                     eTag: eTag,
                     allowCreate: allowCreate,
@@ -206,8 +352,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 V13.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
-                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                    baseResourceSurrogateId: baseResourceSurrogateId,
+                    resourceTypeId: resourceTypeId,
                     resourceId: resource.ResourceId,
                     eTag: eTag,
                     allowCreate: allowCreate,
@@ -265,7 +411,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestedVersion = parsedVersion;
                 }
 
-                using (SqlCommandWrapper commandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                using (SqlCommandWrapper commandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
                     VLatest.ReadResource.PopulateCommand(
                         commandWrapper,
@@ -327,7 +473,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 if (_schemaInformation.Current >= SchemaVersionConstants.PurgeHistoryVersion)
                 {
@@ -349,7 +495,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
                 {
@@ -413,6 +559,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)
+        {
+            // 0000000+ -> +, 0010000+ -> 001+, 0100000+ -> 01+, 0180000+ -> 018+, 1000000 -> 1+, 1100000+ -> 11+, 1010000+ -> 101+
+            // ToString("o") - Formats to 2022-03-09T01:40:52.0690000+02:00 but serialized value to string in dB is 2022-03-09T01:40:52.069+02:00
+            var formattedDate = date.ToString("o", CultureInfo.InvariantCulture);
+            var milliseconds = formattedDate.Substring(20, 7); // get 0690000
+            var trimmedMilliseconds = milliseconds.TrimEnd('0'); // get 069
+            if (milliseconds.Equals("0000000", StringComparison.Ordinal))
+            {
+                // when date = 2022-03-09T01:40:52.0000000+02:00, value in dB is 2022-03-09T01:40:52+02:00, we need to replace the . after second
+                return formattedDate.Replace("." + milliseconds, string.Empty, StringComparison.Ordinal);
+            }
+
+            return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
+        }
+
+        private static string RemoveVersionIdAndLastUpdatedFromMeta(ResourceWrapper resourceWrapper)
+        {
+            var versionToReplace = resourceWrapper.RawResource.IsMetaSet ? resourceWrapper.Version : "1";
+            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{versionToReplace}\"", string.Empty, StringComparison.Ordinal);
+            return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
+        }
+
         public void Build(ICapabilityStatementBuilder builder)
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
@@ -442,7 +611,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
                 {

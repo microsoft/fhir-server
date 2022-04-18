@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
         private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
         private readonly CoreFeatureConfiguration _coreFeatures;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
@@ -74,6 +75,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
         /// <param name="supportedSearchParameters">The supported search parameters</param>
+        /// <param name="modelInfoProvider">The model info provider to determine the FHIR version when handling resource conflicts.</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -82,7 +84,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
             IOptions<CoreFeatureConfiguration> coreFeatures,
-            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters)
+            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -100,6 +103,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
             _supportedSearchParameters = supportedSearchParameters;
             _coreFeatures = coreFeatures.Value;
+            _modelInfoProvider = modelInfoProvider;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(
@@ -107,7 +111,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             WeakETag weakETag,
             bool allowCreate,
             bool keepHistory,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool requireETagOnUpdate = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -144,6 +149,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
             }
 
+            // If the versioning policy is set to versioned-update and no if-match header is provided
+            if (requireETagOnUpdate && weakETag == null)
+            {
+                // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
+                if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                {
+                    throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                }
+
+                throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+            }
+
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -178,12 +195,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
                 {
+                    // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
+                    if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                    {
+                        throw new ResourceConflictException(weakETag);
+                    }
+
                     throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                 }
 
                 if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
                 {
                     return null;
+                }
+
+                // If not a delete then check if its an update with no data change
+                if (!cosmosWrapper.IsDeleted)
+                {
+                    // check if the new resource data is same as existing resource data
+                    if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource), RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper), StringComparison.Ordinal))
+                    {
+                        // Do not store the duplicate data, for a update with no impact - returning existingItemResource as no updates
+                        return new UpsertOutcome(existingItemResource, SaveOutcomeType.Updated);
+                    }
                 }
 
                 cosmosWrapper.Version = int.TryParse(existingItemResource.Version, out int existingVersion) ? (existingVersion + 1).ToString(CultureInfo.InvariantCulture) : Guid.NewGuid().ToString();
@@ -518,6 +552,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 cosmosWrapper.SortValues?.Clear();
             }
+        }
+
+        private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)
+        {
+            // 0000000+ -> +, 0010000+ -> 001+, 0100000+ -> 01+, 0180000+ -> 018+, 1000000 -> 1+, 1100000+ -> 11+, 1010000+ -> 101+
+            // ToString("o") - Formats to 2022-03-09T01:40:52.0690000+02:00 but serialized value to string in dB is 2022-03-09T01:40:52.069+02:00
+            var formattedDate = date.ToString("o", CultureInfo.InvariantCulture);
+            var milliseconds = formattedDate.Substring(20, 7); // get 0690000
+            var trimmedMilliseconds = milliseconds.TrimEnd('0'); // get 069
+            if (milliseconds.Equals("0000000", StringComparison.Ordinal))
+            {
+                // when date = 2022-03-09T01:40:52.0000000+02:00, value in dB is 2022-03-09T01:40:52+02:00, we need to replace the . after second
+                return formattedDate.Replace("." + milliseconds, string.Empty, StringComparison.Ordinal);
+            }
+
+            return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
+        }
+
+        private static string RemoveVersionIdAndLastUpdatedFromMeta(FhirCosmosResourceWrapper resourceWrapper)
+        {
+            var versionToReplace = resourceWrapper.RawResource.IsMetaSet ? resourceWrapper.Version : "1";
+            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{versionToReplace}\"", string.Empty, StringComparison.Ordinal);
+            return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
         }
 
         public void Build(ICapabilityStatementBuilder builder)

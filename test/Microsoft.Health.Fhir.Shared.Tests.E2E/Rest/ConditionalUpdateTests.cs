@@ -90,10 +90,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
 
+            var weakETag = "W/\"Jibberish\"";
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
                 observation,
                 null,
-                "Jibberish"));
+                weakETag));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }

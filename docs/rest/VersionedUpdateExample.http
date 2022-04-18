@@ -1,0 +1,231 @@
+# Before running this, update the versioning policy in appsettings.json to:
+#
+#"Versioning": {
+#     "Default": "versioned-update",
+#     "ResourceTypeOverrides":null
+#     }
+
+@hostname = localhost:44348
+
+###
+# Get the capability statement.
+# Note that the "versioning" property of every resource type is set to 
+# "versioned-update"
+GET https://{{hostname}}/metadata
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+# Create a patient resource that we will update.
+# This will create version 1 of a patient resource.
+# @name patient
+POST https://{{hostname}}/Patient
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-to-update",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05"
+}
+
+###
+# Attempt to update the patient without specifying the if-match header.
+# This should result in an error.
+PUT https://{{hostname}}/Patient/{{patient.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "{{patient.response.body.id}}",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+###
+# Attempt to update the patient with an invalid if-match header.
+# This should result in an error.
+PUT https://{{hostname}}/Patient/{{patient.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+If-Match: "1"
+
+{
+  "resourceType": "Patient",
+  "id": "{{patient.response.body.id}}",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+###
+# Update the patient, now setting the if-match header to version 1.
+# This should successfully create version 2 of the resource.
+PUT https://{{hostname}}/Patient/{{patient.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+If-Match: W/"1"
+
+{
+  "resourceType": "Patient",
+  "id": "{{patient.response.body.id}}",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+###
+# Attempt to update the patient, but do not set the if-match header to the most
+# recent version. This should return an error.
+PUT https://{{hostname}}/Patient/{{patient.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+If-Match: W/"1"
+
+{
+  "resourceType": "Patient",
+  "id": "{{patient.response.body.id}}",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+###
+# Re-attempt, now setting the if-match header to version 2.
+# This should successfully create version 3.
+PUT https://{{hostname}}/Patient/{{patient.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+If-Match: W/"2"
+
+{
+  "resourceType": "Patient",
+  "id": "{{patient.response.body.id}}",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+###
+# Create a new resource using PUT.
+# This should not require an if-match header to be specified.
+PUT https://{{hostname}}/Patient/put-create-patient-1
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "put-create-patient-1",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+###
+# Create a new resource using PUT, but specify an if-match header.
+# This should return an error, since no earlier versions of the resource exist.
+PUT https://{{hostname}}/Patient/put-create-patient-2
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+If-Match: W/"2"
+
+{
+  "resourceType": "Patient",
+  "id": "put-create-patient-2",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}

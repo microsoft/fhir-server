@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(resourceType, code);
         }
 
-        public SearchParameterInfo GetSearchParameter(Uri definitionUri)
+        public SearchParameterInfo GetSearchParameter(string definitionUri)
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(definitionUri);
             if (parameter.IsSupported)
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _inner.DeleteSearchParameter(searchParam);
         }
 
-        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value)
+        public bool TryGetSearchParameter(string definitionUri, out SearchParameterInfo value)
         {
             value = null;
             if (_inner.TryGetSearchParameter(definitionUri, out var parameter) && parameter.IsSupported)

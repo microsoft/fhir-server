@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -27,6 +28,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _searchParamGenerator = searchParamGenerator;
         }
 
+        internal static BulkNumberSearchParamTableTypeV1RowComparer Comparer { get; } = new BulkNumberSearchParamTableTypeV1RowComparer();
+
         internal override string TableName
         {
             get
@@ -42,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             IEnumerable<BulkNumberSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkNumberSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkNumberSearchParamTableTypeV1Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
@@ -68,6 +71,50 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.LowValue.Metadata.Name, VLatest.NumberSearchParam.LowValue.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.HighValue.Metadata.Name, VLatest.NumberSearchParam.HighValue.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+        }
+
+        internal static IEnumerable<BulkNumberSearchParamTableTypeV1Row> Distinct(IEnumerable<BulkNumberSearchParamTableTypeV1Row> input)
+        {
+            return input.Distinct(Comparer);
+        }
+
+        internal class BulkNumberSearchParamTableTypeV1RowComparer : IEqualityComparer<BulkNumberSearchParamTableTypeV1Row>
+        {
+            public bool Equals(BulkNumberSearchParamTableTypeV1Row x, BulkNumberSearchParamTableTypeV1Row y)
+            {
+                if (x.SearchParamId != y.SearchParamId)
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.SingleValue, y.SingleValue))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.HighValue, y.HighValue))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<decimal?>.Default.Equals(x.LowValue, y.LowValue))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public int GetHashCode(BulkNumberSearchParamTableTypeV1Row obj)
+            {
+                int hashCode = obj.SearchParamId.GetHashCode();
+
+                hashCode ^= obj.SingleValue?.GetHashCode() ?? 0;
+                hashCode ^= obj.HighValue?.GetHashCode() ?? 0;
+                hashCode ^= obj.LowValue?.GetHashCode() ?? 0;
+
+                return hashCode.GetHashCode();
+            }
         }
     }
 }

@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             };
 
             validatingReader.ValidationEventHandler += (sender, args) =>
-                throw new InvalidDefinitionException(string.Format(Resources.ErrorValidatingRoles, args.Message));
+                throw new InvalidDefinitionException(string.Format(Core.Resources.ErrorValidatingRoles, args.Message));
 
             RolesContract roleContract = jsonSerializer.Deserialize<RolesContract>(validatingReader);
 
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                 if (grouping.Count() > 1)
                 {
                     throw new InvalidDefinitionException(
-                        string.Format(CultureInfo.CurrentCulture, Resources.DuplicateRoleNames, grouping.Count(), grouping.Key));
+                        string.Format(CultureInfo.CurrentCulture, Core.Resources.DuplicateRoleNames, grouping.Count(), grouping.Key));
                 }
             }
 

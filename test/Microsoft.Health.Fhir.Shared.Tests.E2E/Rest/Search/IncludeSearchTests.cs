@@ -490,6 +490,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
+        [InlineData("_include")]
+        [InlineData("_revinclude")]
+        [Theory]
+        public async Task GivenAnIncludeSearchExpressionWithLocationLinkedToItself_WhenSearched_ThenCorrectBundleShouldBeReturned(string includeType)
+        {
+            string query = $"_id={Fixture.LocationPartOfSelf.Id}&{includeType}=Location:partof";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
+
+            // The matched resource shouldn't be returned as an include
+            ValidateBundle(
+                bundle,
+                Fixture.LocationPartOfSelf);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Location);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Location, query, bundle.Link[0].Url);
+        }
+
         [Fact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleResourceTableParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {

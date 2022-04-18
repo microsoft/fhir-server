@@ -12,6 +12,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -119,20 +120,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
             var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
-                .ToDictionary(x => x.Uri);
+                .ToDictionary(x => x.Uri.OriginalString);
 
             foreach (string uri in searchParameterUris)
             {
                 _logger.LogTrace("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
-                var searchParamUri = new Uri(uri);
-
-                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
+                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
                 updated.Add(paramInfo);
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                 paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
 
-                if (parameters.TryGetValue(searchParamUri, out var existingStatus))
+                if (parameters.TryGetValue(uri, out var existingStatus))
                 {
                     existingStatus.LastUpdated = Clock.UtcNow;
                     existingStatus.Status = status;
@@ -151,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     {
                         LastUpdated = Clock.UtcNow,
                         Status = status,
-                        Uri = searchParamUri,
+                        Uri = new Uri(uri),
                     });
                 }
             }
@@ -191,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (var paramStatus in updatedSearchParameterStatus)
             {
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri, out var param))
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri.OriginalString, out var param))
                 {
                     var tempStatus = EvaluateSearchParamStatus(paramStatus);
 
@@ -208,7 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     // and there is an entry in the list of updates with a delete status then it indicates
                     // the search parameter was deleted before it was added to this instance, and there is no issue
                     // however if there is no indication that the search parameter was deleted, then there is a problem
-                    throw new UnableToUpdateSearchParameterException(paramStatus.Uri);
+                    _logger.LogError(Core.Resources.UnableToUpdateSearchParameter, paramStatus.Uri);
                 }
             }
 

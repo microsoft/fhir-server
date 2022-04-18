@@ -1,6 +1,6 @@
 ﻿{
     "resourceType": "Bundle",
-    "id": "bundle-patch",
+    "id": "bundle-binarypatch",
     "meta": {
         "lastUpdated": "2014-08-18T01:43:30Z"
     },

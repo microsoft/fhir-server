@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (value <= 0)
                 {
-                    throw new InvalidOperationException(Resources.InvalidSearchCountSpecified);
+                    throw new InvalidOperationException(Core.Resources.InvalidSearchCountSpecified);
                 }
 
                 _maxItemCount = value;
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (value <= 0)
                 {
-                    throw new InvalidOperationException(Resources.InvalidSearchCountSpecified);
+                    throw new InvalidOperationException(Core.Resources.InvalidSearchCountSpecified);
                 }
 
                 _includeCount = value;

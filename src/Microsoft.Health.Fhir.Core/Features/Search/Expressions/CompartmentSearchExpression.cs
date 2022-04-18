@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -19,13 +20,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="compartmentType">The compartment type.</param>
         /// <param name="compartmentId">The compartment id.</param>
-        public CompartmentSearchExpression(string compartmentType, string compartmentId)
+        /// <param name="filteredResourceTypes">Resource types to filter</param>
+        public CompartmentSearchExpression(string compartmentType, string compartmentId, params string[] filteredResourceTypes)
         {
             EnsureArg.IsTrue(ModelInfoProvider.IsKnownCompartmentType(compartmentType), nameof(compartmentType));
             EnsureArg.IsNotNullOrWhiteSpace(compartmentId, nameof(compartmentId));
 
             CompartmentType = compartmentType;
             CompartmentId = compartmentId;
+            FilteredResourceTypes = filteredResourceTypes ?? Array.Empty<string>();
         }
 
         /// <summary>
@@ -37,6 +40,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// The compartment id.
         /// </summary>
         public string CompartmentId { get; }
+
+        /// <summary>
+        /// Resource types to filter for compartment search
+        /// </summary>
+        public IReadOnlyCollection<string> FilteredResourceTypes { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {

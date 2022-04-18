@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<TaskInfo> CreateTaskAsync(TaskInfo task, bool isUniqueTaskByType, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 try
                 {
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<TaskInfo> GetTaskAsync(string taskId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 VLatest.GetTaskDetails.PopulateCommand(sqlCommandWrapper, taskId);
                 SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<TaskInfo> CancelTaskAsync(string taskId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 try
                 {

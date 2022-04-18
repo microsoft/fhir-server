@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
@@ -30,11 +31,13 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
@@ -48,6 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly BundleHandler _bundleHandler;
         private readonly IRouter _router;
         private readonly BundleConfiguration _bundleConfiguration;
+        private readonly IMediator _mediator;
         private DefaultFhirRequestContext _fhirRequestContext;
 
         public BundleHandlerTests()
@@ -97,6 +101,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(_bundleConfiguration);
 
+            _mediator = Substitute.For<IMediator>();
+
             _bundleHandler = new BundleHandler(
                 httpContextAccessor,
                 fhirRequestContextAccessor,
@@ -110,6 +116,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 auditEventTypeMapping,
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
+                _mediator,
                 NullLogger<BundleHandler>.Instance);
         }
 
@@ -399,6 +406,107 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
             Assert.Single(bundleResource.Entry);
+        }
+
+        // PUT calls are mocked to succeed while POST calls are mocked to fail.
+        [Theory]
+        [InlineData(BundleType.Batch, HTTPVerb.POST, HTTPVerb.PUT, 1, 1)]
+        [InlineData(BundleType.Transaction, HTTPVerb.PUT, HTTPVerb.PUT, 2, 0)]
+        public async Task GivenABundleWithMultipleCalls_WhenProcessed_ThenANotificationWillBeEmitted(BundleType type, HTTPVerb method1, HTTPVerb method2, int code200s, int code404s)
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = type,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = method1,
+                            Url = "unused1",
+                        },
+                        Resource = new Patient(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = method2,
+                            Url = "unused2",
+                        },
+                        Resource = new Patient(),
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            BundleMetricsNotification notification = null;
+            await _mediator.Publish(Arg.Do<BundleMetricsNotification>(note => notification = note), Arg.Any<CancellationToken>());
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Equal(type == BundleType.Batch ? BundleType.BatchResponse : BundleType.TransactionResponse, bundleResource.Type);
+            Assert.Equal(2, bundleResource.Entry.Count);
+
+            await _mediator.Received().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
+
+            Assert.Equal(type == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, notification.FhirOperation);
+
+            var results = notification.ApiCallResults;
+
+            Assert.Equal(code200s, results["200"]);
+
+            if (code404s > 0)
+            {
+                Assert.Equal(code404s, results["404"]);
+            }
+            else
+            {
+                Assert.Equal(1, results.Keys.Count);
+            }
+        }
+
+        [Fact]
+        public async Task GivenAFailedTransaction_WhenProcessed_ThenNoNotificationWillBeEmitted()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.PUT,
+                            Url = "unused1",
+                        },
+                        Resource = new Patient(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            // This will fail and cause an exception to be thrown
+                            Method = HTTPVerb.GET,
+                            Url = "unused2",
+                        },
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
+
+            await _mediator.DidNotReceive().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)

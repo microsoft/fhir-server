@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         internal static void Build(
             IReadOnlyCollection<ITypedElement> searchParameters,
-            ConcurrentDictionary<Uri, SearchParameterInfo> uriDictionary,
+            ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider)
         {
@@ -99,10 +99,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
-        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, IDictionary<Uri, SearchParameterInfo> uriDictionary)
+        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, IDictionary<string, SearchParameterInfo> uriDictionary)
         {
             // Return SearchParameterInfo that has already been created for this Uri
-            if (uriDictionary.TryGetValue(new Uri(searchParameter.Url), out var spi))
+            if (uriDictionary.TryGetValue(searchParameter.Url, out var spi))
             {
                 return spi;
             }
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
             IReadOnlyCollection<ITypedElement> searchParamCollection,
-            IDictionary<Uri, SearchParameterInfo> uriDictionary,
+            IDictionary<string, SearchParameterInfo> uriDictionary,
             IModelInfoProvider modelInfoProvider)
         {
             var issues = new List<OperationOutcomeIssue>();
@@ -142,16 +142,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 try
                 {
                     SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
-                    uriDictionary.Add(new Uri(searchParameter.Url), searchParameterInfo);
+                    uriDictionary.Add(searchParameter.Url, searchParameterInfo);
                 }
                 catch (FormatException)
                 {
-                    AddIssue(Resources.SearchParameterDefinitionInvalidDefinitionUri, entryIndex);
+                    AddIssue(Core.Resources.SearchParameterDefinitionInvalidDefinitionUri, entryIndex);
                     continue;
                 }
                 catch (ArgumentException)
                 {
-                    AddIssue(Resources.SearchParameterDefinitionDuplicatedEntry, searchParameter.Url);
+                    AddIssue(Core.Resources.SearchParameterDefinitionDuplicatedEntry, searchParameter.Url);
                     continue;
                 }
             }
@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         var definitionUrl = GetComponentDefinition(component);
 
                         if (definitionUrl == null ||
-                            !uriDictionary.TryGetValue(new Uri(definitionUrl), out SearchParameterInfo componentSearchParameter))
+                            !uriDictionary.TryGetValue(definitionUrl, out SearchParameterInfo componentSearchParameter))
                         {
                             AddIssue(
                                 Core.Resources.SearchParameterDefinitionInvalidComponentReference,

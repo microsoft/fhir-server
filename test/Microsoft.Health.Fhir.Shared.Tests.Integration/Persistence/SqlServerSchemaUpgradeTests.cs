@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -23,8 +23,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Xunit;
@@ -33,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerSchemaUpgradeTests
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true";
+        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
         public SqlServerSchemaUpgradeTests()
@@ -72,42 +74,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Theory]
-        [MemberData(nameof(GetSchemaVersions))]
-        public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed(int schemaVersion)
+        [Fact]
+        public void GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
         {
-            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-
-            SqlServerFhirStorageTestHelper testHelper = null;
-            SchemaUpgradeRunner upgradeRunner;
-
-            try
-            {
-                (testHelper, upgradeRunner) = await SetupTestHelperAndCreateDatabase(
-                    snapshotDatabaseName,
-                    schemaVersion - 1,
-                    forceIncrementalSchemaUpgrade: false);
-
-                await upgradeRunner.ApplySchemaAsync(schemaVersion, applyFullSchemaSnapshot: false, CancellationToken.None);
-                await upgradeRunner.ApplySchemaAsync(schemaVersion, applyFullSchemaSnapshot: false, CancellationToken.None);
-            }
-            finally
-            {
-                await testHelper.DeleteDatabase(snapshotDatabaseName);
-            }
-        }
-
-        public static IEnumerable<object[]> GetSchemaVersions()
-        {
-            foreach (object item in Enum.GetValues(typeof(SchemaVersion)))
+            var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
+            Parallel.ForEach(versions, async version =>
             {
                 // The schema upgrade scripts starting from v7 were made idempotent.
-                // Hence we need to run the tests only for versions 7 and above.
-                if ((int)item >= 7)
+                if (version >= 7)
                 {
-                    yield return new object[] { item };
+                    var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+
+                    SqlServerFhirStorageTestHelper testHelper = null;
+                    SchemaUpgradeRunner upgradeRunner;
+
+                    try
+                    {
+                        (testHelper, upgradeRunner) = await SetupTestHelperAndCreateDatabase(
+                            snapshotDatabaseName,
+                            version - 1,
+                            forceIncrementalSchemaUpgrade: false);
+
+                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+                    }
+                    finally
+                    {
+                        await testHelper.DeleteDatabase(snapshotDatabaseName);
+                    }
                 }
-            }
+            });
         }
 
         private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)
@@ -123,17 +119,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var connectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
+            IOptions<SqlServerDataStoreConfiguration> config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
+            var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
+
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
+            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
+
+            var sqlTransactionHandler = new SqlTransactionHandler();
+            var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,
                 defManager,
                 () => statusStore,
                 Options.Create(securityConfiguration),
-                sqlConnectionFactory,
+                () => defaultSqlConnectionWrapperFactory.CreateMockScope(),
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
 
@@ -141,21 +142,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 initialConnectionString,
                 MasterDatabaseName,
                 sqlServerFhirModel,
-                sqlConnectionFactory);
+                defaultSqlConnectionBuilder);
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
 
             var schemaManagerDataStore = new SchemaManagerDataStore(
-                sqlConnectionFactory,
+                defaultSqlConnectionBuilder,
                 config,
                 NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(
                 scriptProvider,
                 baseScriptProvider,
                 NullLogger<SchemaUpgradeRunner>.Instance,
-                sqlConnectionFactory,
+                defaultSqlConnectionBuilder,
                 schemaManagerDataStore);
 
             var schemaInitializer = new SchemaInitializer(
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 schemaManagerDataStore,
                 schemaUpgradeRunner,
                 schemaInformation,
-                sqlConnectionFactory,
+                defaultSqlConnectionBuilder,
                 sqlConnectionStringProvider,
                 mediator,
                 NullLogger<SchemaInitializer>.Instance);
@@ -202,10 +203,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
                 ("Procedure", "[dbo].[UpsertResource_4]"),
+                ("Procedure", "[dbo].[UpsertResource_5]"),
+                ("Procedure", "[dbo].[UpsertResource_6]"),
                 ("Procedure", "[dbo].[ReindexResource]"),
                 ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[CreateTask]"),
                 ("Procedure", "[dbo].[GetNextTask]"),
+                ("Procedure", "[dbo].[GetNextTask_2]"),
+                ("Procedure", "[dbo].[ResetTask]"),
                 ("Procedure", "[dbo].[HardDeleteResource]"),
                 ("Procedure", "[dbo].[FetchResourceChanges]"),
                 ("Procedure", "[dbo].[FetchResourceChanges_2]"),
@@ -266,7 +271,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
             }
 
+            // if TransactionCheckWithInitialiScript(which has current version as x-1) is not updated with the new x version then x.sql will have a wrong version inserted into SchemaVersion table
+            // this will cause an entry like (x-1, started) and (x, completed) at the end of of the transaction in fullsnapshot database (testConnectionString1)
+            // If any schema version is in started state then there might be a problem
+            if (SchemaVersionInStartedState(testConnectionString1).Result || SchemaVersionInStartedState(testConnectionString2).Result)
+            {
+                // if the test hits below statement then there is a possibility that TransactionCheckWithInitialiScript is not updated with the new version
+                unexpectedDifference = true;
+            }
+
             return !unexpectedDifference;
+        }
+
+        public async Task<bool> SchemaVersionInStartedState(string connectionString)
+        {
+            using (SqlConnection sqlConnection = new SqlConnection(connectionString))
+            using (SqlCommand checkSchemaVersionCommand = sqlConnection.CreateCommand())
+            {
+                if (sqlConnection.State != ConnectionState.Open)
+                {
+                    await sqlConnection.OpenAsync(CancellationToken.None);
+                }
+
+                checkSchemaVersionCommand.CommandText = "SELECT count(*) FROM SchemaVersion where Status = 'started'";
+                if ((int?)await checkSchemaVersionCommand.ExecuteScalarAsync(CancellationToken.None) >= 1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

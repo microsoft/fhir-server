@@ -108,13 +108,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // The last CTE has all the surrogate IDs that match the results.
                     // We just need to count those and don't need to join with the Resource table
                     selectingFromResourceTable = false;
-                    StringBuilder.AppendLine("SELECT COUNT(DISTINCT Sid1)");
+                    StringBuilder.AppendLine("SELECT COUNT_BIG(DISTINCT Sid1)");
                 }
                 else
                 {
                     // We will be counting over the Resource table.
                     selectingFromResourceTable = true;
-                    StringBuilder.AppendLine("SELECT COUNT(*)");
+                    StringBuilder.AppendLine("SELECT COUNT_BIG(*)");
                 }
             }
             else
@@ -813,7 +813,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (isRev)
             {
-                StringBuilder.Append("CASE WHEN count(*) over() > ")
+                StringBuilder.Append("CASE WHEN COUNT_BIG(*) over() > ")
                     .Append(Parameters.AddParameter(context.IncludeCount, true))
                     .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
             }
@@ -858,7 +858,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.AppendLine();
                 }
 
-                StringBuilder.Append("FROM ").AppendLine(includeCte);
+                // Matched results should be excluded from included CTEs
+                StringBuilder.Append("FROM ").Append(includeCte)
+                    .Append(" WHERE NOT EXISTS (SELECT * FROM ").Append(_cteMainSelect)
+                    .Append(" WHERE ").Append(_cteMainSelect).Append(".Sid1 = ").Append(includeCte).Append(".Sid1")
+                    .Append(" AND ").Append(_cteMainSelect).Append(".T1 = ").Append(includeCte).AppendLine(".T1)");
             }
         }
 
@@ -959,7 +963,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount, true)).Append(") ");
 
             StringBuilder.Append("T1, Sid1, IsMatch, ");
-            StringBuilder.Append("CASE WHEN count(*) over() > ")
+            StringBuilder.Append("CASE WHEN COUNT_BIG(*) over() > ")
                 .Append(Parameters.AddParameter(context.IncludeCount, true))
                 .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
 

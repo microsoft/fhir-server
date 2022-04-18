@@ -38,6 +38,13 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 < .\Data\CustomSearchSearchParameter2.json
 
+### Composite custom search parameter (this test data requires R4 or higher)
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\CompositeCustomSearchParameter.json
+
 ###  This creates a reindex job, you can do this now, or you can skip below to see if you can search
 # using the new search parameter before it is indexed
 # @name reindex
@@ -94,3 +101,8 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 GET https://{{hostname}}/Patient?race=2028-9
 Authorization: Bearer {{bearer.response.body.access_token}}
 x-ms-use-partial-indices: true
+
+### A search query showing the Composite custom search parameter with Use/Postcode pair.
+# The usecase would be to evaluate multiple values together in chained search queries
+GET https://{{hostname}}/Patient?address-use-postcode=home$74047
+Authorization: Bearer {{bearer.response.body.access_token}}

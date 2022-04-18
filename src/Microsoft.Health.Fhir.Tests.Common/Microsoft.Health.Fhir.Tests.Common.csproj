@@ -36,6 +36,7 @@
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\Appointment.json" />
+    <None Remove="TestFiles\Normative\Bundle-FhirPatch.json" />
     <None Remove="TestFiles\Normative\CarePlan.json" />
     <None Remove="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <None Remove="TestFiles\Normative\Coverage.json" />
@@ -49,8 +50,10 @@
     <None Remove="TestFiles\Normative\Profile-Organization-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
+    <None Remove="TestFiles\Normative\Medication.json" />
     <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameter-Patient-foo.json" />
+    <None Remove="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <None Remove="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
     <None Remove="TestFiles\Normative\SearchParameterInvalidBase.json" />
@@ -59,6 +62,7 @@
     <None Remove="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <None Remove="TestFiles\Normative\SearchParameterMissingType.json" />
     <None Remove="TestFiles\Normative\SearchParameterUnsupportedType.json" />
+    <None Remove="TestFiles\Normative\Specimen.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-careplan.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
@@ -251,6 +255,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Appointment.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-FhirPatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-BinaryPatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
@@ -258,8 +263,10 @@
     <EmbeddedResource Include="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidType.json" />
@@ -268,6 +275,7 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingBase.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Specimen.json" />
     <EmbeddedResource Include="TestFiles\R4\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
@@ -294,6 +302,7 @@
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithBloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithLongEyeColor.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithEyeColor.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidDecimalSpecification.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.xml" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithNoCode.json" />
@@ -446,7 +455,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="NSubstitute" Version="4.2.2" />
+    <PackageReference Include="NSubstitute" Version="4.3.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3" />
   </ItemGroup>

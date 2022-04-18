@@ -1,0 +1,281 @@
+# .SUMMARY Sample requests to verify FHIRPath PATCH
+# The assumption for the requests and resources below:
+# The FHIR version is R4 or R5
+
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+
+### POST one or more Patient resources to test the scenarios below:
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\R4ExamplePatient.json
+
+###
+## Add an address
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "add"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "address"
+                },
+                {
+                    "name": "value",
+                    "valueAddress": {
+                        "use": "home",
+                        "line": [
+                            "23 thule st",
+                            "avon"
+                        ],
+                        "city": "Big Smoke",
+                        "country": "erewhon",
+                        "text": "23 thule st"
+                    }
+                },
+            ]
+        }
+    ]
+}
+
+###
+## Add a phone number
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "add"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "telecom"
+                },
+                {
+                    "name": "value",
+                    "valueContactPoint": {
+                        "system": "phone",
+                        "value": "888-888-8888",
+                        "use": "work"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+###
+## Remove a phone number
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "delete"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.telecom.where(use = 'home')"
+                }
+            ]
+        }
+    ]
+}
+
+###
+## Try to patch version (result = fail)
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.meta.versionId"
+                },
+                {
+                    "name": "value",
+                    "valueId": "abc"
+                }
+            ]
+        }
+    ]
+}
+
+###
+## Add deceased
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "add"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "deceased"
+                },
+                {
+                    "name": "value",
+                    "valueBoolean": "false"
+                }
+            ]
+        }
+    ]
+}
+
+### Patch in a bundle (extensions)
+## See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request
+
+POST https://{{hostname}}/
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Bundle",
+    "id": "bundle-batch",
+    "type": "batch",
+    "entry": [
+        {
+            "fullUrl": "Patient/{{patient.response.body.id}}",
+            "resource": {
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "operation",
+                        "part": [
+                            {
+                                "name": "type",
+                                "valueCode": "replace"
+                            },
+                            {
+                                "name": "path",
+                                "valueString": "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.where(url = 'ombCategory').value"
+                            },
+                            {
+                                "name": "value",
+                                "valueCoding" : {
+                                    "system" : "urn:oid:2.16.840.1.113883.6.238",
+                                    "code" : "2054-5",
+                                    "display" : "Black or African American"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient/{{patient.response.body.id}}"
+            }
+        }
+    ]
+}
+
+###
+## Conditional Patch
+
+PATCH https://{{hostname}}/Patient?identifier=http://hospital.smarthealthit.org|1032704
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.name[0]"
+                },
+                {
+                    "name": "value",
+                    "valueHumanName": {
+                        "family": "Doe",
+                        "given": [
+                            "Jane"
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

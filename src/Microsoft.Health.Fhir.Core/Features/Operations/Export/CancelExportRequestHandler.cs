@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     outcome.JobRecord.Status = OperationStatus.Canceled;
                     outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
-                    outcome.JobRecord.FailureDetails = new JobFailureDetails(Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
+                    outcome.JobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
 
                     _logger.LogInformation("Attempting to cancel export job {JobId}", request.JobId);
                     await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);

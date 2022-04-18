@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         public static readonly OperationOutcomeIssue ValidationPassed = new OperationOutcomeIssue(
               OperationOutcomeConstants.IssueSeverity.Information,
               OperationOutcomeConstants.IssueType.Informational,
-              Resources.ValidationPassed);
+              Core.Resources.ValidationPassed);
 
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IProfileValidator _profileValidator;
