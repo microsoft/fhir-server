@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     VLatest.CreateTask.PopulateCommand(sqlCommandWrapper, task.TaskId, task.QueueId, task.TaskTypeId, task.MaxRetryCount, task.InputData, isUniqueTaskByType);
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                    if (!sqlDataReader.Read())
+                    if (!await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         return null;
                     }
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.GetTaskDetails.PopulateCommand(sqlCommandWrapper, taskId);
                 SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                if (!sqlDataReader.Read())
+                if (!await sqlDataReader.ReadAsync(cancellationToken))
                 {
                     return null;
                 }
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     VLatest.CancelTask.PopulateCommand(sqlCommandWrapper, taskId);
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                    if (!sqlDataReader.Read())
+                    if (!await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         return null;
                     }

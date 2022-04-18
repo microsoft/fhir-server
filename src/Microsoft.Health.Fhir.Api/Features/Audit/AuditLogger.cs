@@ -75,7 +75,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             }
 
             _logger.LogInformation(
+#pragma warning disable CA2254 // Template should be a static expression
                 AuditMessageFormat,
+#pragma warning restore CA2254 // Template should be a static expression
                 auditAction,
                 AuditEventType,
                 _securityConfiguration.Authentication?.Audience,

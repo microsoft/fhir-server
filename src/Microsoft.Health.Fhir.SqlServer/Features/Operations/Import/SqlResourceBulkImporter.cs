@@ -219,7 +219,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     {
                         foreach (ImportResource importResource in resourceBuffer)
                         {
-                            importResource?.CompressedStream?.Dispose();
+                            var stream = importResource?.CompressedStream;
+                            if (stream != null)
+                            {
+                                await stream.DisposeAsync();
+                            }
                         }
 
                         resourceBuffer.Clear();
@@ -281,7 +285,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     foreach (ImportResource importResource in resourceBuffer)
                     {
-                        importResource?.CompressedStream?.Dispose();
+                        var stream = importResource?.CompressedStream;
+                        if (stream != null)
+                        {
+                            await stream.DisposeAsync();
+                        }
                     }
 
                     resourceBuffer.Clear();
@@ -377,7 +385,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(ex, "Failed to import table. {0}", table.TableName);
+                _logger.LogInformation(ex, "Failed to import table: {Table}", table.TableName);
 
                 throw;
             }

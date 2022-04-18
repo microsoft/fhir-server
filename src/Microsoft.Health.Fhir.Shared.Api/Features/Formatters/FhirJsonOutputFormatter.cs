@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     jsonWriter.Formatting = Formatting.Indented;
                 }
 
-                _fhirJsonSerializer.Serialize(resource, jsonWriter, summarySearchParameter, hasElements ? additionalElements.ToArray() : null);
+                await _fhirJsonSerializer.SerializeAsync(resource, jsonWriter, summarySearchParameter, hasElements ? additionalElements.ToArray() : null);
                 await jsonWriter.FlushAsync();
             }
         }

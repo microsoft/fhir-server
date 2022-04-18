@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
             catch (StorageException se)
             {
-                _logger.LogWarning(se, se.Message);
+                _logger.LogWarning(se, "{Error}", se.Message);
 
                 HttpStatusCode responseCode = StorageExceptionParser.ParseStorageException(se);
                 throw new DestinationConnectionException(se.Message, responseCode);
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             // We can clear the stream mappings once we commit everything.
             foreach (Stream stream in _streamMappings.Values)
             {
-                stream.Dispose();
+                await stream.DisposeAsync();
             }
 
             _streamMappings.Clear();

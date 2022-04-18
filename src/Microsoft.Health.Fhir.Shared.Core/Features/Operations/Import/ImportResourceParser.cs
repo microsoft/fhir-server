@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -68,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     continue;
                 }
 
-                if (reference.Reference.Contains("?", StringComparison.Ordinal))
+                if (reference.Reference.Contains('?', StringComparison.Ordinal))
                 {
                     throw new NotSupportedException("Conditional reference not supported for initial import.");
                 }

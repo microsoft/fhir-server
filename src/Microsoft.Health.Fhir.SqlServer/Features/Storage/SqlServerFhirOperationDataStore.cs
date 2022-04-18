@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    if (!sqlDataReader.Read())
+                    if (!await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
                     }
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    if (!sqlDataReader.Read())
+                    if (!await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         return null;
                     }
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    if (!sqlDataReader.Read())
+                    if (!await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
                     }

@@ -35,13 +35,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public delegate ISearchParameterStatusDataStore Resolver();
 
-        public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {
             if (_statusResults == null)
             {
                 using Stream stream = _modelInfoProvider.OpenVersionedFileStream("unsupported-search-parameters.json");
                 using TextReader reader = new StreamReader(stream);
-                UnsupportedSearchParameters unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
+                var content = await reader.ReadToEndAsync();
+                UnsupportedSearchParameters unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(content);
 
                 // Loads unsupported parameters
                 var support = unsupportedParams.Unsupported
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     .ToArray();
             }
 
-            return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(_statusResults);
+            return _statusResults;
         }
 
         public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)

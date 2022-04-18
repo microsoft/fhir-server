@@ -144,14 +144,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (TaskCanceledException taskCanceledEx)
             {
-                _logger.LogInformation(taskCanceledEx, "Import task canceled. {0}", taskCanceledEx.Message);
+                _logger.LogInformation(taskCanceledEx, "Import task canceled. {Message}", taskCanceledEx.Message);
 
                 await CancelProcessingTasksAsync();
                 taskResultData = new TaskResultData(TaskResult.Canceled, taskCanceledEx.Message);
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogInformation(canceledEx, "Import task canceled. {0}", canceledEx.Message);
+                _logger.LogInformation(canceledEx, "Import task canceled. {Message}", canceledEx.Message);
 
                 await CancelProcessingTasksAsync();
                 taskResultData = new TaskResultData(TaskResult.Canceled, canceledEx.Message);
@@ -461,7 +461,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "failed to cancel task {0}", taskInfo.TaskId);
+                    _logger.LogWarning(ex, "failed to cancel task {TaskId}", taskInfo.TaskId);
                 }
             }
 
@@ -492,7 +492,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to get task info for canceled task {0}", runningTaskId);
+                        _logger.LogWarning(ex, "Failed to get task info for canceled task {TaskId}", runningTaskId);
                     }
                 }
 

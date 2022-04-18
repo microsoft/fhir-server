@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                                 foreach (ReindexJobWrapper job in jobs)
                                 {
-                                    _logger.LogTrace("Picked up reindex job: {jobId}.", job.JobRecord.Id);
+                                    _logger.LogTrace("Picked up reindex job: {JobId}.", job.JobRecord.Id);
 
                                     runningTasks.Add(_reindexJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
                                 }

@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException sqlEx)
                 {
-                    _logger.LogError(sqlEx, "Failed to merge resources. " + sqlEx.Message);
+                    _logger.LogError(sqlEx, "Failed to merge resources. {Message}", sqlEx.Message);
 
                     throw;
                 }

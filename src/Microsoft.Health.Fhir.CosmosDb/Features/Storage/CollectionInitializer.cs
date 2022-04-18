@@ -53,13 +53,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             Database database = client.GetDatabase(_cosmosDataStoreConfiguration.DatabaseId);
             Container containerClient = database.GetContainer(_cosmosCollectionConfiguration.CollectionId);
 
-            _logger.LogInformation("Finding Container: {collectionId}", _cosmosCollectionConfiguration.CollectionId);
+            _logger.LogInformation("Finding Container: {CollectionId}", _cosmosCollectionConfiguration.CollectionId);
 
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
             var existingContainer = await retryPolicy.ExecuteAsync(async () => await database.TryGetContainerAsync(_cosmosCollectionConfiguration.CollectionId));
 
-            _logger.LogInformation("Creating Cosmos Container if not exits: {collectionId}", _cosmosCollectionConfiguration.CollectionId);
+            _logger.LogInformation("Creating Cosmos Container if not exits: {CollectionId}", _cosmosCollectionConfiguration.CollectionId);
 
             ContainerResponse containerResponse = await retryPolicy.ExecuteAsync(async () =>
                 await database.CreateContainerIfNotExistsAsync(

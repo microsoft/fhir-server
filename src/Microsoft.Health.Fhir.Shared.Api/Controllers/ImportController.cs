@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CancelImportResponse response = await _mediator.CancelImportAsync(idParameter, HttpContext.RequestAborted);
 
-            _logger.LogInformation($"CancelImport {response.StatusCode}");
+            _logger.LogInformation("CancelImport {StatusCode}", response.StatusCode);
             return new ImportResult(response.StatusCode);
         }
 

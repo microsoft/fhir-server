@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private async Task<string> GetResourceId(EntryComponent entry, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
             // If there is no search or conditional operations, then use the FullUrl for posts and the request url otherwise
-            if (string.IsNullOrWhiteSpace(entry.Request.IfNoneExist) && !entry.Request.Url.Contains("?", StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(entry.Request.IfNoneExist) && !entry.Request.Url.Contains('?', StringComparison.Ordinal))
             {
                 return entry.Request.Method == HTTPVerb.POST ? entry.FullUrl : entry.Request.Url;
             }
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Search operations using _search and POST endpoint is not supported for bundle.
             // Conditional Delete operation is also not currently not supported.
             if ((requestMethod == HTTPVerb.POST && requestUrl.Contains(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
-                || (requestMethod == HTTPVerb.DELETE && requestUrl.Contains("?", StringComparison.Ordinal)))
+                || (requestMethod == HTTPVerb.DELETE && requestUrl.Contains('?', StringComparison.Ordinal)))
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));
             }
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Check for duplicate resources within a bundle entry is skipped if the request within a entry is not modifying the resource.
             return !(requestMethod == HTTPVerb.GET
-                    || requestUrl.Contains("$", StringComparison.InvariantCulture));
+                    || requestUrl.Contains('$', StringComparison.InvariantCulture));
         }
     }
 }

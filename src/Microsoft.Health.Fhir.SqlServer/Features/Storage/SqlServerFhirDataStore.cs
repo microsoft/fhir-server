@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     using (SqlDataReader sqlDataReader = await commandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
-                        if (!sqlDataReader.Read())
+                        if (!await sqlDataReader.ReadAsync(cancellationToken))
                         {
                             return null;
                         }
@@ -382,8 +382,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
                         string userAction = Core.Resources.ReindexingUserAction;
-
-                        _logger.LogError(message);
+                        _logger.LogError("{Error}", message);
                         throw new PreconditionFailedException(message + " " + userAction);
                     }
                 }
@@ -402,7 +401,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 string message = Core.Resources.ReindexingResourceVersionConflict;
                                 string userAction = Core.Resources.ReindexingUserAction;
 
-                                _logger.LogError(message);
+                                _logger.LogError("{Error}", message);
                                 throw new PreconditionFailedException(message + " " + userAction);
 
                             default:
@@ -477,7 +476,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
-                            _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
+                            _logger.LogError("The supplied version {WeakETag} did not match.", weakETag);
                             throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
                         default:

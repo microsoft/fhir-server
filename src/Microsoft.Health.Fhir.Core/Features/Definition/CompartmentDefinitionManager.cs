@@ -53,17 +53,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             { KnownResourceTypes.RelatedPerson, CompartmentType.RelatedPerson },
         };
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
             // The json file is a bundle compiled from the compartment definitions currently defined by HL7.
             // The definitions are available at https://www.hl7.org/fhir/compartmentdefinition.html.
             using Stream stream = _modelInfoProvider.OpenVersionedFileStream("compartment.json");
             using TextReader reader = new StreamReader(stream);
             using JsonReader jsonReader = new JsonTextReader(reader);
-            var bundle = new BundleWrapper(FhirJsonNode.Read(jsonReader).ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider));
+            var content = await FhirJsonNode.ReadAsync(jsonReader);
+            var bundle = new BundleWrapper(content.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider));
             Build(bundle);
-
-            return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

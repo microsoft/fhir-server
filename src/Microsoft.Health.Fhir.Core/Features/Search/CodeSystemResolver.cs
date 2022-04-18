@@ -46,13 +46,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return null;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
             using Stream file = _modelInfoProvider.OpenVersionedFileStream("resourcepath-codesystem-mappings.json");
             using var reader = new StreamReader(file);
-            _dictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.ReadToEnd());
-
-            return Task.CompletedTask;
+            var content = await reader.ReadToEndAsync();
+            _dictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
         }
 
         Task IHostedService.StopAsync(CancellationToken cancellationToken)

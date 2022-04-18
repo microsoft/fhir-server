@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -70,15 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to An error occurred when fetching resource changes from SQL database..
-        /// </summary>
-        internal static string ExceptionOccurredWhenFetchingResourceChanges {
-            get {
-                return ResourceManager.GetString("ExceptionOccurredWhenFetchingResourceChanges", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The exection timeout expired from SQL Server..
         /// </summary>
         internal static string ExecutionTimeoutExpired {
@@ -93,15 +84,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string FailedToImportForDuplicatedResource {
             get {
                 return ResourceManager.GetString("FailedToImportForDuplicatedResource", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The operation to get resource changes has been canceled..
-        /// </summary>
-        internal static string GetRecordsAsyncOperationIsCanceled {
-            get {
-                return ResourceManager.GetString("GetRecordsAsyncOperationIsCanceled", resourceCulture);
             }
         }
         
@@ -156,15 +138,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string SearchParameterTypeNotSupportedBySQLServer {
             get {
                 return ResourceManager.GetString("SearchParameterTypeNotSupportedBySQLServer", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to A SQL exception occurred when fetching resource changes from SQL database. Error number is {0}..
-        /// </summary>
-        internal static string SqlExceptionOccurredWhenFetchingResourceChanges {
-            get {
-                return ResourceManager.GetString("SqlExceptionOccurredWhenFetchingResourceChanges", resourceCulture);
             }
         }
         

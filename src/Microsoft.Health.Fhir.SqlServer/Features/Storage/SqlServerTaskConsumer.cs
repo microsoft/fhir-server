@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     VLatest.CompleteTask.PopulateCommand(sqlCommandWrapper, taskId, JsonConvert.SerializeObject(taskResultData), runId);
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                    if (!sqlDataReader.Read())
+                    if (!await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         return null;
                     }
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                     var taskInfoTable = VLatest.TaskInfo;
-                    while (sqlDataReader.Read())
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         string id = sqlDataReader.Read(taskInfoTable.TaskId, 0);
                         _ = sqlDataReader.Read(taskInfoTable.QueueId, 1);
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (SqlException e) when (e.Number == 2812)
             {
-                _logger.LogWarning(e, "Schema is not initialized - {ex.Message}", e.Message);
+                _logger.LogWarning(e, "Schema is not initialized - {Message}", e.Message);
             }
 
             return output;
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     VLatest.TaskKeepAlive.PopulateCommand(sqlCommandWrapper, taskId, runId);
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                    if (!sqlDataReader.Read())
+                    if (!await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         return null;
                     }
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     VLatest.ResetTask.PopulateCommand(sqlCommandWrapper, taskId, runId, JsonConvert.SerializeObject(taskResultData));
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                    if (!sqlDataReader.Read())
+                    if (!await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         return null;
                     }

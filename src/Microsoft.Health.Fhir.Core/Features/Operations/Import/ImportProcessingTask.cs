@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     result.SucceedCount = _importProgress.SucceedImportCount;
                     result.FailedCount = _importProgress.FailedImportCount;
 
-                    _logger.LogInformation("Import task progress: {0}", JsonConvert.SerializeObject(_importProgress));
+                    _logger.LogInformation("Import task progress: {ProgressState}", JsonConvert.SerializeObject(_importProgress));
 
                     try
                     {

@@ -5,11 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -323,7 +321,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (entry.Resource != null)
                 {
-                    var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
+                    var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(entry.Resource));
                     memoryStream.Seek(0, SeekOrigin.Begin);
                     httpContext.Request.Body = memoryStream;
                 }
@@ -394,7 +392,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // we will retry a 429 one time per request in the bundle
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
                         {
-                            _logger.LogTrace("BundleHandler received 429 message, attempting retry.  HttpVerb:{httpVerb} BundleSize: {_requestCount} entryIndex:{entryIndex}", httpVerb, _requestCount, entryIndex);
+                            _logger.LogTrace("BundleHandler received 429 message, attempting retry.  HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, entryIndex);
                             int retryDelay = 2;
                             var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
                             if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
@@ -420,7 +418,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         if (_bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
                         {
-                            _logger.LogTrace("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{httpVerb} BundleSize: {_requestCount} entryIndex:{entryIndex}", httpVerb, _requestCount, entryIndex);
+                            _logger.LogTrace("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, entryIndex);
 
                             // this action was throttled. Capture the entry and reuse it for subsequent actions.
                             throttledEntryComponent = entryComponent;

@@ -604,7 +604,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             stringBuilder.AppendLine("SET STATISTICS IO ON;");
             stringBuilder.AppendLine("SET STATISTICS TIME ON;");
             stringBuilder.AppendLine();
-            sqlConnectionWrapper.SqlConnection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
+            sqlConnectionWrapper.SqlConnection.InfoMessage += (sender, args) => _logger.LogInformation("SQL message: {Message}", args.Message);
         }
 
         /// <summary>
@@ -630,7 +630,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             sb.AppendLine();
 
             sb.AppendLine(sqlCommandWrapper.CommandText);
-            _logger.LogInformation(sb.ToString());
+            _logger.LogInformation("{SqlQuery}", sb.ToString());
         }
 
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)

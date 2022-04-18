@@ -29,16 +29,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public Task<OperationDefinitionResponse> Handle(OperationDefinitionRequest request, CancellationToken cancellationToken)
+        public async Task<OperationDefinitionResponse> Handle(OperationDefinitionRequest request, CancellationToken cancellationToken)
         {
             using Stream stream = DataLoader.OpenOperationDefinitionFileStream($"{request.OperationName}.json");
             using TextReader reader = new StreamReader(stream);
             using JsonReader jsonReader = new JsonTextReader(reader);
 
-            ISourceNode result = FhirJsonNode.Read(jsonReader);
+            ISourceNode result = await FhirJsonNode.ReadAsync(jsonReader);
             ITypedElement operationDefinition = result.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
 
-            return Task.FromResult(new OperationDefinitionResponse(operationDefinition.ToResourceElement()));
+            return new OperationDefinitionResponse(operationDefinition.ToResourceElement());
         }
     }
 }
