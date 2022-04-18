@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     public class InMemoryExportDestinationClient : IExportDestinationClient
     {
         private Dictionary<Uri, StringBuilder> _exportedData = new Dictionary<Uri, StringBuilder>();
+        private Dictionary<Uri, StringBuilder> _dataBuffers = new Dictionary<Uri, StringBuilder>();
 
         public int ExportedDataFileCount => _exportedData.Keys.Count;
 
@@ -54,7 +55,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             EnsureArg.IsNotNull(fileUri, nameof(fileUri));
             EnsureArg.IsNotNull(data, nameof(data));
 
-            _exportedData[fileUri].Append(data);
+            if (!_dataBuffers.ContainsKey(fileUri))
+            {
+                _dataBuffers.Add(fileUri, new StringBuilder());
+            }
+
+            _dataBuffers[fileUri].Append(data);
+        }
+
+        public void Commit()
+        {
+            foreach (Uri fileUri in _dataBuffers.Keys)
+            {
+                if (_exportedData.TryGetValue(fileUri, out var localStorage))
+                {
+                    var data = _dataBuffers.GetValueOrDefault(fileUri);
+                    localStorage.AppendLine(data.ToString());
+                    data.Clear();
+                }
+            }
         }
 
         public void OpenFileAsync(Uri fileUri)

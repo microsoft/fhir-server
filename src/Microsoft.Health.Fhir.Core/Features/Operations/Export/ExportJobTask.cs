@@ -476,6 +476,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             // Commit one last time for any pending changes.
+            _exportDestinationClient.Commit();
         }
 
         private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
@@ -617,6 +618,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             // Commit one last time for any pending changes.
+            _exportDestinationClient.Commit();
 
             progress.MarkFilterFinished();
             await UpdateJobRecordAsync(cancellationToken);
@@ -677,6 +679,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (progress.Page % _exportJobRecord.NumberOfPagesPerCommit == 0 || forceCommit)
             {
                 // Commit the changes.
+                _exportDestinationClient.Commit();
 
                 // Update the job record.
                 await UpdateJobRecordAsync(cancellationToken);
