@@ -20,20 +20,16 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
     public class AzureAccessTokenClientInitializer : IExportClientInitializer<BlobServiceClient>
     {
-        private readonly IAccessTokenProvider _accessTokenProvider;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger<AzureAccessTokenClientInitializer> _logger;
 
         public AzureAccessTokenClientInitializer(
-            IAccessTokenProvider accessTokenProvider,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             ILogger<AzureAccessTokenClientInitializer> logger)
         {
-            EnsureArg.IsNotNull(accessTokenProvider, nameof(accessTokenProvider));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _accessTokenProvider = accessTokenProvider;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _logger = logger;
         }
