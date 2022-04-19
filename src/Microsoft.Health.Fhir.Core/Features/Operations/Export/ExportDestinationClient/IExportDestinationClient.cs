@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Configs;
 using Task = System.Threading.Tasks.Task;
 
@@ -36,30 +36,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         Task ConnectAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken, string containerId = null);
 
         /// <summary>
-        /// Creates a new file in the destination.
-        /// </summary>
-        /// <param name="fileName">The file name.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous file creation operation.</returns>
-        Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken);
-
-        /// <summary>
         /// Writes part of the file to local data buffer.
         /// </summary>
-        /// <param name="fileUri">The URI of the file.</param>
+        /// <param name="fileName">The name of the file.</param>
         /// <param name="data">The string to write.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        void WriteFilePartAsync(Uri fileUri, string data, CancellationToken cancellationToken);
+        void WriteFilePart(string fileName, string data);
 
         /// <summary>
         /// Commits all changes to storage.
         /// </summary>
-        void Commit();
-
-        /// <summary>
-        /// Opens an existing file from the destination.
-        /// </summary>
-        /// <param name="fileUri">Uri of the file to be opened.</param>
-        void OpenFileAsync(Uri fileUri);
+        /// <returns> A dictionary of URIs to the files commited, keyed by their file names </returns>
+        IDictionary<string, Uri> Commit();
     }
 }

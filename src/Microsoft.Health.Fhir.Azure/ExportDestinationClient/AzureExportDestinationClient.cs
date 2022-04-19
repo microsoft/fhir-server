@@ -25,8 +25,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobServiceClient _blobClient = null;
         private BlobContainerClient _blobContainer = null;
 
-        private Dictionary<Uri, AppendBlobClient> _uriToBlobMapping = new Dictionary<Uri, AppendBlobClient>();
-        private Dictionary<Uri, StringBuilder> _dataBuffers = new Dictionary<Uri, StringBuilder>();
+        private Dictionary<string, StringBuilder> _dataBuffers = new Dictionary<string, StringBuilder>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -85,70 +84,41 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
         }
 
-        public Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken)
+        public void WriteFilePart(string fileName, string data)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(fileName, nameof(fileName));
-            CheckIfClientIsConnected();
-
-            AppendBlobClient blockBlob = _blobContainer.GetAppendBlobClient(fileName);
-            if (!_uriToBlobMapping.ContainsKey(blockBlob.Uri))
-            {
-                // var newProperties = new BlobHttpHeaders();
-                // newProperties.ContentType = "application/fhir+ndjson";
-                // blockBlob.SetHttpHeaders(newProperties, null, cancellationToken);
-
-                _uriToBlobMapping.Add(blockBlob.Uri, blockBlob);
-            }
-
-            return Task.FromResult(blockBlob.Uri);
-        }
-
-        public void WriteFilePartAsync(Uri fileUri, string data, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
+            EnsureArg.IsNotNull(fileName, nameof(fileName));
             EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
 
             StringBuilder dataBuffer;
-            if (!_dataBuffers.TryGetValue(fileUri, out dataBuffer))
+            if (!_dataBuffers.TryGetValue(fileName, out dataBuffer))
             {
                 dataBuffer = new StringBuilder();
-                _dataBuffers.Add(fileUri, dataBuffer);
+                _dataBuffers.Add(fileName, dataBuffer);
             }
 
             dataBuffer.AppendLine(data);
         }
 
-        public void Commit()
+        public IDictionary<string, Uri> Commit()
         {
-            foreach (Uri fileUri in _dataBuffers.Keys)
+            Dictionary<string, Uri> blobUris = new Dictionary<string, Uri>();
+
+            foreach (string fileName in _dataBuffers.Keys)
             {
-                if (_uriToBlobMapping.TryGetValue(fileUri, out var blob))
-                {
-                    using var stream = blob.OpenWrite(false);
-                    using var writer = new StreamWriter(stream);
+                BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
 
-                    var data = _dataBuffers.GetValueOrDefault(fileUri);
-                    writer.WriteLine(data.ToString());
-                    data.Clear();
-                }
-            }
-        }
+                using var stream = blockBlob.OpenWrite(true);
+                using var writer = new StreamWriter(stream);
 
-        public void OpenFileAsync(Uri fileUri)
-        {
-            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
-            CheckIfClientIsConnected();
+                var data = _dataBuffers[fileName];
+                writer.WriteLine(data.ToString());
+                _dataBuffers.Remove(fileName);
 
-            if (_uriToBlobMapping.ContainsKey(fileUri))
-            {
-                _logger.LogInformation("Trying to open a file that the client already knows about.");
-                return;
+                blobUris.Add(fileName, blockBlob.Uri);
             }
 
-            AppendBlobClient blockBlob = new AppendBlobClient(fileUri);
-
-            _uriToBlobMapping.Add(fileUri, blockBlob);
+            return blobUris;
         }
 
         private void CheckIfClientIsConnected()

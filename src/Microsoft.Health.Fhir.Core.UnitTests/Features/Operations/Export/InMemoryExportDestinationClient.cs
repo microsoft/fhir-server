@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -17,8 +16,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class InMemoryExportDestinationClient : IExportDestinationClient
     {
-        private Dictionary<Uri, StringBuilder> _exportedData = new Dictionary<Uri, StringBuilder>();
-        private Dictionary<Uri, StringBuilder> _dataBuffers = new Dictionary<Uri, StringBuilder>();
+        private Dictionary<string, StringBuilder> _exportedData = new Dictionary<string, StringBuilder>();
+        private Dictionary<string, StringBuilder> _dataBuffers = new Dictionary<string, StringBuilder>();
 
         public int ExportedDataFileCount => _exportedData.Keys.Count;
 
@@ -36,57 +35,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await Task.CompletedTask;
         }
 
-        public async Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken)
+        public void WriteFilePart(string fileName, string data)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(fileName, nameof(fileName));
-
-            var fileUri = new Uri(fileName, UriKind.Relative);
-
-            if (!_exportedData.ContainsKey(fileUri))
-            {
-                _exportedData.Add(fileUri, new StringBuilder());
-            }
-
-            return await Task.FromResult(fileUri);
-        }
-
-        public void WriteFilePartAsync(Uri fileUri, string data, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
+            EnsureArg.IsNotNull(fileName, nameof(fileName));
             EnsureArg.IsNotNull(data, nameof(data));
 
-            if (!_dataBuffers.ContainsKey(fileUri))
+            if (!_dataBuffers.ContainsKey(fileName))
             {
-                _dataBuffers.Add(fileUri, new StringBuilder());
+                _dataBuffers.Add(fileName, new StringBuilder());
             }
 
-            _dataBuffers[fileUri].Append(data);
+            _dataBuffers[fileName].Append(data);
         }
 
-        public void Commit()
+        public IDictionary<string, Uri> Commit()
         {
-            foreach (Uri fileUri in _dataBuffers.Keys)
+            Dictionary<string, Uri> localUris = new Dictionary<string, Uri>();
+
+            foreach (string fileName in _dataBuffers.Keys)
             {
-                if (_exportedData.TryGetValue(fileUri, out var localStorage))
-                {
-                    var data = _dataBuffers.GetValueOrDefault(fileUri);
-                    localStorage.AppendLine(data.ToString());
-                    data.Clear();
-                }
+                var localStorage = new StringBuilder();
+                var data = _dataBuffers.GetValueOrDefault(fileName);
+                localStorage.Append(data.ToString());
+
+                _exportedData[fileName] = localStorage;
+                localUris.Add(fileName, new Uri(fileName, UriKind.Relative));
+
+                _dataBuffers.Remove(fileName);
             }
+
+            return localUris;
         }
 
-        public void OpenFileAsync(Uri fileUri)
+        public string GetExportedData(string fileName)
         {
-            if (!_exportedData.ContainsKey(fileUri))
-            {
-                _exportedData.Add(fileUri, new StringBuilder());
-            }
-        }
-
-        public string GetExportedData(Uri fileUri)
-        {
-            if (_exportedData.TryGetValue(fileUri, out StringBuilder sb))
+            if (_exportedData.TryGetValue(fileName, out StringBuilder sb))
             {
                 return sb.ToString();
             }

@@ -44,9 +44,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public async Task<SearchResult> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -58,9 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string compartmentId,
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -74,7 +76,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime before,
             int? count,
             string continuationToken,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false)
         {
             var queryParameters = new List<Tuple<string, string>>();
 
@@ -159,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
             }
 
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
 
             SearchResult searchResult = await SearchHistoryInternalAsync(searchOptions, cancellationToken);
 
@@ -183,9 +186,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             string searchParameterHash,
             bool countOnly,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters, isAsyncOperation);
 
             if (countOnly)
             {
