@@ -211,6 +211,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
+                    _logger.LogInformation($"Upserting {resource.ResourceTypeName} with a stream length of {stream.Length}");
+
                     PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
 
                     try
@@ -440,6 +442,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
+
+                        _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(rawResource)} length: {rawResource.Length}");
 
                         var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
 
