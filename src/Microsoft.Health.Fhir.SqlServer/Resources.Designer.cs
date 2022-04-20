@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Invalid resource type &apos;{0}&apos;,.
+        ///   Looks up a localized string similar to Invalid resource type &apos;{0}&apos;..
         /// </summary>
         internal static string InvalidResourceTypeValue {
             get {
