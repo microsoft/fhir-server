@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
@@ -54,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CosmosDataStoreConfiguration cosmosConfig,
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             QueryPartitionStatisticsCache queryPartitionStatisticsCache,
-            IEnumerable<ICosmosExpressionRewriter> expressionRewriters,
+            CompartmentSearchRewriter compartmentSearchRewriter,
             ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -64,7 +63,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(cosmosConfig, nameof(cosmosConfig));
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(queryPartitionStatisticsCache, nameof(queryPartitionStatisticsCache));
-            EnsureArg.IsNotNull(expressionRewriters, nameof(expressionRewriters));
+            EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
@@ -77,11 +76,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _resourceTypeSearchParameter = SearchParameterInfo.ResourceTypeSearchParameter;
             _resourceIdSearchParameter = new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id);
 
-            _expressionRewriters = new Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>>(() => expressionRewriters
-                .OrderBy(x => x.Order)
-                .Cast<IExpressionVisitorWithInitialContext<object, Expression>>()
-                .Append(DateTimeEqualityRewriter.Instance)
-                .ToArray());
+            _expressionRewriters = new Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>>(() =>
+                new IExpressionVisitorWithInitialContext<object, Expression>[]
+                {
+                    compartmentSearchRewriter,
+                    DateTimeEqualityRewriter.Instance,
+                });
         }
 
         public override async Task<SearchResult> SearchAsync(

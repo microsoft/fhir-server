@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private readonly SortRewriter _sortRewriter;
         private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
+        private readonly SqlCompartmentSearchRewriter _compartmentSearchRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ChainFlatteningRewriter chainFlatteningRewriter,
             SortRewriter sortRewriter,
             PartitionEliminationRewriter partitionEliminationRewriter,
+            SqlCompartmentSearchRewriter compartmentSearchRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
@@ -80,6 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
+            EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -87,6 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
             _partitionEliminationRewriter = partitionEliminationRewriter;
+            _compartmentSearchRewriter = compartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -259,13 +263,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 
+            // .AcceptVisitor(_partitionEliminationRewriter)
             SqlRootExpression expression = (SqlRootExpression)searchExpression
                                                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                                                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
+                                               .AcceptVisitor(_compartmentSearchRewriter)
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
-                                               .AcceptVisitor(_partitionEliminationRewriter)
                                                .AcceptVisitor(_sortRewriter, clonedSearchOptions)
                                                .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)

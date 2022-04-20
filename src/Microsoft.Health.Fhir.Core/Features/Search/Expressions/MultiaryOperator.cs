@@ -12,5 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     {
         And,
         Or,
+        UnionAll,
     }
 }

@@ -8,16 +8,14 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
     /// Rewrites CompartmentSearchExpression to use main search index.
     /// </summary>
-    public class CompartmentSearchRewriter : ExpressionRewriterWithInitialContext<object>, ICosmosExpressionRewriter
+    public class CompartmentSearchRewriter : ExpressionRewriterWithInitialContext<object>
     {
         private readonly Lazy<ICompartmentDefinitionManager> _compartmentDefinitionManager;
         private readonly Lazy<ISearchParameterDefinitionManager> _searchParameterDefinitionManager;
@@ -27,8 +25,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions
             _compartmentDefinitionManager = EnsureArg.IsNotNull(compartmentDefinitionManager, nameof(compartmentDefinitionManager));
             _searchParameterDefinitionManager = EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
         }
-
-        public int Order { get; } = 0;
 
         public override Expression VisitCompartment(CompartmentSearchExpression expression, object context)
         {
@@ -112,7 +108,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions
 
                     if (compartmentSearchExpressionsGrouped.Count > 1)
                     {
-                        return Expression.Or(compartmentSearchExpressionsGrouped);
+                        return Expression.UnionAll(compartmentSearchExpressionsGrouped);
                     }
                     else if (compartmentSearchExpressions.Count == 1)
                     {

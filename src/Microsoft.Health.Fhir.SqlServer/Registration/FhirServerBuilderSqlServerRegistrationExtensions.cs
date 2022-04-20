@@ -8,6 +8,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
@@ -227,6 +228,14 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
                 .AsImplementedInterfaces();
+
+            services.Add<CompartmentSearchRewriter>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<SqlCompartmentSearchRewriter>()
+                .Singleton()
+                .AsSelf();
 
             return fhirServerBuilder;
         }

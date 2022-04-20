@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+// using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
@@ -15,14 +15,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override Table Table => VLatest.ReferenceSearchParam;
 
-        public override SearchParameterQueryGeneratorContext VisitCompartment(CompartmentSearchExpression expression, SearchParameterQueryGeneratorContext context)
-        {
-            context.StringBuilder
-                .Append(VLatest.ReferenceSearchParam.ReferenceResourceId, context.TableAlias)
-                .Append(" = ")
-                .Append(context.Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceId, expression.CompartmentId, true));
-
-            return context;
-        }
+        // public override SearchParameterQueryGeneratorContext VisitCompartment(CompartmentSearchExpression expression, SearchParameterQueryGeneratorContext context)
+        // {
+        //    context.StringBuilder
+        //        .Append(VLatest.ReferenceSearchParam.ReferenceResourceId, context.TableAlias)
+        //        .Append(" = ")
+        //        .Append(context.Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceId, expression.CompartmentId, true));
+        //    return context;
+        // }
     }
 }

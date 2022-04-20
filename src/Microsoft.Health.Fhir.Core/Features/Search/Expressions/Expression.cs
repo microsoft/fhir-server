@@ -239,6 +239,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
+        /// Creates a <see cref="MultiaryExpression"/> that represents logical UNION ALL operation over <paramref name="expressions"/>.
+        /// </summary>
+        /// <param name="expressions">The expressions.</param>
+        /// <returns>A <see cref="MultiaryExpression"/> that has <see cref="MultiaryOperator"/> of ALL on all <paramref name="expressions"/>.</returns>
+        public static MultiaryExpression UnionAll(IReadOnlyList<Expression> expressions)
+        {
+            return new MultiaryExpression(MultiaryOperator.UnionAll, expressions);
+        }
+
+        /// <summary>
         /// Creates a <see cref="InExpression"/> that represents logical IN operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
