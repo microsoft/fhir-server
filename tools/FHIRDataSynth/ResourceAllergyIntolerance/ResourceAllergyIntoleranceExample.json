@@ -1,0 +1,39 @@
+{
+  "resourceType": "AllergyIntolerance",
+  "id": "f3fb580a-54bb-ee44-0d30-1811a6f6ff4a",
+  "clinicalStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+        "code": "active"
+      }
+    ]
+  },
+  "verificationStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+        "code": "confirmed"
+      }
+    ]
+  },
+  "type": "allergy",
+  "category": [
+    "food"
+  ],
+  "criticality": "low",
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "424213003",
+        "display": "Allergy to bee venom"
+      }
+    ],
+    "text": "Allergy to bee venom"
+  },
+  "patient": {
+    "reference": "Patient/16f58484-de56-331c-942e-af4ffa1554ef"
+  },
+  "recordedDate": "1978-10-15T02:39:18+00:00"
+}

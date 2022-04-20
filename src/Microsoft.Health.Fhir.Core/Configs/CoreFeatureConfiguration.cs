@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
