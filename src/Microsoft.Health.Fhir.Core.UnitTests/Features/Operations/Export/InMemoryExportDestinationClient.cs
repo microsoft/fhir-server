@@ -54,17 +54,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             foreach (string fileName in _dataBuffers.Keys)
             {
+                var uri = CommitFile(fileName);
+                localUris.Add(fileName, uri);
+            }
+
+            return localUris;
+        }
+
+        public Uri CommitFile(string fileName)
+        {
+            if (_dataBuffers.ContainsKey(fileName))
+            {
                 var localStorage = new StringBuilder();
                 var data = _dataBuffers.GetValueOrDefault(fileName);
                 localStorage.Append(data.ToString());
 
                 _exportedData[fileName] = localStorage;
-                localUris.Add(fileName, new Uri(fileName, UriKind.Relative));
-
                 _dataBuffers.Remove(fileName);
+
+                return new Uri(fileName, UriKind.Relative);
             }
 
-            return localUris;
+            return null;
         }
 
         public string GetExportedData(string fileName)

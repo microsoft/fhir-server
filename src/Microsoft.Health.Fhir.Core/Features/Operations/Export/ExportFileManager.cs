@@ -74,11 +74,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (_resourceCommited.TryGetValue(resourceType, out var isCommited) && isCommited)
             {
                 fileInfo = CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1);
-                _resourceCommited[resourceType] = false;
             }
 
             _exportDestinationClient.WriteFilePart(fileInfo.FileUri.OriginalString, data);
             fileInfo.IncrementCount(data.Length);
+        }
+
+        public void CommitFullFiles(long cutoffSize)
+        {
+            // goes through files and commits any that are at or past the cutoff size in bytes
+            // This should be called during compartment searches, the normall commit won't be called until a page of Patients is done
+            // This will cut down on the number of files created (hopefully)
+
+            foreach (var resourceType in _resourceTypeToFileInfoMapping.Keys)
+            {
+                var fileInfo = _resourceTypeToFileInfoMapping[resourceType];
+                if (!_resourceCommited[resourceType] && fileInfo.CommittedBytes > cutoffSize)
+                {
+                    var blobUri = _exportDestinationClient.CommitFile(fileInfo.FileUri.OriginalString);
+                    _resourceTypeToFileInfoMapping[resourceType].FileUri = blobUri;
+                    _resourceCommited[resourceType] = true;
+                }
+            }
         }
 
         public void CommitFiles()
@@ -148,10 +165,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (_resourceTypeToFileInfoMapping.ContainsKey(resourceType))
             {
                 _resourceTypeToFileInfoMapping[resourceType] = newFile;
+                _resourceCommited[resourceType] = false;
             }
             else
             {
                 _resourceTypeToFileInfoMapping.Add(resourceType, newFile);
+                _resourceCommited.Add(resourceType, false);
             }
 
             return newFile;

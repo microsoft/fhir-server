@@ -106,6 +106,17 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
             foreach (string fileName in _dataBuffers.Keys)
             {
+                var blobUri = CommitFile(fileName);
+                blobUris.Add(fileName, blobUri);
+            }
+
+            return blobUris;
+        }
+
+        public Uri CommitFile(string fileName)
+        {
+            if (_dataBuffers.ContainsKey(fileName))
+            {
                 BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
 
                 using var stream = blockBlob.OpenWrite(true);
@@ -119,10 +130,10 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
                 _dataBuffers.Remove(fileName);
 
-                blobUris.Add(fileName, blockBlob.Uri);
+                return blockBlob.Uri;
             }
 
-            return blobUris;
+            throw new ArgumentException($"Cannot commit none existant file $fileName");
         }
 
         private void CheckIfClientIsConnected()

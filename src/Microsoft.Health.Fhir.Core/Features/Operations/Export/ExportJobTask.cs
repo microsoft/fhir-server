@@ -370,7 +370,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IAnonymizer anonymizer,
             CancellationToken cancellationToken)
         {
-            var index = _exportJobRecord.Filters.IndexOf(exportJobProgress.CurrentFilter);
             List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
             foreach (var param in exportJobProgress.CurrentFilter.Parameters)
             {
@@ -466,6 +465,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
+                    false,
                     cancellationToken);
             }
 
@@ -601,14 +601,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
-                await ProcessProgressChange(progress, queryParametersList, searchResult.ContinuationToken, cancellationToken);
+                await ProcessProgressChange(progress, queryParametersList, searchResult.ContinuationToken, true, cancellationToken);
             }
 
             // Commit one last time for any pending changes.
-            _fileManager.CommitFiles();
+            _fileManager.CommitFullFiles(_exportJobConfiguration.RollingFileSizeInMB * 1024 * 1024);
 
             progress.MarkFilterFinished();
-            await UpdateJobRecordAsync(cancellationToken);
         }
 
         private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
@@ -648,6 +647,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobProgress progress,
             List<Tuple<string, string>> queryParametersList,
             string continuationToken,
+            bool onlyCommitFull,
             CancellationToken cancellationToken)
         {
             // Update the continuation token in local cache and queryParams.
@@ -670,10 +670,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             // Commit the changes.
-            _fileManager.CommitFiles();
+            if (onlyCommitFull)
+            {
+                _fileManager.CommitFullFiles(_exportJobConfiguration.RollingFileSizeInMB * 1024 * 1024);
+            }
+            else
+            {
+                _fileManager.CommitFiles();
 
-            // Update the job record.
-            await UpdateJobRecordAsync(cancellationToken);
+                // Update the job record.
+                await UpdateJobRecordAsync(cancellationToken);
+            }
         }
 
         private bool IsAnonymizedExportJob()
