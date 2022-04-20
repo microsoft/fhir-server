@@ -47,5 +47,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// </summary>
         /// <returns> A dictionary of URIs to the files commited, keyed by their file names </returns>
         IDictionary<string, Uri> Commit();
+
+        /// <summary>
+        /// Commits a single file to storage.
+        /// </summary>
+        /// <param name="fileName">The name of the file to commit</param>
+        /// <returns>The URI to the file commited</returns>
+        Uri CommitFile(string fileName);
     }
 }
