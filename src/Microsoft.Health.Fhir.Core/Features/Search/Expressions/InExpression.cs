@@ -5,32 +5,43 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
-    /// In CosmosDB, allows for use of ARRAY_CONTAINS to group known values instead of multiple ORs.
+    /// Represents an 'in' expression where known values are grouped together.
     /// </summary>
     public class InExpression : Expression, IFieldExpression
     {
-        public InExpression(FieldName fieldName, int? componentIndex, IEnumerable<string> values)
+        public InExpression(FieldName fieldName, int? componentIndex, IEnumerable<object> values)
+            : this(fieldName, componentIndex)
+        {
+            Values = EnsureArg.HasItems(values?.ToArray(), nameof(values));
+        }
+
+        public InExpression(FieldName fieldName, int? componentIndex, IReadOnlyList<object> values)
+            : this(fieldName, componentIndex)
+        {
+            Values = EnsureArg.HasItems(values, nameof(values));
+        }
+
+        private InExpression(FieldName fieldName, int? componentIndex)
         {
             FieldName = fieldName;
             ComponentIndex = componentIndex;
-            Values = EnsureArg.IsNotNull(values, nameof(values));
         }
 
         public FieldName FieldName { get; }
 
         public int? ComponentIndex { get; }
 
-        public IEnumerable<string> Values { get; }
+        public IReadOnlyList<object> Values { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
-            return ((ICosmosExpressionVisitor<TContext, TOutput>)visitor).VisitIn(this, context);
+            return visitor.VisitIn(this, context);
         }
 
         public override string ToString()

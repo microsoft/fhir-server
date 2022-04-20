@@ -252,6 +252,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
+        /// Creates a <see cref="InExpression"/> that represents logical IN operation over <paramref name="expressions"/>.
+        /// </summary>
+        /// <param name="fieldName">The field name.</param>
+        /// <param name="componentIndex">The component index.</param>
+        /// <param name="values">The value.</param>
+        public static InExpression In(FieldName fieldName, int? componentIndex, params object[] values)
+        {
+            return new InExpression(fieldName, componentIndex, values);
+        }
+
+        /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents string equals operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>
