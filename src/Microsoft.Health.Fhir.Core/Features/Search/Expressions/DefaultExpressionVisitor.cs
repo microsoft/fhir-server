@@ -63,6 +63,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public virtual TOutput VisitSortParameter(SortExpression expression, TContext context) => default;
 
-        public virtual TOutput VisitIn(InExpression expression, TContext context) => default;
+        public virtual TOutput VisitIn<T>(InExpression<T> expression, TContext context) => default;
     }
 }

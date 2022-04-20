@@ -25,19 +25,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, expression.ComponentIndex, resourceTypeId);
         }
 
-        public override SearchParameterQueryGeneratorContext VisitIn(InExpression expression, SearchParameterQueryGeneratorContext context)
+        public override SearchParameterQueryGeneratorContext VisitIn<T>(InExpression<T> expression, SearchParameterQueryGeneratorContext context)
         {
-            List<object> resolvedResourceTypeIds = new List<object>(capacity: expression.Values.Count);
-
-            foreach (string resourceType in expression.Values)
+            List<short> resolvedResourceTypeIds = new List<short>(capacity: expression.Values.Count);
+            foreach (T resourceType in expression.Values)
             {
-                if (context.Model.TryGetResourceTypeId(resourceType, out short resourceTypeId))
+                string resourceTypeName = resourceType.ToString();
+                if (context.Model.TryGetResourceTypeId(resourceTypeName, out short resourceTypeId))
                 {
                     resolvedResourceTypeIds.Add(resourceTypeId);
                 }
                 else
                 {
-                    throw new InvalidOperationException($"Invalid resource type '{resourceType}'.");
+                    throw new InvalidOperationException(string.Format(Resources.InvalidResourceTypeValue, resourceType));
                 }
             }
 

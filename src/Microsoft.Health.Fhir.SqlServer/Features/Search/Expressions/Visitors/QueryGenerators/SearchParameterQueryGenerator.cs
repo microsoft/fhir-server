@@ -267,14 +267,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
-        protected static SearchParameterQueryGeneratorContext VisitSimpleIn(SearchParameterQueryGeneratorContext context, Column column, IReadOnlyList<object> values)
+        protected static SearchParameterQueryGeneratorContext VisitSimpleIn<T>(SearchParameterQueryGeneratorContext context, Column column, IReadOnlyList<T> values)
         {
             context.StringBuilder.Append(column, context.TableAlias);
             context.StringBuilder.Append(" IN (");
 
             for (int index = 0; index < values.Count; index++)
             {
-                object item = values[index];
+                T item = values[index];
 
                 context.StringBuilder.Append(context.Parameters.AddParameter(column, item, true));
 

@@ -13,15 +13,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an 'in' expression where known values are grouped together.
     /// </summary>
-    public class InExpression : Expression, IFieldExpression
+    /// <typeparam name="T">Type of the value included in the expression.</typeparam>
+    public class InExpression<T> : Expression, IFieldExpression
     {
-        public InExpression(FieldName fieldName, int? componentIndex, IEnumerable<object> values)
+        public InExpression(FieldName fieldName, int? componentIndex, IEnumerable<T> values)
             : this(fieldName, componentIndex)
         {
             Values = EnsureArg.HasItems(values?.ToArray(), nameof(values));
         }
 
-        public InExpression(FieldName fieldName, int? componentIndex, IReadOnlyList<object> values)
+        public InExpression(FieldName fieldName, int? componentIndex, IReadOnlyList<T> values)
             : this(fieldName, componentIndex)
         {
             Values = EnsureArg.HasItems(values, nameof(values));
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public int? ComponentIndex { get; }
 
-        public IReadOnlyList<object> Values { get; }
+        public IReadOnlyList<T> Values { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
@@ -51,14 +52,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
-            hashCode.Add(typeof(InExpression));
+            hashCode.Add(typeof(InExpression<T>));
             hashCode.Add(FieldName);
             hashCode.Add(ComponentIndex);
         }
 
         public override bool ValueInsensitiveEquals(Expression other)
         {
-            return other is InExpression expression &&
+            return other is InExpression<T> expression &&
                    expression.FieldName == FieldName &&
                    expression.ComponentIndex == ComponentIndex;
         }

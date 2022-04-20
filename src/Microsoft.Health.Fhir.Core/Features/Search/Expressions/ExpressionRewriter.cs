@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
-        public Expression VisitIn(InExpression expression, TContext context)
+        public Expression VisitIn<T>(InExpression<T> expression, TContext context)
         {
             return expression;
         }

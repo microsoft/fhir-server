@@ -161,4 +161,8 @@
   <data name="GetRecordsAsyncOperationIsCanceled" xml:space="preserve">
     <value>The operation to get resource changes has been canceled.</value>
   </data>
+  <data name="InvalidResourceTypeValue" xml:space="preserve">
+    <value>Invalid resource type '{0}',</value>
+    <comment>{0} is the invalid value found.</comment>
+  </data>
 </root>
