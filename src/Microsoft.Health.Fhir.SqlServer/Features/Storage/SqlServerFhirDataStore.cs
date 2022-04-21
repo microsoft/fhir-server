@@ -443,7 +443,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
-                        _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(rawResource)} length: {rawResource.Length}");
+                        _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(key.ResourceType)}: {key.ResourceType}; {nameof(rawResource)} length: {rawResource.Length}");
 
                         var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
 
