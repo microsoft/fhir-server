@@ -300,7 +300,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
-                sqlCommandWrapper.CommandText = stringBuilder.ToString();
+                var commandText = stringBuilder.ToString();
+                if (!commandText.Contains("cte", StringComparison.OrdinalIgnoreCase))
+                {
+                    commandText = commandText.Replace("DISTINCT ", string.Empty, StringComparison.OrdinalIgnoreCase);
+                }
+
+                sqlCommandWrapper.CommandText = commandText;
 
                 LogSqlCommand(sqlCommandWrapper);
 
