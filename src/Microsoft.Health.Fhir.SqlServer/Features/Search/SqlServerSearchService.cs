@@ -306,6 +306,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     commandText = commandText.Replace("DISTINCT ", string.Empty, StringComparison.OrdinalIgnoreCase);
                 }
 
+                if (!commandText.Contains("@p5", StringComparison.OrdinalIgnoreCase))
+                {
+                    commandText = commandText.Insert(commandText.IndexOf("@p4 bigint,", StringComparison.OrdinalIgnoreCase) + 11, "@p5 bigint,");
+                }
+
+                commandText = commandText.Insert(commandText.IndexOf("@p0 int", StringComparison.OrdinalIgnoreCase) + 7, " DECLARE @Txt varchar(1000) = 'p0='+isnull(convert(varchar,@p0),'NULL') + ' p1=' + isnull(convert(varchar, @p1), 'NULL') + ' p2=' + isnull(convert(varchar, @p2), 'NULL') + ' p3=' + isnull(convert(varchar, @p3), 'NULL') + ' p4=' + isnull(convert(varchar, @p4), 'NULL') + ' p5=' + isnull(convert(varchar, @p5), 'NULL'), @st datetime = getUTCdate() EXECUTE dbo.LogEvent @Process = 'GetExportResources', @Mode = '', @Status = 'Start', @Text = @Txt");
+                commandText = commandText + "EXECUTE dbo.LogEvent @Process='GetExportResources',@Mode='',@Status='End',@Start=@st,@Rows=@@rowcount,@Text=@Txt";
                 sqlCommandWrapper.CommandText = commandText;
 
                 LogSqlCommand(sqlCommandWrapper);
