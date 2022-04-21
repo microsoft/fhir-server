@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="fieldName">The field name.</param>
         /// <param name="componentIndex">The component index.</param>
         /// <param name="values">The value.</param>
-        public static InExpression<T> In<T>(FieldName fieldName, int? componentIndex, params T[] values)
+        public static InExpression<T> In<T>(FieldName fieldName, int? componentIndex, IEnumerable<T> values)
         {
             return new InExpression<T>(fieldName, componentIndex, values);
         }

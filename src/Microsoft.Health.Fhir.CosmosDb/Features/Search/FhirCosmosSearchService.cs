@@ -642,7 +642,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                     .Select(g =>
                                         Expression.And(
                                             Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
-                                            Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId).ToArray()))).ToList())),
+                                            Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList())),
                         /* This part of the expression ensures that the reference isn't the same as a resource that has already been selected as a match */
                         Expression.Not(Expression.Or(matchesGroupedByType
                             .Select(g =>

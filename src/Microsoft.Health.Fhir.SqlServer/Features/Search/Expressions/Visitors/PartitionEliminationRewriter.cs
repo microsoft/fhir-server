@@ -59,9 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 resourceTypes[i] = _model.GetResourceTypeName(typeId);
             }
 
-            _allTypesExpression = Expression.SearchParameter(
-               _resourceTypeSearchParameter,
-               Expression.In(FieldName.TokenCode, null, resourceTypes));
+            _allTypesExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, resourceTypes));
 
             return _allTypesExpression;
         }
