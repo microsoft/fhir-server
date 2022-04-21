@@ -1,0 +1,92 @@
+{
+  "resourceType": "CarePlan",
+  "id": "0d25fa17-96af-85cb-50bd-f1352bb33875",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Care Plan for Asthma self management.<br/>Activities: <ul><li>Asthma self management</li><li>Asthma self management</li><li>Asthma self management</li></ul><br/>Care plan is meant to treat Childhood asthma.</div>"
+  },
+  "status": "active",
+  "intent": "order",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "699728000",
+          "display": "Asthma self management"
+        }
+      ],
+      "text": "Asthma self management"
+    }
+  ],
+  "subject": {
+    "reference": "Patient/262741b0-50fe-114c-103f-be34d5cd3e37"
+  },
+  "encounter": {
+    "reference": "Encounter/bc97ae0b-d99d-3952-4560-0f246b7ee546"
+  },
+  "period": {
+    "start": "1922-05-27T14:39:56+00:00"
+  },
+  "careTeam": [
+    {
+      "reference": "CareTeam/a8e4a4dd-9340-fcec-61ca-58a87ed129f8"
+    }
+  ],
+  "activity": [
+    {
+      "detail": {
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "710818004",
+              "display": "Inhaled steroid therapy"
+            }
+          ],
+          "text": "Inhaled steroid therapy"
+        },
+        "status": "in-progress",
+        "location": {
+          "display": "HALLMARK HEALTH SYSTEM"
+        }
+      }
+    },
+    {
+      "detail": {
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "708409001",
+              "display": "Home nebulizer therapy"
+            }
+          ],
+          "text": "Home nebulizer therapy"
+        },
+        "status": "in-progress",
+        "location": {
+          "display": "HALLMARK HEALTH SYSTEM"
+        }
+      }
+    },
+    {
+      "detail": {
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "229298005",
+              "display": "Breathing control"
+            }
+          ],
+          "text": "Breathing control"
+        },
+        "status": "in-progress",
+        "location": {
+          "display": "HALLMARK HEALTH SYSTEM"
+        }
+      }
+    }
+  ]
+}
