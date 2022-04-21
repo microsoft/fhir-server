@@ -368,6 +368,7 @@
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R5\Organization.json" />
+    <EmbeddedResource Include="TestFiles\R5\Specimen.json" />
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />

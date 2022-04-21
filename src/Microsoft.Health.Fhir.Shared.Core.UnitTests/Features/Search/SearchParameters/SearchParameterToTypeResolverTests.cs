@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
             else
             {
-                Assert.Equal(63, types.Length);
+                Assert.Equal(61, types.Length);
             }
         }
 
