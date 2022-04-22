@@ -10,7 +10,7 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
-    public class UnionAllExpression : Expression
+    public class UnionAllExpression : Expression, IExpressionsContainer
     {
         public UnionAllExpression(IReadOnlyList<Expression> expressions)
         {

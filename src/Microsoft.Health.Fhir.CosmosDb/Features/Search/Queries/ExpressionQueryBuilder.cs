@@ -279,6 +279,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return null;
         }
 
+        public object VisitUnionAll(UnionAllExpression expression, Context context)
+        {
+            return VisitMultiary(Expression.Or(expression.Expressions), context);
+        }
+
         public object VisitString(StringExpression expression, Context context)
         {
             string fieldName = GetFieldName(expression, context);

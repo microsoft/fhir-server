@@ -100,8 +100,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Visits the <see cref="UnionAllExpression"/>.
         /// </summary>
-        /// <param name="expressions">The expressions to visit.</param>
+        /// <param name="expression">The expressions to visit.</param>
         /// <param name="context">The input</param>
-        TOutput VisitUnionAll(UnionAllExpression expressions, TContext context);
+        TOutput VisitUnionAll(UnionAllExpression expression, TContext context);
     }
 }
