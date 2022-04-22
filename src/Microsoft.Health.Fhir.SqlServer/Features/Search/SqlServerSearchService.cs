@@ -12,6 +12,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -300,20 +301,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
-                var commandText = stringBuilder.ToString();
-                if (!commandText.Contains("cte", StringComparison.OrdinalIgnoreCase))
-                {
-                    commandText = commandText.Replace("DISTINCT ", string.Empty, StringComparison.OrdinalIgnoreCase);
-                }
+                RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters);
 
-                if (!commandText.Contains("@p5", StringComparison.OrdinalIgnoreCase))
-                {
-                    commandText = commandText.Insert(commandText.IndexOf("@p4 bigint,", StringComparison.OrdinalIgnoreCase) + 11, "@p5 bigint,");
-                }
-
-                commandText = commandText.Insert(commandText.IndexOf("@p0 int", StringComparison.OrdinalIgnoreCase) + 7, " DECLARE @Txt varchar(1000) = 'p0='+isnull(convert(varchar,@p0),'NULL') + ' p1=' + isnull(convert(varchar, @p1), 'NULL') + ' p2=' + isnull(convert(varchar, @p2), 'NULL') + ' p3=' + isnull(convert(varchar, @p3), 'NULL') + ' p4=' + isnull(convert(varchar, @p4), 'NULL') + ' p5=' + isnull(convert(varchar, @p5), 'NULL'), @st datetime = getUTCdate() EXECUTE dbo.LogEvent @Process = 'GetExportResources', @Mode = '', @Status = 'Start', @Text = @Txt");
-                commandText = commandText + "EXECUTE dbo.LogEvent @Process='GetExportResources',@Mode='',@Status='End',@Start=@st,@Rows=@@rowcount,@Text=@Txt";
-                sqlCommandWrapper.CommandText = commandText;
+                sqlCommandWrapper.CommandText = stringBuilder.ToString();
 
                 LogSqlCommand(sqlCommandWrapper);
 
@@ -471,6 +461,66 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
                 }
             }
+        }
+
+        private static void RemoveRedundantParameters(IndentedStringBuilder stringBuilder, SqlParameterCollection sqlParameterCollection)
+        {
+            var commandText = stringBuilder.ToString();
+            if (!commandText.Contains("cte", StringComparison.OrdinalIgnoreCase))
+            {
+                commandText = commandText.Replace("DISTINCT ", string.Empty, StringComparison.OrdinalIgnoreCase);
+                if (!commandText.Contains(" OR ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var greaterThanMatch = new Regex("(\\w+) >=? (@p\\d+)");
+                    var greaterThanMatches = greaterThanMatch.Matches(commandText);
+
+                    var fieldToParameterComparisons = new Dictionary<string, List<(string, Match)>>();
+                    foreach (Match match in greaterThanMatches)
+                    {
+                        var groups = match.Groups;
+                        if (!fieldToParameterComparisons.ContainsKey(groups[1].Value))
+                        {
+                            fieldToParameterComparisons.Add(groups[1].Value, new List<(string, Match)>());
+                        }
+
+                        fieldToParameterComparisons[groups[1].Value].Add((groups[2].Value, match));
+                    }
+
+                    foreach (string field in fieldToParameterComparisons.Keys)
+                    {
+                        long largestValue;
+                        if (fieldToParameterComparisons[field].Count > 1)
+                        {
+                            largestValue = (long)sqlParameterCollection[fieldToParameterComparisons[field][0].Item1].Value;
+                            int maxIndex = 0;
+                            for (int index = 1; index < fieldToParameterComparisons[field].Count; index++)
+                            {
+                                long value = (long)sqlParameterCollection[fieldToParameterComparisons[field][index].Item1].Value;
+                                if (value > largestValue
+                                    || (value == largestValue
+                                        && !fieldToParameterComparisons[field][index].Item2.Value.Contains("=", StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    largestValue = value;
+                                    maxIndex = index;
+                                }
+                            }
+
+                            for (int index = 0; index < fieldToParameterComparisons[field].Count; index++)
+                            {
+                                if (index == maxIndex)
+                                {
+                                    continue;
+                                }
+
+                                commandText = commandText.Replace(fieldToParameterComparisons[field][index].Item2.Value, "1 = 1", StringComparison.OrdinalIgnoreCase);
+                            }
+                        }
+                    }
+                }
+            }
+
+            stringBuilder.Clear();
+            stringBuilder.Append(commandText);
         }
 
         /// <summary>
