@@ -1,0 +1,7 @@
+﻿CREATE TABLE [dbo].[ClaimType] (
+    [ClaimTypeId] TINYINT       IDENTITY (1, 1) NOT NULL,
+    [Name]        VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CONSTRAINT [PKC_ClaimType] PRIMARY KEY CLUSTERED ([Name] ASC) WITH (DATA_COMPRESSION = PAGE),
+    CONSTRAINT [UQ_ClaimType_ClaimTypeId] UNIQUE NONCLUSTERED ([ClaimTypeId] ASC)
+);
+

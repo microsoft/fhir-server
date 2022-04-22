@@ -1,0 +1,7 @@
+﻿CREATE TABLE [dbo].[System] (
+    [SystemId] INT            IDENTITY (1, 1) NOT NULL,
+    [Value]    NVARCHAR (256) NOT NULL,
+    CONSTRAINT [PKC_System] PRIMARY KEY CLUSTERED ([Value] ASC) WITH (DATA_COMPRESSION = PAGE),
+    CONSTRAINT [UQ_System_SystemId] UNIQUE NONCLUSTERED ([SystemId] ASC)
+);
+
