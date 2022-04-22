@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
                     if (compartmentSearchExpressionsGrouped.Count > 1)
                     {
-                        return Expression.UnionAll(compartmentSearchExpressionsGrouped);
+                        return Expression.Or(compartmentSearchExpressionsGrouped);
                     }
                     else if (compartmentSearchExpressions.Count == 1)
                     {
