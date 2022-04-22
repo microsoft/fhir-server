@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;

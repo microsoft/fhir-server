@@ -84,9 +84,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private Expression ConvertNonMultiary(Expression expression)
         {
-            return TryGetSearchParamTableExpressionQueryGenerator(expression, out var generator, out var kind)
-                ? SqlRootExpression.WithSearchParamTableExpressions(new SearchParamTableExpression(generator, predicate: expression, kind, chainLevel: kind == SearchParamTableExpressionKind.Chain ? 1 : 0))
-                : SqlRootExpression.WithResourceTableExpressions((SearchParameterExpressionBase)expression);
+            if (TryGetSearchParamTableExpressionQueryGenerator(expression, out var generator, out var kind))
+            {
+                return SqlRootExpression.WithSearchParamTableExpressions(new SearchParamTableExpression(generator, predicate: expression, kind, chainLevel: kind == SearchParamTableExpressionKind.Chain ? 1 : 0));
+            }
+            else
+            {
+                return SqlRootExpression.WithResourceTableExpressions((SearchParameterExpressionBase)expression);
+            }
         }
 
         private bool TryGetSearchParamTableExpressionQueryGenerator(Expression expression, out SearchParamTableExpressionQueryGenerator searchParamTableExpressionGenerator, out SearchParamTableExpressionKind kind)
