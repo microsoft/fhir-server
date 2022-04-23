@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new MultiaryExpression(expression.MultiaryOperation, rewrittenExpressions);
         }
 
-        public Expression VisitUnionAll(UnionAllExpression expression, TContext context)
+        public virtual Expression VisitUnionAll(UnionAllExpression expression, TContext context)
         {
             IReadOnlyList<Expression> rewrittenExpressions = VisitArray(expression.Expressions, context);
             return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new UnionAllExpression(rewrittenExpressions);

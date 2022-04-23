@@ -8,7 +8,7 @@ subgraph Core
 end
 
 subgraph SQL
-    SqlServerSearchService -- Expression --> Rewriters
+    SqlServerSearchService -- UnionAllExpression --> Rewriters
     
     Rewriters -- SqlRootExpression --> SqlQueryGenerator
 

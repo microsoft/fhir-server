@@ -317,6 +317,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     HandleTableKindSortWithFilter(searchParamTableExpression, context);
                     break;
 
+                case SearchParamTableExpressionKind.UnionAll:
+                    HandleTableKindUnionAll(searchParamTableExpression, context);
+                    break;
+
                 default:
                     throw new ArgumentOutOfRangeException(searchParamTableExpression.Kind.ToString());
             }
@@ -826,6 +830,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // the 'original' include cte is not in the union, but this new layer is instead
             _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
+        }
+
+        private void HandleTableKindUnionAll(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
+        {
+            StringBuilder.Append(searchParamTableExpression);
+            bool sortValueNeeded = IsSortValueNeeded(context);
         }
 
         private void HandleTableKindIncludeUnionAll(SearchOptions context)

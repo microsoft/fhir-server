@@ -62,6 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         TOutput VisitMultiary(MultiaryExpression expression, TContext context);
 
         /// <summary>
+        /// Visits the <see cref="UnionAllExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expressions to visit.</param>
+        /// <param name="context">The input</param>
+        TOutput VisitUnionAll(UnionAllExpression expression, TContext context);
+
+        /// <summary>
         /// Visits the <see cref="StringExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
@@ -96,12 +103,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="expression">The expression to visit.</param>
         /// <param name="context">The input</param>
         TOutput VisitIn<T>(InExpression<T> expression, TContext context);
-
-        /// <summary>
-        /// Visits the <see cref="UnionAllExpression"/>.
-        /// </summary>
-        /// <param name="expression">The expressions to visit.</param>
-        /// <param name="context">The input</param>
-        TOutput VisitUnionAll(UnionAllExpression expression, TContext context);
     }
 }

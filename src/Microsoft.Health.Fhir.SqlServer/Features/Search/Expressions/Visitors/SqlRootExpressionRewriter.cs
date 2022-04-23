@@ -71,16 +71,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(tableExpressions, resourceExpressions);
         }
 
+        public override Expression VisitUnionAll(UnionAllExpression expression, int context) => ConvertNonMultiary(expression);
+
         public override Expression VisitSearchParameter(SearchParameterExpression expression, int context) => ConvertNonMultiary(expression);
 
         public override Expression VisitCompartment(CompartmentSearchExpression expression, int context) => ConvertNonMultiary(expression);
 
         public override Expression VisitMissingSearchParameter(MissingSearchParameterExpression expression, int context) => ConvertNonMultiary(expression);
 
-        public override Expression VisitChained(ChainedExpression expression, int context)
-        {
-            return ConvertNonMultiary(expression);
-        }
+        public override Expression VisitChained(ChainedExpression expression, int context) => ConvertNonMultiary(expression);
 
         private Expression ConvertNonMultiary(Expression expression)
         {
@@ -104,6 +103,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     break;
                 case IncludeQueryGenerator _:
                     kind = SearchParamTableExpressionKind.Include;
+                    break;
+                case UnionAllQueryGenerator _: // FERNFE: Probably I'm going to kill this part of the code. 
+                    kind = SearchParamTableExpressionKind.UnionAll;
                     break;
                 default:
                     kind = SearchParamTableExpressionKind.Normal;

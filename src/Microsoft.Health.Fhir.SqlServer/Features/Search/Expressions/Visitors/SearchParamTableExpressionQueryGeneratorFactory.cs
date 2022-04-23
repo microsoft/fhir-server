@@ -164,19 +164,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitUnionAll(UnionAllExpression expression, object context)
         {
+            return UnionAllQueryGenerator.Instance;
+
             // TODO: FERNFE - This is a copy of the method above.
             // If it works as expected, I would refactor VisitMultiary and VisitUnionAll to use a single piece of code.
-
-            foreach (var childExpression in expression.Expressions)
-            {
-                var handler = childExpression.AcceptVisitor(this, context);
-                if (handler != null)
-                {
-                    return handler;
-                }
-            }
-
-            return null;
+            // foreach (var childExpression in expression.Expressions)
+            // {
+            //    var handler = childExpression.AcceptVisitor(this, context);
+            //     if (handler != null)
+            //     {
+            //         return handler;
+            //     }
+            // }
+            // return null;
         }
 
         public SearchParamTableExpressionQueryGenerator VisitString(StringExpression expression, object context)
