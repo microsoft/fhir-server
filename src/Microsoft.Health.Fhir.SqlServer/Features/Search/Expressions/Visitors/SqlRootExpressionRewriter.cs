@@ -104,9 +104,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 case IncludeQueryGenerator _:
                     kind = SearchParamTableExpressionKind.Include;
                     break;
-                case UnionAllQueryGenerator _: // FERNFE: Probably I'm going to kill this part of the code. 
-                    kind = SearchParamTableExpressionKind.UnionAll;
-                    break;
                 default:
                     kind = SearchParamTableExpressionKind.Normal;
                     break;

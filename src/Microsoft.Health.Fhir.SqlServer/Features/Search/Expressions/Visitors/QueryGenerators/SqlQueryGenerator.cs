@@ -85,14 +85,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions, (sb, tableExpression) =>
                 {
-                    sb.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-
-                    using (sb.Indent())
+                    // TODO: Fix the cast at this point: Inside the expression there is a multinary AND with a UnionAll and a condition.
+                    if ((tableExpression.Predicate as MultiaryExpression)?.Expressions[0] is UnionAllExpression)
                     {
-                        tableExpression.AcceptVisitor(this, context);
+                        AppendNewSetOfUnionAllTableExpressions(context, tableExpression);
                     }
-
-                    sb.Append(")");
+                    else
+                    {
+                        AppendNewTableExpression(sb, tableExpression, ++_tableExpressionCounter, context);
+                    }
                 });
 
                 StringBuilder.AppendLine();
@@ -318,7 +319,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case SearchParamTableExpressionKind.UnionAll:
-                    HandleTableKindUnionAll(searchParamTableExpression, context);
+                    HandleParamTableUnionAll(searchParamTableExpression);
                     break;
 
                 default:
@@ -326,6 +327,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return null;
+        }
+
+        private void HandleParamTableUnionAll(SearchParamTableExpression searchParamTableExpression)
+        {
+            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+
+            StringBuilder.Append("SELECT ")
+                .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
+                .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+
+            using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+            {
+                AppendHistoryClause(delimited);
+
+                if (searchParamTableExpression.Predicate != null)
+                {
+                    delimited.BeginDelimitedElement();
+                    searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
+                }
+            }
+
+            StringBuilder.AppendLine("),");
         }
 
         private void HandleTableKindNormal(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
@@ -986,6 +1010,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)
         {
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
+        }
+
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, SearchParamTableExpression tableExpression)
+        {
+            Expression multiaryExpression = ((MultiaryExpression)tableExpression.Predicate).Expressions[0];
+            UnionAllExpression unionAllExpression = (UnionAllExpression)multiaryExpression;
+
+            // Iterate through all expressions and create a unique CTE to each one.
+            int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
+            foreach (Expression innerExpression in unionAllExpression.Expressions)
+            {
+                var searchParamExpression = new SearchParamTableExpression(tableExpression.QueryGenerator, innerExpression, SearchParamTableExpressionKind.UnionAll);
+                searchParamExpression.AcceptVisitor(this, context);
+            }
+
+            int lastInclusiveTableExpressionId = _tableExpressionCounter;
+
+            // Create a final CTE aggregating results from all previous CTEs.
+            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+            for (int tableExpressionId = firstInclusiveTableExpressionId; tableExpressionId <= lastInclusiveTableExpressionId; tableExpressionId++)
+            {
+                StringBuilder.Append("SELECT * FROM ").Append(TableExpressionName(tableExpressionId));
+
+                if (tableExpressionId < lastInclusiveTableExpressionId)
+                {
+                    StringBuilder.AppendLine(" UNION ALL");
+                }
+            }
+
+            StringBuilder.Append(")");
+        }
+
+        private void AppendNewTableExpression(IndentedStringBuilder sb, SearchParamTableExpression tableExpression, int cteId, SearchOptions context)
+        {
+            sb.Append(TableExpressionName(cteId)).AppendLine(" AS").AppendLine("(");
+
+            using (sb.Indent())
+            {
+                tableExpression.AcceptVisitor(this, context);
+            }
+
+            sb.Append(")");
         }
 
         private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)

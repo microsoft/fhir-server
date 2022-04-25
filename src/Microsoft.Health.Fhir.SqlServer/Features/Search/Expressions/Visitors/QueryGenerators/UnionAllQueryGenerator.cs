@@ -7,6 +7,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
+    // TODO: FHIBF - Evaluating the usage of this class. At this point I believe it can be deleted.
     internal class UnionAllQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
         internal static readonly UnionAllQueryGenerator Instance = new UnionAllQueryGenerator();
