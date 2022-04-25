@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
@@ -25,7 +24,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobServiceClient _blobClient = null;
         private BlobContainerClient _blobContainer = null;
 
-        private Dictionary<string, StringBuilder> _dataBuffers = new Dictionary<string, StringBuilder>();
+        private Dictionary<string, List<string>> _dataBuffers = new Dictionary<string, List<string>>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -90,14 +89,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNull(data, nameof(data));
             CheckIfClientIsConnected();
 
-            StringBuilder dataBuffer;
+            List<string> dataBuffer;
             if (!_dataBuffers.TryGetValue(fileName, out dataBuffer))
             {
-                dataBuffer = new StringBuilder();
+                dataBuffer = new List<string>();
                 _dataBuffers.Add(fileName, dataBuffer);
             }
 
-            dataBuffer.AppendLine(data);
+            dataBuffer.Add(data);
         }
 
         public IDictionary<string, Uri> Commit()
@@ -111,8 +110,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 using var stream = blockBlob.OpenWrite(true);
                 using var writer = new StreamWriter(stream);
 
-                var data = _dataBuffers[fileName];
-                writer.WriteLine(data.ToString());
+                var dataLines = _dataBuffers[fileName];
+                foreach (var line in dataLines)
+                {
+                    writer.WriteLine(line);
+                }
+
                 _dataBuffers.Remove(fileName);
 
                 blobUris.Add(fileName, blockBlob.Uri);
