@@ -28,7 +28,7 @@
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true;TrustServerCertificate=true",
                 "DataStore": "SqlServer",
                 "TaskHosting:Enabled": "true",
-                "TaskHosting:MaxRunningTaskCount": "10",
+                "TaskHosting:MaxRunningTaskCount": "2",
                 "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:Import:Enabled": "true",
                 "FhirServer:Operations:Import:StoreProcessingResultInSubTasks": "true",
