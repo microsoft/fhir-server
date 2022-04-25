@@ -78,8 +78,10 @@ namespace Microsoft.Health.TaskManagement
                 {
                     runningTasks.Add(ExecuteTaskAsync(nextTask, cancellationToken));
                 }
-
-                await intervalDelayTask;
+                else
+                {
+                    await intervalDelayTask;
+                }
             }
 
             try

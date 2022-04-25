@@ -76,6 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+            importOrchestratorTaskInputData.StoreProgressInSubTask = true;
 
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -113,8 +114,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     notification.Status == TaskResult.Fail.ToString() &&
                     notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
                     notification.DataSize == null &&
-                    notification.SucceedCount == null &&
-                    notification.FailedCount == null),
+                    notification.SucceedCount == 0 &&
+                    notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
 
@@ -143,6 +144,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+            importOrchestratorTaskInputData.StoreProgressInSubTask = true;
 
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns<Task<Dictionary<string, object>>>(_ =>
@@ -177,8 +179,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     notification.Status == TaskResult.Fail.ToString() &&
                     notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
                     notification.DataSize == null &&
-                    notification.SucceedCount == null &&
-                    notification.FailedCount == null),
+                    notification.SucceedCount == 0 &&
+                    notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
 
@@ -218,6 +220,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+            importOrchestratorTaskInputData.StoreProgressInSubTask = true;
 
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -267,92 +270,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     notification.Status == TaskResult.Fail.ToString() &&
                     notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
                     notification.DataSize == null &&
-                    notification.SucceedCount == null &&
-                    notification.FailedCount == null),
-                Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenAnOrchestratorTask_WhenFailedAtGenerateSubTasksStep_ThenRetrableExceptionShouldBeThrowAndContextUpdated()
-        {
-            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
-            IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            ILoggerFactory loggerFactory = new NullLoggerFactory();
-            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
-            IMediator mediator = Substitute.For<IMediator>();
-            ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
-            ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
-            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
-            TestTaskManager taskManager = new TestTaskManager(t =>
-            {
-                if (t == null)
-                {
-                    return null;
-                }
-
-                t.Status = TaskManagement.TaskStatus.Running;
-                return t;
-            });
-
-            importOrchestratorTaskInputData.TaskId = Guid.NewGuid().ToString("N");
-            importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
-            importOrchestratorTaskInputData.BaseUri = new Uri("http://dummy");
-            var inputs = new List<InputResource>();
-            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
-
-            importOrchestratorTaskInputData.Input = inputs;
-            importOrchestratorTaskInputData.InputFormat = "ndjson";
-            importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
-            importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
-            importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
-            importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
-
-            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    Dictionary<string, object> properties = new Dictionary<string, object>();
-                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
-                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
-                    return properties;
-                });
-
-            string latestContext = null;
-            contextUpdater.UpdateContextAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    latestContext = (string)callInfo[0];
-                    return Task.CompletedTask;
-                });
-
-            sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => throw new InvalidOperationException());
-
-            ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
-                mediator,
-                importOrchestratorTaskInputData,
-                importOrchestratorTaskContext,
-                taskManager,
-                sequenceIdGenerator,
-                contextUpdater,
-                contextAccessor,
-                fhirDataBulkImportOperation,
-                integrationDataStoreClient,
-                loggerFactory);
-            orchestratorTask.PollingFrequencyInSeconds = 0;
-
-            await Assert.ThrowsAnyAsync<RetriableTaskException>(() => orchestratorTask.ExecuteAsync());
-            ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
-            Assert.Equal(ImportOrchestratorTaskProgress.PreprocessCompleted, context.Progress);
-
-            _ = mediator.Received().Publish(
-                Arg.Is<ImportTaskMetricsNotification>(
-                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
-                    notification.Status == TaskResult.Fail.ToString() &&
-                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
-                    notification.DataSize == null &&
-                    notification.SucceedCount == null &&
-                    notification.FailedCount == null),
+                    notification.SucceedCount == 0 &&
+                    notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
 
@@ -386,6 +305,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+            importOrchestratorTaskInputData.StoreProgressInSubTask = true;
 
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -421,15 +341,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             await Assert.ThrowsAnyAsync<RetriableTaskException>(() => orchestratorTask.ExecuteAsync());
             ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
-            Assert.Equal(ImportOrchestratorTaskProgress.SubTaskRecordsGenerated, context.Progress);
+            Assert.Equal(ImportOrchestratorTaskProgress.PreprocessCompleted, context.Progress);
 
             _ = mediator.Received().Publish(
                 Arg.Is<ImportTaskMetricsNotification>(
                     notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
                     notification.Status == TaskResult.Fail.ToString() &&
                     notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
-                    notification.SucceedCount == null &&
-                    notification.FailedCount == null),
+                    notification.SucceedCount == 0 &&
+                    notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
 
@@ -466,6 +386,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.TaskId = Guid.NewGuid().ToString("N");
             importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
             importOrchestratorTaskInputData.BaseUri = new Uri("http://dummy");
+            importOrchestratorTaskInputData.StoreProgressInSubTask = true;
+
             var inputs = new List<InputResource>();
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
 
@@ -512,15 +434,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(TaskResult.Fail, taskResultData.Result);
 
             ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
-            Assert.Equal(ImportOrchestratorTaskProgress.SubTaskRecordsGenerated, context.Progress);
+            Assert.Equal(ImportOrchestratorTaskProgress.PreprocessCompleted, context.Progress);
 
             _ = mediator.Received().Publish(
                 Arg.Is<ImportTaskMetricsNotification>(
                     notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
                     notification.Status == TaskResult.Fail.ToString() &&
                     notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
-                    notification.SucceedCount == null &&
-                    notification.FailedCount == null),
+                    notification.SucceedCount == 0 &&
+                    notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
 
@@ -569,6 +491,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+            importOrchestratorTaskInputData.StoreProgressInSubTask = true;
 
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -611,7 +534,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             await Assert.ThrowsAnyAsync<RetriableTaskException>(() => orchestratorTask.ExecuteAsync());
             ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
             Assert.Equal(ImportOrchestratorTaskProgress.SubTasksCompleted, context.Progress);
-            Assert.Equal(1, context.DataProcessingTasks.Count);
+            Assert.Equal(1, context.CreatedTaskCount);
 
             _ = mediator.Received().Publish(
                 Arg.Is<ImportTaskMetricsNotification>(
@@ -656,6 +579,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 return t;
             });
 
+            importOrchestratorTaskInputData.StoreProgressInSubTask = true;
             importOrchestratorTaskInputData.TaskId = Guid.NewGuid().ToString("N");
             importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
             importOrchestratorTaskInputData.BaseUri = new Uri("http://dummy");
@@ -710,12 +634,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
                     notification.Status == TaskResult.Canceled.ToString() &&
                     notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
-                    notification.SucceedCount == null &&
-                    notification.FailedCount == null),
+                    notification.SucceedCount == 0 &&
+                    notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
 
-        private static async Task VerifyCommonOrchestratorTaskAsync(int inputFileCount, int concurrentCount, int resumeFrom = -1)
+        private static async Task VerifyCommonOrchestratorTaskAsync(int inputFileCount, int concurrentCount, int resumeFrom = -1, int completedCount = -1)
         {
             IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
@@ -745,6 +669,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 processingResult.SucceedCount = 1;
                 processingResult.FailedCount = 1;
                 processingResult.ErrorLogLocation = "http://dummy/error";
+                processingResult.ResourceLocation = processingInput.ResourceLocation;
                 surrogatedIdRanges.Add((processingInput.BeginSequenceId, processingInput.EndSequenceId));
 
                 t.Result = JsonConvert.SerializeObject(new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(processingResult)));
@@ -775,30 +700,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         processingResult.SucceedCount = 1;
                         processingResult.FailedCount = 1;
                         processingResult.ErrorLogLocation = "http://dummy/error";
+                        processingResult.ResourceLocation = location;
 
                         taskInfo.Result = JsonConvert.SerializeObject(new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(processingResult)));
-                        taskInfo.Status = TaskManagement.TaskStatus.Completed;
+                        if (i < completedCount)
+                        {
+                            taskInfo.Status = TaskManagement.TaskStatus.Completed;
+                            importOrchestratorTaskContext.SucceedImportCount += 1;
+                            importOrchestratorTaskContext.FailedImportCount += 1;
+                        }
+                        else
+                        {
+                            taskInfo.Status = TaskManagement.TaskStatus.Running;
+                            importOrchestratorTaskContext.RunningTaskIds.Add(taskInfo.TaskId);
+                        }
 
                         await taskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
-                        importOrchestratorTaskContext.DataProcessingTasks[new Uri(location)] = taskInfo;
-                    }
-                    else
-                    {
-                        TaskInfo taskInfo = new TaskInfo();
-                        taskInfo.TaskId = Guid.NewGuid().ToString("N");
-                        ImportProcessingTaskInputData processingInput = new ImportProcessingTaskInputData();
-                        processingInput.BaseUriString = "http://dummy";
-                        processingInput.BeginSequenceId = i;
-                        processingInput.EndSequenceId = i + 1;
-                        processingInput.ResourceType = "Resource";
-                        taskInfo.InputData = JsonConvert.SerializeObject(processingInput);
-
-                        await taskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
-                        importOrchestratorTaskContext.DataProcessingTasks[new Uri(location)] = taskInfo;
+                        importOrchestratorTaskContext.CreatedTaskCount += 1;
+                        importOrchestratorTaskContext.CurrentSequenceId += 1;
                     }
 
-                    importOrchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.SubTaskRecordsGenerated;
+                    importOrchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.PreprocessCompleted;
                 }
             }
 
@@ -808,6 +731,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = concurrentCount;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+            importOrchestratorTaskInputData.StoreProgressInSubTask = true;
 
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -836,25 +760,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             TaskResultData result = await orchestratorTask.ExecuteAsync();
             ImportTaskResult resultDetails = JsonConvert.DeserializeObject<ImportTaskResult>(result.ResultData);
             Assert.Equal(TaskResult.Success, result.Result);
-            Assert.Equal(inputFileCount, resultDetails.Output.Count);
-            foreach (ImportOperationOutcome outcome in resultDetails.Output)
-            {
-                Assert.Equal(1, outcome.Count);
-                Assert.NotNull(outcome.InputUrl);
-                Assert.NotEmpty(outcome.Type);
-            }
-
-            Assert.Equal(inputFileCount, resultDetails.Error.Count);
-            foreach (ImportFailedOperationOutcome outcome in resultDetails.Error)
-            {
-                Assert.Equal(1, outcome.Count);
-                Assert.NotNull(outcome.InputUrl);
-                Assert.NotEmpty(outcome.Type);
-                Assert.NotEmpty(outcome.Url);
-            }
-
             Assert.NotEmpty(resultDetails.Request);
             Assert.Equal(importOrchestratorTaskInputData.TaskCreateTime, resultDetails.TransactionTime);
+
+            Assert.Equal(inputFileCount, taskManager.TaskInfos.Count());
 
             var orderedSurrogatedIdRanges = surrogatedIdRanges.OrderBy(r => r.begin).ToArray();
             Assert.Equal(inputFileCount, orderedSurrogatedIdRanges.Length + resumeFrom + 1);
@@ -869,8 +778,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
                     notification.Status == TaskResult.Success.ToString() &&
                     notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
-                    notification.SucceedCount == resultDetails.Output.Sum(o => o.Count) &&
-                    notification.FailedCount == resultDetails.Error.Sum(e => e.Count)),
+                    notification.SucceedCount == inputFileCount &&
+                    notification.FailedCount == inputFileCount),
                 Arg.Any<CancellationToken>());
         }
     }

@@ -32,5 +32,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Import total file size
         /// </summary>
         public long? TotalSizeInBytes { get; set; }
+
+        /// <summary>
+        /// Resource count succeed to import
+        /// </summary>
+        public long SucceedImportCount { get; set; }
+
+        /// <summary>
+        /// Resource count failed to import
+        /// </summary>
+        public long FailedImportCount { get; set; }
+
+        /// <summary>
+        /// Created task count for all blob files
+        /// </summary>
+        public int CreatedTaskCount { get; set; }
+
+        /// <summary>
+        /// Current end sequence id
+        /// </summary>
+        public long CurrentSequenceId { get; set; }
+
+        /// <summary>
+        /// Current running task id list
+        /// </summary>
+#pragma warning disable CA1002 // Do not expose generic lists
+        public List<string> RunningTaskIds { get; } = new List<string>();
+#pragma warning restore CA1002 // Do not expose generic lists
     }
 }

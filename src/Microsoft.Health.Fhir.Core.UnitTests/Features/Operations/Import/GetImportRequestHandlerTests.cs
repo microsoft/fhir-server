@@ -28,14 +28,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
     {
         private const string TaskId = "taskId";
         private readonly ITaskManager _taskManager = Substitute.For<ITaskManager>();
+        private readonly IImportTaskDataStore _importTaskDataStore = Substitute.For<IImportTaskDataStore>();
         private readonly IMediator _mediator;
         private readonly Uri _createRequestUri = new Uri("https://localhost/$import/");
         private HttpStatusCode _failureStatusCode = HttpStatusCode.BadRequest;
 
         public GetImportRequestHandlerTests()
         {
+            _importTaskDataStore.GetImportProcessingTaskResultAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    ImportProcessingTaskResult importProcessingTaskResult = new ImportProcessingTaskResult()
+                    {
+                        ErrorLogLocation = "http://test",
+                        ResourceLocation = "http://test",
+                        FailedCount = 1,
+                        SucceedCount = 1,
+                        ResourceType = "Patient",
+                        ImportError = "Error",
+                    };
+                    TaskResultData taskResultData = new TaskResultData()
+                    {
+                        Result = TaskResult.Success,
+                        ResultData = JsonConvert.SerializeObject(importProcessingTaskResult),
+                    };
+
+                    return new string[] { JsonConvert.SerializeObject(taskResultData) };
+                });
             var collection = new ServiceCollection();
-            collection.Add(x => new GetImportRequestHandler(_taskManager, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetImportRequestHandler(_taskManager, _importTaskDataStore, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -56,7 +77,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed, false, taskResultData);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-            Assert.NotNull(result.TaskResult);
+            Assert.Equal(1, result.TaskResult.Output.Count);
+            Assert.Equal(1, result.TaskResult.Error.Count);
         }
 
         [Fact]
@@ -94,7 +116,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(taskStatus);
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
-            Assert.Null(result.TaskResult);
+            Assert.Equal(1, result.TaskResult.Output.Count);
+            Assert.Equal(1, result.TaskResult.Error.Count);
         }
 
         [Fact]
@@ -106,6 +129,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false, TaskResultData resultData = null)
         {
+            ImportOrchestratorTaskInputData inputData = new ImportOrchestratorTaskInputData()
+            {
+                StoreProgressInSubTask = true,
+                RequestUri = new Uri("http://dummy"),
+            };
+
             // Result may be changed to real style result later
             var taskInfo = new TaskInfo
             {
@@ -113,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 QueueId = "0",
                 Status = taskStatus,
                 TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
-                InputData = string.Empty,
+                InputData = JsonConvert.SerializeObject(inputData),
                 IsCanceled = isCanceled,
                 Result = resultData != null ? JsonConvert.SerializeObject(resultData) : string.Empty,
             };
