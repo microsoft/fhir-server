@@ -617,34 +617,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task CancelProcessingTasksAsync()
         {
-            List<string> runningTaskIds = new List<string>();
-
-            if ((_orchestratorTaskContext?.DataProcessingTasks?.Count ?? 0) == 0)
+            if ((_orchestratorTaskContext?.RunningTaskIds?.Count ?? 0) == 0)
             {
-                // No data processing task created.
+                // No data processing task running.
                 return;
             }
 
-            foreach (TaskInfo taskInfo in _orchestratorTaskContext.DataProcessingTasks.Values)
+            foreach (string taskId in _orchestratorTaskContext.RunningTaskIds)
             {
                 try
                 {
-                    TaskInfo taskInfoFromServer = await _taskManager.GetTaskAsync(taskInfo.TaskId, CancellationToken.None);
-
-                    if (taskInfoFromServer != null)
-                    {
-                        await _taskManager.CancelTaskAsync(taskInfo.TaskId, CancellationToken.None);
-                        runningTaskIds.Add(taskInfo.TaskId);
-                    }
+                    await _taskManager.CancelTaskAsync(taskId, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "failed to cancel task {0}", taskInfo.TaskId);
+                    _logger.LogWarning(ex, "failed to cancel task {0}", taskId);
                 }
             }
 
             // Wait task cancel for WaitRunningTaskCancelTimeoutInSec
-            await WaitRunningTaskCompleteAsync(runningTaskIds);
+            await WaitRunningTaskCompleteAsync(_orchestratorTaskContext.RunningTaskIds);
         }
 
         private async Task WaitRunningTaskCompleteAsync(List<string> runningTaskIds)
