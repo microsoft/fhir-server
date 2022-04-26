@@ -250,8 +250,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         switch (e.Number)
                         {
-                            case SqlErrorCodes.TimeoutExpired:
-                                throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
                             case SqlErrorCodes.Conflict:
                                 // someone else beat us to it, re-read and try comparing again - Compared resource was updated
                                 continue;
