@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Numerics;
@@ -64,8 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     SchemaVersionConstants.Max,
                     forceIncrementalSchemaUpgrade: true);
 
-                bool isEqual = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
-                Assert.True(isEqual);
+                CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
             }
             finally
             {
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return (testHelper, schemaUpgradeRunner);
         }
 
-        private bool CompareDatabaseSchemas(string databaseName1, string databaseName2)
+        private void CompareDatabaseSchemas(string databaseName1, string databaseName2)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            bool unexpectedDifference = false;
+            List<SchemaDifference> schemaDifferences = new List<SchemaDifference>();
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 if (schemaDifference.Name == "SqlTable" &&
@@ -262,26 +262,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         }
                         else
                         {
-                            unexpectedDifference = true;
+                            schemaDifferences.Add(child);
                         }
                     }
                 }
                 else
                 {
-                    unexpectedDifference = true;
+                    schemaDifferences.Add(schemaDifference);
                 }
             }
+
+            Assert.Empty(schemaDifferences.Select(d => d.SourceObject.Name));
 
             // if TransactionCheckWithInitialiScript(which has current version as x-1) is not updated with the new x version then x.sql will have a wrong version inserted into SchemaVersion table
             // this will cause an entry like (x-1, started) and (x, completed) at the end of of the transaction in fullsnapshot database (testConnectionString1)
             // If any schema version is in started state then there might be a problem
-            if (SchemaVersionInStartedState(testConnectionString1).Result || SchemaVersionInStartedState(testConnectionString2).Result)
-            {
-                // if the test hits below statement then there is a possibility that TransactionCheckWithInitialiScript is not updated with the new version
-                unexpectedDifference = true;
-            }
-
-            return !unexpectedDifference;
+            Assert.False(SchemaVersionInStartedState(testConnectionString1).Result);
+            Assert.False(SchemaVersionInStartedState(testConnectionString2).Result);
         }
 
         public async Task<bool> SchemaVersionInStartedState(string connectionString)
