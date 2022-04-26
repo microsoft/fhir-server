@@ -19,7 +19,7 @@ CREATE TABLE [dbo].[TaskInfo] (
     [EndDateTime]       DATETIME2 (7) NULL,
     [Worker]            VARCHAR (100) NULL,
     [RestartInfo]       VARCHAR (MAX) NULL,
-    [ParentTaskId]      VARCHAR (64)  NOT NULL,
+    [ParentTaskId]      VARCHAR (64)  NULL,
     CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
 
