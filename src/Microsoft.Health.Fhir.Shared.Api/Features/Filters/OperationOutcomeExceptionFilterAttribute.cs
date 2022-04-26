@@ -150,6 +150,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case AzureContainerRegistryTokenException azureContainerRegistryTokenException:
                         operationOutcomeResult.StatusCode = azureContainerRegistryTokenException.StatusCode;
                         break;
+                    case ResourceSqlException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
                     case ResourceSqlTruncateException _:
                     case ConvertDataFailedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;

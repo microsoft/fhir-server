@@ -29,6 +29,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                 }
+                else
+                {
+                    throw new ResourceSqlException($"SqlException number: {sqlException.Number}; Exception: {sqlException.Message}");
+                }
             }
             else if (exception is SqlTruncateException sqlTruncateException)
             {
