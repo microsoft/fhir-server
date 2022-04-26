@@ -15,6 +15,7 @@
 )
 
 ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )
+ALTER TABLE dbo.Resource ADD CONSTRAINT RawResourceLength CHECK (DATALENGTH(RawResource) > 49)
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON dbo.Resource
 (
