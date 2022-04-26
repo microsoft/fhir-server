@@ -268,11 +268,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
                 else
                 {
-                    schemaDifferences.Add(schemaDifference);
+                    SchemaDifference diff = schemaDifference;
+                    schemaDifferences.Add(diff);
+                    while (diff.Children?.FirstOrDefault() != null)
+                    {
+                        diff = diff.Children.FirstOrDefault();
+                        schemaDifferences.Add(diff);
+                    }
                 }
             }
 
-            Assert.Empty(schemaDifferences.Select(d => d.SourceObject.Name));
+            Assert.Empty(schemaDifferences.Select(d => $"{d.Name}_{d.SourceObject?.Name}_{d.TargetObject?.Name}"));
 
             // if TransactionCheckWithInitialiScript(which has current version as x-1) is not updated with the new x version then x.sql will have a wrong version inserted into SchemaVersion table
             // this will cause an entry like (x-1, started) and (x, completed) at the end of of the transaction in fullsnapshot database (testConnectionString1)
