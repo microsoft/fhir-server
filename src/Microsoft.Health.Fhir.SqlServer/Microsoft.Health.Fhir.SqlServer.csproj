@@ -44,6 +44,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="Features\Schema\Sql\Sprocs\LogEvent.sql" />
+    <None Remove="Features\Schema\Sql\Tables\EventLog.sql" />
     <None Remove="Features\Schema\Sql\Tables\JobQueue.sql" />
   </ItemGroup>
 
