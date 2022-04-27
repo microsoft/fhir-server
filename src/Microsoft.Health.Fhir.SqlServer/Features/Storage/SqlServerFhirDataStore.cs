@@ -116,8 +116,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            SqlCommand command = sqlConnectionWrapper.SqlConnection.CreateCommand();
+            command.Transaction = sqlConnectionWrapper.SqlTransaction;
+            using var sqlCommandWrapper = new SqlCommandWrapper(command);
             using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
             {
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
