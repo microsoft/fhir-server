@@ -1,4 +1,4 @@
--- Generic table to store application specific parameters
+﻿-- Generic table to store application specific parameters
 -- DROP TABLE Parameters
 GO
 CREATE TABLE dbo.Parameters 

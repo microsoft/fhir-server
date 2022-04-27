@@ -47,6 +47,7 @@
     <None Remove="Features\Schema\Sql\Sprocs\LogEvent.sql" />
     <None Remove="Features\Schema\Sql\Tables\EventLog.sql" />
     <None Remove="Features\Schema\Sql\Tables\JobQueue.sql" />
+    <None Remove="Features\Schema\Sql\Tables\Parameters.sql" />
   </ItemGroup>
 
   <ItemGroup>

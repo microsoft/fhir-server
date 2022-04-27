@@ -75,19 +75,19 @@
     <Folder Include="Properties" />
   </ItemGroup>
   <ItemGroup>
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetCommandsForRebuildIndexes.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\SwitchPartitionsInAllTables.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetPartitionedTables.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\SwitchPartitionsOut.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\SwitchPartitionsOutAllTables.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\SwitchPartitionsIn.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetIndexCommands.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\LogEvent.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Tables\EventLog.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Tables\Parameters.sql" />
     <None Include="Scripts\Pre-Deployment\PreDeployment.sql">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\JobQueue.sql">
+      <Link>Schema Objects\Schemas\dbo\Tables\JobQueue.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\EventLog.sql">
+      <Link>Schema Objects\Schemas\dbo\Tables\EventLog.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\Parameters.sql">
+      <Link>Schema Objects\Schemas\dbo\Tables\Parameters.sql</Link>
+    </Build>
   </ItemGroup>
   <ItemGroup>
     <None Include="Scripts\setupdb.cmd">
