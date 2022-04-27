@@ -14,8 +14,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
-using Microsoft.Health.Fhir.SqlServer.Database;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.Export
@@ -40,30 +38,20 @@ namespace Microsoft.Health.Fhir.Store.Export
         private static readonly SqlService Source = new SqlService(SourceConnectionString);
         private static readonly SqlService Queue = new SqlService(QueueConnectionString);
         private static bool stop = false;
-        private static CompressedRawResourceConverter _compressedRawResourceConverter = new CompressedRawResourceConverter();
         private static long _resourcesTotal = 0L;
         private static Stopwatch _swReport = Stopwatch.StartNew();
         private static Stopwatch _sw = Stopwatch.StartNew();
 
-        public static void Main(string[] args)
+        public static void Main()
         {
             Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
             Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
-            var method = args.Length > 0 ? args[0] : "na";
-            if (method == "setupdb")
+            if (RebuildWorkQueue)
             {
-                SetupDb.Publish(QueueConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
-                SetupDb.Publish(QueueConnectionString, "Fhir.Store.Copy.Database.dacpac");
+                PopulateJobQueue(ResourceType, UnitSize);
             }
-            else
-            {
-                if (RebuildWorkQueue)
-                {
-                    PopulateJobQueue(ResourceType, UnitSize);
-                }
 
-                Export();
-            }
+            Export();
         }
 
         public static void Export()
@@ -162,7 +150,7 @@ retry:
                 foreach (var res in resources)
                 {
                     using var mem = new MemoryStream(res);
-                    strings.Add(_compressedRawResourceConverter.ReadCompressedRawResource(mem).Result);
+                    strings.Add(CompressedRawResourceConverterCopy.ReadCompressedRawResource(mem));
                 }
             }
 

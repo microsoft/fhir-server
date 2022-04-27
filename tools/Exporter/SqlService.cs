@@ -9,18 +9,64 @@ using System.Data.SqlClient;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
-    internal class SqlService : SqlUtils.SqlService
+    internal class SqlService
     {
         private byte _partitionId;
         private object _partitioinLocker = new object();
         private byte _numberOfPartitions;
         private byte _queueType = 1;
 
-        internal SqlService(string connectionString)
-            : base(connectionString, null)
+        private string _connectionString;
+
+        public SqlService(string connectionString)
         {
+            _connectionString = connectionString;
             _numberOfPartitions = 16;
             _partitionId = 0;
+        }
+
+        public string ConnectionString => _connectionString;
+
+        public void LogEvent(string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
+        {
+            using var conn = new SqlConnection(ConnectionString);
+            conn.Open();
+            using var command = new SqlCommand("dbo.LogEvent", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            command.Parameters.AddWithValue("@Process", process);
+            command.Parameters.AddWithValue("@Status", status);
+            command.Parameters.AddWithValue("@Mode", mode);
+            if (target != null)
+            {
+                command.Parameters.AddWithValue("@Target", target);
+            }
+
+            if (action != null)
+            {
+                command.Parameters.AddWithValue("@Action", action);
+            }
+
+            if (rows != null)
+            {
+                command.Parameters.AddWithValue("@Rows", rows);
+            }
+
+            if (startTime != null)
+            {
+                command.Parameters.AddWithValue("@Start", startTime);
+            }
+
+            if (text != null)
+            {
+                command.Parameters.AddWithValue("@Text", text);
+            }
+
+            command.ExecuteNonQuery();
+        }
+
+        public string ShowConnectionString()
+        {
+            var builder = new SqlConnectionStringBuilder(ConnectionString);
+            return $"server={builder.DataSource};database={builder.InitialCatalog}";
         }
 
         private byte GetNextPartitionId(int? thread)
