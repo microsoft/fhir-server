@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core
     /// </summary>
     public partial class VersionSpecificModelInfoProvider : IModelInfoProvider
     {
-        public Version SupportedVersion { get; } = new Version(ModelInfo.Version);
+        public VersionInfo SupportedVersion { get; } = new VersionInfo(ModelInfo.Version);
 
         public IStructureDefinitionSummaryProvider StructureDefinitionSummaryProvider { get; } = new PocoStructureDefinitionSummaryProvider();
 

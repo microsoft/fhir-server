@@ -152,4 +152,8 @@
   <data name="ExecutionTimeoutExpired" xml:space="preserve">
     <value>The exection timeout expired from SQL Server.</value>
   </data>
+  <data name="InvalidResourceTypeValue" xml:space="preserve">
+    <value>Invalid resource type '{0}'.</value>
+    <comment>{0} is the invalid value found.</comment>
+  </data>
 </root>

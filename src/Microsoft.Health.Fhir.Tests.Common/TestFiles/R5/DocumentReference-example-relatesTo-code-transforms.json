@@ -72,8 +72,17 @@
     },
     "relatesTo": [
         {
-            "code": "transforms",
-            "target": { "reference": "DocumentReference/example-transforms" }
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://hl7.org/fhir/document-relationship-type",
+                        "code": "transforms"
+                    }
+                ]
+            },
+            "target": {
+                "reference": "DocumentReference/example-transforms"
+            }
         }
     ],
     "description": "Physical",

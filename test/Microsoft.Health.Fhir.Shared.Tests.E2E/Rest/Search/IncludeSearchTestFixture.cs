@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Extensions;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Task = System.Threading.Tasks.Task;
 
@@ -130,11 +131,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             PatiPatient = await CreatePatient("Pati", Practitioner, Organization, "1990-01-01");
             PatientWithDeletedOrganization = await CreatePatient("NonExisting", Practitioner, DeletedOrganization, "1990-01-01");
 
-            DeletedDevice = (await TestFhirClient.CreateAsync(new Device
+            var resource = new Device
             {
                 Meta = meta,
-                Patient = new ResourceReference($"Patient/{PatientWithDeletedOrganization.Id}"),
-            })).Resource;
+            }.AssignPatient(new ResourceReference($"Patient/{PatientWithDeletedOrganization.Id}"));
+
+            DeletedDevice = (await TestFhirClient.CreateAsync(resource)).Resource;
 
             await TestFhirClient.DeleteAsync(DeletedOrganization);
             await TestFhirClient.DeleteAsync(DeletedDevice);

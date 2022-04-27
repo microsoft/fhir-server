@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <summary>
         /// Add a parameter to the SQL command.
         /// </summary>
+        /// <typeparam name="T">The CLR column type</typeparam>
         /// <param name="column">The table column the parameter is bound to.</param>
         /// <param name="value">The parameter value.</param>
         /// <param name="includeInHash">
