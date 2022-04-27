@@ -110,12 +110,6 @@
             },
             "effectiveDate": {
                 "start": "2013-03-15"
-            },
-            "authorization": {
-                "identifier": {
-                    "system": "http://ema.europa.eu/example/manufacturingAuthorisationReferenceNumber",
-                    "value": "1324TZ"
-                }
             }
         }
     ]

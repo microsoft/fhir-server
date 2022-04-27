@@ -88,5 +88,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="expression">The expression to visit.</param>
         /// <param name="context">The input</param>
         TOutput VisitSortParameter(SortExpression expression, TContext context);
+
+        /// <summary>
+        /// Visits the <see cref="InExpression"/>.
+        /// </summary>
+        /// <typeparam name="T">Type of the value included in the expression.</typeparam>
+        /// <param name="expression">The expression to visit.</param>
+        /// <param name="context">The input</param>
+        TOutput VisitIn<T>(InExpression<T> expression, TContext context);
     }
 }

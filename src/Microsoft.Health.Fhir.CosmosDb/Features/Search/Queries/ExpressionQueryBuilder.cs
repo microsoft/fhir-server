@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -15,11 +14,10 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
-    internal class ExpressionQueryBuilder : IExpressionVisitorWithInitialContext<ExpressionQueryBuilder.Context, object>, ICosmosExpressionVisitor<ExpressionQueryBuilder.Context, object>
+    internal class ExpressionQueryBuilder : IExpressionVisitorWithInitialContext<ExpressionQueryBuilder.Context, object>
     {
         private static readonly Dictionary<BinaryOperator, string> BinaryOperatorMapping = new Dictionary<BinaryOperator, string>()
         {
@@ -192,6 +190,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         /// <summary>
         /// Implemented in <see cref="FhirCosmosSearchService"/>
         /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        /// <param name="context">The input</param>
         public object VisitChained(ChainedExpression expression, Context context)
         {
             // Chained expressions require additional queries and are handled in the FhirCosmosSearchService.
@@ -350,17 +350,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .Append(paramName);
         }
 
-        public object VisitIn(InExpression expression, Context context)
+        public object VisitIn<T>(InExpression<T> expression, Context context)
         {
             _queryBuilder.AppendFormat("ARRAY_CONTAINS([");
 
-            var values = expression.Values.ToArray();
-            for (int i = 0; i < values.Length; i++)
+            var values = expression.Values;
+            for (int i = 0; i < values.Count; i++)
             {
                 string paramName = AddParameterMapping(values[i]);
                 _queryBuilder.Append(paramName);
 
-                if (i < values.Length - 1)
+                if (i < values.Count - 1)
                 {
                     _queryBuilder.Append(',');
                 }

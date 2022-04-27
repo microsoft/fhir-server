@@ -54,6 +54,7 @@
     <None Remove="TestFiles\Normative\Medication.json" />
     <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameter-Patient-foo.json" />
+    <None Remove="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <None Remove="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
     <None Remove="TestFiles\Normative\SearchParameterInvalidBase.json" />
@@ -62,6 +63,7 @@
     <None Remove="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <None Remove="TestFiles\Normative\SearchParameterMissingType.json" />
     <None Remove="TestFiles\Normative\SearchParameterUnsupportedType.json" />
+    <None Remove="TestFiles\Normative\Specimen.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-careplan.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
@@ -265,6 +267,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidType.json" />
@@ -273,6 +276,7 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingBase.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Specimen.json" />
     <EmbeddedResource Include="TestFiles\R4\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
@@ -364,6 +368,7 @@
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R5\Organization.json" />
+    <EmbeddedResource Include="TestFiles\R5\Specimen.json" />
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />

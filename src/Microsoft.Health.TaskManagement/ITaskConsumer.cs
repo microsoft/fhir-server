@@ -14,6 +14,11 @@ namespace Microsoft.Health.TaskManagement
     public interface ITaskConsumer
     {
         /// <summary>
+        /// Ensure the sql db initialized.
+        /// </summary>
+        bool EnsureInitializedAsync();
+
+        /// <summary>
         /// Complete the task with result.
         /// </summary>
         /// <param name="taskId">Id for the task</param>

@@ -1,0 +1,35 @@
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "inputFormat",
+      "valueString": "application/fhir+ndjson"
+    },
+    {
+      "name": "mode",
+      "valueString": "InitialLoad"
+    },
+    {
+      "name": "input",
+      "part": [
+        {
+          "name": "type",
+          "valueString": "Encounter"
+        },
+        {
+          "name": "url",
+          "valueUri": "https://syntheadatastore.blob.core.windows.net/store2/0059fe72-e91d-4e05-be6e-869e0ca8a20b/Encounter.ndjson"
+        }
+      ]
+    },
+    {
+      "name": "storageDetail",
+      "part": [
+        {
+          "name": "type",
+          "valueString": "azure-blob"
+        }
+      ]
+    }
+  ]
+}

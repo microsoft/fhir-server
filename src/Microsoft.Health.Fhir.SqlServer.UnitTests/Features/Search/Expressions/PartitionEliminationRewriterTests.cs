@@ -15,13 +15,17 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
+    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.CompartmentSearch)]
     public class PartitionEliminationRewriterTests
     {
         private const short AllergyIntolerance = 1;
@@ -65,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 .AcceptVisitor(_rewriter);
 
             Assert.Equal(
-                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _id (StringEquals TokenCode 'foo')) (Param _type (Or (StringEquals TokenCode 'AllergyIntolerance') (StringEquals TokenCode 'Claim') (StringEquals TokenCode 'Condition') (StringEquals TokenCode 'Device') (StringEquals TokenCode 'DiagnosticReport')))))",
+                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _id (StringEquals TokenCode 'foo')) (Param _type (TokenCode IN (AllergyIntolerance, Claim, Condition, Device, DiagnosticReport)))))",
                 rewritten.ToString());
         }
 
