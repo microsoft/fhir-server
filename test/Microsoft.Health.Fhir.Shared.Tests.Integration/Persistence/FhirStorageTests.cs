@@ -1039,7 +1039,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             if (setRawResourceNull)
             {
-                rawResource = new RawResource(FhirResourceFormat.Json, isMetaSet: true);
+                var rawSubstitute = Substitute.For<RawResource>();
+                rawResource = rawSubstitute;
             }
             else
             {

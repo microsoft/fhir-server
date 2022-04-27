@@ -21,13 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IsMetaSet = isMetaSet;
         }
 
-        internal RawResource(FhirResourceFormat format, bool isMetaSet)
-        {
-            Data = null;
-            Format = format;
-            IsMetaSet = isMetaSet;
-        }
-
         [JsonConstructor]
         protected RawResource()
         {
