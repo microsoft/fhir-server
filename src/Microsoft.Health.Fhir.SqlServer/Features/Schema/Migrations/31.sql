@@ -455,13 +455,11 @@ CREATE TABLE dbo.Resource (
     RawResource          VARBINARY (MAX) NOT NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT RawResourceLength CHECK (DATALENGTH(RawResource) > 49)
 );
 
 ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
-
-ALTER TABLE dbo.Resource
-    ADD CONSTRAINT RawResourceLength CHECK (DATALENGTH(RawResource) > 49);
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version
     ON dbo.Resource(ResourceTypeId, ResourceId, Version)
