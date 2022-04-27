@@ -125,7 +125,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
                 var taskInfoTable = VLatest.TaskInfo;
-                if (!sqlDataReader.Read())
+
+                if (!await sqlDataReader.ReadAsync(cancellationToken))
                 {
                     return null;
                 }

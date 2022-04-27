@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
-                        _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(resourceTypeId)}: {resourceTypeId}; decompressed length: {rawResource.Length}");
+                        _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
 
                         // See if this resource is a continuation token candidate and increase the count
                         if (isMatch)

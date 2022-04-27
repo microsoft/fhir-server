@@ -12,7 +12,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -207,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     // and there is an entry in the list of updates with a delete status then it indicates
                     // the search parameter was deleted before it was added to this instance, and there is no issue
                     // however if there is no indication that the search parameter was deleted, then there is a problem
-                    _logger.LogError(Core.Resources.UnableToUpdateSearchParameter, paramStatus.Uri);
+                    _logger.LogError("Attempt to update SearchParameter {Uri} failed.", paramStatus.Uri);
                 }
             }
 

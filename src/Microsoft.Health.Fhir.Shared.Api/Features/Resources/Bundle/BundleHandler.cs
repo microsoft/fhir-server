@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 entry.Resource is Parameters parametersResource)
             {
                 httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
-                var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(parametersResource));
+                var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(parametersResource));
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
             }
