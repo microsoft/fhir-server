@@ -70,7 +70,7 @@ BEGIN
           ,@@SPID
           ,HostName = host_name()
     
-  SET @EventID = scope_identity()
+  SET @EventId = scope_identity()
 END
     
 -- Restore @@trancount

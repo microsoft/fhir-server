@@ -75,7 +75,6 @@
     <Folder Include="Properties" />
   </ItemGroup>
   <ItemGroup>
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\SwitchPartitionsOut.sql" />
     <None Include="Scripts\Pre-Deployment\PreDeployment.sql">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -87,6 +86,27 @@
     </Build>
     <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\Parameters.sql">
       <Link>Schema Objects\Schemas\dbo\Tables\Parameters.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Types\StringList.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\StringList.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\GetJobs.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetJobs.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\DequeueJob.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\DequeueJob.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\EnqueueJobs.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\EnqueueJobs.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\LogEvent.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\LogEvent.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\PutJobHeartbeat.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutJobHeartbeat.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\PutJobStatus.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutJobStatus.sql</Link>
     </Build>
   </ItemGroup>
   <ItemGroup>
