@@ -54,7 +54,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(encoding, nameof(encoding));
 
-            context.HttpContext.AllowSynchronousIO();
             var request = context.HttpContext.Request;
 
             using (var streamReader = context.ReaderFactory(request.Body, encoding))

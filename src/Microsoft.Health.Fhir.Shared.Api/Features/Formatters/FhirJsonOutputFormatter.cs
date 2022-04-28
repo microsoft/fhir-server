@@ -72,8 +72,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
-            context.HttpContext.AllowSynchronousIO();
-
             HttpResponse response = context.HttpContext.Response;
 
             var elementsSearchParameter = context.HttpContext.GetElementsOrDefault();

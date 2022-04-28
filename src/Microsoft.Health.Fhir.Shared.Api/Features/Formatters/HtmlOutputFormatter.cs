@@ -67,8 +67,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
-            context.HttpContext.AllowSynchronousIO();
-
             var engine = context.HttpContext.RequestServices.GetService<IRazorViewEngine>();
             var tempDataProvider = context.HttpContext.RequestServices.GetService<ITempDataProvider>();
 
