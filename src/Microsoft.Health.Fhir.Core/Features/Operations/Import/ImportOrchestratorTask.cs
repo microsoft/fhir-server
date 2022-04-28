@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.PreprocessCompleted)
                     {
-                        await ExecuteImprotProcessingTaskAsync(cancellationToken);
+                        await ExecuteImportProcessingTaskAsync(cancellationToken);
                         _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.SubTasksCompleted;
                         await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
 
@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(context), cancellationToken);
         }
 
-        private async Task ExecuteImprotProcessingTaskAsync(CancellationToken cancellationToken)
+        private async Task ExecuteImportProcessingTaskAsync(CancellationToken cancellationToken)
         {
             _orchestratorTaskContext.TotalSizeInBytes = _orchestratorTaskContext.TotalSizeInBytes ?? 0;
 
@@ -329,25 +329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 while (_orchestratorTaskContext.RunningTaskIds.Count >= _orchestratorInputData.MaxConcurrentProcessingTaskCount)
                 {
-                    HashSet<string> completedTaskIds = new HashSet<string>();
-                    foreach (string taskId in _orchestratorTaskContext.RunningTaskIds)
-                    {
-                        TaskInfo latestTaskInfo = await _taskManager.GetTaskAsync(taskId, cancellationToken);
-
-                        if (latestTaskInfo.Status == TaskStatus.Completed)
-                        {
-                            CheckTaskResult(latestTaskInfo);
-                            completedTaskIds.Add(taskId);
-                        }
-                    }
-
-                    if (completedTaskIds.Count > 0)
-                    {
-                        _orchestratorTaskContext.RunningTaskIds.RemoveAll(id => completedTaskIds.Contains(id));
-                        await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
-                    }
-
-                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                    await WaitRunningTaskComplete(cancellationToken);
                 }
 
                 (string processingTaskId, long endSequenceId, long blobSizeInBytes) = await CreateNewProcessingTaskAsync(input, cancellationToken);
@@ -361,26 +343,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             while (_orchestratorTaskContext.RunningTaskIds.Count > 0)
             {
-                HashSet<string> completedTaskIds = new HashSet<string>();
-                foreach (string taskId in _orchestratorTaskContext.RunningTaskIds)
-                {
-                    TaskInfo latestTaskInfo = await _taskManager.GetTaskAsync(taskId, cancellationToken);
-
-                    if (latestTaskInfo.Status == TaskStatus.Completed)
-                    {
-                        CheckTaskResult(latestTaskInfo);
-                        completedTaskIds.Add(taskId);
-                    }
-                }
-
-                if (completedTaskIds.Count > 0)
-                {
-                    _orchestratorTaskContext.RunningTaskIds.RemoveAll(id => completedTaskIds.Contains(id));
-                    await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
-                }
-
-                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                await WaitRunningTaskComplete(cancellationToken);
             }
+        }
+
+        private async Task WaitRunningTaskComplete(CancellationToken cancellationToken)
+        {
+            HashSet<string> completedTaskIds = new HashSet<string>();
+            foreach (string taskId in _orchestratorTaskContext.RunningTaskIds)
+            {
+                TaskInfo latestTaskInfo = await _taskManager.GetTaskAsync(taskId, cancellationToken);
+
+                if (latestTaskInfo.Status == TaskStatus.Completed)
+                {
+                    CheckTaskResult(latestTaskInfo);
+                    completedTaskIds.Add(taskId);
+                }
+            }
+
+            if (completedTaskIds.Count > 0)
+            {
+                _orchestratorTaskContext.RunningTaskIds.RemoveAll(id => completedTaskIds.Contains(id));
+                await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
         }
 
         private async Task<(string taskId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingTaskAsync(Models.InputResource input, CancellationToken cancellationToken)
