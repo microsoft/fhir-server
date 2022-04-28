@@ -157,6 +157,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             command.Parameters.AddWithValue("@JobId", unitId);
             command.Parameters.AddWithValue("@Version", version);
             command.Parameters.AddWithValue("@Failed", failed);
+            command.Parameters.AddWithValue("@RequestCancellationOnFailure", true);
             if (resourceCount.HasValue)
             {
                 command.Parameters.AddWithValue("@Data", resourceCount.Value);

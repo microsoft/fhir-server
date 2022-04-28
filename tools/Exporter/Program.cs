@@ -247,11 +247,11 @@ SELECT convert(varchar,UnitId)
             select.Parameters.AddWithValue("@ResourceType", resourceType);
             select.Parameters.AddWithValue("@StartDate", StartDate);
             select.Parameters.AddWithValue("@EndDate", EndDate);
-            using var reader = select.ExecuteReader();
+            using var selectReader = select.ExecuteReader();
             var strings = new List<string>();
-            while (reader.Read())
+            while (selectReader.Read())
             {
-                strings.Add(reader.GetString(0));
+                strings.Add(selectReader.GetString(0));
             }
 
             var queueConn = new SqlConnection(Queue.ConnectionString);
@@ -285,11 +285,18 @@ INSERT INTO @Definitions
                  String
          ) A
 
-EXECUTE dbo.EnqueueJobs @QueueType = 1, @Definitions = @Definitions
+EXECUTE dbo.EnqueueJobs @QueueType = 1, @Definitions = @Definitions, @ForceOneActiveJobGroup = 1
                 ",
                 queueConn)
             { CommandTimeout = 600 };
-            insert.ExecuteNonQuery();
+            using var insertReader = insert.ExecuteReader();
+            var ids = new Dictionary<long, long>();
+            while (insertReader.Read())
+            {
+                ids.Add(insertReader.GetInt64(1), insertReader.GetInt64(0));
+            }
+
+            Console.WriteLine($"Export.{ResourceType}: enqueued={ids.Count} jobs.");
 
             queueConn.Close();
         }

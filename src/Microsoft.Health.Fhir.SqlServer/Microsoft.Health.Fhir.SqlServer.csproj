@@ -48,11 +48,13 @@
     <None Remove="Features\Schema\Sql\Sprocs\EnqueueJobs.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\GetJobs.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\LogEvent.sql" />
+    <None Remove="Features\Schema\Sql\Sprocs\PutJobCancelation.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\PutJobHeartbeat.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\PutJobStatus.sql" />
     <None Remove="Features\Schema\Sql\Tables\EventLog.sql" />
     <None Remove="Features\Schema\Sql\Tables\JobQueue.sql" />
     <None Remove="Features\Schema\Sql\Tables\Parameters.sql" />
+    <None Remove="Features\Schema\Sql\Types\BigintList.sql" />
     <None Remove="Features\Schema\Sql\Types\StringList.sql" />
   </ItemGroup>
 

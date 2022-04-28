@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.PutJobStatus
 GO
-CREATE PROCEDURE dbo.PutJobStatus @QueueType tinyint, @JobId bigint, @Version bigint, @Failed bit, @Data bigint, @FinalResult varchar(max)
+CREATE PROCEDURE dbo.PutJobStatus @QueueType tinyint, @JobId bigint, @Version bigint, @Failed bit, @Data bigint, @FinalResult varchar(max), @RequestCancellationOnFailure bit
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobStatus'
@@ -8,6 +8,7 @@ DECLARE @SP varchar(100) = 'PutJobStatus'
        ,@st datetime = getUTCdate()
        ,@Rows int = 0
        ,@PartitionId tinyint = @JobId % 16
+       ,@GroupId bigint
 
 SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)+' F='+convert(varchar,@Failed)+' R='+isnull(@FinalResult,'NULL')
 
@@ -18,6 +19,7 @@ BEGIN TRY
        ,Data = @Data
        ,Result = @FinalResult
        ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
+       ,@GroupId = GroupId
     WHERE QueueType = @QueueType
       AND PartitionId = @PartitionId
       AND JobId = @JobId
@@ -28,6 +30,9 @@ BEGIN TRY
   IF @Rows = 0
     THROW 50412, 'Precondition failed', 1
   
+  IF @Failed = 1 AND @RequestCancellationOnFailure = 1
+    EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId
+
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH

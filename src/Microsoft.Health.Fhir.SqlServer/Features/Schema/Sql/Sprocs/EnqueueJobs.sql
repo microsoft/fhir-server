@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.EnqueueJobs
 GO
-CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL
+CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
@@ -11,14 +11,19 @@ DECLARE @SP varchar(100) = 'EnqueueJobs'
        ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
        ,@MaxJobId bigint
        ,@Rows int
+       ,@msg varchar(1000)
+       ,@JobIds BigintList
 
 BEGIN TRY
   BEGIN TRANSACTION  
 
   EXECUTE sp_getapplock @Lock, 'Exclusive'
 
-  SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+  IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
+    RAISERROR('There are other active job groups',18,127)
     
+  SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+  
   INSERT INTO dbo.JobQueue
       (
            QueueType
@@ -27,6 +32,7 @@ BEGIN TRY
           ,Definition
           ,DefinitionHash
       )
+    OUTPUT inserted.JobId INTO @JobIds
     SELECT @QueueType
           ,GroupId = isnull(@GroupId,@MaxJobId+1)
           ,JobId
@@ -38,6 +44,8 @@ BEGIN TRY
 
   COMMIT TRANSACTION
 
+  EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
@@ -47,3 +55,4 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+EXECUTE 
