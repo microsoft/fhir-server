@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Store.Export
                 var version = 0L;
                 var retries = 0;
                 var maxRetries = MaxRetries;
-retry:
+            retry:
                 try
                 {
                     Queue.DequeueJob(null, out var _, out unitId, out version, out resourceTypeId, out minId, out maxId);
@@ -262,9 +262,9 @@ SELECT convert(varchar,UnitId)
             create.ExecuteNonQuery();
 
             using var cmd = new SqlCommand("INSERT INTO ##StoreCopyWorkQueue SELECT String FROM @Strings", queueConn) { CommandTimeout = 60 };
-            var resourceIdsParam = new SqlParameter { ParameterName = "@Strings" };
-            resourceIdsParam.AddStringList(strings);
-            cmd.Parameters.Add(resourceIdsParam);
+            var stringListParam = new SqlParameter { ParameterName = "@Strings" };
+            stringListParam.AddStringList(strings);
+            cmd.Parameters.Add(stringListParam);
             cmd.ExecuteNonQuery();
 
             using var insert = new SqlCommand(

@@ -8,7 +8,7 @@ using System.Data;
 using System.Data.SqlClient;
 using Microsoft.SqlServer.Server;
 
-namespace Microsoft.Health.Fhir.Exporter
+namespace Microsoft.Health.Fhir.Store.Export
 {
     public static class SqlParamaterStringExtension
     {
