@@ -17,9 +17,8 @@ CREATE TABLE dbo.EventLog
     ,Rows          bigint               NULL
     ,Milliseconds  int                  NULL
     ,EventText     nvarchar(3500)       NULL
-    ,ParentEventID bigint               NULL
+    ,ParentEventId bigint               NULL
     ,SPID          smallint             NOT NULL
-    ,UserName      varchar(64)          NOT NULL
     ,HostName      varchar(64)          NOT NULL
     ,TraceId       uniqueidentifier     NULL
 
