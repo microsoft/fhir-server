@@ -45,6 +45,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
+        public bool EnsureInitializedAsync()
+        {
+            return _schemaInformation.Current != null;
+        }
+
         public async Task<TaskInfo> CompleteAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -71,32 +76,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<TaskInfo> GetNextMessagesAsync(int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
         {
-            TaskInfo taskInfo = null;
-            try
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                string queueId = _taskHostingConfiguration.QueueId;
+                if (_schemaInformation.Current >= SchemaVersionConstants.RemoveCountForGexNextTaskStoredProcedure)
                 {
-                    string queueId = _taskHostingConfiguration.QueueId;
-                    if (_schemaInformation.Current >= SchemaVersionConstants.RemoveCountForGexNextTaskStoredProcedure)
-                    {
-                        VLatest.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, taskHeartbeatTimeoutThresholdInSeconds);
-                    }
-                    else
-                    {
-                        V28.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, 1, taskHeartbeatTimeoutThresholdInSeconds);
-                    }
-
-                    SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-                    return sqlDataReader.ReadTaskInfo();
+                    VLatest.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, taskHeartbeatTimeoutThresholdInSeconds);
                 }
-            }
-            catch (SqlException e) when (e.Number == 2812)
-            {
-                _logger.LogWarning(e, "Schema is not initialized - {ex.Message}", e.Message);
-            }
+                else
+                {
+                    V28.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, 1, taskHeartbeatTimeoutThresholdInSeconds);
+                }
 
-            return taskInfo;
+                SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                return sqlDataReader.ReadTaskInfo();
+            }
         }
 
         public async Task<TaskInfo> KeepAliveAsync(string taskId, string runId, CancellationToken cancellationToken)

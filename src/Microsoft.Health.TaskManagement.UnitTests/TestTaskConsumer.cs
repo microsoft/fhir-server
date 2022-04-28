@@ -109,5 +109,10 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
             return Task.FromResult<TaskInfo>(taskInfo);
         }
+
+        bool ITaskConsumer.EnsureInitializedAsync()
+        {
+            return true;
+        }
     }
 }
