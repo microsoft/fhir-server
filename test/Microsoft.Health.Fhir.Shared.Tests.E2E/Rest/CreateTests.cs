@@ -263,6 +263,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
+        public async Task GivenAResource_WhenPostingWithIdentifierLongerThan128Characters_ThenBadRequestIsReturned()
+        {
+            var observation = Samples.GetDefaultObservation()
+                .ToPoco<Observation>();
+            observation.Identifier.Add(new Identifier("system", "ReallyLongIdentifierWhichIsLongerThan128CharactersSoThatItWillThrowAnException00000000000000000000000000000000000000000000000000000000"));
+
+            var exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.CreateAsync(observation));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+        }
+
         /// <summary>
         /// Malicious Url Data Source
         /// </summary>
