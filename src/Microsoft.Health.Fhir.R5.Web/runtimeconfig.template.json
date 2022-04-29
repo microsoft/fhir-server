@@ -1,3 +1,6 @@
 {
-    "applyPatches": false
+    "applyPatches": false,
+    "configProperties": {
+        "System.GC.Server": true
+    }
 }
