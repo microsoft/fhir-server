@@ -69,6 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 //     - (ok) Create UnionAllExpression - Mix between MultiaryExpression and CompartmentSearchException?
 //     - (ok) UnionAllExpression is not a multiary exception (keep following original SqlRootExpressionRewriter logic)
 //     - (ok) Some additional changes in CosmosDB will be required
-//     - Alterar SqlQueryGenerator.VisitSqlRoot to start creating multiples CTEs.
-//          - Forces the creation of multiple CTEs, but it'll also allow the aggregation of all them in the end.
+//     - (ok) Alter SqlQueryGenerator.VisitSqlRoot to start creating multiples CTEs.
+//          - (ok) Forces the creation of multiple CTEs, but it'll also allow the aggregation of all them in the end.
 //     - Consider reverting the changes in SearchParamTableExpressionKind, SqlRootExpressionRewriter.TryGetSearchParamTableExpressionQueryGenerator and deleting UnionAllQueryGenerator.

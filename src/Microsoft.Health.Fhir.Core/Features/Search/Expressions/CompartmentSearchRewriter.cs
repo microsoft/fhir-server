@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -108,6 +109,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
                     if (compartmentSearchExpressionsGrouped.Count > 1)
                     {
+                        compartmentSearchExpressionsGrouped.ForEach((e) =>
+                        {
+                            Debug.WriteLine("CSW - Expression: {0}", e.ToString());
+                        });
+
                         return Expression.UnionAll(compartmentSearchExpressionsGrouped);
                     }
                     else if (compartmentSearchExpressions.Count == 1)

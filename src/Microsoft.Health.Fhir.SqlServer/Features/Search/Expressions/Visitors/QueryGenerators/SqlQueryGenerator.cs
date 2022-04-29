@@ -86,9 +86,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions, (sb, tableExpression) =>
                 {
                     // TODO: Fix the cast at this point: Inside the expression there is a multinary AND with a UnionAll and a condition.
-                    if ((tableExpression.Predicate as MultiaryExpression)?.Expressions[0] is UnionAllExpression)
+                    if ((tableExpression.Predicate as IExpressionsContainer)?.Expressions[0] is UnionAllExpression)
                     {
-                        AppendNewSetOfUnionAllTableExpressions(context, tableExpression);
+                        UnionAllExpression unionAllExpression = (UnionAllExpression)((IExpressionsContainer)tableExpression.Predicate).Expressions[0];
+
+                        AppendNewSetOfUnionAllTableExpressions(context, unionAllExpression, tableExpression.QueryGenerator);
                     }
                     else
                     {
@@ -1012,16 +1014,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, SearchParamTableExpression tableExpression)
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionAllExpression unionAllExpression, SearchParamTableExpressionQueryGenerator queryGenerator)
         {
-            Expression multiaryExpression = ((MultiaryExpression)tableExpression.Predicate).Expressions[0];
-            UnionAllExpression unionAllExpression = (UnionAllExpression)multiaryExpression;
-
             // Iterate through all expressions and create a unique CTE to each one.
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             foreach (Expression innerExpression in unionAllExpression.Expressions)
             {
-                var searchParamExpression = new SearchParamTableExpression(tableExpression.QueryGenerator, innerExpression, SearchParamTableExpressionKind.UnionAll);
+                IExpressionsContainer expressionsContainer = (IExpressionsContainer)innerExpression;
+
+                var searchParamExpression = new SearchParamTableExpression(
+                    queryGenerator,
+                    innerExpression,
+                    SearchParamTableExpressionKind.UnionAll);
+
                 searchParamExpression.AcceptVisitor(this, context);
             }
 

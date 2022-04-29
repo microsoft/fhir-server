@@ -25,45 +25,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public virtual TOutput VisitMultiary(MultiaryExpression expression, TContext context)
         {
-            TOutput result = default;
-            for (var i = 0; i < expression.Expressions.Count; i++)
-            {
-                var operand = expression.Expressions[i];
-                TOutput currentResult = operand.AcceptVisitor(this, context);
-                if (i == 0)
-                {
-                    result = currentResult;
-                }
-                else
-                {
-                    result = _outputAggregator(result, currentResult);
-                }
-            }
-
-            return result;
+            return VisitIExpressionsContainer(expression, context);
         }
 
         public virtual TOutput VisitUnionAll(UnionAllExpression expression, TContext context)
         {
-            // TODO: FERNFE - This is a copy of the method above.
-            // If it works as expected, I would refactor VisitMultiary and VisitUnionAll to use a single piece of code.
-
-            TOutput result = default;
-            for (var i = 0; i < expression.Expressions.Count; i++)
-            {
-                var operand = expression.Expressions[i];
-                TOutput currentResult = operand.AcceptVisitor(this, context);
-                if (i == 0)
-                {
-                    result = currentResult;
-                }
-                else
-                {
-                    result = _outputAggregator(result, currentResult);
-                }
-            }
-
-            return result;
+            return VisitIExpressionsContainer(expression, context);
         }
 
         public virtual TOutput VisitNotExpression(NotExpression expression, TContext context) => expression.Expression.AcceptVisitor(this, context);
@@ -87,5 +54,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public virtual TOutput VisitSortParameter(SortExpression expression, TContext context) => default;
 
         public virtual TOutput VisitIn<T>(InExpression<T> expression, TContext context) => default;
+
+        private TOutput VisitIExpressionsContainer(IExpressionsContainer expression, TContext context)
+        {
+            TOutput result = default;
+            for (var i = 0; i < expression.Expressions.Count; i++)
+            {
+                var operand = expression.Expressions[i];
+                TOutput currentResult = operand.AcceptVisitor(this, context);
+                if (i == 0)
+                {
+                    result = currentResult;
+                }
+                else
+                {
+                    result = _outputAggregator(result, currentResult);
+                }
+            }
+
+            return result;
+        }
     }
 }
