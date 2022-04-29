@@ -15,6 +15,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
@@ -372,6 +373,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
 
                         _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(resourceTypeId)}: {resourceTypeId}; decompressed length: {rawResource.Length}");
+
+                        if (string.IsNullOrEmpty(rawResource))
+                        {
+                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId));
+                            _requestContextAccessor.IndicatePartialContent();
+                        }
 
                         // See if this resource is a continuation token candidate and increase the count
                         if (isMatch)
