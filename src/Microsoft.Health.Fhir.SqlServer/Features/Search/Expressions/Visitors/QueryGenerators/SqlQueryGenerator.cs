@@ -85,12 +85,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions, (sb, tableExpression) =>
                 {
-                    // TODO: Fix the cast at this point: Inside the expression there is a multinary AND with a UnionAll and a condition.
-                    if ((tableExpression.Predicate as IExpressionsContainer)?.Expressions[0] is UnionAllExpression)
+                    if (ContainsUnionAllExpression(tableExpression, out UnionAllExpression unionAllExpression, out SearchParamTableExpression allOtherRenainingExpressions))
                     {
-                        UnionAllExpression unionAllExpression = (UnionAllExpression)((IExpressionsContainer)tableExpression.Predicate).Expressions[0];
-
                         AppendNewSetOfUnionAllTableExpressions(context, unionAllExpression, tableExpression.QueryGenerator);
+
+                        if (allOtherRenainingExpressions != null)
+                        {
+                            StringBuilder.AppendLine(", ");
+                            AppendNewTableExpression(sb, allOtherRenainingExpressions, ++_tableExpressionCounter, context);
+                        }
                     }
                     else
                     {
@@ -331,6 +334,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return null;
         }
 
+        private static bool ContainsUnionAllExpression(SearchParamTableExpression tableExpression, out UnionAllExpression unionAllExpression, out SearchParamTableExpression allOtherRemainingExpressions)
+        {
+            unionAllExpression = null;
+            allOtherRemainingExpressions = null;
+
+            IExpressionsContainer expressionContainer = tableExpression.Predicate as IExpressionsContainer;
+            UnionAllExpression tempUnionAllExpression = expressionContainer?.Expressions.SingleOrDefault(e => e is UnionAllExpression) as UnionAllExpression;
+
+            if (tempUnionAllExpression != null)
+            {
+                IReadOnlyList<Expression> allOtherExpression = expressionContainer.Expressions.Where(e => e != tempUnionAllExpression).ToList();
+
+                if (allOtherExpression.Any())
+                {
+                    allOtherRemainingExpressions = new SearchParamTableExpression(
+                        tableExpression.QueryGenerator,
+                        new MultiaryExpression(MultiaryOperator.And, allOtherExpression),
+                        SearchParamTableExpressionKind.Normal,
+                        chainLevel: tableExpression.ChainLevel + 1);
+                }
+
+                unionAllExpression = tempUnionAllExpression;
+
+                return true;
+            }
+
+            return false;
+        }
+
         private void HandleParamTableUnionAll(SearchParamTableExpression searchParamTableExpression)
         {
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
@@ -396,8 +428,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
-                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2");
-                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append("Sid2");
+                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T1");
+                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append("Sid1");
                 }
             }
 
@@ -1020,8 +1052,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             foreach (Expression innerExpression in unionAllExpression.Expressions)
             {
-                IExpressionsContainer expressionsContainer = (IExpressionsContainer)innerExpression;
-
                 var searchParamExpression = new SearchParamTableExpression(
                     queryGenerator,
                     innerExpression,
@@ -1080,6 +1110,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             int FindImpl(int currentIndex)
             {
+                // Due the UnionAll expressions, the number of the current index used to create new CTEs can be greater than
+                // the number of expressions in '_rootExpression.SearchParamTableExpressions'.
+                if (currentIndex > _rootExpression.SearchParamTableExpressions.Count)
+                {
+                    return currentIndex - 1;
+                }
+
                 SearchParamTableExpression currentSearchParamTableExpression = _rootExpression.SearchParamTableExpressions[currentIndex];
                 switch (currentSearchParamTableExpression.Kind)
                 {
