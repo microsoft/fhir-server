@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.IO;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
@@ -172,22 +173,51 @@ namespace Microsoft.Health.Fhir.Store.Export
             command.ExecuteNonQuery();
         }
 
-        internal IEnumerable<byte[]> GetData(short resourceTypeId, long minId, long maxId)
+        internal IEnumerable<byte[]> GetDataBytes(short resourceTypeId, long minId, long maxId)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var cmd = new SqlCommand(
                 @$"
-SELECT RawResource FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId AND IsHistory = 0",
+--SELECT RawResource FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId AND IsHistory = 0
+
+DECLARE @p1 smallint = @ResourceTypeId
+       ,@p4 bigint = @MaxId
+       ,@p5 bigint = @MinId
+       ,@p0 int = @Top
+
+SELECT TOP (@p0) 
+       r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(1 AS bit) AS IsMatch, CAST(0 AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
+  FROM dbo.Resource r
+  WHERE ResourceTypeId = @p1
+    AND 1 = 1
+    AND 1 = 1
+    AND ResourceSurrogateId <= @p4
+    AND ResourceSurrogateId >= @p5
+    AND IsHistory = 0
+    AND IsDeleted = 0
+  ORDER BY 
+       r.ResourceTypeId ASC, r.ResourceSurrogateId ASC
+                 ",
                 conn)
             { CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@MinId", minId);
             cmd.Parameters.AddWithValue("@MaxId", maxId);
+            cmd.Parameters.AddWithValue("@Top", 80000);
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                yield return reader.GetSqlBytes(0).Value;
+                yield return reader.GetSqlBytes(10).Value;
+            }
+        }
+
+        internal IEnumerable<string> GetDataStrings(short resourceTypeId, long minId, long maxId)
+        {
+            foreach (var res in GetDataBytes(resourceTypeId, minId, maxId))
+            {
+                using var mem = new MemoryStream(res);
+                yield return CompressedRawResourceConverterCopy.ReadCompressedRawResource(mem);
             }
         }
     }

@@ -42,6 +42,10 @@ namespace Microsoft.Health.Fhir.Store.Export
         private static Stopwatch _swReport = Stopwatch.StartNew();
         private static Stopwatch _sw = Stopwatch.StartNew();
 
+        private static Stopwatch _database = new Stopwatch();
+        private static Stopwatch _unzip = new Stopwatch();
+        private static Stopwatch _blob = new Stopwatch();
+
         public static void Main()
         {
             Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
@@ -67,7 +71,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             }
 
             Task.WaitAll(tasks.ToArray());
-            Console.WriteLine($"Export.{ResourceType}.threads={Threads}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"Export.{ResourceType}.threads={Threads}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
         }
 
         private static void Export(int thread)
@@ -100,7 +104,7 @@ namespace Microsoft.Health.Fhir.Store.Export
                         {
                             if (_swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                             {
-                                Console.WriteLine($"Export.{ResourceType}.threads={Threads}.Writes={WritesEnabled}.Decompress={DecompressEnabled}.Reads={ReadsEnabled}: Resources={_resourcesTotal} secs={(int)_sw.Elapsed.TotalSeconds} speed={(int)(_resourcesTotal / _sw.Elapsed.TotalSeconds)} resources/sec");
+                                Console.WriteLine($"Export.{ResourceType}.threads={Threads}.Writes={WritesEnabled}.Decompress={DecompressEnabled}.Reads={ReadsEnabled}: Resources={_resourcesTotal} secs={(int)_sw.Elapsed.TotalSeconds} speed={(int)(_resourcesTotal / _sw.Elapsed.TotalSeconds)} resources/sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
                                 _swReport.Restart();
                             }
                         }
@@ -143,28 +147,36 @@ namespace Microsoft.Health.Fhir.Store.Export
                 return 0;
             }
 
-            var resources = Source.GetData(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
+            _database.Start();
+            var resources = Source.GetDataBytes(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
+            _database.Stop();
+
             var strings = new List<string>();
             if (DecompressEnabled)
             {
+                _unzip.Start();
                 foreach (var res in resources)
                 {
                     using var mem = new MemoryStream(res);
                     strings.Add(CompressedRawResourceConverterCopy.ReadCompressedRawResource(mem));
                 }
+
+                _unzip.Stop();
             }
 
             if (WritesEnabled)
             {
+                _blob.Start();
                 WriteBatchOfLines(container, strings, $"{ResourceType}-{minId}-{maxId}.ndjson");
+                _blob.Stop();
             }
 
-            return resources.Count;
+            return strings.Count;
         }
 
         private static void WriteBatchOfLines(BlobContainerClient container, IEnumerable<string> batch, string blobName)
         {
-retry:
+        retry:
             try
             {
                 using var stream = container.GetBlockBlobClient(blobName).OpenWrite(true);
@@ -233,7 +245,8 @@ SELECT convert(varchar,UnitId)
           FROM dbo.Resource
           WHERE ResourceTypeId = (SELECT ResourceTypeId FROM dbo.ResourceType B WHERE B.Name = @ResourceType)
             AND IsHistory = 0
-            AND ResourceSurrogateId BETWEEN datediff_big(millisecond,'0001-01-01',@StartDate) * 80000 AND datediff_big(millisecond,'0001-01-01',@EndDate) * 80000 + (80000 - 1)
+            AND ResourceSurrogateId >= datediff_big(millisecond,'0001-01-01',@StartDate) * 80000 
+            AND ResourceSurrogateId < datediff_big(millisecond,'0001-01-01',@EndDate) * 80000
        ) A
   GROUP BY
        UnitId
@@ -245,8 +258,12 @@ SELECT convert(varchar,UnitId)
             { CommandTimeout = 3600 };
             select.Parameters.AddWithValue("@UnitSize", unitSize);
             select.Parameters.AddWithValue("@ResourceType", resourceType);
-            select.Parameters.AddWithValue("@StartDate", StartDate);
-            select.Parameters.AddWithValue("@EndDate", EndDate);
+            var sd = new SqlParameter("@StartDate", System.Data.SqlDbType.DateTime2);
+            sd.Value = StartDate;
+            select.Parameters.Add(sd);
+            var ed = new SqlParameter("@EndDate", System.Data.SqlDbType.DateTime2);
+            ed.Value = EndDate;
+            select.Parameters.Add(ed);
             using var selectReader = select.ExecuteReader();
             var strings = new List<string>();
             while (selectReader.Read())
@@ -299,6 +316,25 @@ EXECUTE dbo.EnqueueJobs @QueueType = 1, @Definitions = @Definitions, @ForceOneAc
             Console.WriteLine($"Export.{ResourceType}: enqueued={ids.Count} jobs.");
 
             queueConn.Close();
+        }
+
+        private static long LastUpdatedToResourceSurrogateId(DateTime dateTime)
+        {
+            long id = dateTime.TruncateToMillisecond().Ticks << 3;
+
+            Debug.Assert(id >= 0, "The ID should not have become negative");
+            return id;
+        }
+
+        private static DateTime ResourceSurrogateIdToLastUpdated(long resourceSurrogateId)
+        {
+            var dateTime = new DateTime(resourceSurrogateId >> 3, DateTimeKind.Utc);
+            return dateTime.TruncateToMillisecond();
+        }
+
+        private static DateTime TruncateToMillisecond(this DateTime dt)
+        {
+            return dt;
         }
     }
 }
