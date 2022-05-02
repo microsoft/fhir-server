@@ -46,16 +46,50 @@ namespace Microsoft.Health.Fhir.Store.Export
         private static Stopwatch _unzip = new Stopwatch();
         private static Stopwatch _blob = new Stopwatch();
 
-        public static void Main()
+        public static void Main(string[] args)
         {
             Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
-            Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
-            if (RebuildWorkQueue)
+            if (args.Length > 0 && args[0] == "noqueue")
             {
-                PopulateJobQueue(ResourceType, UnitSize);
+                ExportNoQueue();
+            }
+            else
+            {
+                Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
+                if (RebuildWorkQueue)
+                {
+                    PopulateJobQueue(ResourceType, UnitSize);
+                }
+
+                Export();
+            }
+        }
+
+        public static void ExportNoQueue()
+        {
+            var startId = LastUpdatedToResourceSurrogateId(StartDate);
+            var endId = LastUpdatedToResourceSurrogateId(EndDate);
+            var resourceTypeId = Source.GetResourceTypeId(ResourceType);
+            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, UnitSize).ToList();
+            Console.WriteLine($"ExportNoQueue.{ResourceType}: ranges={ranges.Count}.");
+            var container = GetContainer(BlobConnectionString, BlobContainerName);
+            foreach (var range in ranges)
+            {
+                Export(resourceTypeId, container, range.StartId, range.EndId);
+                if (_swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                {
+                    lock (_swReport)
+                    {
+                        if (_swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                        {
+                            Console.WriteLine($"ExportNoQueue.{ResourceType}.threads={Threads}.Writes={WritesEnabled}.Decompress={DecompressEnabled}.Reads={ReadsEnabled}: Resources={_resourcesTotal} secs={(int)_sw.Elapsed.TotalSeconds} speed={(int)(_resourcesTotal / _sw.Elapsed.TotalSeconds)} resources/sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
+                            _swReport.Restart();
+                        }
+                    }
+                }
             }
 
-            Export();
+            Console.WriteLine($"ExportNoQueue.{ResourceType}.threads={Threads}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
         }
 
         public static void Export()
@@ -231,45 +265,11 @@ namespace Microsoft.Health.Fhir.Store.Export
 
         private static void PopulateJobQueue(string resourceType, int unitSize)
         {
-            using var sourceConn = new SqlConnection(Source.ConnectionString);
-            sourceConn.Open();
-            using var select = new SqlCommand(
-                @"
-SELECT convert(varchar,UnitId)
-       +';'+convert(varchar,(SELECT ResourceTypeId FROM dbo.ResourceType B WHERE B.Name = @ResourceType))
-       +';'+convert(varchar,min(ResourceSurrogateId))
-       +';'+convert(varchar,max(ResourceSurrogateId))
-       +';'+convert(varchar,count(*))
-  FROM (SELECT UnitId = isnull(convert(int, (row_number() OVER (ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0)
-              ,ResourceSurrogateId
-          FROM dbo.Resource
-          WHERE ResourceTypeId = (SELECT ResourceTypeId FROM dbo.ResourceType B WHERE B.Name = @ResourceType)
-            AND IsHistory = 0
-            AND ResourceSurrogateId >= datediff_big(millisecond,'0001-01-01',@StartDate) * 80000 
-            AND ResourceSurrogateId < datediff_big(millisecond,'0001-01-01',@EndDate) * 80000
-       ) A
-  GROUP BY
-       UnitId
-  ORDER BY
-       UnitId
-  OPTION (MAXDOP 8) -- 0 7:17 -- 1 29:14 -- 8 6:43
-                 ",
-                sourceConn)
-            { CommandTimeout = 3600 };
-            select.Parameters.AddWithValue("@UnitSize", unitSize);
-            select.Parameters.AddWithValue("@ResourceType", resourceType);
-            var sd = new SqlParameter("@StartDate", System.Data.SqlDbType.DateTime2);
-            sd.Value = StartDate;
-            select.Parameters.Add(sd);
-            var ed = new SqlParameter("@EndDate", System.Data.SqlDbType.DateTime2);
-            ed.Value = EndDate;
-            select.Parameters.Add(ed);
-            using var selectReader = select.ExecuteReader();
-            var strings = new List<string>();
-            while (selectReader.Read())
-            {
-                strings.Add(selectReader.GetString(0));
-            }
+            var startId = LastUpdatedToResourceSurrogateId(StartDate);
+            var endId = LastUpdatedToResourceSurrogateId(EndDate);
+            var resourceTypeId = Source.GetResourceTypeId(resourceType);
+            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, unitSize);
+            var strings = ranges.Select(_ => $"{_.UnitId};{resourceTypeId};{_.StartId};{_.EndId};{_.ResourceCount}").ToList();
 
             var queueConn = new SqlConnection(Queue.ConnectionString);
             queueConn.Open();

@@ -47,6 +47,8 @@
     <None Remove="Features\Schema\Sql\Sprocs\DequeueJob.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\EnqueueJobs.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\GetJobs.sql" />
+    <None Remove="Features\Schema\Sql\Sprocs\GetResourcesByTypeAndSurrogateIdRange.sql" />
+    <None Remove="Features\Schema\Sql\Sprocs\GetResourceSurrogateIdRanges.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\LogEvent.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\PutJobCancelation.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\PutJobHeartbeat.sql" />

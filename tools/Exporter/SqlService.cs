@@ -177,39 +177,47 @@ namespace Microsoft.Health.Fhir.Store.Export
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand(
-                @$"
---SELECT RawResource FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId AND IsHistory = 0
-
-DECLARE @p1 smallint = @ResourceTypeId
-       ,@p4 bigint = @MaxId
-       ,@p5 bigint = @MinId
-       ,@p0 int = @Top
-
-SELECT TOP (@p0) 
-       r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(1 AS bit) AS IsMatch, CAST(0 AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
-  FROM dbo.Resource r
-  WHERE ResourceTypeId = @p1
-    AND 1 = 1
-    AND 1 = 1
-    AND ResourceSurrogateId <= @p4
-    AND ResourceSurrogateId >= @p5
-    AND IsHistory = 0
-    AND IsDeleted = 0
-  ORDER BY 
-       r.ResourceTypeId ASC, r.ResourceSurrogateId ASC
-                 ",
-                conn)
-            { CommandTimeout = 600 };
+            using var cmd = new SqlCommand("dbo.GetResourcesByTypeAndSurrogateIdRange", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-            cmd.Parameters.AddWithValue("@MinId", minId);
-            cmd.Parameters.AddWithValue("@MaxId", maxId);
-            cmd.Parameters.AddWithValue("@Top", 80000);
+            cmd.Parameters.AddWithValue("@StartId", minId);
+            cmd.Parameters.AddWithValue("@EndId", maxId);
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                yield return reader.GetSqlBytes(10).Value;
+                yield return reader.GetSqlBytes(0).Value;
             }
+        }
+
+        internal IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize)
+        {
+            using var conn = new SqlConnection(ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("dbo.GetResourceSurrogateIdRanges", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 3600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@StartId", startId);
+            cmd.Parameters.AddWithValue("@EndId", endId);
+            cmd.Parameters.AddWithValue("@UnitSize", unitSize);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                yield return (reader.GetInt32(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3));
+            }
+        }
+
+        internal short GetResourceTypeId(string resourceType)
+        {
+            using var conn = new SqlConnection(ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("SELECT ResourceTypeId FROM dbo.ResourceType B WHERE B.Name = @ResourceType", conn) { CommandTimeout = 60 };
+            cmd.Parameters.AddWithValue("@ResourceType", resourceType);
+            using var reader = cmd.ExecuteReader();
+            var resourceTypeId = (short)-1;
+            while (reader.Read())
+            {
+                resourceTypeId = reader.GetInt16(0);
+            }
+
+            return resourceTypeId;
         }
 
         internal IEnumerable<string> GetDataStrings(short resourceTypeId, long minId, long maxId)
