@@ -27,7 +27,7 @@ BEGIN TRY
          UnitId
     ORDER BY
          UnitId
-    OPTION (MAXDOP 8) -- 0 7:17 -- 1 29:14 -- 8 6:43
+    OPTION (MAXDOP 8) -- results for db with 2B resources, selecting entire id range, (maxdop runtime mm:ss) = (0 7:17) (1 29:14) (8 6:43)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
