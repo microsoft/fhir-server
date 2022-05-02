@@ -128,7 +128,6 @@ namespace Microsoft.Health.Fhir.Store.Export
                     {
                         var container = GetContainer(BlobConnectionString, BlobContainerName);
                         var resources = Export(resourceTypeId.Value, container, long.Parse(minId), long.Parse(maxId));
-                        Interlocked.Add(ref _resourcesTotal, resources);
                         Queue.CompleteJob(unitId, false, version, resources);
                     }
 
@@ -204,6 +203,8 @@ namespace Microsoft.Health.Fhir.Store.Export
                 WriteBatchOfLines(container, strings, $"{ResourceType}-{minId}-{maxId}.ndjson");
                 _blob.Stop();
             }
+
+            Interlocked.Add(ref _resourcesTotal, strings.Count);
 
             return strings.Count;
         }
