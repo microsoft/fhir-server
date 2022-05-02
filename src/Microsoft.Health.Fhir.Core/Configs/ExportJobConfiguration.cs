@@ -31,7 +31,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
             Justification = "Set from an environment variable.")]
         public string StorageAccountUri { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Sets the maximum number of running export jobs allowed across all instances.
+        /// </summary>
         public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
+
+        /// <summary>
+        /// Sets the maximum number of running export jobs allowed on one instance.
+        /// </summary>
+        public ushort MaximumNumberOfJobsPerInstance { get; set; } = 1;
 
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);
 

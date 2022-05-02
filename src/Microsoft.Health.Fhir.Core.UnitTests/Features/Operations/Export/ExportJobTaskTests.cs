@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
@@ -83,7 +82,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     capturedSearch = true;
@@ -112,7 +112,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     capturedSearch = true;
@@ -140,7 +141,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
             bool capturedSearch = false;
@@ -149,7 +151,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     capturedSearch = true;
@@ -177,7 +180,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
             bool capturedSearch = false;
@@ -186,7 +190,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     capturedSearch = true;
@@ -214,7 +219,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
             bool firstCapturedSearch = false;
@@ -224,7 +230,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     firstCapturedSearch = true;
@@ -238,7 +245,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(newContinuationToken), KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     secondCapturedSearch = true;
@@ -267,7 +275,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
             bool firstCapturedSearch = false;
@@ -277,7 +286,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     firstCapturedSearch = true;
@@ -291,7 +301,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(newContinuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     secondCapturedSearch = true;
@@ -347,7 +358,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x => CreateSearchResult());
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
@@ -368,7 +380,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns<SearchResult>(x =>
                 {
                     throw new Exception();
@@ -400,7 +413,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     _contextAccessor.RequestContext.BundleIssues.Add(issue);
@@ -411,50 +425,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.True(_exportJobRecord.Issues.Contains(issue));
-        }
-
-        [Theory]
-        [InlineData(0, null)] // Because it fails to perform the 1st search, the file will not be created.
-        [InlineData(1, "")] // Because it fails to perform the 2nd search, the file is created but nothing is committed.
-        [InlineData(2, "")] // Because it fails to perform the 3rd search, the file is created but nothing is committed.
-        [InlineData(3, "012")] // Because it fails to perform the 4th search, the file is created and the first 3 pages are committed.
-        [InlineData(4, "012")] // Because it fails to perform the 5th search, the file is created and the first 3 pages are committed.
-        [InlineData(5, "012")] // Because it fails to perform the 6th search, the file is created and the first 3 pages are committed.
-        [InlineData(6, "012345")] // Because it fails to perform the 7th search, the file is created and the first 6 pages are committed.
-        public async Task GivenVariousNumberOfSuccessfulSearch_WhenExecuted_ThenItShouldCommitAtScheduledPage(int numberOfSuccessfulPages, string expectedIds)
-        {
-            var exportJobRecordWithCommitPages = CreateExportJobRecord(
-                numberOfPagesPerCommit: 3);
-            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
-
-            int numberOfCalls = 0;
-
-            _searchService.SearchAsync(
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
-                .Returns(x =>
-                {
-                    int count = numberOfCalls++;
-
-                    if (count == numberOfSuccessfulPages)
-                    {
-                        throw new Exception();
-                    }
-
-                    return CreateSearchResult(
-                        new[]
-                        {
-                            CreateSearchResultEntry(count.ToString(CultureInfo.InvariantCulture), "Patient"),
-                        },
-                        continuationToken: "ct");
-                });
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-
-            Assert.Equal(expectedIds, actualIds);
         }
 
         [Fact]
@@ -471,7 +441,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     int count = numberOfCalls++;
@@ -491,10 +462,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-
             // All of the ids should be present since it should have committed one last time after all the results were exported.
-            Assert.Equal("01234", actualIds);
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 3, 0, 1);
         }
 
         [Fact]
@@ -533,7 +502,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                Arg.Any<string>(),
                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-               _cancellationToken)
+               _cancellationToken,
+               true)
                .Returns(x => CreateSearchResult());
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
@@ -605,13 +575,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
-            int numberOfCalls = 0;
-            int numberOfSuccessfulPages = 2;
+            int numberOfCalls = 1;
+            int numberOfSuccessfulPages = 3;
 
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     int count = numberOfCalls;
@@ -632,9 +603,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-
-            Assert.Equal("01", exportedIds);
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 2);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
             Assert.NotNull(_exportJobRecord.Progress);
 
             // We create a new export job task here to simulate the worker picking up the "old" export job record
@@ -647,8 +617,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             numberOfSuccessfulPages = 5;
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("23", exportedIds);
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 4, 3);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
         }
 
         [Fact]
@@ -658,7 +628,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     numberOfCalls++;
@@ -676,7 +647,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     numberOfCompartmentCalls++;
@@ -693,10 +665,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(4, numberOfCalls);
             Assert.Equal(8, numberOfCompartmentCalls);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("1234", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("12345678", exportedIds);
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 4);
+            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 8);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -708,7 +678,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     numberOfCalls++;
@@ -726,7 +697,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     numberOfCompartmentCalls++;
@@ -738,9 +710,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(4, numberOfCalls);
             Assert.Equal(4, numberOfCompartmentCalls);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("1234", exportedIds);
-            Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 4);
+            Assert.Equal(4, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -760,7 +731,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     numberOfCalls++;
@@ -780,11 +752,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     numberOfCompartmentCalls++;
-                    if (numberOfCompartmentCalls % numberOfSuccessfulCompartmentPages == 0)
+                    if (numberOfCompartmentCalls - numberOfSuccessfulCompartmentPages == 0)
                     {
                         throw new Exception();
                     }
@@ -799,11 +772,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
             Assert.Null(exportedIds);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("123", exportedIds);
+            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 4);
 
             Assert.NotNull(_exportJobRecord.Progress);
             Assert.NotNull(_exportJobRecord.Progress.SubSearch);
@@ -816,10 +788,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
             Assert.Equal("12", exportedIds);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-5.ndjson");
 
             // 4 was in the commit buffer when the crash happened, and 5 is the one that triggered the crash.
             // Since the 'id' is based on the number of times the mock method has been called these values never get exported.
@@ -843,7 +815,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     numberOfCalls++;
@@ -863,11 +836,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     numberOfCompartmentCalls++;
-                    if (numberOfCompartmentCalls % numberOfSuccessfulCompartmentPages == 0)
+                    if (numberOfCompartmentCalls - numberOfSuccessfulCompartmentPages == 0)
                     {
                         throw new Exception();
                     }
@@ -882,11 +856,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
             Assert.Equal("1", exportedIds);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("123", exportedIds);
+            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 4);
 
             Assert.NotNull(_exportJobRecord.Progress);
             Assert.NotNull(_exportJobRecord.Progress.SubSearch);
@@ -902,11 +875,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             numberOfCalls = 1;
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-
+            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Patient + "-2.ndjson");
             Assert.Equal("2", exportedIds);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-5.ndjson");
 
             // 4 was in the commit buffer when the crash happened, and 5 is the one that triggered the crash.
             // Since the 'id' is based on the number of times the mock method has been called these values never get exported.
@@ -927,7 +899,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
@@ -943,9 +916,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
             Assert.Equal("0", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(EncounterFileName);
             Assert.Equal("1", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
@@ -965,7 +938,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     return CreateSearchResult(
@@ -980,7 +954,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2.Split(',');
@@ -996,7 +971,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
             Assert.Equal("0", exportedIds);
             Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
 
@@ -1015,7 +990,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 null,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     searchCallsMade++;
@@ -1058,9 +1034,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
             Assert.Equal("1", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(EncounterFileName);
             Assert.Equal("1", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
@@ -1074,11 +1050,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("34", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
-            Assert.Equal("34", exportedIds);
-            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 4, 3, -1);
+            CheckAllSingleIdFiles(KnownResourceTypes.Encounter, 4, 3, -1);
+            Assert.Equal(4, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -1105,7 +1079,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
@@ -1124,7 +1099,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                  {
                      string parentId = x.ArgAt<string>(1);
@@ -1137,11 +1113,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
             Assert.Equal("12", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("12", exportedIds);
-            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
+            Assert.Equal("1", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-2.ndjson");
+            Assert.Equal("2", exportedIds);
+            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -1171,7 +1149,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
@@ -1191,7 +1170,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string parentId = x.ArgAt<string>(1);
@@ -1204,11 +1184,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("123", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("123", exportedIds);
-            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 3);
+            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 3);
+            Assert.Equal(6, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
 
@@ -1240,7 +1218,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string[] ids;
@@ -1276,7 +1255,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string parentId = x.ArgAt<string>(1);
@@ -1289,9 +1269,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
             Assert.Equal("1", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
             Assert.Equal("1", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
@@ -1305,11 +1285,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("23", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("23", exportedIds);
-            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 3, 2);
+            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 3, 2);
+            Assert.Equal(4, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -1338,7 +1316,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
@@ -1357,7 +1336,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     string parentId = x.ArgAt<string>(1);
@@ -1375,11 +1355,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("123", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
-            Assert.Equal("123", exportedIds);
-            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 3);
+            CheckAllSingleIdFiles(KnownResourceTypes.Encounter, 3);
+            Assert.Equal(6, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -1423,7 +1401,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     return CreateSearchResult(new[]
@@ -1448,7 +1427,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await anonymizedExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedValue = inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string exportedValue = inMemoryDestinationClient.GetExportedData(PatientFileName);
 
             Assert.Equal("anonymized-resource", exportedValue);
             Assert.True(capturedSearch);
@@ -1485,7 +1464,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     return CreateSearchResult(new[]
@@ -1526,7 +1506,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     return CreateSearchResult(
@@ -1538,7 +1519,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string actualIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
 
             Assert.Equal("1", actualIds);
             Assert.Equal(containerName, _inMemoryDestinationClient.ConnectedContainer);
@@ -1556,7 +1537,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     return CreateSearchResult(
@@ -1574,8 +1556,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
             string uriSuffix = "/" + dateTime + "_" + _exportJobRecord.Id + "-1.ndjson";
 
-            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(KnownResourceTypes.Patient + uriSuffix, UriKind.Relative));
-            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(KnownResourceTypes.Observation + uriSuffix, UriKind.Relative));
+            string patientIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Patient + uriSuffix);
+            string observationIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + uriSuffix);
 
             Assert.Equal("1", patientIds);
             Assert.Equal("2", observationIds);
@@ -1614,7 +1596,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     var type = x[0] as string;
@@ -1646,9 +1629,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            string encounterIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
+            string patientIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
+            string observationIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
+            string encounterIds = _inMemoryDestinationClient.GetExportedData(EncounterFileName);
 
             Assert.True(checkedObservation);
             Assert.True(checkedPatient);
@@ -1671,7 +1654,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                          new List<Tuple<string, string>>()
                          {
                              new Tuple<string, string>("status", "final"),
-                             new Tuple<string, string>("subject", "Patient/1"),
+                             new Tuple<string, string>("subject", "Patient/2"),
                          }),
                      new ExportJobFilter(
                          KnownResourceTypes.Patient,
@@ -1694,7 +1677,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     var type = x[0] as string;
@@ -1714,7 +1698,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            CreateSearchResultEntry("1", type),
+                            CreateSearchResultEntry("2", type),
                         });
                 });
 
@@ -1723,7 +1707,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     var type = x[2] as string;
@@ -1755,19 +1740,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            string encounterIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 2);
+            string observationIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
+            string encounterIds = _inMemoryDestinationClient.GetExportedData(EncounterFileName);
 
             Assert.True(checkedObservation);
             Assert.True(checkedPatient);
             Assert.True(checkedCompartmentPatient);
             Assert.True(checkedOther);
 
-            Assert.Equal("11", patientIds);
             Assert.Equal("1", observationIds);
             Assert.Equal("1", encounterIds);
-            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(4, _inMemoryDestinationClient.ExportedDataFileCount);
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
@@ -1781,7 +1765,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                          new List<Tuple<string, string>>()
                          {
                              new Tuple<string, string>("status", "final"),
-                             new Tuple<string, string>("subject", "Patient/1"),
+                             new Tuple<string, string>("subject", "Patient/2"),
                          }),
                      new ExportJobFilter(
                          KnownResourceTypes.Patient,
@@ -1810,7 +1794,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     var type = x[0] as string;
@@ -1830,7 +1815,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            CreateSearchResultEntry("1", type),
+                            CreateSearchResultEntry("2", type),
                         });
                 });
 
@@ -1840,7 +1825,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     var type = x[2] as string;
@@ -1890,7 +1876,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                Arg.Any<string>(),
                Arg.Any<string>(),
                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-               _cancellationToken)
+               _cancellationToken,
+               true)
                .Returns(x =>
                {
                    var type = x[2] as string;
@@ -1915,16 +1902,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                    return CreateSearchResult(
                        new[]
                        {
-                            CreateSearchResultEntry("1", type),
+                            CreateSearchResultEntry("2", type),
                        });
                });
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            string encounterIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
-            string deviceIds = _inMemoryDestinationClient.GetExportedData(new Uri(KnownResourceTypes.Device + ".ndjson", UriKind.Relative));
+            string observationIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
 
             Assert.True(checkedObservation);
             Assert.True(checkedPatient);
@@ -1932,13 +1916,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(checkedEncounter);
 
             // Patient is visited twice (top level and compartment search) so two ids are recorded
-            Assert.Equal("11", patientIds);
+            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 2);
             Assert.Equal("1", observationIds);
 
             // Encounter is visited twice (before and after the exception) so two ids are recorded
-            Assert.Equal("11", encounterIds);
+            CheckAllSingleIdFiles(KnownResourceTypes.Encounter, 2);
 
-            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(5, _inMemoryDestinationClient.ExportedDataFileCount);
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
@@ -1962,7 +1946,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await RunTypeFilterTest(filters, $"{KnownResourceTypes.Observation}");
 
-            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string observationIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
 
             Assert.Equal("2", observationIds);
             Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
@@ -2000,7 +1984,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     var type = x[0] as string;
@@ -2025,7 +2010,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
+                _cancellationToken,
+                true)
                 .Returns(x =>
                 {
                     var type = x[2] as string;
@@ -2089,7 +2075,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IExportDestinationClient exportDestinationClient = null,
             IScoped<IAnonymizerFactory> anonymizerFactory = null)
         {
-            _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceElement>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceElement>(0).Instance.Value.ToString()));
+            _resourceToByteArraySerializer.StringSerialize(Arg.Any<ResourceElement>()).Returns(x => x.ArgAt<ResourceElement>(0).Instance.Value.ToString());
             _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId))));
 
             _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -2155,6 +2141,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                 return _lastExportJobOutcome;
             });
+        }
+
+        private void CheckAllSingleIdFiles(string resourceType, int numExpectedFiles, int offset = 1, int idOffset = 0)
+        {
+            for (int count = offset; count <= numExpectedFiles; count++)
+            {
+                string data = _inMemoryDestinationClient.GetExportedData(resourceType + "-" + (count + idOffset) + ".ndjson");
+                Assert.Equal(count.ToString(), data);
+            }
         }
     }
 }

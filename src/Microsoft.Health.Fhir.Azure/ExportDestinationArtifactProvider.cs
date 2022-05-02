@@ -8,9 +8,10 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using EnsureThat;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -22,12 +23,12 @@ namespace Microsoft.Health.Fhir.Azure
     {
         private const string AnonymizationContainer = "anonymization";
 
-        private IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
+        private IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
-        private CloudBlobClient _blobClient;
+        private BlobServiceClient _blobClient;
 
         public ExportDestinationArtifactProvider(
-            IExportClientInitializer<CloudBlobClient> exportClientInitializer,
+            IExportClientInitializer<BlobServiceClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));
@@ -47,14 +48,14 @@ namespace Microsoft.Health.Fhir.Azure
             string eTag = blobLocation.Length > 1 ? blobLocation[1] : null;
             eTag = AddDoubleQuotesIfMissing(eTag);
 
-            CloudBlobClient blobClient = await ConnectAsync(cancellationToken);
-            CloudBlobContainer container = blobClient.GetContainerReference(AnonymizationContainer);
+            BlobServiceClient blobClient = await ConnectAsync(cancellationToken);
+            BlobContainerClient container = blobClient.GetBlobContainerClient(AnonymizationContainer);
             if (!await container.ExistsAsync(cancellationToken))
             {
                 throw new FileNotFoundException(message: Resources.AnonymizationContainerNotFound);
             }
 
-            CloudBlob blob = container.GetBlobReference(blobName);
+            BlobClient blob = container.GetBlobClient(blobName);
             if (await blob.ExistsAsync(cancellationToken))
             {
                 if (CheckConfigurationIsTooLarge(blob))
@@ -64,18 +65,17 @@ namespace Microsoft.Health.Fhir.Azure
 
                 if (string.IsNullOrEmpty(eTag))
                 {
-                    await blob.DownloadToStreamAsync(targetStream, cancellationToken);
+                    await blob.DownloadToAsync(targetStream, cancellationToken);
                 }
                 else
                 {
-                    AccessCondition condition = AccessCondition.GenerateIfMatchCondition(eTag);
-                    var blobRequestOptions = new BlobRequestOptions();
-                    var operationContext = new OperationContext();
+                    var blobDownloadToOptions = new BlobDownloadToOptions();
+                    blobDownloadToOptions.Conditions.IfMatch = new ETag(eTag);
                     try
                     {
-                        await blob.DownloadToStreamAsync(targetStream, accessCondition: condition, blobRequestOptions, operationContext, cancellationToken);
+                        await blob.DownloadToAsync(targetStream, blobDownloadToOptions, cancellationToken);
                     }
-                    catch (StorageException ex)
+                    catch (RequestFailedException ex)
                     {
                         throw new AnonymizationConfigurationFetchException(ex.Message, ex);
                     }
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Azure
             return $"\"{eTag}\"";
         }
 
-        private async Task<CloudBlobClient> ConnectAsync(CancellationToken cancellationToken)
+        private async Task<BlobServiceClient> ConnectAsync(CancellationToken cancellationToken)
         {
             if (_blobClient == null)
             {
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Azure
             return _blobClient;
         }
 
-        private static bool CheckConfigurationIsTooLarge(CloudBlob blob) =>
-            blob.Properties.Length > 1 * 1024 * 1024; // Max content length is 1 MB
+        private static bool CheckConfigurationIsTooLarge(BlobClient blob) =>
+            blob.GetProperties().Value.ContentLength > 1 * 1024 * 1024; // Max content length is 1 MB
     }
 }
