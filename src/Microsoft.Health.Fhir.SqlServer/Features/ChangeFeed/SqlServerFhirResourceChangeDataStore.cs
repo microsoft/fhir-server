@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation(ex, "The operation to get resource changes has been canceled.");
+                _logger.LogInformation(ex, Resources.GetRecordsAsyncOperationIsCanceled);
                 throw;
             }
             catch (SqlException ex)
@@ -152,13 +152,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     case SqlErrorCodes.TimeoutExpired:
                         throw new TimeoutException(ex.Message, ex);
                     default:
-                        _logger.LogError(ex, "A SQL exception occurred when fetching resource changes from SQL database.Error number is {ErrorNumber}.", ex.Number);
+                        _logger.LogError(ex, string.Format(Resources.SqlExceptionOccurredWhenFetchingResourceChanges, ex.Number));
                         throw;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred when fetching resource changes from SQL database.");
+                _logger.LogError(ex, Resources.ExceptionOccurredWhenFetchingResourceChanges);
                 throw;
             }
         }

@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         {
             Interlocked.Increment(ref _currentPeriodRejectedCount);
 
-            _logger.LogWarning("The maximum number of concurrent API calls on this instance was reached.Limit is {Limit}. Requests in flight {Requests}", _concurrentRequestLimit, _requestsInFlight);
+            _logger.LogWarning(Resources.TooManyConcurrentRequests + " Limit is {Limit}. Requests in flight {Requests}", _concurrentRequestLimit, _requestsInFlight);
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 

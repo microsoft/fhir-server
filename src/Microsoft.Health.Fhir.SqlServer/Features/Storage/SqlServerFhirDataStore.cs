@@ -649,7 +649,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
-                            _logger.LogError("The supplied version {WeakETag} did not match.", weakETag);
+                            _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
                             throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
                         default:
