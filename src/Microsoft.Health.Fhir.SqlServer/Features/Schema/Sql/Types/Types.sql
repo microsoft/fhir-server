@@ -1,4 +1,9 @@
-﻿CREATE TYPE dbo.BulkResourceWriteClaimTableType_1 AS TABLE
+﻿CREATE TYPE dbo.BigintList AS TABLE
+(
+    Id                  bigint              NOT NULL PRIMARY KEY
+)
+
+CREATE TYPE dbo.BulkResourceWriteClaimTableType_1 AS TABLE
 (
     Offset              int                 NOT NULL,
     ClaimTypeId         tinyint             NOT NULL,
@@ -261,6 +266,11 @@ CREATE TYPE dbo.SearchParamTableType_1 AS TABLE
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
     IsPartiallySupported bit NOT NULL
+)
+
+CREATE TYPE dbo.StringList AS TABLE
+(
+    String varchar(max)
 )
 
 CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE
