@@ -13,36 +13,49 @@ DECLARE @SP varchar(100) = 'EnqueueJobs'
        ,@Rows int
        ,@msg varchar(1000)
        ,@JobIds BigintList
+       ,@InputRows int
 
 BEGIN TRY
-  BEGIN TRANSACTION  
+  DECLARE @Input TABLE (DefinitionHash varbinary(20) PRIMARY KEY, Definition varchar(max))
+  INSERT INTO @Input SELECT DefinitionHash = hashbytes('SHA1',String), Definition = String FROM @Definitions
+  SET @InputRows = @@rowcount
 
-  EXECUTE sp_getapplock @Lock, 'Exclusive'
-
-  IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
-    RAISERROR('There are other active job groups',18,127)
-    
-  SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+  INSERT INTO @JobIds
+    SELECT JobId
+      FROM @Input A
+           JOIN dbo.JobQueue B ON B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5
   
-  INSERT INTO dbo.JobQueue
-      (
-           QueueType
-          ,GroupId
-          ,JobId
-          ,Definition
-          ,DefinitionHash
-      )
-    OUTPUT inserted.JobId INTO @JobIds
-    SELECT @QueueType
-          ,GroupId = isnull(@GroupId,@MaxJobId+1)
-          ,JobId
-          ,Definition
-          ,DefinitionHash
-      FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY substring(String,1,1)), DefinitionHash = hashbytes('SHA1',String), Definition = String FROM @Definitions) A
-      WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
-  SET @Rows = @@rowcount
+  IF @@rowcount < @InputRows
+  BEGIN
+    BEGIN TRANSACTION  
 
-  COMMIT TRANSACTION
+    EXECUTE sp_getapplock @Lock, 'Exclusive'
+
+    IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
+      RAISERROR('There are other active job groups',18,127)
+
+    SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+  
+    INSERT INTO dbo.JobQueue
+        (
+             QueueType
+            ,GroupId
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+        )
+      OUTPUT inserted.JobId INTO @JobIds
+      SELECT @QueueType
+            ,GroupId = isnull(@GroupId,@MaxJobId+1)
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+        FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY substring(Definition,1,1)), * FROM @Input) A
+        WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
+    SET @Rows = @@rowcount
+
+    COMMIT TRANSACTION
+  END
 
   EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
 
