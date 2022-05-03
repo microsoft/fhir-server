@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.GetResourceSurrogateIdRanges
 GO
-CREATE PROCEDURE dbo.GetResourceSurrogateIdRanges @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @UnitSize int
+CREATE PROCEDURE dbo.GetResourceSurrogateIdRanges @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @UnitSize int, @NumberOfRanges int = 100
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourceSurrogateIdRanges'
@@ -9,6 +9,8 @@ DECLARE @SP varchar(100) = 'GetResourceSurrogateIdRanges'
                            +' E='+isnull(convert(varchar,@EndId),'NULL')
                            +' U='+isnull(convert(varchar,@UnitSize),'NULL')
        ,@st datetime = getUTCdate()
+       ,@IntStartId bigint
+       ,@IntEndId bigint
 
 BEGIN TRY
   SELECT UnitId
@@ -17,17 +19,21 @@ BEGIN TRY
         ,count(*)
     FROM (SELECT UnitId = isnull(convert(int, (row_number() OVER (ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0)
                 ,ResourceSurrogateId
-            FROM dbo.Resource
-            WHERE ResourceTypeId = @ResourceTypeId
-              AND IsHistory = 0
-              AND ResourceSurrogateId >= @StartId
-              AND ResourceSurrogateId < @EndId
+            FROM (SELECT TOP (@UnitSize * @NumberOfRanges)
+                         ResourceSurrogateId
+                    FROM dbo.Resource
+                    WHERE ResourceTypeId = @ResourceTypeId
+                      AND ResourceSurrogateId >= @StartId
+                      AND ResourceSurrogateId < @EndId
+                    ORDER BY
+                         ResourceSurrogateId
+                 ) A
          ) A
     GROUP BY
          UnitId
     ORDER BY
          UnitId
-    OPTION (MAXDOP 8) -- results for db with 2B resources, selecting entire id range, (maxdop runtime mm:ss) = (0 7:17) (1 29:14) (8 6:43)
+    OPTION (MAXDOP 1)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
@@ -37,3 +43,19 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+--set nocount on
+--DECLARE @Ranges TABLE (UnitId int, MinId bigint, MaxId bigint, Cnt int)
+--DECLARE @MaxId bigint = 0
+--       ,@msg varchar(1000)
+--       ,@Loop int = 0
+
+--WHILE @MaxId IS NOT NULL AND @Loop < 1000
+--BEGIN
+--  DELETE FROM @Ranges
+--  INSERT INTO @Ranges
+--    EXECUTE GetResourceSurrogateIdRanges 96, @MaxId, 9e18, 100000
+--  SET @MaxId = (SELECT TOP 1 MaxId FROM @Ranges ORDER BY MaxId DESC) + 1
+--  SET @msg = 'Loop='+convert(varchar,@Loop)+' MaxId='+convert(varchar,@MaxId)
+--  RAISERROR(@msg,0,1) WITH NOWAIT
+--  SET @Loop += 1
+--END
