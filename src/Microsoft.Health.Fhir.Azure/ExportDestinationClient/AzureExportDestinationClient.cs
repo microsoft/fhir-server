@@ -65,22 +65,33 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             await CreateContainerAsync(_blobClient, containerId);
         }
 
-        private async Task CreateContainerAsync(BlobServiceClient blobClient, string containerId)
+        private Task CreateContainerAsync(BlobServiceClient blobServiceClient, string containerName)
         {
-            _blobContainer = blobClient.GetBlobContainerClient(containerId);
-
             try
             {
-                await _blobContainer.CreateIfNotExistsAsync();
-            }
-            catch (Exception se)
-            {
-                _logger.LogWarning(se, se.Message);
+                var blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
 
-                // placeholder
-                HttpStatusCode responseCode = HttpStatusCode.InternalServerError;
-                throw new DestinationConnectionException(se.Message, responseCode);
+                if (!blobContainerClient.Exists())
+                {
+                    blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                    if (!blobContainerClient.Exists())
+                    {
+                        var container = blobServiceClient.CreateBlobContainer(containerName);
+                        Console.WriteLine($"Created container {container.Value.Name}");
+                    }
+                }
+
+                _blobContainer = blobContainerClient;
             }
+            catch
+            {
+#pragma warning disable CA1303 // Do not pass literals as localized parameters
+                Console.WriteLine("Unable to parse stroage reference or connect to storage account.");
+#pragma warning restore CA1303 // Do not pass literals as localized parameters
+                throw;
+            }
+
+            return Task.CompletedTask;
         }
 
         public void WriteFilePart(string fileName, string data)
@@ -114,22 +125,36 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public Uri CommitFile(string fileName)
         {
-            if (_dataBuffers.ContainsKey(fileName))
+retry:
+            try
             {
-                BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
-
-                using var stream = blockBlob.OpenWrite(true);
-                using var writer = new StreamWriter(stream);
-
-                var dataLines = _dataBuffers[fileName];
-                foreach (var line in dataLines)
+                if (_dataBuffers.ContainsKey(fileName))
                 {
-                    writer.WriteLine(line);
+                    BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
+
+                    using var stream = blockBlob.OpenWrite(true);
+                    using var writer = new StreamWriter(stream);
+
+                    var dataLines = _dataBuffers[fileName];
+                    foreach (var line in dataLines)
+                    {
+                        writer.WriteLine(line);
+                    }
+
+                    _dataBuffers.Remove(fileName);
+
+                    return blockBlob.Uri;
+                }
+            }
+            catch (Exception e)
+            {
+                if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine(e);
+                    goto retry;
                 }
 
-                _dataBuffers.Remove(fileName);
-
-                return blockBlob.Uri;
+                throw;
             }
 
             throw new ArgumentException($"Cannot commit none existant file $fileName");

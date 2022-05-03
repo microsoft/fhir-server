@@ -40,6 +40,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _fhirDataStore = fhirDataStore;
         }
 
+        public virtual Task<IEnumerable<byte[]>> GetDataBytes(short resourceTypeId, long minId, long maxId, CancellationToken cancellationToken)
+        {
+            var result = new List<byte[]>();
+            return Task.FromResult(result.AsEnumerable());
+        }
+
+        public virtual Task<IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)>> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize, CancellationToken cancellationToken)
+        {
+            var result = new List<(int UnitId, long StartId, long EndId, int ResourceCount)>();
+            return Task.FromResult(result.AsEnumerable());
+        }
+
+        public virtual Task<short> GetResourceTypeId(string resourceType, CancellationToken cancellationToken)
+        {
+            return Task.FromResult((short)0);
+        }
+
         /// <inheritdoc />
         public async Task<SearchResult> SearchAsync(
             string resourceType,

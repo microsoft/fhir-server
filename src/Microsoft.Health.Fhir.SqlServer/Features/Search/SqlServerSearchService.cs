@@ -97,6 +97,59 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _compressedRawResourceConverter = compressedRawResourceConverter;
         }
 
+        public async override Task<IEnumerable<byte[]>> GetDataBytes(short resourceTypeId, long minId, long maxId, CancellationToken cancellationToken)
+        {
+            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            var conn = sqlConnectionWrapper.SqlConnection;
+            using var cmd = new SqlCommand("dbo.GetResourcesByTypeAndSurrogateIdRange", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@StartId", minId);
+            cmd.Parameters.AddWithValue("@EndId", maxId);
+            using var reader = cmd.ExecuteReader();
+            var sqlBytes = new List<byte[]>();
+            while (reader.Read())
+            {
+                sqlBytes.Add(reader.GetSqlBytes(0).Value);
+            }
+
+            return sqlBytes.AsEnumerable();
+        }
+
+        public async override Task<short> GetResourceTypeId(string resourceType, CancellationToken cancellationToken)
+        {
+            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            var conn = sqlConnectionWrapper.SqlConnection;
+            using var cmd = new SqlCommand("SELECT ResourceTypeId FROM dbo.ResourceType B WHERE B.Name = @ResourceType", conn) { CommandTimeout = 60 };
+            cmd.Parameters.AddWithValue("@ResourceType", resourceType);
+            using var reader = cmd.ExecuteReader();
+            var resourceTypeId = (short)-1;
+            while (reader.Read())
+            {
+                resourceTypeId = reader.GetInt16(0);
+            }
+
+            return resourceTypeId;
+        }
+
+        public async override Task<IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)>> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize, CancellationToken cancellationToken)
+        {
+            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            var conn = sqlConnectionWrapper.SqlConnection;
+            using var cmd = new SqlCommand("dbo.GetResourceSurrogateIdRanges", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 3600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@StartId", startId);
+            cmd.Parameters.AddWithValue("@EndId", endId);
+            cmd.Parameters.AddWithValue("@UnitSize", unitSize);
+            using var reader = cmd.ExecuteReader();
+            var sqlData = new List<(int UnitId, long StartId, long EndId, int ResourceCount)>();
+            while (reader.Read())
+            {
+                sqlData.Add((reader.GetInt32(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3)));
+            }
+
+            return sqlData.AsEnumerable();
+        }
+
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);

@@ -2090,7 +2090,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 anonymizerFactory,
                 Substitute.For<IMediator>(),
-                _contextAccessor,
+                null,
                 NullLogger<ExportJobTask>.Instance);
         }
 

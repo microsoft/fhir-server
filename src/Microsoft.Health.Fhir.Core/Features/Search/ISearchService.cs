@@ -16,6 +16,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// </summary>
     public interface ISearchService
     {
+        public Task<IEnumerable<byte[]>> GetDataBytes(short resourceTypeId, long minId, long maxId, CancellationToken cancellationToken);
+
+        public Task<IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)>> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize, CancellationToken cancellationToken);
+
+        public Task<short> GetResourceTypeId(string resourceType, CancellationToken cancellationToken);
+
         /// <summary>
         /// Searches the resources using the <paramref name="queryParameters"/>.
         /// </summary>
@@ -35,7 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="searchOptions">The options to use during the search.</param>
         /// <param name="cancellationToken">The cancellationToken.</param>
-        /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
         /// <returns>The search result.</returns>
         Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,

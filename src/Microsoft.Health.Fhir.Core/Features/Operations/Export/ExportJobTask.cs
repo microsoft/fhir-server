@@ -5,17 +5,16 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Text;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
@@ -43,12 +42,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IMediator _mediator;
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger _logger;
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
-        private ExportFileManager _fileManager;
+
+        private static bool stop = false;
+        private static long _resourcesTotal = 0L;
+        private static Stopwatch _swReport = Stopwatch.StartNew();
+        private static Stopwatch _sw = Stopwatch.StartNew();
+
+        private static Stopwatch _database = new Stopwatch();
+        private static Stopwatch _unzip = new Stopwatch();
+        private static Stopwatch _blob = new Stopwatch();
+
+        private static int _threads = 1;
+        private static bool _readsEnabled = true;
+        private static bool _writesEnabled = true;
+        private static bool _decompressEnabled = true;
+        private static int _reportingPeriodSec = 30;
+        private ICompressedRawResourceConverter _compressedRawResourceConverter;
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -60,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IResourceDeserializer resourceDeserializer,
             IScoped<IAnonymizerFactory> anonymizerFactory,
             IMediator mediator,
-            RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -71,7 +84,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -83,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportDestinationClient = exportDestinationClient;
             _anonymizerFactory = anonymizerFactory;
             _mediator = mediator;
-            _contextAccessor = contextAccessor;
+            _compressedRawResourceConverter = compressedRawResourceConverter;
             _logger = logger;
         }
 
@@ -94,84 +106,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
-            _fileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
-
-            var existingFhirRequestContext = _contextAccessor.RequestContext;
 
             try
             {
                 ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
+                string resourceType = _exportJobRecord.ResourceType;
 
-                // Add a request context so that bundle issues can be added by the SearchOptionFactory
-                var fhirRequestContext = new FhirRequestContext(
-                    method: "Export",
-                    uriString: "$export",
-                    baseUriString: "$export",
-                    correlationId: _exportJobRecord.Id,
-                    requestHeaders: new Dictionary<string, StringValues>(),
-                    responseHeaders: new Dictionary<string, StringValues>())
+                await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.StorageAccountContainerName);
+
+                var startId = LastUpdatedToResourceSurrogateId(_exportJobRecord.Since.ToDateTimeOffset(
+                    defaultMonth: 1,
+                    defaultDaySelector: (year, month) => 1,
+                    defaultHour: 0,
+                    defaultMinute: 0,
+                    defaultSecond: 0,
+                    defaultFraction: 0.0000000m,
+                    defaultUtcOffset: TimeSpan.Zero).UtcDateTime);
+                var endId = LastUpdatedToResourceSurrogateId(DateTime.Parse("2022-02-27T00:05:21"));
+                using IScoped<ISearchService> searchService = _searchServiceFactory();
+                var resourceTypeId = await searchService.Value.GetResourceTypeId(resourceType, cancellationToken);
+                var ranges = (await searchService.Value.GetSurrogateIdRanges(resourceTypeId, startId, endId, (int)_exportJobConfiguration.RollingFileSizeInMB * 1024, cancellationToken)).ToList(); // Resources are on average 1kb
+                Console.WriteLine($"ExportNoQueue.{_exportJobRecord.ResourceType}: ranges={ranges.Count}.");
+                foreach (var range in ranges)
                 {
-                    IsBackgroundTask = true,
-                };
-
-                _contextAccessor.RequestContext = fhirRequestContext;
-
-                string connectionHash = string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection) ?
-                    string.Empty :
-                    Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
-
-                if (string.IsNullOrEmpty(exportJobRecord.StorageAccountUri))
-                {
-                    if (!string.Equals(exportJobRecord.StorageAccountConnectionHash, connectionHash, StringComparison.Ordinal))
+                    await Export(resourceTypeId, range.StartId, range.EndId, cancellationToken);
+                    if (_swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                     {
-                        throw new DestinationConnectionException("Storage account connection string was updated during an export job.", HttpStatusCode.BadRequest);
+                        lock (_swReport)
+                        {
+                            if (_swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                            {
+                                Console.WriteLine($"ExportNoQueue.{resourceType}.threads={_threads}.Writes={_writesEnabled}.Decompress={_decompressEnabled}.Reads={_readsEnabled}: Resources={_resourcesTotal} secs={(int)_sw.Elapsed.TotalSeconds} speed={(int)(_resourcesTotal / _sw.Elapsed.TotalSeconds)} resources/sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
+                                _swReport.Restart();
+                            }
+                        }
                     }
                 }
-                else
-                {
-                    exportJobConfiguration = new ExportJobConfiguration();
-                    exportJobConfiguration.Enabled = _exportJobConfiguration.Enabled;
-                    exportJobConfiguration.StorageAccountUri = exportJobRecord.StorageAccountUri;
-                }
 
-                if (_exportJobRecord.Filters != null &&
-                    _exportJobRecord.Filters.Count > 0 &&
-                    string.IsNullOrEmpty(_exportJobRecord.ResourceType))
-                {
-                    throw new BadRequestException(Core.Resources.TypeFilterWithoutTypeIsUnsupported);
-                }
-
-                // Connect to export destination using appropriate client.
-                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
-
-                // If we are resuming a job, we can detect that by checking the progress info from the job record.
-                // If it is null, then we know we are processing a new job.
-                if (_exportJobRecord.Progress == null)
-                {
-                    _exportJobRecord.StartTime = Clock.UtcNow;
-                    _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
-                }
-                else
-                {
-                    _exportJobRecord.RestartCount++;
-                }
-
-                // The intial list of query parameters will not have a continutation token. We will add that later if we get one back
-                // from the search result.
-                var queryParametersList = new List<Tuple<string, string>>()
-                {
-                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
-                    Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
-                };
-
-                if (_exportJobRecord.Since != null)
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
-                }
-
-                ExportJobProgress progress = _exportJobRecord.Progress;
-
-                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, cancellationToken);
+                Console.WriteLine($"ExportNoQueue.{resourceType}.threads={_threads}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -235,12 +207,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message + ": " + ex.StackTrace, HttpStatusCode.InternalServerError);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-            }
-            finally
-            {
-                _contextAccessor.RequestContext = existingFhirRequestContext;
             }
         }
 
@@ -250,472 +218,81 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord.EndTime = Clock.UtcNow;
 
             await UpdateJobRecordAsync(cancellationToken);
-            _logger.LogInformation(ExtractExportTaskLoggingMessage());
 
             await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), CancellationToken.None);
         }
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
         {
-            if (_contextAccessor?.RequestContext?.BundleIssues != null)
-            {
-                foreach (OperationOutcomeIssue issue in _contextAccessor.RequestContext.BundleIssues)
-                {
-                    _exportJobRecord.Issues.Add(issue);
-                }
-            }
-
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
                 ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
 
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
-
-                _contextAccessor.RequestContext.BundleIssues.Clear();
             }
         }
 
-        private async Task RunExportSearch(
-            ExportJobConfiguration exportJobConfiguration,
-            ExportJobProgress progress,
-            List<Tuple<string, string>> sharedQueryParametersList,
-            CancellationToken cancellationToken)
+        private async Task<int> Export(short resourceTypeId, long minId, long maxId, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
-            EnsureArg.IsNotNull(progress, nameof(progress));
-            EnsureArg.IsNotNull(sharedQueryParametersList, nameof(sharedQueryParametersList));
-
-            List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
-            if (progress.ContinuationToken != null)
+            if (!_readsEnabled)
             {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
+                return 0;
             }
 
-            var requestedResourceTypes = _exportJobRecord.ResourceType?.Split(',');
-            var filteredResources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (_exportJobRecord.Filters != null)
+            List<byte[]> resources;
+            _database.Start();
+            using IScoped<ISearchService> searchService = _searchServiceFactory();
+            resources = (await searchService.Value.GetDataBytes(resourceTypeId, minId, maxId, cancellationToken)).ToList(); // ToList will fource reading from SQL even when writes are disabled
+            _database.Stop();
+
+            var strings = new List<string>();
+            if (_decompressEnabled)
             {
-                foreach (var filter in _exportJobRecord.Filters)
+                _unzip.Start();
+                foreach (var res in resources)
                 {
-                    filteredResources.Add(filter.ResourceType);
-                }
-            }
-
-            IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
-
-            if (progress.CurrentFilter != null)
-            {
-                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
-            }
-
-            if (_exportJobRecord.Filters != null && _exportJobRecord.Filters.Any(filter => !progress.CompletedFilters.Contains(filter)))
-            {
-                foreach (var filter in _exportJobRecord.Filters)
-                {
-                    if (!progress.CompletedFilters.Contains(filter) &&
-                        requestedResourceTypes != null &&
-                        requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase) &&
-                        (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        progress.SetFilter(filter);
-                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
-                    }
-                }
-            }
-
-            // The unfiltered search should be run if there were no filters specified, there were types requested that didn't have filters for them, or if a Patient/Group level export didn't have filters for Patients.
-            // Examples:
-            // If a patient/group export job with type and type filters is run, but patients aren't in the types requested, the search should be run here but no patients printed to the output
-            // If a patient/group export job with type and type filters is run, and patients are in the types requested and filtered, the search should not be run as patients were searched above
-            // If an export job with type and type filters is run, the search should not be run if all the types were searched above.
-            if (_exportJobRecord.Filters == null ||
-                _exportJobRecord.Filters.Count == 0 ||
-                (_exportJobRecord.ExportType == ExportJobType.All &&
-                !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType))) ||
-                ((_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group) &&
-                !filteredResources.Contains(KnownResourceTypes.Patient)))
-            {
-                if (_exportJobRecord.ExportType == ExportJobType.Patient)
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Patient));
-                }
-                else if (_exportJobRecord.ExportType == ExportJobType.All && requestedResourceTypes != null)
-                {
-                    List<string> resources = new List<string>();
-
-                    foreach (var resource in requestedResourceTypes)
-                    {
-                        if (!filteredResources.Contains(resource))
-                        {
-                            resources.Add(resource);
-                        }
-                    }
-
-                    if (resources.Count > 0)
-                    {
-                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resources.JoinByOrSeparator()));
-                    }
+                    using var mem = new MemoryStream(res);
+                    strings.Add(await _compressedRawResourceConverter.ReadCompressedRawResource(mem));
                 }
 
-                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+                _unzip.Stop();
             }
+
+            if (_writesEnabled)
+            {
+                _blob.Start();
+                WriteBatchOfLines(strings, $"{_exportJobRecord.ResourceType}-{minId}-{maxId}.ndjson");
+                _blob.Stop();
+            }
+
+            Interlocked.Add(ref _resourcesTotal, strings.Count);
+
+            return strings.Count;
         }
 
-        private async Task ProcessFilter(
-            ExportJobConfiguration exportJobConfiguration,
-            ExportJobProgress exportJobProgress,
-            List<Tuple<string, string>> queryParametersList,
-            List<Tuple<string, string>> sharedQueryParametersList,
-            IAnonymizer anonymizer,
-            CancellationToken cancellationToken)
+        private void WriteBatchOfLines(IEnumerable<string> batch, string blobName)
         {
-            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-            foreach (var param in exportJobProgress.CurrentFilter.Parameters)
+            foreach (var resource in batch)
             {
-                filterQueryParametersList.Add(param);
+                _exportDestinationClient.WriteFilePart(blobName, resource);
             }
 
-            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
-
-            exportJobProgress.MarkFilterFinished();
-            await UpdateJobRecordAsync(cancellationToken);
+            _exportDestinationClient.CommitFile(blobName);
         }
 
-        private async Task SearchWithFilter(
-            ExportJobConfiguration exportJobConfiguration,
-            ExportJobProgress progress,
-            string resourceType,
-            List<Tuple<string, string>> queryParametersList,
-            List<Tuple<string, string>> sharedQueryParametersList,
-            IAnonymizer anonymizer,
-            CancellationToken cancellationToken)
+        private static long LastUpdatedToResourceSurrogateId(DateTime dateTime)
         {
-            // Process the export if:
-            // 1. There is continuation token, which means there is more resource to be exported.
-            // 2. There is no continuation token but the page is 0, which means it's the initial export.
-            while (progress.ContinuationToken != null || progress.Page == 0)
-            {
-                SearchResult searchResult = null;
+            long id = dateTime.Ticks << 3;
 
-                // Search and process the results.
-                switch (_exportJobRecord.ExportType)
-                {
-                    case ExportJobType.All:
-                    case ExportJobType.Patient:
-                        using (IScoped<ISearchService> searchService = _searchServiceFactory())
-                        {
-                            searchResult = await searchService.Value.SearchAsync(
-                                resourceType: resourceType,
-                                queryParametersList,
-                                cancellationToken,
-                                true);
-                        }
-
-                        break;
-                    case ExportJobType.Group:
-                        searchResult = await GetGroupPatients(
-                            _exportJobRecord.GroupId,
-                            queryParametersList,
-                            _exportJobRecord.QueuedTime,
-                            cancellationToken);
-                        break;
-                }
-
-                if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
-                {
-                    uint resultIndex = 0;
-                    foreach (SearchResultEntry result in searchResult.Results)
-                    {
-                        // If a job is resumed in the middle of processing patient compartment resources it will skip patients it has already exported compartment information for.
-                        // This assumes the order of the search results is the same every time the same search is performed.
-                        if (progress.SubSearch != null && result.Resource.ResourceId != progress.SubSearch.TriggeringResourceId)
-                        {
-                            resultIndex++;
-                            continue;
-                        }
-
-                        if (progress.SubSearch == null)
-                        {
-                            progress.NewSubSearch(result.Resource.ResourceId);
-                        }
-
-                        await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, anonymizer, cancellationToken);
-                        resultIndex++;
-
-                        progress.ClearSubSearch();
-                    }
-                }
-
-                // Skips processing top level search results if the job only requested resources from the compartments of patients, but didn't want the patients.
-                if (_exportJobRecord.ExportType == ExportJobType.All
-                    || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
-                    || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
-                {
-                    ProcessSearchResults(searchResult.Results, anonymizer);
-                }
-
-                if (searchResult.ContinuationToken == null)
-                {
-                    // No more continuation token, we are done.
-                    break;
-                }
-
-                await ProcessProgressChange(
-                    progress,
-                    queryParametersList,
-                    searchResult.ContinuationToken,
-                    false,
-                    cancellationToken);
-            }
-
-            // Commit one last time for any pending changes.
-            _fileManager.CommitFiles();
+            Debug.Assert(id >= 0, "The ID should not have become negative");
+            return id;
         }
 
-        private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
+        private static DateTime ResourceSurrogateIdToLastUpdated(long resourceSurrogateId)
         {
-            string configurationWithEtag = $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
-
-            return await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationWithEtag, cancellationToken);
-        }
-
-        private async Task RunExportCompartmentSearch(
-            ExportJobConfiguration exportJobConfiguration,
-            ExportJobProgress progress,
-            List<Tuple<string, string>> sharedQueryParametersList,
-            IAnonymizer anonymizer,
-            CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
-            EnsureArg.IsNotNull(progress, nameof(progress));
-            EnsureArg.IsNotNull(sharedQueryParametersList, nameof(sharedQueryParametersList));
-
-            List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
-            if (progress.ContinuationToken != null)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
-            }
-
-            var requestedResourceTypes = _exportJobRecord.ResourceType?.Split(',');
-            var filteredResources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (_exportJobRecord.Filters != null)
-            {
-                foreach (var filter in _exportJobRecord.Filters)
-                {
-                    filteredResources.Add(filter.ResourceType);
-                }
-            }
-
-            if (progress.CurrentFilter != null)
-            {
-                await ProcessFilterForCompartment(progress, queryParametersList, anonymizer, cancellationToken);
-            }
-
-            if (_exportJobRecord.Filters != null)
-            {
-                foreach (var filter in _exportJobRecord.Filters)
-                {
-                    if (!progress.CompletedFilters.Contains(filter) &&
-                        requestedResourceTypes != null &&
-                        requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase))
-                    {
-                        progress.SetFilter(filter);
-                        await ProcessFilterForCompartment(progress, queryParametersList, anonymizer, cancellationToken);
-                    }
-                }
-            }
-
-            if (_exportJobRecord.Filters == null ||
-                _exportJobRecord.Filters.Count == 0 ||
-                !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType)))
-            {
-                if (requestedResourceTypes != null)
-                {
-                    List<string> resources = new List<string>();
-
-                    foreach (var resource in requestedResourceTypes)
-                    {
-                        if (!filteredResources.Contains(resource))
-                        {
-                            resources.Add(resource);
-                        }
-                    }
-
-                    if (resources.Count > 0)
-                    {
-                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resources.JoinByOrSeparator()));
-                    }
-                }
-
-                await SearchCompartmentWithFilter(progress, null, queryParametersList, anonymizer, cancellationToken);
-            }
-        }
-
-        private async Task ProcessFilterForCompartment(
-            ExportJobProgress exportJobProgress,
-            List<Tuple<string, string>> queryParametersList,
-            IAnonymizer anonymizer,
-            CancellationToken cancellationToken)
-        {
-            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-            foreach (var param in exportJobProgress.CurrentFilter.Parameters)
-            {
-                filterQueryParametersList.Add(param);
-            }
-
-            await SearchCompartmentWithFilter(exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, anonymizer, cancellationToken);
-        }
-
-        private async Task SearchCompartmentWithFilter(
-            ExportJobProgress progress,
-            string resourceType,
-            List<Tuple<string, string>> queryParametersList,
-            IAnonymizer anonymizer,
-            CancellationToken cancellationToken)
-        {
-            // Process the export if:
-            // 1. There is continuation token, which means there is more resource to be exported.
-            // 2. There is no continuation token but the page is 0, which means it's the initial export.
-            while (progress.ContinuationToken != null || progress.Page == 0)
-            {
-                SearchResult searchResult = null;
-
-                // Search and process the results.
-                using (IScoped<ISearchService> searchService = _searchServiceFactory())
-                {
-                    searchResult = await searchService.Value.SearchCompartmentAsync(
-                        compartmentType: KnownResourceTypes.Patient,
-                        compartmentId: progress.TriggeringResourceId,
-                        resourceType: resourceType,
-                        queryParametersList,
-                        cancellationToken,
-                        true);
-                }
-
-                ProcessSearchResults(searchResult.Results, anonymizer);
-
-                if (searchResult.ContinuationToken == null)
-                {
-                    // No more continuation token, we are done.
-                    break;
-                }
-
-                await ProcessProgressChange(progress, queryParametersList, searchResult.ContinuationToken, true, cancellationToken);
-            }
-
-            // Commit one last time for any pending changes.
-            _fileManager.CommitFullFiles(_exportJobConfiguration.RollingFileSizeInMB * 1024 * 1024);
-
-            progress.MarkFilterFinished();
-        }
-
-        private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
-        {
-            foreach (SearchResultEntry result in searchResults)
-            {
-                ResourceWrapper resourceWrapper = result.Resource;
-                ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
-
-                if (anonymizer != null)
-                {
-                    try
-                    {
-                        element = anonymizer.Anonymize(element);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new FailedToAnonymizeResourceException(ex.Message, ex);
-                    }
-                }
-
-                // Serialize into NDJson and write to the file.
-                string data = _resourceToByteArraySerializer.StringSerialize(element);
-
-                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
-            }
-        }
-
-        private async Task ProcessProgressChange(
-            ExportJobProgress progress,
-            List<Tuple<string, string>> queryParametersList,
-            string continuationToken,
-            bool onlyCommitFull,
-            CancellationToken cancellationToken)
-        {
-            // Update the continuation token in local cache and queryParams.
-            // We will add or udpate the continuation token in the query parameters list.
-            progress.UpdateContinuationToken(ContinuationTokenConverter.Encode(continuationToken));
-
-            bool replacedContinuationToken = false;
-            for (int index = 0; index < queryParametersList.Count; index++)
-            {
-                if (queryParametersList[index].Item1 == KnownQueryParameterNames.ContinuationToken)
-                {
-                    queryParametersList[index] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
-                    replacedContinuationToken = true;
-                }
-            }
-
-            if (!replacedContinuationToken)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
-            }
-
-            // Commit the changes.
-            if (onlyCommitFull)
-            {
-                _fileManager.CommitFullFiles(_exportJobConfiguration.RollingFileSizeInMB * 1024 * 1024);
-            }
-            else
-            {
-                _fileManager.CommitFiles();
-
-                // Update the job record.
-                await UpdateJobRecordAsync(cancellationToken);
-            }
-        }
-
-        private bool IsAnonymizedExportJob()
-        {
-            return !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
-        }
-
-        private string ExtractExportTaskLoggingMessage()
-        {
-            string id = _exportJobRecord.Id ?? string.Empty;
-            string status = _exportJobRecord.Status.ToString();
-            string queuedTime = _exportJobRecord.QueuedTime.ToString("u") ?? string.Empty;
-            string endTime = _exportJobRecord.EndTime?.ToString("u") ?? string.Empty;
-            long dataSize = _exportJobRecord.Output?.Values.Sum(fileList => fileList.Sum(job => job?.CommittedBytes ?? 0)) ?? 0;
-            bool isAnonymizedExport = IsAnonymizedExportJob();
-
-            return $"Export job completed. Id: {id}, Status {status}, Queued Time: {queuedTime}, End Time: {endTime}, DataSize: {dataSize}, IsAnonymizedExport: {isAnonymizedExport}";
-        }
-
-        private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
-        {
-            if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id || parameter.Item1 == KnownQueryParameterNames.ContinuationToken))
-            {
-                HashSet<string> patientIds = await _groupMemberExtractor.GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
-
-                if (patientIds.Count == 0)
-                {
-                    _logger.LogInformation($"Group {groupId} does not have any patient ids as members.");
-                    return SearchResult.Empty();
-                }
-
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
-            }
-
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
-            {
-                return await searchService.Value.SearchAsync(
-                               resourceType: KnownResourceTypes.Patient,
-                               queryParametersList,
-                               cancellationToken,
-                               true);
-            }
+            var dateTime = new DateTime(resourceSurrogateId >> 3, DateTimeKind.Utc);
+            return dateTime;
         }
     }
 }
