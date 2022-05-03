@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             ExportJobType requestType,
             string resourceType = null,
             PartialDateTime since = null,
+            PartialDateTime till = null,
             string filters = null,
             string groupId = null,
             string containerName = null,
@@ -32,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             ResourceType = resourceType;
 
             Since = since;
+            Till = till;
             Filters = filters;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
@@ -47,6 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string ResourceType { get; }
 
         public PartialDateTime Since { get; }
+
+        public PartialDateTime Till { get; }
 
         public string Filters { get; }
 

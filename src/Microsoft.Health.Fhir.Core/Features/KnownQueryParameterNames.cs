@@ -40,6 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string Since = "_since";
 
+        public const string Till = "_till";
+
         public const string Sort = "_sort";
 
         public const string Summary = "_summary";

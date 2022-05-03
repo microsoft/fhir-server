@@ -69,6 +69,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Since = "since";
 
+        public const string Till = "till";
+
         public const string FailureCount = "failureCount";
 
         public const string StorageAccountConnectionHash = "storageAccountConnectionHash";

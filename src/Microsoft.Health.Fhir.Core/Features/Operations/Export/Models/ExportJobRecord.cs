@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint rollingFileSizeInMB,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
+            PartialDateTime till = null,
             string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
@@ -50,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Filters = filters;
             RequestorClaims = requestorClaims;
             Since = since;
+            Till = till;
             GroupId = groupId;
             StorageAccountConnectionHash = storageAccountConnectionHash;
             StorageAccountUri = storageAccountUri;
@@ -121,6 +123,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Since)]
         public PartialDateTime Since { get; private set; }
+
+        [JsonProperty(JobRecordProperties.Till)]
+        public PartialDateTime Till { get; private set; }
 
         [JsonProperty(JobRecordProperties.GroupId)]
         public string GroupId { get; private set; }

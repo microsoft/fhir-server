@@ -17,16 +17,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -49,7 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private static bool stop = false;
         private static long _resourcesTotal = 0L;
-        private static Stopwatch _swReport = Stopwatch.StartNew();
+
+        // private static Stopwatch _swReport = Stopwatch.StartNew();
         private static Stopwatch _sw = Stopwatch.StartNew();
 
         private static Stopwatch _database = new Stopwatch();
@@ -60,7 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private static bool _readsEnabled = true;
         private static bool _writesEnabled = true;
         private static bool _decompressEnabled = true;
-        private static int _reportingPeriodSec = 30;
+
+        // private static int _reportingPeriodSec = 30;
         private ICompressedRawResourceConverter _compressedRawResourceConverter;
 
         public ExportJobTask(
@@ -122,14 +121,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     defaultSecond: 0,
                     defaultFraction: 0.0000000m,
                     defaultUtcOffset: TimeSpan.Zero).UtcDateTime);
-                var endId = LastUpdatedToResourceSurrogateId(DateTime.Parse("2022-02-27T00:05:21"));
+                var endId = LastUpdatedToResourceSurrogateId(_exportJobRecord.Till.ToDateTimeOffset(
+                    defaultMonth: 1,
+                    defaultDaySelector: (year, month) => 1,
+                    defaultHour: 0,
+                    defaultMinute: 0,
+                    defaultSecond: 0,
+                    defaultFraction: 0.0000000m,
+                    defaultUtcOffset: TimeSpan.Zero).UtcDateTime);
                 using IScoped<ISearchService> searchService = _searchServiceFactory();
                 var resourceTypeId = await searchService.Value.GetResourceTypeId(resourceType, cancellationToken);
                 var ranges = (await searchService.Value.GetSurrogateIdRanges(resourceTypeId, startId, endId, (int)_exportJobConfiguration.RollingFileSizeInMB * 1024, cancellationToken)).ToList(); // Resources are on average 1kb
-                Console.WriteLine($"ExportNoQueue.{_exportJobRecord.ResourceType}: ranges={ranges.Count}.");
+
+                // Console.WriteLine($"ExportNoQueue.{_exportJobRecord.ResourceType}: ranges={ranges.Count}.");
                 foreach (var range in ranges)
                 {
                     await Export(resourceTypeId, range.StartId, range.EndId, cancellationToken);
+
+                    /*
                     if (_swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                     {
                         lock (_swReport)
@@ -141,6 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             }
                         }
                     }
+                    */
                 }
 
                 Console.WriteLine($"ExportNoQueue.{resourceType}.threads={_threads}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");

@@ -85,6 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> Export(
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
@@ -98,6 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await SendExportRequest(
                 exportType: ExportJobType.All,
                 since: since,
+                till: till,
                 filters: typeFilter,
                 resourceType: resourceType,
                 containerName: containerName,
@@ -112,6 +114,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceType(
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
@@ -132,6 +135,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await SendExportRequest(
                 exportType: ExportJobType.Patient,
                 since: since,
+                till: till,
                 filters: typeFilter,
                 resourceType: resourceType,
                 containerName: containerName,
@@ -146,6 +150,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceTypeById(
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
@@ -167,6 +172,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await SendExportRequest(
                 exportType: ExportJobType.Group,
                 since: since,
+                till: till,
                 filters: typeFilter,
                 resourceType: resourceType,
                 groupId: idParameter,
@@ -215,6 +221,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private async Task<IActionResult> SendExportRequest(
             ExportJobType exportType,
             PartialDateTime since,
+            PartialDateTime till,
             string filters,
             string resourceType = null,
             string groupId = null,
@@ -228,6 +235,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 exportType,
                 resourceType,
                 since,
+                till,
                 filters,
                 groupId,
                 containerName,
