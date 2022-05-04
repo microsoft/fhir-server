@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>Microsoft.Health.Fhir.SqlServer.SSDP</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{377a7289-9515-4308-a629-314b137f71ed}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql130DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <RootNamespace>Microsoft.Health.Fhir.SqlServer.SSDP</RootNamespace>
+    <AssemblyName>Microsoft.Health.Fhir.SqlServer.SSDP</AssemblyName>
+    <ModelCollation>1033, CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties" />
+    <Folder Include="dbo\" />
+    <Folder Include="dbo\Tables\" />
+    <Folder Include="dbo\Stored Procedures\" />
+    <Folder Include="dbo\User Defined Types\" />
+    <Folder Include="Storage\" />
+    <Folder Include="dbo\Sequences\" />
+    <Folder Include="Scripts\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="dbo\Tables\ClaimType.sql" />
+    <Build Include="dbo\Tables\CompartmentAssignment.sql" />
+    <Build Include="dbo\Tables\CompartmentType.sql" />
+    <Build Include="dbo\Tables\DateTimeSearchParam.sql" />
+    <Build Include="dbo\Tables\EventAgentCheckpoint.sql" />
+    <Build Include="dbo\Tables\ExportJob.sql" />
+    <Build Include="dbo\Tables\NumberSearchParam.sql" />
+    <Build Include="dbo\Tables\QuantityCode.sql" />
+    <Build Include="dbo\Tables\QuantitySearchParam.sql" />
+    <Build Include="dbo\Tables\ReferenceSearchParam.sql" />
+    <Build Include="dbo\Tables\ReferenceTokenCompositeSearchParam.sql" />
+    <Build Include="dbo\Tables\ReindexJob.sql" />
+    <Build Include="dbo\Tables\Resource.sql" />
+    <Build Include="dbo\Tables\ResourceChangeData.sql" />
+    <Build Include="dbo\Tables\ResourceChangeDataStaging.sql" />
+    <Build Include="dbo\Tables\ResourceChangeType.sql" />
+    <Build Include="dbo\Tables\ResourceType.sql" />
+    <Build Include="dbo\Tables\ResourceWriteClaim.sql" />
+    <Build Include="dbo\Tables\SchemaMigrationProgress.sql" />
+    <Build Include="dbo\Tables\SearchParam.sql" />
+    <Build Include="dbo\Tables\StringSearchParam.sql" />
+    <Build Include="dbo\Tables\System.sql" />
+    <Build Include="dbo\Tables\TaskInfo.sql" />
+    <Build Include="dbo\Tables\TokenDateTimeCompositeSearchParam.sql" />
+    <Build Include="dbo\Tables\TokenNumberNumberCompositeSearchParam.sql" />
+    <Build Include="dbo\Tables\TokenQuantityCompositeSearchParam.sql" />
+    <Build Include="dbo\Tables\TokenSearchParam.sql" />
+    <Build Include="dbo\Tables\TokenStringCompositeSearchParam.sql" />
+    <Build Include="dbo\Tables\TokenText.sql" />
+    <Build Include="dbo\Tables\TokenTokenCompositeSearchParam.sql" />
+    <Build Include="dbo\Tables\UriSearchParam.sql" />
+    <Build Include="dbo\Stored Procedures\AcquireExportJobs.sql" />
+    <Build Include="dbo\Stored Procedures\AcquireReindexJobs.sql" />
+    <Build Include="dbo\Stored Procedures\BatchDeleteResourceParams.sql" />
+    <Build Include="dbo\Stored Procedures\BatchDeleteResources.sql" />
+    <Build Include="dbo\Stored Procedures\BatchDeleteResourceWriteClaims.sql" />
+    <Build Include="dbo\Stored Procedures\BulkMergeResource.sql" />
+    <Build Include="dbo\Stored Procedures\BulkReindexResources_2.sql" />
+    <Build Include="dbo\Stored Procedures\CancelTask.sql" />
+    <Build Include="dbo\Stored Procedures\CaptureResourceChanges.sql" />
+    <Build Include="dbo\Stored Procedures\CheckActiveReindexJobs.sql" />
+    <Build Include="dbo\Stored Procedures\CompleteTask.sql" />
+    <Build Include="dbo\Stored Procedures\CreateExportJob.sql" />
+    <Build Include="dbo\Stored Procedures\CreateReindexJob.sql" />
+    <Build Include="dbo\Stored Procedures\CreateTask_2.sql" />
+    <Build Include="dbo\Stored Procedures\DisableIndex.sql" />
+    <Build Include="dbo\Stored Procedures\FetchResourceChanges_3.sql" />
+    <Build Include="dbo\Stored Procedures\GetExportJobByHash.sql" />
+    <Build Include="dbo\Stored Procedures\GetExportJobById.sql" />
+    <Build Include="dbo\Stored Procedures\GetNextTask_3.sql" />
+    <Build Include="dbo\Stored Procedures\GetReindexJobById.sql" />
+    <Build Include="dbo\Stored Procedures\GetSearchParamStatuses.sql" />
+    <Build Include="dbo\Stored Procedures\GetTaskDetails.sql" />
+    <Build Include="dbo\Stored Procedures\HardDeleteResource_2.sql" />
+    <Build Include="dbo\Stored Procedures\LogSchemaMigrationProgress.sql" />
+    <Build Include="dbo\Stored Procedures\ReadResource.sql" />
+    <Build Include="dbo\Stored Procedures\RebuildIndex.sql" />
+    <Build Include="dbo\Stored Procedures\ReindexResource_2.sql" />
+    <Build Include="dbo\Stored Procedures\ResetTask_2.sql" />
+    <Build Include="dbo\Stored Procedures\TaskKeepAlive.sql" />
+    <Build Include="dbo\Stored Procedures\UpdateExportJob.sql" />
+    <Build Include="dbo\Stored Procedures\UpdateReindexJob.sql" />
+    <Build Include="dbo\Stored Procedures\UpdateTaskContext.sql" />
+    <Build Include="dbo\Stored Procedures\UpsertResource_7.sql" />
+    <Build Include="dbo\Stored Procedures\UpsertSearchParams.sql" />
+    <Build Include="dbo\User Defined Types\BulkResourceWriteClaimTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkCompartmentAssignmentTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkReferenceSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkTokenSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkTokenTextTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkStringSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkStringSearchParamTableType_2.sql" />
+    <Build Include="dbo\User Defined Types\BulkUriSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkNumberSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkQuantitySearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkDateTimeSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkDateTimeSearchParamTableType_2.sql" />
+    <Build Include="dbo\User Defined Types\BulkReferenceTokenCompositeSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkTokenTokenCompositeSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkTokenDateTimeCompositeSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkTokenQuantityCompositeSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkTokenStringCompositeSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkTokenNumberNumberCompositeSearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\SearchParamTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkReindexResourceTableType_1.sql" />
+    <Build Include="dbo\User Defined Types\BulkImportResourceType_1.sql" />
+    <Build Include="Storage\PartitionFunction_ResourceTypeId.sql" />
+    <Build Include="Storage\PartitionScheme_ResourceTypeId.sql" />
+    <Build Include="dbo\Sequences\ResourceSurrogateIdUniquifierSequence.sql" />
+    <None Include="Scripts\ScriptsIgnoredOnImport.sql" />
+  </ItemGroup>
+</Project>
