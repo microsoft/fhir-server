@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28729.10
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32414.318
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8AD2A324-DAB5-4380-94A5-31F7D817C384}"
 EndProject
@@ -147,6 +147,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Store.Utils", "src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj", "{7A736E5F-DA6E-483F-AD5B-EE8F66828E36}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Importer", "tools\Importer\Importer.csproj", "{F6B94905-B496-46AD-B2A7-2ABCB0B2A6B4}"
+EndProject
+Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Microsoft.Health.Fhir.SqlServer.SSDP", "src\Microsoft.Health.Fhir.SqlServer.SSDP\Microsoft.Health.Fhir.SqlServer.SSDP.sqlproj", "{377A7289-9515-4308-A629-314B137F71ED}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -382,6 +384,11 @@ Global
 		{F6B94905-B496-46AD-B2A7-2ABCB0B2A6B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F6B94905-B496-46AD-B2A7-2ABCB0B2A6B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F6B94905-B496-46AD-B2A7-2ABCB0B2A6B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{377A7289-9515-4308-A629-314B137F71ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{377A7289-9515-4308-A629-314B137F71ED}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{377A7289-9515-4308-A629-314B137F71ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{377A7289-9515-4308-A629-314B137F71ED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{377A7289-9515-4308-A629-314B137F71ED}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -450,6 +457,7 @@ Global
 		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D} = {7457B218-2651-49B5-BED8-22233889516A}
 		{7A736E5F-DA6E-483F-AD5B-EE8F66828E36} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{F6B94905-B496-46AD-B2A7-2ABCB0B2A6B4} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{377A7289-9515-4308-A629-314B137F71ED} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
