@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private static Stopwatch _database = new Stopwatch();
         private static Stopwatch _unzip = new Stopwatch();
         private static Stopwatch _blob = new Stopwatch();
+        private static Stopwatch _updateJR = new Stopwatch();
 
         private static int _threads = 1;
         private static bool _readsEnabled = true;
@@ -103,6 +104,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
 
+            _sw.Start();
+
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
 
@@ -152,8 +155,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                     */
                 }
-
-                Console.WriteLine($"ExportNoQueue.{resourceType}.threads={_threads}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -220,6 +221,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            finally
+            {
+                _sw.Stop();
+                Console.WriteLine($"ExportNoQueue.{_exportJobRecord.ResourceType}.threads={_threads}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s},");
+                Console.WriteLine($"elapsed={_sw.Elapsed.TotalSeconds:N0} sec, resources={_resourcesTotal}, speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec,");
+                Console.WriteLine($"DB={_database.Elapsed.TotalSeconds} sec, UnZip={_unzip.Elapsed.TotalSeconds} sec, Blob={_blob.Elapsed.TotalSeconds} sec, Job Record={_updateJR.Elapsed.TotalSeconds} sec");
+                Console.WriteLine($"DB speed={_database.Elapsed.TotalSeconds / _resourcesTotal} sec/resource, UnZip speed={_unzip.Elapsed.TotalSeconds / _resourcesTotal} sec/resource, Blob speed={_blob.Elapsed.TotalSeconds / _resourcesTotal} sec/resource");
+            }
         }
 
         private async Task CompleteJobAsync(OperationStatus completionStatus, CancellationToken cancellationToken)
@@ -234,6 +243,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
         {
+            _updateJR.Start();
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
                 ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
@@ -241,6 +251,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
             }
+
+            _updateJR.Stop();
         }
 
         private async Task<int> Export(short resourceTypeId, long minId, long maxId, CancellationToken cancellationToken)
@@ -272,23 +284,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (_writesEnabled)
             {
                 _blob.Start();
-                WriteBatchOfLines(strings, $"{_exportJobRecord.ResourceType}-{minId}-{maxId}.ndjson");
+                var fileName = $"{_exportJobRecord.ResourceType}-{minId}-{maxId}.ndjson";
+                var fileUri = WriteBatchOfLines(strings, fileName);
+                List<ExportFileInfo> fileInfo;
+                if (!_exportJobRecord.Output.TryGetValue(_exportJobRecord.ResourceType, out fileInfo))
+                {
+                    fileInfo = new List<ExportFileInfo>();
+                    _exportJobRecord.Output.Add(_exportJobRecord.ResourceType, fileInfo);
+                }
+
+                fileInfo.Add(new ExportFileInfo(_exportJobRecord.ResourceType, fileUri, 0));
                 _blob.Stop();
             }
 
             Interlocked.Add(ref _resourcesTotal, strings.Count);
 
+            await UpdateJobRecordAsync(cancellationToken);
+
             return strings.Count;
         }
 
-        private void WriteBatchOfLines(IEnumerable<string> batch, string blobName)
+        private Uri WriteBatchOfLines(IEnumerable<string> batch, string blobName)
         {
             foreach (var resource in batch)
             {
                 _exportDestinationClient.WriteFilePart(blobName, resource);
             }
 
-            _exportDestinationClient.CommitFile(blobName);
+            return _exportDestinationClient.CommitFile(blobName);
         }
 
         private static long LastUpdatedToResourceSurrogateId(DateTime dateTime)
