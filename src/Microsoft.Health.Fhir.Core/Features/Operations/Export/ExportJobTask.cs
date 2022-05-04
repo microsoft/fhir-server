@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -49,6 +50,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
         private ExportFileManager _fileManager;
+
+        // private static Stopwatch _swReport = Stopwatch.StartNew();
+        private Stopwatch _sw = Stopwatch.StartNew();
+
+        private Stopwatch _database = new Stopwatch();
+        private Stopwatch _blob = new Stopwatch();
+        private long _resourcesTotal = 0L;
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -172,6 +180,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
                 await RunExportSearch(exportJobConfiguration, progress, queryParametersList, cancellationToken);
+
+                Console.WriteLine($"ExportNoQueue.{_exportJobRecord.ResourceType}.threads={1}: completed at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec DB={_database.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -398,6 +408,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 SearchResult searchResult = null;
 
+                _database.Start();
+
                 // Search and process the results.
                 switch (_exportJobRecord.ExportType)
                 {
@@ -421,6 +433,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             cancellationToken);
                         break;
                 }
+
+                _database.Stop();
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
@@ -447,6 +461,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
+                _blob.Start();
+
                 // Skips processing top level search results if the job only requested resources from the compartments of patients, but didn't want the patients.
                 if (_exportJobRecord.ExportType == ExportJobType.All
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
@@ -467,10 +483,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     searchResult.ContinuationToken,
                     false,
                     cancellationToken);
+
+                _blob.Stop();
             }
 
             // Commit one last time for any pending changes.
             _fileManager.CommitFiles();
+            _blob.Stop();
         }
 
         private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
@@ -634,6 +653,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
             }
+
+            _resourcesTotal += searchResults.Count();
         }
 
         private async Task ProcessProgressChange(
