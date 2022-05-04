@@ -186,7 +186,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
         {
+            Stopwatch sqlSearch = new Stopwatch();
+            sqlSearch.Start();
+
             Expression searchExpression = sqlSearchOptions.Expression;
+
+            Stopwatch continuationTokenWatch = new Stopwatch();
+            continuationTokenWatch.Start();
 
             // AND in the continuation token
             if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
@@ -251,14 +257,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
+            continuationTokenWatch.Stop();
+
+            var sortWatch = new Stopwatch();
+            sortWatch.Start();
+
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
             var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression, searchType);
 
+            sortWatch.Stop();
             if (clonedSearchOptions.CountOnly)
             {
                 // if we're only returning a count, discard any _include parameters since included resources are not counted.
                 searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
+
+            var expressionWatch = new Stopwatch();
+            expressionWatch.Start();
 
             SqlRootExpression expression = (SqlRootExpression)searchExpression
                                                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
@@ -284,9 +299,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
+            expressionWatch.Stop();
+
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
+                var generateQueryWatch = new Stopwatch();
+                generateQueryWatch.Start();
+
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
                 EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
@@ -305,10 +325,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 sqlCommandWrapper.CommandText = stringBuilder.ToString();
 
-                LogSqlCommand(sqlCommandWrapper);
+                generateQueryWatch.Stop();
+
+                // LogSqlCommand(sqlCommandWrapper);
+
+                var getReaderWatch = new Stopwatch();
+                getReaderWatch.Start();
 
                 using (var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
+                    getReaderWatch.Stop();
                     if (clonedSearchOptions.CountOnly)
                     {
                         await reader.ReadAsync(cancellationToken);
@@ -342,8 +368,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     var isResultPartial = false;
                     int numberOfColumnsRead = 0;
 
+                    double maxReadTime = 0;
+                    double minReadTime = double.MaxValue;
+                    double aveReadTime = 0.0;
+                    double aveConvertTime = 0.0;
+                    double avePopulateTime = 0.0;
+                    long readCount = 0;
+
+                    var totalReadWatch = new Stopwatch();
+                    totalReadWatch.Start();
+                    var readWatch = new Stopwatch();
+                    readWatch.Start();
+                    var convertWatch = new Stopwatch();
+                    var populateWatch = new Stopwatch();
+
                     while (await reader.ReadAsync(cancellationToken))
                     {
+                        populateWatch.Restart();
                         PopulateResourceTableColumnsToRead(
                             reader,
                             out short resourceTypeId,
@@ -358,6 +399,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out string searchParameterHash,
                             out Stream rawResourceStream);
                         numberOfColumnsRead = reader.FieldCount;
+                        avePopulateTime = ((avePopulateTime * readCount) + populateWatch.Elapsed.TotalMilliseconds) / (readCount + 1);
 
                         // If we get to this point, we know there are more results so we need a continuation token
                         // Additionally, this resource shouldn't be included in the results
@@ -368,11 +410,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
+                        convertWatch.Restart();
                         string rawResource;
                         using (rawResourceStream)
                         {
                             rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
+
+                        aveConvertTime = ((aveConvertTime * readCount) + convertWatch.Elapsed.TotalMilliseconds) / (readCount + 1);
 
                         // See if this resource is a continuation token candidate and increase the count
                         if (isMatch)
@@ -417,7 +462,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null,
                                 searchParameterHash),
                             isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+
+                        readWatch.Stop();
+
+                        var time = readWatch.Elapsed.TotalMilliseconds;
+                        maxReadTime = maxReadTime > time ? maxReadTime : time;
+                        minReadTime = minReadTime < time ? minReadTime : time;
+                        aveReadTime = ((aveReadTime * readCount) + time) / (readCount + 1);
+                        readCount++;
+
+                        readWatch.Restart();
                     }
+
+                    readWatch.Stop();
+                    totalReadWatch.Stop();
+
+                    var cleanupWatch = new Stopwatch();
+                    cleanupWatch.Start();
 
                     // call NextResultAsync to get the info messages
                     await reader.NextResultAsync(cancellationToken);
@@ -458,6 +519,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.IsSortWithFilter = true;
                     }
 
+                    cleanupWatch.Stop();
+                    sqlSearch.Stop();
+
+                    Console.WriteLine("Total: " + sqlSearch.ElapsedMilliseconds + ",\t Continuation token: " + continuationTokenWatch.Elapsed.TotalMilliseconds + ",\t Expression: " + expressionWatch.Elapsed.TotalMilliseconds + ",\t Query generation: " + generateQueryWatch.Elapsed.TotalMilliseconds + ",\t Start read: " + getReaderWatch.ElapsedMilliseconds + ",\t Reads " + totalReadWatch.ElapsedMilliseconds + "\t - Max: " + maxReadTime + "\t Min: " + minReadTime + "\t Ave: " + aveReadTime + "\t Ave populate: " + avePopulateTime + "\t Ave convert: " + aveConvertTime + "\t Count: " + readCount + ",\t Cleanup: " + cleanupWatch.ElapsedMilliseconds);
                     return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
                 }
             }
