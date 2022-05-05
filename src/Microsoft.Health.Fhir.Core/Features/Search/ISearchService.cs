@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Models;
@@ -16,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// </summary>
     public interface ISearchService
     {
-        public Task<IEnumerable<byte[]>> GetDataBytes(short resourceTypeId, long minId, long maxId, CancellationToken cancellationToken);
+        public Task<SearchResult> GetDataBytes(short resourceTypeId, long minId, long maxId, Stopwatch db, Stopwatch zip, CancellationToken cancellationToken);
 
         public Task<IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)>> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize, CancellationToken cancellationToken);
 

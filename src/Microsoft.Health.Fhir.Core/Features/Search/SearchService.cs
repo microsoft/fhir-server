@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -40,10 +41,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _fhirDataStore = fhirDataStore;
         }
 
-        public virtual Task<IEnumerable<byte[]>> GetDataBytes(short resourceTypeId, long minId, long maxId, CancellationToken cancellationToken)
+        public virtual Task<SearchResult> GetDataBytes(short resourceTypeId, long minId, long maxId, Stopwatch db, Stopwatch zip, CancellationToken cancellationToken)
         {
-            var result = new List<byte[]>();
-            return Task.FromResult(result.AsEnumerable());
+            return Task.FromResult<SearchResult>(null);
         }
 
         public virtual Task<IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)>> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize, CancellationToken cancellationToken)

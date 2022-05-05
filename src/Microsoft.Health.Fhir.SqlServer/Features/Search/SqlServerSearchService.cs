@@ -97,22 +97,79 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _compressedRawResourceConverter = compressedRawResourceConverter;
         }
 
-        public async override Task<IEnumerable<byte[]>> GetDataBytes(short resourceTypeId, long minId, long maxId, CancellationToken cancellationToken)
+        public async override Task<SearchResult> GetDataBytes(short resourceTypeId2, long minId, long maxId, Stopwatch database, Stopwatch zip, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             var conn = sqlConnectionWrapper.SqlConnection;
-            using var cmd = new SqlCommand("dbo.GetResourcesByTypeAndSurrogateIdRange", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
-            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            using var cmd = new SqlCommand("SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsRawResourceMetaSet, SearchParamHash, RawResource FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @StartId AND @EndId AND IsHistory = 0 AND IsDeleted = 0", conn) { CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId2);
             cmd.Parameters.AddWithValue("@StartId", minId);
             cmd.Parameters.AddWithValue("@EndId", maxId);
+
             using var reader = cmd.ExecuteReader();
-            var sqlBytes = new List<byte[]>();
-            while (reader.Read())
+
+            var resources = new List<SearchResultEntry>();
+
+            var isResultPartial = false;
+            int numberOfColumnsRead = 0;
+
+            while (await reader.ReadAsync(cancellationToken))
             {
-                sqlBytes.Add(reader.GetSqlBytes(0).Value);
+                var (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod,
+                    isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
+                    VLatest.Resource.ResourceTypeId,
+                    VLatest.Resource.ResourceId,
+                    VLatest.Resource.Version,
+                    VLatest.Resource.IsDeleted,
+                    VLatest.Resource.ResourceSurrogateId,
+                    VLatest.Resource.RequestMethod,
+                    VLatest.Resource.IsRawResourceMetaSet,
+                    VLatest.Resource.SearchParamHash,
+                    VLatest.Resource.RawResource);
+                numberOfColumnsRead = reader.FieldCount;
+
+                string rawResource;
+                database.Stop();
+                zip.Start();
+                using (rawResourceStream)
+                {
+                    rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                }
+
+                zip.Stop();
+                database.Start();
+
+                _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(resourceTypeId)}: {resourceTypeId}; decompressed length: {rawResource.Length}");
+
+                resources.Add(new SearchResultEntry(
+                    new ResourceWrapper(
+                        resourceId,
+                        version.ToString(CultureInfo.InvariantCulture),
+                        _model.GetResourceTypeName(resourceTypeId),
+                        new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                        new ResourceRequest(requestMethod),
+                        new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                        isDeleted,
+                        null,
+                        null,
+                        null,
+                        searchParameterHash),
+                    SearchEntryMode.Match));
             }
 
-            return sqlBytes.AsEnumerable();
+            // call NextResultAsync to get the info messages
+            await reader.NextResultAsync(cancellationToken);
+
+            if (isResultPartial)
+            {
+                _requestContextAccessor.RequestContext.BundleIssues.Add(
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Incomplete,
+                        Core.Resources.TruncatedIncludeMessage));
+            }
+
+            return new SearchResult(resources, null, null, new List<Tuple<string, string>>());
         }
 
         public async override Task<short> GetResourceTypeId(string resourceType, CancellationToken cancellationToken)

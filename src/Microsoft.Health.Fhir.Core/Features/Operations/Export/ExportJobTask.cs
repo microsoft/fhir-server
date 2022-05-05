@@ -262,23 +262,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 return 0;
             }
 
-            List<byte[]> resources;
+            SearchResult resources;
             _database.Start();
             using IScoped<ISearchService> searchService = _searchServiceFactory();
-            resources = (await searchService.Value.GetDataBytes(resourceTypeId, minId, maxId, cancellationToken)).ToList(); // ToList will fource reading from SQL even when writes are disabled
+            resources = await searchService.Value.GetDataBytes(resourceTypeId, minId, maxId, _database, _unzip, cancellationToken); // ToList will fource reading from SQL even when writes are disabled
             _database.Stop();
 
             var strings = new List<string>();
+            var file = new ExportFileInfo(_exportJobRecord.ResourceType, new Uri("temp", UriKind.Relative), 0);
+
             if (_decompressEnabled)
             {
-                _unzip.Start();
-                foreach (var res in resources)
+                foreach (var res in resources.Results)
                 {
-                    using var mem = new MemoryStream(res);
-                    strings.Add(await _compressedRawResourceConverter.ReadCompressedRawResource(mem));
+                    strings.Add(res.Resource.RawResource.Data);
+                    file.IncrementCount(res.Resource.RawResource.Data.Length); // Not perfect but it is something
                 }
-
-                _unzip.Stop();
             }
 
             if (_writesEnabled)
@@ -293,7 +292,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _exportJobRecord.Output.Add(_exportJobRecord.ResourceType, fileInfo);
                 }
 
-                fileInfo.Add(new ExportFileInfo(_exportJobRecord.ResourceType, fileUri, 0));
+                file.FileUri = fileUri;
+                fileInfo.Add(file);
                 _blob.Stop();
             }
 
