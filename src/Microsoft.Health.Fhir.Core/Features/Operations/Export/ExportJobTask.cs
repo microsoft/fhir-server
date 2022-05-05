@@ -181,8 +181,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 await RunExportSearch(exportJobConfiguration, progress, queryParametersList, cancellationToken);
 
-                Console.WriteLine($"ExportNoQueue.{_exportJobRecord.ResourceType}.threads={1}: completed at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec DB={_database.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
-
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
@@ -250,6 +248,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             finally
             {
+                Console.WriteLine($"ExportNoQueue.{_exportJobRecord.ResourceType}.threads={1}: completed at {DateTime.Now:s}, resources={_resourcesTotal} speed={_resourcesTotal / _sw.Elapsed.TotalSeconds:N0} resources/sec elapsed={_sw.Elapsed.TotalSeconds:N0} sec DB={_database.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds} sec");
+                Console.WriteLine($"DB speed={_database.Elapsed.TotalSeconds / _resourcesTotal} sec/rec, Blob speed={_blob.Elapsed.TotalSeconds / _resourcesTotal} sec/res");
                 _contextAccessor.RequestContext = existingFhirRequestContext;
             }
         }
