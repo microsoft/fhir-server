@@ -25,7 +25,7 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
-    <AspNetPackageVersion>5.0.15</AspNetPackageVersion>
+    <AspNetPackageVersion>5.0.16</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>6.1.27</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>3.8.2</Hl7FhirVersion>
   </PropertyGroup>
@@ -53,7 +53,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
-    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.321" PrivateAssets="All" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.435" PrivateAssets="All" />
   </ItemGroup>
 
   <Choose>
