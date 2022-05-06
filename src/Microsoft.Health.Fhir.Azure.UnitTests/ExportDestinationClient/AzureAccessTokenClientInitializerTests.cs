@@ -39,11 +39,11 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [InlineData(null)]
         [InlineData("   ")]
         [Theory]
-        public async Task GivenNullOrEmptyStorageUri_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string storageUriString)
+        public void GivenNullOrEmptyStorageUri_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string storageUriString)
         {
             _exportJobConfiguration.StorageAccountUri = storageUriString;
 
-            var exception = await Assert.ThrowsAsync<ExportClientInitializerException>(() => _azureAccessTokenClientInitializer.GetAuthorizedClientAsync(CancellationToken.None));
+            var exception = Assert.Throws<ExportClientInitializerException>(() => _azureAccessTokenClientInitializer.GetAuthorizedClient());
             Assert.Contains(Resources.InvalidStorageUri, exception.Message);
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
@@ -51,21 +51,21 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [InlineData("randomUri")]
         [InlineData("https://")]
         [Theory]
-        public async Task GivenInvalidStorageUri_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string storageUriString)
+        public void GivenInvalidStorageUri_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string storageUriString)
         {
             _exportJobConfiguration.StorageAccountUri = storageUriString;
 
-            var exception = await Assert.ThrowsAsync<ExportClientInitializerException>(() => _azureAccessTokenClientInitializer.GetAuthorizedClientAsync(CancellationToken.None));
+            var exception = Assert.Throws<ExportClientInitializerException>(() => _azureAccessTokenClientInitializer.GetAuthorizedClient());
             Assert.Contains(Resources.InvalidStorageUri, exception.Message);
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
         [Fact]
-        public async Task GivenAbleToGetAccessToken_WhenGetAuthorizedClientAsync_ThenClientIsReturned()
+        public void GivenAbleToGetAccessToken_WhenGetAuthorizedClientAsync_ThenClientIsReturned()
         {
             _exportJobConfiguration.StorageAccountUri = "https://localhost/storage";
 
-            BlobServiceClient client = await _azureAccessTokenClientInitializer.GetAuthorizedClientAsync(CancellationToken.None);
+            BlobServiceClient client = _azureAccessTokenClientInitializer.GetAuthorizedClient();
 
             Assert.NotNull(client);
         }

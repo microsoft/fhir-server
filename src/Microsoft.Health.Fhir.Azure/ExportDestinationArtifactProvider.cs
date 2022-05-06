@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Azure
             string eTag = blobLocation.Length > 1 ? blobLocation[1] : null;
             eTag = AddDoubleQuotesIfMissing(eTag);
 
-            BlobServiceClient blobClient = await ConnectAsync(cancellationToken);
+            BlobServiceClient blobClient = Connect();
             BlobContainerClient container = blobClient.GetBlobContainerClient(AnonymizationContainer);
             if (!await container.ExistsAsync(cancellationToken))
             {
@@ -98,11 +98,11 @@ namespace Microsoft.Health.Fhir.Azure
             return $"\"{eTag}\"";
         }
 
-        private async Task<BlobServiceClient> ConnectAsync(CancellationToken cancellationToken)
+        private BlobServiceClient Connect()
         {
             if (_blobClient == null)
             {
-                _blobClient = await _exportClientInitializer.GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+                _blobClient = _exportClientInitializer.GetAuthorizedClient(_exportJobConfiguration);
             }
 
             return _blobClient;
