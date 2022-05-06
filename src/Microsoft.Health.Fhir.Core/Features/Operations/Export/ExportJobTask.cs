@@ -616,10 +616,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
-                ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
+                var data = result.Resource.RawResource.Data;
 
                 if (anonymizer != null)
                 {
+                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
                     try
                     {
                         element = anonymizer.Anonymize(element);
@@ -628,10 +629,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     {
                         throw new FailedToAnonymizeResourceException(ex.Message, ex);
                     }
-                }
 
-                // Serialize into NDJson and write to the file.
-                string data = _resourceToByteArraySerializer.StringSerialize(element);
+                    // Serialize into NDJson and write to the file.
+                    data = _resourceToByteArraySerializer.StringSerialize(element);
+                }
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
             }
