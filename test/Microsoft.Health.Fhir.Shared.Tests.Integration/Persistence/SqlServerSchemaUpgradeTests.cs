@@ -11,8 +11,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -123,9 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var serviceProvider = Substitute.For<IServiceProvider>();
             var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             var sqlTransactionHandler = new SqlTransactionHandler();
@@ -151,18 +151,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var mediator = Substitute.For<IMediator>();
 
             var schemaManagerDataStore = new SchemaManagerDataStore(
-                sqlConnectionWrapperFactory,
+                defaultSqlConnectionWrapperFactory,
                 config,
                 NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(
                 scriptProvider,
                 baseScriptProvider,
                 NullLogger<SchemaUpgradeRunner>.Instance,
-                sqlConnectionWrapperFactory,
+                defaultSqlConnectionWrapperFactory,
                 schemaManagerDataStore);
 
+            Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
+            Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
+
+            var collection = new ServiceCollection();
+            collection.AddScoped(schemaUpgradeRunnerFactory);
+            collection.AddScoped(schemaManagerDataStoreFactory);
+            var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
+
             var schemaInitializer = new SchemaInitializer(
-                serviceProvider,
+                serviceProviderSchemaInitializer,
                 config,
                 schemaInformation,
                 defaultSqlConnectionBuilder,
