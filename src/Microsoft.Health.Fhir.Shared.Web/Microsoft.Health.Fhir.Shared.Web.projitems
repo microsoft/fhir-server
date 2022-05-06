@@ -20,6 +20,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsApplicationBuilderExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsServicesCollectionExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)AddAuthenticationLibrary.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Startup.cs" />
   </ItemGroup>
   <ItemGroup>

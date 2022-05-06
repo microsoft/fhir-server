@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -19,5 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public virtual HashSet<string> PrincipalClaims { get; } = new HashSet<string>(StringComparer.Ordinal);
 
         public AuthorizationConfiguration Authorization { get; set; } = new AuthorizationConfiguration();
+
+        public Action<IServiceCollection, string, string> AddAuthenticaionLibrary { get; set; }
     }
 }
