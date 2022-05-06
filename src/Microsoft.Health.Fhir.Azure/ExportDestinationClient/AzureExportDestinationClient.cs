@@ -9,6 +9,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             try
             {
-                _blobClient = await _exportClientInitializer.GetAuthorizedClientAsync(exportJobConfiguration, cancellationToken);
+                _blobClient = _exportClientInitializer.GetAuthorizedClient(exportJobConfiguration);
             }
             catch (ExportClientInitializerException ece)
             {
@@ -62,23 +63,23 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 throw new DestinationConnectionException(ece.Message, ece.StatusCode);
             }
 
-            await CreateContainerAsync(_blobClient, containerId);
+            await CreateContainerAsync(_blobClient, containerId, cancellationToken);
         }
 
-        private async Task CreateContainerAsync(BlobServiceClient blobClient, string containerId)
+        private async Task CreateContainerAsync(BlobServiceClient blobClient, string containerId, CancellationToken cancellationToken)
         {
             _blobContainer = blobClient.GetBlobContainerClient(containerId);
 
             try
             {
-                await _blobContainer.CreateIfNotExistsAsync();
+                await _blobContainer.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
             }
-            catch (Exception se)
+            catch (RequestFailedException se)
             {
                 _logger.LogWarning(se, se.Message);
 
                 // placeholder
-                HttpStatusCode responseCode = HttpStatusCode.InternalServerError;
+                HttpStatusCode responseCode = HttpStatusCode.BadRequest;
                 throw new DestinationConnectionException(se.Message, responseCode);
             }
         }

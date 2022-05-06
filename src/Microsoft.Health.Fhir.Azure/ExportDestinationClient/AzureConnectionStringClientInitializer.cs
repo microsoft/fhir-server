@@ -5,8 +5,6 @@
 
 using System;
 using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -30,12 +28,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _logger = logger;
         }
 
-        public Task<BlobServiceClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
+        public BlobServiceClient GetAuthorizedClient()
         {
-            return GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+            return GetAuthorizedClient(_exportJobConfiguration);
         }
 
-        public Task<BlobServiceClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        public BlobServiceClient GetAuthorizedClient(ExportJobConfiguration exportJobConfiguration)
         {
             if (string.IsNullOrWhiteSpace(exportJobConfiguration.StorageAccountConnection))
             {
@@ -54,7 +52,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 throw new ExportClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
-            return Task.FromResult(blobClient);
+            return blobClient;
         }
     }
 }

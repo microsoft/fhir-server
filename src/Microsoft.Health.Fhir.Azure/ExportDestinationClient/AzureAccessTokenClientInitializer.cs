@@ -5,8 +5,6 @@
 
 using System;
 using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using EnsureThat;
@@ -34,12 +32,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _logger = logger;
         }
 
-        public async Task<BlobServiceClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
+        public BlobServiceClient GetAuthorizedClient()
         {
-            return await GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+            return GetAuthorizedClient(_exportJobConfiguration);
         }
 
-        public async Task<BlobServiceClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        public BlobServiceClient GetAuthorizedClient(ExportJobConfiguration exportJobConfiguration)
         {
             // Get storage uri from config
             if (string.IsNullOrWhiteSpace(exportJobConfiguration.StorageAccountUri))
@@ -51,9 +49,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 throw new ExportClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
-
-            // until I find a way to deal with the fact that this is now syncronus...
-            await Task.Run(() => { }, cancellationToken);
 
             try
             {

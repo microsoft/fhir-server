@@ -4,8 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -41,21 +39,21 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [InlineData("storageAccount")]
         [InlineData("connectionString")]
         [Theory]
-        public async Task GivenInvalidStorageAccountConnectionString_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string connectionString)
+        public void GivenInvalidStorageAccountConnectionString_WhenGetAuthorizedClientAsync_ThenExportClientInitializerExceptionIsThrown(string connectionString)
         {
             _exportJobConfiguration.StorageAccountConnection = connectionString;
 
-            var exception = await Assert.ThrowsAsync<ExportClientInitializerException>(() => _azureConnectionStringClientInitializer.GetAuthorizedClientAsync(CancellationToken.None));
+            var exception = Assert.Throws<ExportClientInitializerException>(() => _azureConnectionStringClientInitializer.GetAuthorizedClient());
             Assert.Contains(Resources.InvalidConnectionSettings, exception.Message);
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
         [Fact]
-        public async Task GivenValidStorageAccountConnectionString_WhenGetAuthorizedClientAsync_ThenClientIsReturned()
+        public void GivenValidStorageAccountConnectionString_WhenGetAuthorizedClientAsync_ThenClientIsReturned()
         {
             _exportJobConfiguration.StorageAccountConnection = "DefaultEndpointsProtocol=https;AccountName=randomName;AccountKey=randomString;EndpointSuffix=core.windows.net";
 
-            BlobServiceClient client = await _azureConnectionStringClientInitializer.GetAuthorizedClientAsync(CancellationToken.None);
+            BlobServiceClient client = _azureConnectionStringClientInitializer.GetAuthorizedClient();
 
             Assert.NotNull(client);
         }
