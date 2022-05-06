@@ -123,7 +123,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
+            var serviceProvider = Substitute.For<IServiceProvider>();
             var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             var sqlTransactionHandler = new SqlTransactionHandler();
@@ -149,20 +151,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var mediator = Substitute.For<IMediator>();
 
             var schemaManagerDataStore = new SchemaManagerDataStore(
-                defaultSqlConnectionBuilder,
+                sqlConnectionWrapperFactory,
                 config,
                 NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(
                 scriptProvider,
                 baseScriptProvider,
                 NullLogger<SchemaUpgradeRunner>.Instance,
-                defaultSqlConnectionBuilder,
+                sqlConnectionWrapperFactory,
                 schemaManagerDataStore);
 
             var schemaInitializer = new SchemaInitializer(
+                serviceProvider,
                 config,
-                schemaManagerDataStore,
-                schemaUpgradeRunner,
                 schemaInformation,
                 defaultSqlConnectionBuilder,
                 sqlConnectionStringProvider,

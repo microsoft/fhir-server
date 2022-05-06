@@ -84,14 +84,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
+            var sp = Substitute.For<IServiceProvider>();
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
             var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
-            var schemaManagerDataStore = new SchemaManagerDataStore(SqlConnectionBuilder, config, NullLogger<SchemaManagerDataStore>.Instance);
-            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, SqlConnectionBuilder, schemaManagerDataStore);
-            _schemaInitializer = new SchemaInitializer(config, schemaManagerDataStore, _schemaUpgradeRunner, SchemaInformation, SqlConnectionBuilder, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
+            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, SqlConfigurableRetryFactory.CreateNoneRetryProvider());
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
+
+            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
+            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
+
+            _schemaInitializer = new SchemaInitializer(sp, config, SchemaInformation, SqlConnectionBuilder, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 
