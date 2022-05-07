@@ -5,8 +5,6 @@
 
 using System.IdentityModel.Tokens.Jwt;
 using EnsureThat;
-
-// using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,19 +41,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             if (_securityConfiguration.Enabled)
             {
                 _securityConfiguration.AddAuthenticaionLibrary(services, _securityConfiguration.Authentication.Authority, _securityConfiguration.Authentication.Audience);
-                /*services.AddAuthentication(options =>
-                    {
-                        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                        options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-                    })
-                    .AddJwtBearer(options =>
-                    {
-                        options.Authority = _securityConfiguration.Authentication.Authority;
-                        options.Audience = _securityConfiguration.Authentication.Audience;
-                        options.RequireHttpsMetadata = true;
-                        options.Challenge = $"Bearer authorization_uri=\"{_securityConfiguration.Authentication.Authority}\", resource_id=\"{_securityConfiguration.Authentication.Audience}\", realm=\"{_securityConfiguration.Authentication.Audience}\"";
-                    });*/
 
                 services.AddControllers(mvcOptions =>
                 {
