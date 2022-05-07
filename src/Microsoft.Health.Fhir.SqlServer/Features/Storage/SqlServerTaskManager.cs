@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -46,11 +48,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (_schemaInformation.Current >= SchemaVersionConstants.SupportParentTask)
                     {
-                        VLatest.CreateTask.PopulateCommand(sqlCommandWrapper, task.TaskId, task.QueueId, task.TaskTypeId, task.ParentTaskId ?? string.Empty, task.MaxRetryCount, task.InputData, isUniqueTaskByType);
+                        VLatest.CreateTask.PopulateCommand(sqlCommandWrapper, task.TaskId, task.QueueId, task.TaskTypeId, task.ParentTaskId ?? string.Empty, task.MaxRetryCount, task.Definition, isUniqueTaskByType);
                     }
                     else
                     {
-                        V30.CreateTask.PopulateCommand(sqlCommandWrapper, task.TaskId, task.QueueId, task.TaskTypeId, task.MaxRetryCount, task.InputData, isUniqueTaskByType);
+                        V30.CreateTask.PopulateCommand(sqlCommandWrapper, task.TaskId, task.QueueId, task.TaskTypeId, task.MaxRetryCount, task.Definition, isUniqueTaskByType);
                     }
 
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
@@ -92,6 +94,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                     return sqlDataReader.ReadTaskInfo();
+                }
+                catch (SqlException sqlEx)
+                {
+                    if (sqlEx.Number == SqlErrorCodes.NotFound)
+                    {
+                        throw new TaskNotExistException(sqlEx.Message);
+                    }
+
+                    throw;
+                }
+            }
+        }
+
+        public async Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                try
+                {
+                    VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, queueType, definitions.Select(d => new StringListRow(d)), groupId, forceOneActiveJobGroup);
+                    SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                    return await sqlDataReader.ReadTaskInfosAsync(cancellationToken);
                 }
                 catch (SqlException sqlEx)
                 {

@@ -50,6 +50,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _schemaInformation.Current != null;
         }
 
+        public async Task CompleteAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                try
+                {
+                    VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, (byte)taskInfo.QueueType, taskInfo.Id, taskInfo.Version, taskInfo.Status == TaskStatus.Failed, taskInfo.Data ?? 0, taskInfo.Result, taskInfo.CancelRequested);
+                    await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                }
+                catch (SqlException sqlEx)
+                {
+                    if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
+                    {
+                        throw new TaskNotExistException(sqlEx.Message);
+                    }
+
+                    throw;
+                }
+            }
+        }
+
+        public async Task<TaskInfo> DequeueAsync(QueueType queueType, byte startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, (byte)queueType, startPartitionId, worker, heartbeatTimeoutSec);
+
+                SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                return sqlDataReader.ReadTaskInfo();
+            }
+        }
+
         public async Task<TaskInfo> CompleteAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))

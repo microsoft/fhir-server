@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             if (taskInfo.TaskTypeId == ImportProcessingTask.ImportProcessingTaskId)
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
-                ImportProcessingTaskInputData inputData = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(taskInfo.InputData);
+                ImportProcessingTaskInputData inputData = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(taskInfo.Definition);
                 ImportProcessingProgress importProgress = string.IsNullOrEmpty(taskInfo.Context) ? new ImportProcessingProgress() : JsonConvert.DeserializeObject<ImportProcessingProgress>(taskInfo.Context);
                 return new ImportProcessingTask(
                     inputData,
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             if (taskInfo.TaskTypeId == ImportOrchestratorTask.ImportOrchestratorTaskId)
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
-                ImportOrchestratorTaskInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorTaskInputData>(taskInfo.InputData);
+                ImportOrchestratorTaskInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorTaskInputData>(taskInfo.Definition);
                 ImportOrchestratorTaskContext orchestratorTaskProgress = string.IsNullOrEmpty(taskInfo.Context) ? new ImportOrchestratorTaskContext() : JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(taskInfo.Context);
 
                 return new ImportOrchestratorTask(

@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     TaskId = taskId,
                     QueueId = queueId,
                     TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                    InputData = inputData,
+                    Definition = inputData,
                 };
 
                 _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
@@ -249,7 +249,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
                 MaxRetryCount = 1,
             };
 
@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
                 MaxRetryCount = 1,
             };
 
@@ -362,7 +362,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
                 MaxRetryCount = 1,
             };
 
@@ -399,7 +399,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskConsumerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
                 MaxRetryCount = 1,
             };
 

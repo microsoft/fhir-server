@@ -413,7 +413,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
             Task hostingTask = taskHosting.StartAsync(tokenSource);
             autoResetEvent2.WaitOne();
-            taskInfo0.IsCanceled = true;
+            taskInfo0.CancelRequested = true;
 
             await hostingTask;
 

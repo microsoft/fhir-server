@@ -21,6 +21,14 @@ namespace Microsoft.Health.TaskManagement
         /// <summary>
         /// Complete the task with result.
         /// </summary>
+        /// <param name="taskInfo">Task info</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task infomation after status updated</returns>
+        Task CompleteAsync(TaskInfo taskInfo, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Complete the task with result.
+        /// </summary>
         /// <param name="taskId">Id for the task</param>
         /// <param name="taskResultData">Result data for the task execution</param>
         /// <param name="runId">Run id for this task execution</param>

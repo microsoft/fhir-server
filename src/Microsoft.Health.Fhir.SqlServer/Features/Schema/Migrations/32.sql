@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (31, 'started');
+VALUES (32, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -51,6 +51,24 @@ WHILE @numberOfHistoryPartitions >= -@numberOfFuturePartitions
             SPLIT RANGE (@rightPartitionBoundary);
         SET @numberOfHistoryPartitions -= 1;
     END
+
+
+GO
+CREATE PARTITION FUNCTION EventLogPartitionFunction(TINYINT)
+    AS RANGE RIGHT
+    FOR VALUES (0, 1, 2, 3, 4, 5, 6, 7);
+
+CREATE PARTITION SCHEME EventLogPartitionScheme
+    AS PARTITION EventLogPartitionFunction
+    ALL TO ([PRIMARY]);
+
+CREATE PARTITION FUNCTION TinyintPartitionFunction(TINYINT)
+    AS RANGE RIGHT
+    FOR VALUES (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255);
+
+CREATE PARTITION SCHEME TinyintPartitionScheme
+    AS PARTITION TinyintPartitionFunction
+    ALL TO ([PRIMARY]);
 
 CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
     AS INT
@@ -312,18 +330,6 @@ IF NOT EXISTS (SELECT 1
         ) ON [PRIMARY];
     END
 
-CREATE PARTITION FUNCTION EventLogPartitionFunction(TINYINT)
-    AS RANGE RIGHT
-    FOR VALUES (0, 1, 2, 3, 4, 5, 6, 7);
-
-
-GO
-CREATE PARTITION SCHEME EventLogPartitionScheme
-    AS PARTITION EventLogPartitionFunction
-    ALL TO ([PRIMARY]);
-
-
-GO
 CREATE TABLE dbo.EventLog (
     PartitionId   AS               isnull(CONVERT (TINYINT, EventId % 8), 0) PERSISTED,
     EventId       BIGINT           IDENTITY (1, 1) NOT NULL,
@@ -355,18 +361,6 @@ CREATE TABLE dbo.ExportJob (
 CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime
     ON dbo.ExportJob(Hash, Status, HeartbeatDateTime);
 
-CREATE PARTITION FUNCTION TinyintPartitionFunction(TINYINT)
-    AS RANGE RIGHT
-    FOR VALUES (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255);
-
-
-GO
-CREATE PARTITION SCHEME TinyintPartitionScheme
-    AS PARTITION TinyintPartitionFunction
-    ALL TO ([PRIMARY]);
-
-
-GO
 CREATE TABLE dbo.JobQueue (
     QueueType       TINYINT        NOT NULL,
     GroupId         BIGINT         NOT NULL,
@@ -388,20 +382,14 @@ CREATE TABLE dbo.JobQueue (
     CancelRequested BIT            CONSTRAINT DF_JobQueue_CancelRequested DEFAULT 0 NOT NULL CONSTRAINT PKC_JobQueue_QueueType_PartitionId_JobId PRIMARY KEY CLUSTERED (QueueType, PartitionId, JobId) ON TinyintPartitionScheme (QueueType)
 );
 
-
-GO
 CREATE INDEX IX_QueueType_PartitionId_Status_Priority
     ON dbo.JobQueue(PartitionId, Status, Priority)
     ON TinyintPartitionScheme (QueueType);
 
-
-GO
 CREATE INDEX IX_QueueType_GroupId
     ON dbo.JobQueue(QueueType, GroupId)
     ON TinyintPartitionScheme (QueueType);
 
-
-GO
 CREATE INDEX IX_QueueType_DefinitionHash
     ON dbo.JobQueue(QueueType, DefinitionHash)
     ON TinyintPartitionScheme (QueueType);
@@ -446,8 +434,6 @@ CREATE TABLE dbo.Parameters (
     UpdatedBy   NVARCHAR (255)  NULL CONSTRAINT PKC_Parameters_Id PRIMARY KEY CLUSTERED (Id)
 );
 
-
-GO
 CREATE TABLE dbo.ParametersHistory (
     ChangeId    INT             IDENTITY (1, 1) NOT NULL,
     Id          VARCHAR (100)   NOT NULL,
@@ -459,42 +445,6 @@ CREATE TABLE dbo.ParametersHistory (
     UpdatedDate DATETIME2 (7)   NULL,
     UpdatedBy   NVARCHAR (255)  NULL
 );
-
-
-GO
-CREATE TRIGGER dbo.ParametersInsUpdDel
-    ON dbo.Parameters
-    FOR INSERT, UPDATE, DELETE
-    AS BEGIN
-           IF EXISTS (SELECT *
-                      FROM   sys.tables
-                      WHERE  name = 'Entities')
-              AND EXISTS (SELECT *
-                          FROM   deleted
-                          WHERE  Id IN ('CentralServer', 'CentralDatabase', 'CentralVersion'))
-               BEGIN
-                   RAISERROR ('Distributed databases cannot be unbound/rebound.  Once deactivated in Central.dbo.Shards, the only option is dropping this sharded database', 18, 127);
-                   ROLLBACK;
-               END
-           INSERT INTO dbo.ParametersHistory (Id, Date, Number, Bigint, Char, Binary, UpdatedDate, UpdatedBy)
-           SELECT Id,
-                  Date,
-                  Number,
-                  Bigint,
-                  Char,
-                  Binary,
-                  UpdatedDate,
-                  UpdatedBy
-           FROM   Deleted;
-           UPDATE A
-           SET    UpdatedDate = SYSUTCDATETIME(),
-                  UpdatedBy   = LEFT(SYSTEM_USER, 100)
-           FROM   dbo.Parameters AS A
-                  INNER JOIN
-                  Inserted AS B
-                  ON B.Id = A.Id;
-           RETURN;
-       END
 
 CREATE TABLE dbo.QuantityCode (
     QuantityCodeId INT            IDENTITY (1, 1) NOT NULL,
@@ -1851,8 +1801,8 @@ BEGIN TRY
                               AND B.Status <> 5);
     SET @Rows = @@rowcount;
     COMMIT TRANSACTION;
-    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
+    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds;
 END TRY
 BEGIN CATCH
     IF @@trancount > 0

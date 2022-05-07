@@ -1,5 +1,4 @@
-﻿GO
-CREATE PROCEDURE dbo.LogEvent    
+﻿CREATE PROCEDURE dbo.LogEvent    
    @Process         varchar(100)
   ,@Status          varchar(10)
   ,@Mode            varchar(200)   = NULL    

@@ -1,5 +1,4 @@
-﻿GO
-CREATE PROCEDURE dbo.GetJobs
+﻿CREATE PROCEDURE dbo.GetJobs
    @QueueType        tinyint
   ,@JobId            bigint  = NULL
   ,@JobIds           BigintList READONLY

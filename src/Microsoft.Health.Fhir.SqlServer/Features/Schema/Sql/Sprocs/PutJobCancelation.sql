@@ -1,5 +1,4 @@
-﻿GO
-CREATE PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint
+﻿CREATE PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobCancelation'

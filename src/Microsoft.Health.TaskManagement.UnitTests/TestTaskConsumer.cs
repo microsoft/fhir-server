@@ -27,7 +27,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             {
                 if (t.Status == null)
                 {
-                    t.Status = TaskStatus.Queued;
+                    t.Status = TaskStatus.Created;
                 }
 
                 t.HeartbeatDateTime = DateTime.Now;
@@ -49,6 +49,11 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             task.Result = JsonConvert.SerializeObject(result);
 
             return Task.FromResult<TaskInfo>(task);
+        }
+
+        public Task CompleteAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
 
         public Task<TaskInfo> GetNextMessagesAsync(int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
@@ -104,7 +109,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             else
             {
                 taskInfo.RetryCount += 1;
-                taskInfo.Status = TaskStatus.Queued;
+                taskInfo.Status = TaskStatus.Created;
             }
 
             return Task.FromResult<TaskInfo>(taskInfo);

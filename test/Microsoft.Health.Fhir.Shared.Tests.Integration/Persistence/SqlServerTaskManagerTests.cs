@@ -15,10 +15,14 @@ using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.TaskManagement;
 using NSubstitute;
 using Xunit;
-using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    internal enum TestQueueType : byte
+    {
+        GivenASqlTaskManager_WhenEnqueue_ThenNewTaskShouldBeEnqueued,
+    }
+
     public class SqlServerTaskManagerTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private const short SqlServerTaskManagerTestsTypeId = 100;
@@ -35,49 +39,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenASqlTaskManager_WhenCreateTask_ThenNewTaskShouldBeCreated()
         {
-            string queueId = Guid.NewGuid().ToString();
-            string taskId = Guid.NewGuid().ToString();
-            string parentTaskId = Guid.NewGuid().ToString();
-            string inputData = "inputData";
-
-            TaskInfo taskInfo = new TaskInfo()
-            {
-                TaskId = taskId,
-                QueueId = queueId,
-                TaskTypeId = SqlServerTaskManagerTestsTypeId,
-                InputData = inputData,
-                ParentTaskId = parentTaskId,
-            };
-
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
-            taskInfo = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
+            var taskInfos = await sqlServerTaskManager.EnqueueAsync((byte)TestQueueType.GivenASqlTaskManager_WhenEnqueue_ThenNewTaskShouldBeEnqueued, new string[] { "task1" }, null, false, CancellationToken.None);
 
-            Assert.Equal(queueId, taskInfo.QueueId);
-            Assert.Equal(taskId, taskInfo.TaskId);
-            Assert.Equal(SqlServerTaskManagerTestsTypeId, taskInfo.TaskTypeId);
-            Assert.Equal(inputData, taskInfo.InputData);
-            Assert.Equal(TaskStatus.Queued, taskInfo.Status);
-            Assert.NotNull(taskInfo.HeartbeatDateTime);
-            Assert.Null(taskInfo.RunId);
-            Assert.False(taskInfo.IsCanceled);
-            Assert.Equal(0, taskInfo.RetryCount);
-            Assert.Null(taskInfo.Context);
-            Assert.Null(taskInfo.Result);
-            Assert.Equal(parentTaskId, taskInfo.ParentTaskId);
-
-            taskInfo = await sqlServerTaskManager.GetTaskAsync(taskId, CancellationToken.None);
-            Assert.Equal(queueId, taskInfo.QueueId);
-            Assert.Equal(taskId, taskInfo.TaskId);
-            Assert.Equal(SqlServerTaskManagerTestsTypeId, taskInfo.TaskTypeId);
-            Assert.Equal(inputData, taskInfo.InputData);
-            Assert.Equal(TaskStatus.Queued, taskInfo.Status);
-            Assert.NotNull(taskInfo.HeartbeatDateTime);
-            Assert.Null(taskInfo.RunId);
-            Assert.False(taskInfo.IsCanceled);
-            Assert.Equal(0, taskInfo.RetryCount);
-            Assert.Null(taskInfo.Context);
-            Assert.Null(taskInfo.Result);
-            Assert.Equal(parentTaskId, taskInfo.ParentTaskId);
+            taskInfos.ToString();
         }
 
         [Fact]
@@ -106,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId1,
                 QueueId = queueId,
                 TaskTypeId = conflictTestTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             TaskInfo taskInfo2 = new TaskInfo()
@@ -114,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId2,
                 QueueId = queueId,
                 TaskTypeId = conflictTestTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo1, true, CancellationToken.None);
@@ -133,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskManagerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
@@ -154,14 +119,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = taskId,
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskManagerTestsTypeId,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             TaskInfo canceledTask = await sqlServerTaskManager.CancelTaskAsync(taskId, CancellationToken.None);
-            Assert.True(canceledTask.IsCanceled);
+            Assert.True(canceledTask.CancelRequested);
         }
 
         [Fact]
@@ -176,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = Guid.NewGuid().ToString(),
                 QueueId = queueId,
                 TaskTypeId = uniqueType,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
@@ -187,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = Guid.NewGuid().ToString(),
                 QueueId = queueId,
                 TaskTypeId = uniqueType,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             await Assert.ThrowsAnyAsync<TaskConflictException>(async () => await sqlServerTaskManager.CreateTaskAsync(taskInfo, true, CancellationToken.None));
@@ -205,7 +170,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = Guid.NewGuid().ToString(),
                 QueueId = queueId,
                 TaskTypeId = uniqueType,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
@@ -217,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TaskId = Guid.NewGuid().ToString(),
                 QueueId = queueId,
                 TaskTypeId = uniqueType,
-                InputData = inputData,
+                Definition = inputData,
             };
 
             await Assert.ThrowsAnyAsync<TaskConflictException>(async () => await sqlServerTaskManager.CreateTaskAsync(taskInfo, true, CancellationToken.None));

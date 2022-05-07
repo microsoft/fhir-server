@@ -5,20 +5,19 @@
 
 namespace Microsoft.Health.TaskManagement
 {
+    // 0:created  1=running, 2=completed, 3=failed, 4=cancelled, 5=archived
+
     /// <summary>
     /// Task status num
     /// </summary>
-    public enum TaskStatus
+#pragma warning disable CA1028 // Enum Storage should be Int32
+    public enum TaskStatus : byte
+#pragma warning restore CA1028 // Enum Storage should be Int32
     {
         /// <summary>
         /// Task created but not ready for execution.
         /// </summary>
         Created,
-
-        /// <summary>
-        /// Task is ready for execution
-        /// </summary>
-        Queued,
 
         /// <summary>
         /// Task is repicked up and running.
@@ -29,5 +28,20 @@ namespace Microsoft.Health.TaskManagement
         /// Task completed.
         /// </summary>
         Completed,
+
+        /// <summary>
+        /// Task failed.
+        /// </summary>
+        Failed,
+
+        /// <summary>
+        /// Task cancelled.
+        /// </summary>
+        Cancelled,
+
+        /// <summary>
+        /// Task Archived.
+        /// </summary>
+        Archived,
     }
 }

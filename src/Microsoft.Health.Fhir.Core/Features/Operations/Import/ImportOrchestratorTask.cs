@@ -396,7 +396,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 QueueId = _orchestratorInputData.ProcessingTaskQueueId,
                 TaskId = processingTaskId,
                 TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
-                InputData = JsonConvert.SerializeObject(importTaskPayload),
+                Definition = JsonConvert.SerializeObject(importTaskPayload),
                 MaxRetryCount = _orchestratorInputData.ProcessingTaskMaxRetryCount,
                 ParentTaskId = _orchestratorInputData.TaskId,
             };
@@ -464,7 +464,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     QueueId = _orchestratorInputData.ProcessingTaskQueueId,
                     TaskId = taskId,
                     TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
-                    InputData = JsonConvert.SerializeObject(importTaskPayload),
+                    Definition = JsonConvert.SerializeObject(importTaskPayload),
                     MaxRetryCount = _orchestratorInputData.ProcessingTaskMaxRetryCount,
                 };
 

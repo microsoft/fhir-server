@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 TaskTypeId = ImportOrchestratorTask.ImportOrchestratorTaskId,
                 MaxRetryCount = _importTaskConfiguration.MaxRetryCount,
                 QueueId = _taskHostingConfiguration.QueueId,
-                InputData = JsonConvert.SerializeObject(inputData),
+                Definition = JsonConvert.SerializeObject(inputData),
                 ParentTaskId = taskId,
             };
 

@@ -472,7 +472,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return null;
                 }
 
-                ImportProcessingTaskInputData processingInput = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(t.InputData);
+                ImportProcessingTaskInputData processingInput = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(t.Definition);
                 ImportProcessingTaskResult processingResult = new ImportProcessingTaskResult();
                 processingResult.ResourceType = processingInput.ResourceType;
                 processingResult.SucceedCount = 1;
@@ -572,7 +572,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return null;
                 }
 
-                ImportProcessingTaskInputData processingInput = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(t.InputData);
+                ImportProcessingTaskInputData processingInput = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(t.Definition);
                 ImportProcessingTaskResult processingResult = new ImportProcessingTaskResult();
                 processingResult.ResourceType = processingInput.ResourceType;
                 processingResult.SucceedCount = 1;
@@ -669,7 +669,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return t;
                 }
 
-                ImportProcessingTaskInputData processingInput = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(t.InputData);
+                ImportProcessingTaskInputData processingInput = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(t.Definition);
                 ImportProcessingTaskResult processingResult = new ImportProcessingTaskResult();
                 processingResult.ResourceType = processingInput.ResourceType;
                 processingResult.SucceedCount = 1;
@@ -707,7 +707,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
                         TaskInfo taskInfo = new TaskInfo();
                         taskInfo.TaskId = Guid.NewGuid().ToString("N");
-                        taskInfo.InputData = JsonConvert.SerializeObject(processingInput);
+                        taskInfo.Definition = JsonConvert.SerializeObject(processingInput);
 
                         ImportProcessingTaskResult processingResult = new ImportProcessingTaskResult();
                         processingResult.ResourceType = "Resource";

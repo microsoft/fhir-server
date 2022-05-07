@@ -1,5 +1,4 @@
-﻿GO
-CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @StartPartitionId tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
+﻿CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @StartPartitionId tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueJob'

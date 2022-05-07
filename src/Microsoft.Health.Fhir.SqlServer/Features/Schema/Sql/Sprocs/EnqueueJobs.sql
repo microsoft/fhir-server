@@ -1,5 +1,4 @@
-﻿GO
-CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit
+﻿CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
@@ -43,9 +42,9 @@ BEGIN TRY
 
   COMMIT TRANSACTION
 
-  EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
-
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
+  
+  EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION

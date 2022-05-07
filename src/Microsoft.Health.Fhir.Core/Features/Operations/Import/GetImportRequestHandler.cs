@@ -51,11 +51,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
             }
 
-            ImportOrchestratorTaskInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorTaskInputData>(taskInfo.InputData);
+            ImportOrchestratorTaskInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorTaskInputData>(taskInfo.Definition);
 
             if (taskInfo.Status != TaskManagement.TaskStatus.Completed)
             {
-                if (taskInfo.IsCanceled)
+                if (taskInfo.CancelRequested)
                 {
                     throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }

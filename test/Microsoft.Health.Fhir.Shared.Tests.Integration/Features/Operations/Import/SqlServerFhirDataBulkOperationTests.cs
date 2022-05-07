@@ -305,7 +305,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 TaskId = Guid.NewGuid().ToString(),
                 QueueId = queueId,
                 TaskTypeId = 1,
-                InputData = string.Empty,
+                Definition = string.Empty,
                 ParentTaskId = parentTaskId,
             };
 
@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 TaskId = Guid.NewGuid().ToString(),
                 QueueId = queueId,
                 TaskTypeId = 1,
-                InputData = string.Empty,
+                Definition = string.Empty,
                 ParentTaskId = parentTaskId,
             };
 
@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 TaskId = Guid.NewGuid().ToString(),
                 QueueId = queueId,
                 TaskTypeId = 1,
-                InputData = string.Empty,
+                Definition = string.Empty,
                 ParentTaskId = parentTaskId,
             };
 

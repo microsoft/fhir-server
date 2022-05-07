@@ -63,11 +63,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCanceled_ThenAcceptedCodeShouldBeReturned()
         {
-            await SetupAndExecuteCancelImportAsync(TaskStatus.Queued, HttpStatusCode.Accepted, true);
+            await SetupAndExecuteCancelImportAsync(TaskStatus.Created, HttpStatusCode.Accepted, true);
         }
 
         [Theory]
-        [InlineData(TaskStatus.Queued)]
+        [InlineData(TaskStatus.Created)]
         [InlineData(TaskStatus.Running)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
@@ -103,8 +103,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 QueueId = "0",
                 Status = taskStatus,
                 TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
-                InputData = string.Empty,
-                IsCanceled = isCanceled,
+                Definition = string.Empty,
+                CancelRequested = isCanceled,
             };
 
             _taskManager.GetTaskAsync(TaskId, _cancellationToken).Returns(taskInfo);

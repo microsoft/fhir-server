@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskThatWasCanceled_ThenOperationFailedExceptionIsThrownWithBadRequestHttpResponseCode()
         {
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Queued, true));
+            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Created, true));
 
             Assert.NotNull(ofe);
             Assert.Equal(_failureStatusCode, ofe.ResponseStatusCode);
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         [Theory]
         [InlineData(TaskStatus.Running)]
-        [InlineData(TaskStatus.Queued)]
+        [InlineData(TaskStatus.Created)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
         {
             GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(taskStatus);
@@ -142,8 +142,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 QueueId = "0",
                 Status = taskStatus,
                 TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
-                InputData = JsonConvert.SerializeObject(inputData),
-                IsCanceled = isCanceled,
+                Definition = JsonConvert.SerializeObject(inputData),
+                CancelRequested = isCanceled,
                 Result = resultData != null ? JsonConvert.SerializeObject(resultData) : string.Empty,
             };
 

@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         public Task<TaskInfo> CancelTaskAsync(string taskId, CancellationToken cancellationToken)
         {
             TaskInfo taskInfo = TaskInfos.FirstOrDefault(t => taskId.Equals(t.TaskId));
-            taskInfo.IsCanceled = true;
+            taskInfo.CancelRequested = true;
 
             return Task.FromResult(taskInfo);
         }
@@ -36,6 +36,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             TaskInfos.Add(task);
 
             return Task.FromResult(task);
+        }
+
+        public Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
 
         public Task<TaskInfo> GetTaskAsync(string taskId, CancellationToken cancellationToken)

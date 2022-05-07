@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,6 +22,8 @@ namespace Microsoft.Health.TaskManagement
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Task information after created.</returns>
         public Task<TaskInfo> CreateTaskAsync(TaskInfo task, bool isUniqueTaskByType, CancellationToken cancellationToken);
+
+        public Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken);
 
         /// <summary>
         /// Get task information by id.

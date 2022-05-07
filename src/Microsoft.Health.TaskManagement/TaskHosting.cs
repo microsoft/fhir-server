@@ -115,7 +115,7 @@ namespace Microsoft.Health.TaskManagement
             {
                 try
                 {
-                    if (taskInfo.IsCanceled)
+                    if (taskInfo.CancelRequested)
                     {
                         // For cancelled task, try to execute it for potential cleanup.
                         task.Cancel();
@@ -181,7 +181,7 @@ namespace Microsoft.Health.TaskManagement
                         try
                         {
                             TaskInfo taskInfo = await _consumer.KeepAliveAsync(taskId, task.RunId, cancellationToken);
-                            shouldCancel |= taskInfo.IsCanceled;
+                            shouldCancel |= taskInfo.CancelRequested;
                         }
                         catch (TaskNotExistException notExistEx)
                         {
