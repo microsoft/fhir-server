@@ -11,6 +11,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class SecurityConfiguration
     {
+        public delegate void AddAuthenticaionLibraryMethod(IServiceCollection services, string authority, string audience);
+
         public bool Enabled { get; set; }
 
         public bool EnableAadSmartOnFhirProxy { get; set; }
@@ -21,6 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public AuthorizationConfiguration Authorization { get; set; } = new AuthorizationConfiguration();
 
-        public Action<IServiceCollection, string, string> AddAuthenticaionLibrary { get; set; }
+        public AddAuthenticaionLibraryMethod AddAuthenticaionLibrary { get; set; }
     }
 }
