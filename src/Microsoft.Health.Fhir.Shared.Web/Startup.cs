@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Web
             Core.Registration.IFhirServerBuilder fhirServerBuilder =
                 services.AddFhirServer(
                     Configuration,
-                    fhirServerConfiguration => { fhirServerConfiguration.Security.AddAuthenticaionLibrary = AddAuthenticationLibrary.Add; })
+                    fhirServerConfiguration => fhirServerConfiguration.Security.AddAuthenticaionLibrary = AddAuthenticationLibrary)
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
@@ -136,24 +136,21 @@ namespace Microsoft.Health.Fhir.Web
             }
         }
 
-        private static class AddAuthenticationLibrary
+        private static void AddAuthenticationLibrary(IServiceCollection services, string authority, string audience)
         {
-            public static void Add(IServiceCollection services, string authority, string audience)
+            services.AddAuthentication(options =>
             {
-                services.AddAuthentication(options =>
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+                .AddJwtBearer(options =>
                 {
-                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-                })
-                    .AddJwtBearer(options =>
-                    {
-                        options.Authority = authority;
-                        options.Audience = audience;
-                        options.RequireHttpsMetadata = true;
-                        options.Challenge = $"Bearer authorization_uri=\"{authority}\", resource_id=\"{audience}\", realm=\"{audience}\"";
-                    });
-            }
+                    options.Authority = authority;
+                    options.Audience = audience;
+                    options.RequireHttpsMetadata = true;
+                    options.Challenge = $"Bearer authorization_uri=\"{authority}\", resource_id=\"{audience}\", realm=\"{audience}\"";
+                });
         }
     }
 }
