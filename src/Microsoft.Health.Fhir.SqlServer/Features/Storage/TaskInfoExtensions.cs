@@ -57,6 +57,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             };
         }
 
+        public static async Task<TaskInfo> ReadTaskInfoAsync(this SqlDataReader sqlDataReader, CancellationToken cancellationToken)
+        {
+            if (await sqlDataReader.ReadAsync(cancellationToken))
+            {
+                return LoadTaskInfo(sqlDataReader);
+            }
+
+            return null;
+        }
+
         public static async Task<IEnumerable<TaskInfo>> ReadTaskInfosAsync(this SqlDataReader sqlDataReader, CancellationToken cancellationToken)
         {
             List<TaskInfo> outcome = new List<TaskInfo>();
@@ -74,15 +84,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var jobQueueTable = VLatest.JobQueue;
             long groupId = sqlDataReader.Read(jobQueueTable.GroupId, 0);
             long id = sqlDataReader.Read(jobQueueTable.JobId, 1);
-            string definition = sqlDataReader.Read(jobQueueTable.Definition, 2);
+            object definitionObj = sqlDataReader.GetValue(2);
+            string definition = definitionObj is DBNull ? null : (string)definitionObj;
             long version = sqlDataReader.Read(jobQueueTable.Version, 3);
             TaskStatus status = (TaskStatus)sqlDataReader.Read(jobQueueTable.Status, 4);
             long priority = sqlDataReader.Read(jobQueueTable.Priority, 5);
             long? data = sqlDataReader.Read(jobQueueTable.Data, 6);
             string result = sqlDataReader.Read(jobQueueTable.Result, 7);
             DateTime createDate = sqlDataReader.Read(jobQueueTable.CreateDate, 8);
-            DateTime? startDate = sqlDataReader.Read(jobQueueTable.StartDate, 9);
-            DateTime? endDate = sqlDataReader.Read(jobQueueTable.EndDate, 10);
+            object startDateObj = sqlDataReader.GetValue(9);
+            DateTime? startDate = startDateObj is DBNull ? null : (DateTime)startDateObj;
+            object endDateObj = sqlDataReader.GetValue(9);
+            DateTime? endDate = endDateObj is DBNull ? null : (DateTime)endDateObj;
             DateTime heartbeatDate = sqlDataReader.Read(jobQueueTable.HeartbeatDate, 11);
             bool cancelRequested = sqlDataReader.Read(jobQueueTable.CancelRequested, 12);
 

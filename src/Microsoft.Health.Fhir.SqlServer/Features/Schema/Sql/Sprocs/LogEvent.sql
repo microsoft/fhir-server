@@ -1,11 +1,13 @@
-﻿CREATE PROCEDURE dbo.LogEvent    
+--DROP PROCEDURE dbo.LogEvent
+GO
+CREATE PROCEDURE dbo.LogEvent    
    @Process         varchar(100)
   ,@Status          varchar(10)
   ,@Mode            varchar(200)   = NULL    
   ,@Action          varchar(20)    = NULL    
   ,@Target          varchar(100)   = NULL    
   ,@Rows            bigint         = NULL    
-  ,@Start           datetime2(7)   = NULL
+  ,@Start           datetime       = NULL
   ,@Text            nvarchar(3500) = NULL
   ,@EventId         bigint         = NULL    OUTPUT
   ,@Retry           int            = NULL
@@ -59,18 +61,18 @@ BEGIN
           ,@Action
           ,@Target
           ,@Rows
-          ,datediff(millisecond,@Start,SYSUTCDATETIME())
-          ,EventDate = SYSUTCDATETIME()
+          ,datediff(millisecond,@Start,getUTCdate())
+          ,EventDate = getUTCdate()
           ,Text = CASE 
                     WHEN @ErrorNumber IS NULL THEN @Text
                     ELSE @ErrorMessage + CASE WHEN isnull(@Text,'')<>'' THEN '. '+@Text ELSE '' END
                   END
           ,@@SPID
           ,HostName = host_name()
-
+    
   SET @EventId = scope_identity()
 END
-
+    
 -- Restore @@trancount
 IF @TranCount > 0 AND @ErrorNumber IS NOT NULL BEGIN TRANSACTION
 GO

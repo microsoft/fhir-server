@@ -1,50 +1,65 @@
-﻿CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit
+--DROP PROCEDURE dbo.EnqueueJobs
+GO
+CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' D='+convert(varchar,(SELECT count(*) FROM @Definitions))
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
-       ,@st datetime2 = SYSUTCDATETIME()
+       ,@st datetime = getUTCdate()
        ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
        ,@MaxJobId bigint
        ,@Rows int
        ,@msg varchar(1000)
        ,@JobIds BigintList
+       ,@InputRows int
 
 BEGIN TRY
-  BEGIN TRANSACTION  
+  DECLARE @Input TABLE (DefinitionHash varbinary(20) PRIMARY KEY, Definition varchar(max))
+  INSERT INTO @Input SELECT DefinitionHash = hashbytes('SHA1',String), Definition = String FROM @Definitions
+  SET @InputRows = @@rowcount
 
-  EXECUTE sp_getapplock @Lock, 'Exclusive'
+  INSERT INTO @JobIds
+    SELECT JobId
+      FROM @Input A
+           JOIN dbo.JobQueue B ON B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5
+  
+  IF @@rowcount < @InputRows
+  BEGIN
+    BEGIN TRANSACTION  
 
-  IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
-    RAISERROR('There are other active job groups',18,127)
+    EXECUTE sp_getapplock @Lock, 'Exclusive'
 
-  SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+    IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
+      RAISERROR('There are other active job groups',18,127)
 
-  INSERT INTO dbo.JobQueue
-      (
-           QueueType
-          ,GroupId
-          ,JobId
-          ,Definition
-          ,DefinitionHash
-      )
-    OUTPUT inserted.JobId INTO @JobIds
-    SELECT @QueueType
-          ,GroupId = isnull(@GroupId,@MaxJobId+1)
-          ,JobId
-          ,Definition
-          ,DefinitionHash
-      FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY substring(String,1,1)), DefinitionHash = hashbytes('SHA1',String), Definition = String FROM @Definitions) A
-      WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
-  SET @Rows = @@rowcount
+    SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+  
+    INSERT INTO dbo.JobQueue
+        (
+             QueueType
+            ,GroupId
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+        )
+      OUTPUT inserted.JobId INTO @JobIds
+      SELECT @QueueType
+            ,GroupId = isnull(@GroupId,@MaxJobId+1)
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+        FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY substring(Definition,1,1)), * FROM @Input) A
+        WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
+    SET @Rows = @@rowcount
 
-  COMMIT TRANSACTION
+    COMMIT TRANSACTION
+  END
+
+  EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
-  
-  EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
@@ -53,3 +68,6 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+--DECLARE @Definitions StringList
+--INSERT INTO @Definitions SELECT 'Test'
+--EXECUTE dbo.EnqueueJobs 2, @Definitions, @ForceOneActiveJobGroup = 1

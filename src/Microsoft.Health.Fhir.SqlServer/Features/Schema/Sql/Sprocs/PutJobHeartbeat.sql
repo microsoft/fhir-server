@@ -1,9 +1,11 @@
-﻿CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CurrentResult varchar(max) = NULL
+--DROP PROCEDURE dbo.PutJobHeartbeat
+GO
+CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CurrentResult varchar(max) = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobHeartbeat'
        ,@Mode varchar(100)
-       ,@st datetime2 = SYSUTCDATETIME()
+       ,@st datetime = getUTCdate()
        ,@Rows int = 0
        ,@PartitionId tinyint = @JobId % 16
 
@@ -12,7 +14,7 @@ SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='
 BEGIN TRY
   IF @CurrentResult IS NULL
     UPDATE dbo.JobQueue
-      SET HeartbeatDate = SYSUTCDATETIME()
+      SET HeartbeatDate = getUTCdate()
          ,Data = isnull(@Data,Data)
       WHERE QueueType = @QueueType
         AND PartitionId = @PartitionId
@@ -21,7 +23,7 @@ BEGIN TRY
         AND Version = @Version
   ELSE
     UPDATE dbo.JobQueue
-      SET HeartbeatDate = SYSUTCDATETIME()
+      SET HeartbeatDate = getUTCdate()
          ,Data = isnull(@Data,Data)
          ,Result = @CurrentResult
       WHERE QueueType = @QueueType
@@ -29,9 +31,9 @@ BEGIN TRY
         AND JobId = @JobId
         AND Status = 1
         AND Version = @Version
-
+  
   SET @Rows = @@rowcount
-
+  
   IF @Rows = 0
     THROW 50412, 'Precondition failed', 1
 

@@ -1,10 +1,12 @@
-﻿CREATE PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint
+--DROP PROCEDURE dbo.PutJobCancelation
+GO
+CREATE PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobCancelation'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
-       ,@st datetime2 = SYSUTCDATETIME()
+       ,@st datetime = getUTCdate()
        ,@Rows int
 
 BEGIN TRY

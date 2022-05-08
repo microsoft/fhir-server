@@ -11,7 +11,7 @@ namespace Microsoft.Health.TaskManagement
     {
         public long Id { get; set; }
 
-        public QueueType QueueType { get; set; }
+        public byte QueueType { get; set; }
 
         public TaskStatus? Status { get; set; }
 

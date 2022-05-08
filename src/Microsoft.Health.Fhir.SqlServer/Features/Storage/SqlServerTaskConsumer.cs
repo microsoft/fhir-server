@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, (byte)taskInfo.QueueType, taskInfo.Id, taskInfo.Version, taskInfo.Status == TaskStatus.Failed, taskInfo.Data ?? 0, taskInfo.Result, taskInfo.CancelRequested);
+                    VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, taskInfo.QueueType, taskInfo.Id, taskInfo.Version, taskInfo.Status == TaskStatus.Failed, taskInfo.Data ?? 0, taskInfo.Result, taskInfo.CancelRequested);
                     await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
                 }
                 catch (SqlException sqlEx)

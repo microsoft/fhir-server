@@ -123,8 +123,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // ** We must use CreateNonRetrySqlCommand here because the retry will not reset the Stream containing the RawResource, resulting in a failure to save the data
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand())
                 using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
                 {
                     // Read the latest resource

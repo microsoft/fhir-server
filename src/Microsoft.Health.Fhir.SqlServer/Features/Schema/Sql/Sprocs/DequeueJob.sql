@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @StartPartitionId tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
+--DROP PROCEDURE dbo.DequeueJob
+GO
+CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @StartPartitionId tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueJob'
@@ -7,7 +9,7 @@ DECLARE @SP varchar(100) = 'DequeueJob'
                            +' H='+isnull(convert(varchar,@HeartbeatTimeoutSec),'NULL')
                            +' W='+isnull(@Worker,'NULL')
        ,@Rows int
-       ,@st datetime2 = SYSUTCDATETIME()
+       ,@st datetime = getUTCdate()
        ,@JobId bigint
        ,@msg varchar(100)
        ,@Lock varchar(100)
@@ -27,8 +29,8 @@ BEGIN TRY
     EXECUTE sp_getapplock @Lock, 'Exclusive'
 
     UPDATE T
-      SET StartDate = SYSUTCDATETIME()
-         ,HeartbeatDate = SYSUTCDATETIME()
+      SET StartDate = getUTCdate()
+         ,HeartbeatDate = getUTCdate()
          ,Worker = @Worker 
          ,Status = 1 -- running
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
@@ -67,8 +69,8 @@ BEGIN TRY
     EXECUTE sp_getapplock @Lock, 'Exclusive'
 
     UPDATE T
-      SET StartDate = SYSUTCDATETIME()
-         ,HeartbeatDate = SYSUTCDATETIME()
+      SET StartDate = getUTCdate()
+         ,HeartbeatDate = getUTCdate()
          ,Worker = @Worker 
          ,Status = 1 -- running
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
@@ -81,7 +83,7 @@ BEGIN TRY
                    WHERE QueueType = @QueueType
                      AND PartitionId = @PartitionId
                      AND Status = 1
-                     AND datediff(second,HeartbeatDate,SYSUTCDATETIME()) > @HeartbeatTimeoutSec
+                     AND datediff(second,HeartbeatDate,getUTCdate()) > @HeartbeatTimeoutSec
                    ORDER BY 
                         Priority
                        ,JobId
@@ -100,7 +102,7 @@ BEGIN TRY
 
   IF @JobId IS NOT NULL
     EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobId = @JobId
-
+  
   SET @msg = 'J='+isnull(convert(varchar,@JobId),'NULL')+' P='+convert(varchar,@PartitionId)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Text=@msg

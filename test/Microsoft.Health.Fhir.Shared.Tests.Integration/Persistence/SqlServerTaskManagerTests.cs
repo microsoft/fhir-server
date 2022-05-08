@@ -18,11 +18,6 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    internal enum TestQueueType : byte
-    {
-        GivenASqlTaskManager_WhenEnqueue_ThenNewTaskShouldBeEnqueued,
-    }
-
     public class SqlServerTaskManagerTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private const short SqlServerTaskManagerTestsTypeId = 100;
@@ -34,15 +29,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fixture = fixture;
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
-        }
-
-        [Fact]
-        public async Task GivenASqlTaskManager_WhenCreateTask_ThenNewTaskShouldBeCreated()
-        {
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
-            var taskInfos = await sqlServerTaskManager.EnqueueAsync((byte)TestQueueType.GivenASqlTaskManager_WhenEnqueue_ThenNewTaskShouldBeEnqueued, new string[] { "task1" }, null, false, CancellationToken.None);
-
-            taskInfos.ToString();
         }
 
         [Fact]

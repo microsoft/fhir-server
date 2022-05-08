@@ -1,4 +1,6 @@
-﻿CREATE PROCEDURE dbo.GetJobs
+--DROP PROCEDURE dbo.GetJobs
+GO
+CREATE PROCEDURE dbo.GetJobs
    @QueueType        tinyint
   ,@JobId            bigint  = NULL
   ,@JobIds           BigintList READONLY
@@ -10,7 +12,7 @@ DECLARE @SP varchar(100) = 'GetJobs'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' J='+isnull(convert(varchar,@JobId),'NULL')
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
-       ,@st datetime2 = SYSUTCDATETIME()
+       ,@st datetime = getUTCdate()
        ,@PartitionId tinyint = @JobId % 16
 
 BEGIN TRY
