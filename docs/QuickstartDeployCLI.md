@@ -40,6 +40,15 @@ Deploy using CosmosDB as the data store with the following command:
 az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy.json --parameters serviceName=$servicename
 ```
 
+\
+Alternatively, to deploy using SQL Server as the data store: 
+
+```azurecli-interactive
+az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy.json --parameters serviceName=$servicename solutionType=FhirServerSqlServer sqlAdminPassword=<replace me>
+```
+
+(Note: ensure that your SQL admin password meets the minimum [policy requirements](https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity) to avoid deployment errors)
+
 ## Verify FHIR server is running
 
 Obtain a capability statement from the FHIR server with:
