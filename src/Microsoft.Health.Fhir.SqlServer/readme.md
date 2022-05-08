@@ -25,7 +25,7 @@ https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Conv
     -  `<LatestSchemaVersion>` with latest version
     -  `EmbeddedResource` to generate the latest c# models 
 - Full schema is auto generated from the Sql target build task
-- Migration diff script is manually generated and should follow recommedations [here](https://github.com/microsoft/healthcare-shared-components/tree/master/src/Microsoft.Health.SqlServer/SqlSchemaScriptsGuidelines.md)
+- Migration diff script is manually generated and should follow recommedations [here](https://github.com/microsoft/healthcare-shared-components/tree/main/src/Microsoft.Health.SqlServer/SqlSchemaScriptsGuidelines.md)
 
 ## Testing changes
 
@@ -65,7 +65,7 @@ END
 ```
 ## Sql Migration 
 
-https://github.com/microsoft/healthcare-shared-components/tree/master/src/Microsoft.Health.SqlServer/SqlSchemaScriptsGuidelines.md
+https://github.com/microsoft/healthcare-shared-components/tree/main/src/Microsoft.Health.SqlServer/SqlSchemaScriptsGuidelines.md
 
 ## Sql Compatability
 

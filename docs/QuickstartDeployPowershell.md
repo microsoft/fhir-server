@@ -43,7 +43,7 @@ The Microsoft FHIR Server for Azure [GitHub Repository](https://github.com/Micro
 Deploy using CosmosDB as the data store with the following command:
 
 ```azurepowershell-interactive
-New-AzResourceGroupDeployment -TemplateUri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
+New-AzResourceGroupDeployment -TemplateUri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy.json -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
 
 ## Verify FHIR server is running
