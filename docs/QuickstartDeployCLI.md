@@ -44,7 +44,7 @@ az deployment group create -g $servicename --template-uri https://raw.githubuser
 Alternatively, to deploy using SQL Server as the data store: 
 
 ```azurecli-interactive
-az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json --parameters serviceName=$servicename solutionType=FhirServerSqlServer sqlAdminPassword=<replace me>
+az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json --parameters serviceName=$servicename solutionType=FhirServerSqlServer sqlSchemaAutomaticUpdatesEnabled=auto sqlAdminPassword=<replace me>
 ```
 
 (Note: ensure that your SQL admin password meets the minimum [policy requirements](https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity) to avoid deployment errors)

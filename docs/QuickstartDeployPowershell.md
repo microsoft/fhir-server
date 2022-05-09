@@ -52,7 +52,7 @@ Alternatively, to deploy using SQL Server as the data store:
 
 ```azurecli-interactive
 $sqlAdminPassword = ConvertTo-SecureString "mySecretPassword123" -AsPlainText -Force
-New-AzResourceGroupDeployment -TemplateUri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName -solutionType FhirServerSqlServer -sqlAdminPassword $sqlAdminPassword
+New-AzResourceGroupDeployment -TemplateUri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName -solutionType FhirServerSqlServer -sqlSchemaAutomaticUpdatesEnabled auto -sqlAdminPassword $sqlAdminPassword
 ```
 
 (Note: ensure that your SQL admin password meets the minimum [policy requirements](https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity) to avoid deployment errors)
