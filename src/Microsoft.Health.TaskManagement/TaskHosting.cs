@@ -10,23 +10,24 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.TaskManagement
 {
     public class TaskHosting
     {
-        private ITaskConsumer _consumer;
+        private IQueueClient _queueClient;
         private ITaskFactory _taskFactory;
         private ILogger<TaskHosting> _logger;
-        private ConcurrentDictionary<string, ITask> _activeTaskRecordsForKeepAlive = new ConcurrentDictionary<string, ITask>();
+        private ConcurrentDictionary<long, Func<Task>> _activeTasksNeedKeepAlive = new ConcurrentDictionary<long, Func<Task>>();
 
-        public TaskHosting(ITaskConsumer consumer, ITaskFactory taskFactory, ILogger<TaskHosting> logger)
+        public TaskHosting(IQueueClient queueClient, ITaskFactory taskFactory, ILogger<TaskHosting> logger)
         {
-            EnsureArg.IsNotNull(consumer, nameof(consumer));
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(taskFactory, nameof(taskFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _consumer = consumer;
+            _queueClient = queueClient;
             _taskFactory = taskFactory;
             _logger = logger;
         }
@@ -39,18 +40,23 @@ namespace Microsoft.Health.TaskManagement
 
         public int TaskHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultTaskHeartbeatIntervalInSeconds;
 
-        public async Task StartAsync(CancellationTokenSource cancellationToken)
+        public byte StartPartitionId { get; set; }
+
+        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationToken)
         {
+            queueType.ToString();
+            workerName.ToString();
+
             using CancellationTokenSource keepAliveCancellationToken = new CancellationTokenSource();
             Task keepAliveTask = KeepAliveTasksAsync(keepAliveCancellationToken.Token);
 
-            await PullAndProcessTasksAsync(cancellationToken.Token);
+            await PullAndProcessTasksAsync(queueType, workerName, cancellationToken.Token);
 
             keepAliveCancellationToken.Cancel();
             await keepAliveTask;
         }
 
-        private async Task PullAndProcessTasksAsync(CancellationToken cancellationToken)
+        private async Task PullAndProcessTasksAsync(byte queueType, string workerName, CancellationToken cancellationToken)
         {
             List<Task> runningTasks = new List<Task>();
 
@@ -65,11 +71,11 @@ namespace Microsoft.Health.TaskManagement
                 }
 
                 TaskInfo nextTask = null;
-                if (_consumer.EnsureInitializedAsync())
+                if (_queueClient.IsInitialized())
                 {
                     try
                     {
-                        nextTask = await _consumer.GetNextMessagesAsync(TaskHeartbeatTimeoutThresholdInSeconds, cancellationToken);
+                        nextTask = await _queueClient.DequeueAsync(queueType, StartPartitionId, workerName, TaskHeartbeatTimeoutThresholdInSeconds, cancellationToken);
                     }
                     catch (Exception ex)
                     {
@@ -100,9 +106,9 @@ namespace Microsoft.Health.TaskManagement
         private async Task ExecuteTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
+            using var taskCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            using ITask task = _taskFactory.Create(taskInfo);
-            task.RunId = task.RunId ?? taskInfo.RunId;
+            ITask task = _taskFactory.Create(taskInfo);
 
             if (task == null)
             {
@@ -110,7 +116,6 @@ namespace Microsoft.Health.TaskManagement
                 return;
             }
 
-            TaskResultData result = null;
             try
             {
                 try
@@ -118,39 +123,63 @@ namespace Microsoft.Health.TaskManagement
                     if (taskInfo.CancelRequested)
                     {
                         // For cancelled task, try to execute it for potential cleanup.
-                        task.Cancel();
+                        taskCancellationToken.Cancel();
                     }
 
-                    Task<TaskResultData> runningTask = Task.Run(() => task.ExecuteAsync());
-                    _activeTaskRecordsForKeepAlive[taskInfo.TaskId] = task;
+                    Progress<string> progress = new Progress<string>((result) =>
+                    {
+                        taskInfo.Result = result;
+                    });
+                    Task<string> runningTask = Task.Run(() => task.ExecuteAsync(progress, taskCancellationToken.Token));
+                    _activeTasksNeedKeepAlive[taskInfo.Id] = () => KeepAliveSingleTaskAsync(taskInfo, taskCancellationToken);
 
-                    result = await runningTask;
+                    taskInfo.Result = await runningTask;
                 }
                 catch (RetriableTaskException ex)
                 {
                     _logger.LogError(ex, "Task {taskId} failed with retriable exception.", taskInfo.TaskId);
 
+                    // Not complete the task for retriable exception.
+                    return;
+                }
+                catch (TaskExecutionException ex)
+                {
+                    _logger.LogError(ex, "Task {taskId} failed.", taskInfo.TaskId);
+                    taskInfo.Result = JsonConvert.SerializeObject(ex.Error);
+
                     try
                     {
-                        await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message), taskInfo.RunId, cancellationToken);
+                        await _queueClient.CompleteTaskAsync(taskInfo, false, taskCancellationToken.Token);
                     }
-                    catch (Exception resetEx)
+                    catch (Exception completeEx)
                     {
-                        _logger.LogError(resetEx, "Task {taskId} failed to reset.", taskInfo.TaskId);
+                        _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.TaskId);
                     }
 
-                    // Not complete the task for retriable exception.
                     return;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Task {taskId} failed.", taskInfo.TaskId);
-                    result = new TaskResultData(TaskResult.Fail, ex.Message);
+
+                    object error = new { message = ex.Message };
+                    taskInfo.Result = JsonConvert.SerializeObject(error);
+
+                    try
+                    {
+                        await _queueClient.CompleteTaskAsync(taskInfo, false, taskCancellationToken.Token);
+                    }
+                    catch (Exception completeEx)
+                    {
+                        _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.TaskId);
+                    }
+
+                    return;
                 }
 
                 try
                 {
-                    await _consumer.CompleteAsync(taskInfo.TaskId, result, task.RunId, cancellationToken);
+                    await _queueClient.CompleteTaskAsync(taskInfo, false, cancellationToken);
                     _logger.LogInformation("Task {taskId} completed.", taskInfo.TaskId);
                 }
                 catch (Exception completeEx)
@@ -160,7 +189,34 @@ namespace Microsoft.Health.TaskManagement
             }
             finally
             {
-                _activeTaskRecordsForKeepAlive.Remove(taskInfo.TaskId, out _);
+                _activeTasksNeedKeepAlive.Remove(taskInfo.Id, out _);
+            }
+        }
+
+        private async Task KeepAliveSingleTaskAsync(TaskInfo taskInfo, CancellationTokenSource taskCancellationToken)
+        {
+            try
+            {
+                bool shouldCancel = false;
+                try
+                {
+                    TaskInfo keepAliveResult = await _queueClient.KeepAliveTaskAsync(taskInfo, taskCancellationToken.Token);
+                    shouldCancel |= keepAliveResult.CancelRequested;
+                }
+                catch (TaskNotExistException notExistEx)
+                {
+                    _logger.LogError(notExistEx, "Task {taskId} not exist or runid not match.", taskInfo.Id);
+                    shouldCancel = true;
+                }
+
+                if (shouldCancel && !taskCancellationToken.IsCancellationRequested)
+                {
+                    taskCancellationToken.Cancel();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to keep alive on task {taskId}", taskInfo.Id);
             }
         }
 
@@ -171,35 +227,13 @@ namespace Microsoft.Health.TaskManagement
             while (!cancellationToken.IsCancellationRequested)
             {
                 Task intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(TaskHeartbeatIntervalInSeconds), CancellationToken.None);
-                KeyValuePair<string, ITask>[] activeTaskRecords = _activeTaskRecordsForKeepAlive.ToArray();
+                KeyValuePair<long, Func<Task>>[] activeTaskRecords = _activeTasksNeedKeepAlive.ToArray();
 
-                foreach ((string taskId, ITask task) in activeTaskRecords)
+                foreach ((long taskId, Func<Task> keepAliveFunc) in activeTaskRecords)
                 {
                     try
                     {
-                        bool shouldCancel = false;
-                        try
-                        {
-                            TaskInfo taskInfo = await _consumer.KeepAliveAsync(taskId, task.RunId, cancellationToken);
-                            shouldCancel |= taskInfo.CancelRequested;
-                        }
-                        catch (TaskNotExistException notExistEx)
-                        {
-                            _logger.LogError(notExistEx, "Task {taskId} not exist or runid not match.", taskId);
-                            shouldCancel = true;
-                        }
-
-                        if (shouldCancel)
-                        {
-                            try
-                            {
-                                task.Cancel();
-                            }
-                            catch (OperationCanceledException operationCanceledEx)
-                            {
-                                _logger.LogError(operationCanceledEx, "Task {taskId} was canceled.", taskId);
-                            }
-                        }
+                        await keepAliveFunc();
                     }
                     catch (Exception ex)
                     {

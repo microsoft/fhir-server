@@ -55,14 +55,14 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                     null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 5;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(0, null, tokenSource);
 
             Assert.True(taskCount <= executedTaskCount);
             foreach (string resultString in taskInfos.Select(t => t.Result))
@@ -96,14 +96,14 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(1));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(0, null, tokenSource);
 
             Assert.Equal(1, executeCount0);
 
@@ -135,7 +135,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 2;
@@ -143,7 +143,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(0, null, tokenSource);
 
             Assert.Equal(1, executeCount0);
 
@@ -178,14 +178,14 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 2;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            Task hostingTask = taskHosting.StartAsync(tokenSource);
+            Task hostingTask = taskHosting.StartAsync(0, null, tokenSource);
             autoResetEvent.WaitOne();
             tokenSource.Cancel();
 
@@ -231,12 +231,12 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 };
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 0;
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(0, null, tokenSource);
 
             Assert.True(isCancelled);
         }
@@ -285,14 +285,14 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                     null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = maxConcurrentCount;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(0, null, tokenSource);
 
             Assert.False(runningTaskCountLargeThanLimit);
             Assert.Equal(2, maxRunningTaskCount);
@@ -356,14 +356,14 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 }
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(0, null, tokenSource);
 
             Assert.Equal(maxRetryCount + 1, executeCount0);
             Assert.Equal(maxRetryCount + 1, executeCount1);
@@ -407,11 +407,11 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         });
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
-            Task hostingTask = taskHosting.StartAsync(tokenSource);
+            Task hostingTask = taskHosting.StartAsync(0, null, tokenSource);
             autoResetEvent2.WaitOne();
             taskInfo0.CancelRequested = true;
 
@@ -465,14 +465,14 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 }
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 5;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(20));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(0, null, tokenSource);
 
             Assert.Equal(900, executedTaskCount);
             Assert.Equal(100, failedTaskCount);
@@ -543,7 +543,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 }
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 20;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 1;
@@ -551,7 +551,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(20));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(0, null, tokenSource);
 
             foreach (TaskInfo taskInfo in taskInfos)
             {

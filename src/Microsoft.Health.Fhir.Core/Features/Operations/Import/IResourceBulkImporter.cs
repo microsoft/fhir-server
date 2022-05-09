@@ -26,8 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Initialize import
         /// </summary>
         /// <param name="inputData">Import processing task input data. </param>
-        /// <param name="progress">Import processing task progress. </param>
+        /// <param name="result">Import processing task current result. </param>
         /// <param name="cancellationToken">Cancellation Token.</param>
-        public Task CleanResourceAsync(ImportProcessingTaskInputData inputData, ImportProcessingProgress progress, CancellationToken cancellationToken);
+        public Task CleanResourceAsync(ImportProcessingTaskInputData inputData, ImportProcessingTaskResult result, CancellationToken cancellationToken);
     }
 }

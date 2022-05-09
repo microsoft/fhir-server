@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.TaskManagement
@@ -11,22 +12,14 @@ namespace Microsoft.Health.TaskManagement
     /// <summary>
     /// Interface for execution task.
     /// </summary>
-    public interface ITask : IDisposable
+    public interface ITask
     {
-        /// <summary>
-        /// RunId for this task execution. Retry would generate different runid.
-        /// </summary>
-        public string RunId { get; set; }
-
         /// <summary>
         /// Execute the task.
         /// </summary>
-        /// <returns>Task result data for the execution.</returns>
-        public Task<TaskResultData> ExecuteAsync();
-
-        /// <summary>
-        /// Cancel the task execution.
-        /// </summary>
-        public void Cancel();
+        /// <param name="progress">Report task progress.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Task result in string. </returns>
+        public Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken);
     }
 }

@@ -34,5 +34,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         [JsonProperty("error")]
         public IReadOnlyCollection<ImportFailedOperationOutcome> Error { get; set; }
+
+        /// <summary>
+        /// Import total file size
+        /// </summary>
+        public long? TotalSizeInBytes { get; set; }
+
+        /// <summary>
+        /// Resource count succeed to import
+        /// </summary>
+        public long SucceedImportCount { get; set; }
+
+        /// <summary>
+        /// Resource count failed to import
+        /// </summary>
+        public long FailedImportCount { get; set; }
+
+        /// <summary>
+        /// Created task count for all blob files
+        /// </summary>
+        public int CreatedTaskCount { get; set; }
+
+        /// <summary>
+        /// Current end sequence id
+        /// </summary>
+        public long CurrentSequenceId { get; set; }
+
+        /// <summary>
+        /// Current running task id list
+        /// </summary>
+#pragma warning disable CA1002 // Do not expose generic lists
+        public List<long> RunningTaskIds { get; } = new List<long>();
+#pragma warning restore CA1002 // Do not expose generic lists
+
+        /// <summary>
+        /// Orchestrator task progress.
+        /// </summary>
+        public ImportOrchestratorTaskProgress Progress { get; set; }
     }
 }

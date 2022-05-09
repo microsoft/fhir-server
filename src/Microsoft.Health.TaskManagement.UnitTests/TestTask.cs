@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.TaskManagement.UnitTests
@@ -33,6 +34,11 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
         public void Dispose()
         {
+        }
+
+        public Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }

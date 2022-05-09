@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     }
 
                     using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                    await taskHostingValue.StartAsync(cancellationTokenSource);
+                    await taskHostingValue.StartAsync(0, null, cancellationTokenSource);
                 }
             }
             catch (Exception ex)

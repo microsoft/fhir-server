@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private readonly IImportOrchestratorTaskDataStoreOperation _importOrchestratorTaskDataStoreOperation;
         private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
         private readonly IIntegrationDataStoreClient _integrationDataStoreClient;
-        private readonly ITaskManager _taskmanager;
+        private readonly IQueueClient _queueClient;
         private readonly IContextUpdaterFactory _contextUpdaterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             IImportErrorStoreFactory importErrorStoreFactory,
             IImportOrchestratorTaskDataStoreOperation importOrchestratorTaskDataStoreOperation,
             IContextUpdaterFactory contextUpdaterFactory,
-            ITaskManager taskmanager,
+            IQueueClient queueClient,
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IIntegrationDataStoreClient integrationDataStoreClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
             EnsureArg.IsNotNull(importOrchestratorTaskDataStoreOperation, nameof(importOrchestratorTaskDataStoreOperation));
             EnsureArg.IsNotNull(contextUpdaterFactory, nameof(contextUpdaterFactory));
-            EnsureArg.IsNotNull(taskmanager, nameof(taskmanager));
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _importOrchestratorTaskDataStoreOperation = importOrchestratorTaskDataStoreOperation;
             _sequenceIdGenerator = sequenceIdGenerator;
             _integrationDataStoreClient = integrationDataStoreClient;
-            _taskmanager = taskmanager;
+            _queueClient = queueClient;
             _contextUpdaterFactory = contextUpdaterFactory;
             _contextAccessor = contextAccessor;
             _mediator = mediator;
@@ -81,11 +81,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                 ImportProcessingProgress importProgress = string.IsNullOrEmpty(taskInfo.Context) ? new ImportProcessingProgress() : JsonConvert.DeserializeObject<ImportProcessingProgress>(taskInfo.Context);
                 return new ImportProcessingTask(
                     inputData,
-                    importProgress,
+                    null,
                     _importResourceLoader,
                     _resourceBulkImporter,
                     _importErrorStoreFactory,
-                    contextUpdater,
                     _contextAccessor,
                     _loggerFactory);
             }
@@ -99,13 +98,13 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                 return new ImportOrchestratorTask(
                     _mediator,
                     inputData,
-                    orchestratorTaskProgress,
-                    _taskmanager,
+                    null,
                     _sequenceIdGenerator,
-                    contextUpdater,
                     _contextAccessor,
                     _importOrchestratorTaskDataStoreOperation,
                     _integrationDataStoreClient,
+                    _queueClient,
+                    taskInfo,
                     _loggerFactory);
             }
 

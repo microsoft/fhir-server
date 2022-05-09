@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportProcessingTaskInputData
     {
+        public int TypeId { get; set; }
+
         /// <summary>
         /// Resource location for the input file
         /// </summary>

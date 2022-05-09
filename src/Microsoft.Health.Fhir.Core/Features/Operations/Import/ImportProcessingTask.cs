@@ -23,40 +23,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public const short ImportProcessingTaskId = 1;
 
         private ImportProcessingTaskInputData _inputData;
-        private ImportProcessingProgress _importProgress;
+        private ImportProcessingTaskResult _importResult;
         private IImportResourceLoader _importResourceLoader;
         private IResourceBulkImporter _resourceBulkImporter;
         private IImportErrorStoreFactory _importErrorStoreFactory;
-        private IContextUpdater _contextUpdater;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private ILogger<ImportProcessingTask> _logger;
-        private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
         public ImportProcessingTask(
             ImportProcessingTaskInputData inputData,
-            ImportProcessingProgress importProgress,
+            ImportProcessingTaskResult importResult,
             IImportResourceLoader importResourceLoader,
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
-            IContextUpdater contextUpdater,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(inputData, nameof(inputData));
-            EnsureArg.IsNotNull(importProgress, nameof(importProgress));
+            EnsureArg.IsNotNull(importResult, nameof(importResult));
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
             EnsureArg.IsNotNull(resourceBulkImporter, nameof(resourceBulkImporter));
             EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
-            EnsureArg.IsNotNull(contextUpdater, nameof(contextUpdater));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _inputData = inputData;
-            _importProgress = importProgress;
+            _importResult = importResult;
             _importResourceLoader = importResourceLoader;
             _resourceBulkImporter = resourceBulkImporter;
             _importErrorStoreFactory = importErrorStoreFactory;
-            _contextUpdater = contextUpdater;
             _contextAccessor = contextAccessor;
 
             _logger = loggerFactory.CreateLogger<ImportProcessingTask>();
@@ -64,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public string RunId { get; set; }
 
-        public async Task<TaskResultData> ExecuteAsync()
+        public async Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
         {
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
@@ -79,14 +74,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _contextAccessor.RequestContext = fhirRequestContext;
 
-            CancellationToken cancellationToken = _cancellationTokenSource.Token;
+            long succeedImportCount = _importResult.SucceedCount;
+            long failedImportCount = _importResult.FailedCount;
 
-            long succeedImportCount = _importProgress.SucceedImportCount;
-            long failedImportCount = _importProgress.FailedImportCount;
-
-            ImportProcessingTaskResult result = new ImportProcessingTaskResult();
-            result.ResourceType = _inputData.ResourceType;
-            result.ResourceLocation = _inputData.ResourceLocation;
+            _importResult.ResourceType = _inputData.ResourceType;
+            _importResult.ResourceLocation = _inputData.ResourceLocation;
+            progress.Report(JsonConvert.SerializeObject(_importResult));
 
             try
             {
@@ -98,45 +91,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 Func<long, long> sequenceIdGenerator = (index) => _inputData.BeginSequenceId + index;
 
                 // Clean resources before import start
-                await _resourceBulkImporter.CleanResourceAsync(_inputData, _importProgress, cancellationToken);
-                _importProgress.NeedCleanData = true;
-                await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_importProgress), cancellationToken);
+                await _resourceBulkImporter.CleanResourceAsync(_inputData, _importResult, cancellationToken);
 
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(), cancellationToken);
-                result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                _importResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importProgress.CurrentIndex, _inputData.ResourceType, sequenceIdGenerator, cancellationToken);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importResult.CurrentIndex, _inputData.ResourceType, sequenceIdGenerator, cancellationToken);
 
                 // Import to data store
                 (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
 
                 // Update progress for checkpoints
-                await foreach (ImportProcessingProgress progress in progressChannel.Reader.ReadAllAsync())
+                await foreach (ImportProcessingProgress batchProgress in progressChannel.Reader.ReadAllAsync(cancellationToken))
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
                         throw new OperationCanceledException("Import task is canceled by user.");
                     }
 
-                    _importProgress.SucceedImportCount = progress.SucceedImportCount + succeedImportCount;
-                    _importProgress.FailedImportCount = progress.FailedImportCount + failedImportCount;
-                    _importProgress.CurrentIndex = progress.CurrentIndex;
-                    result.SucceedCount = _importProgress.SucceedImportCount;
-                    result.FailedCount = _importProgress.FailedImportCount;
+                    _importResult.SucceedCount = batchProgress.SucceedImportCount + succeedImportCount;
+                    _importResult.FailedCount = batchProgress.FailedImportCount + failedImportCount;
+                    _importResult.CurrentIndex = batchProgress.CurrentIndex;
 
-                    _logger.LogInformation("Import task progress: {0}", JsonConvert.SerializeObject(_importProgress));
-
-                    try
-                    {
-                        await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_importProgress), cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        // ignore exception for progresss update
-                        _logger.LogInformation(ex, "Failed to update context.");
-                    }
+                    _logger.LogInformation("Import task progress: succeed {0}, failed: {1}", _importResult.SucceedCount, _importResult.FailedCount);
+                    progress.Report(JsonConvert.SerializeObject(_importResult));
                 }
 
                 // Pop up exception during load & import
@@ -177,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new RetriableTaskException("Failed to load data", ex);
                 }
 
-                return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
+                return JsonConvert.SerializeObject(_importResult);
             }
             catch (TaskCanceledException canceledEx)
             {
@@ -185,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CleanResourceForFailureAsync(canceledEx);
 
-                return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
+                throw;
             }
             catch (OperationCanceledException canceledEx)
             {
@@ -193,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CleanResourceForFailureAsync(canceledEx);
 
-                return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
+                throw;
             }
             catch (RetriableTaskException retriableEx)
             {
@@ -209,14 +189,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CleanResourceForFailureAsync(ex);
 
-                throw new RetriableTaskException(ex.Message);
-            }
-            finally
-            {
-                if (!_cancellationTokenSource.IsCancellationRequested)
-                {
-                    _cancellationTokenSource.Cancel();
-                }
+                throw;
             }
         }
 
@@ -224,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             try
             {
-                await _resourceBulkImporter.CleanResourceAsync(_inputData, _importProgress, CancellationToken.None);
+                await _resourceBulkImporter.CleanResourceAsync(_inputData, _importResult, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -233,37 +206,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        public void Cancel()
-        {
-            if (_cancellationTokenSource != null && !_cancellationTokenSource.IsCancellationRequested)
-            {
-                _cancellationTokenSource?.Cancel();
-            }
-        }
-
-        public bool IsCancelling()
-        {
-            return _cancellationTokenSource?.IsCancellationRequested ?? false;
-        }
-
         private string GetErrorFileName()
         {
             return $"{_inputData.ResourceType}{_inputData.TaskId}.ndjson";
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _cancellationTokenSource?.Dispose();
-                _cancellationTokenSource = null;
-            }
         }
     }
 }

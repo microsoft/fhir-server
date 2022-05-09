@@ -138,17 +138,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             return (outputChannel, importTask);
         }
 
-        public async Task CleanResourceAsync(ImportProcessingTaskInputData inputData, ImportProcessingProgress progress, CancellationToken cancellationToken)
+        public async Task CleanResourceAsync(ImportProcessingTaskInputData inputData, ImportProcessingTaskResult result, CancellationToken cancellationToken)
         {
-            if (!progress.NeedCleanData)
-            {
-                // Skip clean data step for first run.
-                return;
-            }
-
             long beginSequenceId = inputData.BeginSequenceId;
             long endSequenceId = inputData.EndSequenceId;
-            long endIndex = progress.CurrentIndex;
+            long endIndex = result.CurrentIndex;
 
             try
             {
