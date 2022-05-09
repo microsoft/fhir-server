@@ -414,7 +414,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         aveConvertTime = ((aveConvertTime * readCount) + convertWatch.Elapsed.TotalMilliseconds) / (readCount + 1);

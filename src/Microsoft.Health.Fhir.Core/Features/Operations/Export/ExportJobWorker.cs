@@ -63,25 +63,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         {
                             using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                             {
+                                ushort numberOfJobsToRequest = (ushort)(_exportJobConfiguration.MaximumNumberOfJobsPerInstance - runningTasks.Count);
                                 IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
-                                    _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
+                                    numberOfJobsToRequest,
                                     _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
                                     cancellationToken);
 
                                 foreach (ExportJobOutcome job in jobs)
                                 {
-                                    if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfJobsPerInstance)
-                                    {
-                                        _logger.LogTrace("Picked up job: {jobId}.", job.JobRecord.Id);
+                                    _logger.LogTrace("Picked up job: {jobId}.", job.JobRecord.Id);
 
-                                        runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
-                                    }
-                                    else
-                                    {
-                                        // If this instance can't take any more jobs, reset the extra jobs it was given to Queued status.
-                                        job.JobRecord.Status = OperationStatus.Queued;
-                                        await store.Value.UpdateExportJobAsync(job.JobRecord, job.ETag, cancellationToken);
-                                    }
+                                    runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
                                 }
                             }
                         }
