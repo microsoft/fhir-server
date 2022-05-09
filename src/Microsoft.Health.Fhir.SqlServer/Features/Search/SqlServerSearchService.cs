@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(resourceTypeId)}: {resourceTypeId}; decompressed length: {rawResource.Length}");

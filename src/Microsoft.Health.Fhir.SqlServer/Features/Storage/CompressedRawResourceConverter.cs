@@ -6,7 +6,6 @@
 using System.IO;
 using System.IO.Compression;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -23,15 +22,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
         }
 
-        public async Task<string> ReadCompressedRawResource(Stream compressedResourceStream)
+        public string ReadCompressedRawResource(Stream compressedResourceStream)
         {
-            await using var gzipStream = new GZipStream(compressedResourceStream, CompressionMode.Decompress, leaveOpen: true);
+            using var gzipStream = new GZipStream(compressedResourceStream, CompressionMode.Decompress, leaveOpen: true);
 
             // The current resource encoding uses byte-order marks. The legacy encoding does not, so we provide is as the fallback encoding
             // when there is no BOM
             using var reader = new StreamReader(gzipStream, LegacyResourceEncoding, detectEncodingFromByteOrderMarks: true);
 
-            return await reader.ReadToEndAsync();
+            return reader.ReadToEnd();
         }
 
         public void WriteCompressedRawResource(Stream outputStream, string rawResource)

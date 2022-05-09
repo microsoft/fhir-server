@@ -63,8 +63,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         {
                             using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                             {
+                                ushort numberOfJobsToRequest = (ushort)(_exportJobConfiguration.MaximumNumberOfJobsPerInstance - runningTasks.Count);
                                 IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
-                                    _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
+                                    numberOfJobsToRequest,
                                     _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
                                     cancellationToken);
 
