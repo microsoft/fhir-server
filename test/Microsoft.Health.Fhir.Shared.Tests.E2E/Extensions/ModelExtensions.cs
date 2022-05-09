@@ -3,11 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+using Hl7.Fhir.Model;
+
+namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
 {
-    public enum SaveOutcomeType
+    public static class ModelExtensions
     {
-        Created,
-        Updated,
+        public static Device AssignPatient(this Device device, ResourceReference patient)
+        {
+#if Stu3 || R4
+            device.Patient = patient;
+#else
+            device.Subject = patient;
+#endif
+            return device;
+        }
     }
 }

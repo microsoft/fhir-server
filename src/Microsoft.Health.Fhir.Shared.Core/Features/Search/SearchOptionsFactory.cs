@@ -255,21 +255,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
-            searchExpressions.AddRange(searchParams.Parameters.Select(
-                    q =>
-                    {
-                        try
-                        {
-                            return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
-                        }
-                        catch (SearchParameterNotSupportedException)
-                        {
-                            unsupportedSearchParameters.Add(q);
 
-                            return null;
-                        }
-                    })
-                .Where(item => item != null));
+            searchExpressions.AddRange(searchParams.Parameters.Select(
+            q =>
+            {
+                try
+                {
+                    return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
+                }
+                catch (SearchParameterNotSupportedException)
+                {
+                    unsupportedSearchParameters.Add(q);
+
+                    return null;
+                }
+            })
+            .Where(item => item != null));
 
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter

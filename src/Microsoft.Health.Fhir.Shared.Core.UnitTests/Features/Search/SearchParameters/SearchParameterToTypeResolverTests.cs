@@ -8,11 +8,14 @@ using System.Linq;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterToTypeResolverTests
     {
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
@@ -37,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
             else
             {
-                Assert.Equal(63, types.Length);
+                Assert.Equal(61, types.Length);
             }
         }
 

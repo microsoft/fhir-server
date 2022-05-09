@@ -23,6 +23,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly Encounter _encounter;
         private readonly FhirEvaluationContext _context;
 
+        #if Stu3 || R4
+        private const string FhirPath = "Encounter.participant.individual";
+        #else
+        private const string FhirPath = "Encounter.participant.actor";
+        #endif
+
         public LightweightReferenceToElementResolverTests()
         {
             ReferenceSearchValueParser referenceSearchValueParser = Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor());
@@ -63,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAnEncounter_WhenResolvingAPractitionerInAFhirPathExpression_ThenTheResultIsValid()
         {
             var result = _encounter
-                .Select("Encounter.participant.individual.where(resolve() is Practitioner)", _context)
+                .Select($"{FhirPath}.where(resolve() is Practitioner)", _context)
                 .SingleOrDefault();
 
             Assert.IsType<ResourceReference>(result);
@@ -73,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAnEncounterWithWrongTypeInResolve_WhenResolvingAPatientInAFhirPathExpression_ThenTheResultIsNull()
         {
             var result = _encounter
-                .Select("Encounter.participant.individual.where(resolve() is Organization)", _context)
+                .Select($"{FhirPath}.where(resolve() is Organization)", _context)
                 .SingleOrDefault();
 
             Assert.Null(result);
