@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.DequeueJob
 GO
-CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @StartPartitionId tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
+CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @StartPartitionId tinyint = NULL, @Worker varchar(100), @HeartbeatTimeoutSec int
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueJob'
@@ -17,7 +17,11 @@ DECLARE @SP varchar(100) = 'DequeueJob'
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
        ,@LookedAtPartitions tinyint = 0
 
+
 BEGIN TRY
+  IF @StartPartitionId IS NULL
+    SET @StartPartitionId = @MaxPartitions * rand()
+
   SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
 
   WHILE @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions

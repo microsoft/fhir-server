@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
+        private readonly Random _rand = new Random();
 
         public SqlServerFhirOperationDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -171,12 +172,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt64(jobHeartbeatTimeoutThreshold.TotalSeconds);
+                var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt32(jobHeartbeatTimeoutThreshold.TotalSeconds);
 
-                VLatest.AcquireExportJobs.PopulateCommand(
-                    sqlCommandWrapper,
-                    jobHeartbeatTimeoutThresholdInSeconds,
-                    maximumNumberOfConcurrentJobsAllowed);
+                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, 1, null, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
 
                 var acquiredJobs = new List<ExportJobOutcome>();
 
@@ -185,7 +183,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
-
                         acquiredJobs.Add(CreateExportJobOutcome(rawJobRecord, rowVersion));
                     }
                 }
