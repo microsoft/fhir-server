@@ -7,6 +7,7 @@ using System;
 using System.Data;
 using System.Linq;
 using System.Numerics;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -64,8 +65,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     SchemaVersionConstants.Max,
                     forceIncrementalSchemaUpgrade: true);
 
-                bool isEqual = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
-                Assert.True(isEqual);
+                var diff = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                Assert.True(string.IsNullOrEmpty(diff), diff);
             }
             finally
             {
@@ -178,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return (testHelper, schemaUpgradeRunner);
         }
 
-        private bool CompareDatabaseSchemas(string databaseName1, string databaseName2)
+        private string CompareDatabaseSchemas(string databaseName1, string databaseName2)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
@@ -244,7 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            bool unexpectedDifference = false;
+            var unexpectedDifference = new StringBuilder();
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 if (schemaDifference.Name == "SqlTable" &&
@@ -261,13 +262,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         }
                         else
                         {
-                            unexpectedDifference = true;
+                            unexpectedDifference.AppendLine($"source={child.SourceObject?.Name} target={child.TargetObject?.Name}");
                         }
                     }
                 }
                 else
                 {
-                    unexpectedDifference = true;
+                    //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
+                    //// Skipping queue objects
+                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus" };
+                    if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
+                    {
+                        continue;
+                    }
+
+                    unexpectedDifference.AppendLine($"source={schemaDifference.SourceObject?.Name} target={schemaDifference.TargetObject?.Name}");
                 }
             }
 
@@ -277,10 +286,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (SchemaVersionInStartedState(testConnectionString1).Result || SchemaVersionInStartedState(testConnectionString2).Result)
             {
                 // if the test hits below statement then there is a possibility that TransactionCheckWithInitialiScript is not updated with the new version
-                unexpectedDifference = true;
+                unexpectedDifference.AppendLine("Different SchemaVersionInStartedState.Result");
             }
 
-            return !unexpectedDifference;
+            return unexpectedDifference.ToString();
         }
 
         public async Task<bool> SchemaVersionInStartedState(string connectionString)
