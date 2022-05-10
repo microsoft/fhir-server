@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
@@ -32,46 +33,46 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private readonly IMediator _mediator;
         private ImportOrchestratorTaskInputData _orchestratorInputData;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private ImportTaskResult _importTaskResult;
-        private ISequenceIdGenerator<long> _sequenceIdGenerator;
+        private ImportOrchestratorTaskResult _orchestratorTaskResult;
         private IImportOrchestratorTaskDataStoreOperation _importOrchestratorTaskDataStoreOperation;
         private IQueueClient _queueClient;
         private TaskInfo _taskInfo;
+        private ImportTaskConfiguration _importTaskConfiguration;
         private ILogger<ImportOrchestratorTask> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
 
         public ImportOrchestratorTask(
             IMediator mediator,
             ImportOrchestratorTaskInputData orchestratorInputData,
-            ImportTaskResult importTaskResult,
-            ISequenceIdGenerator<long> sequenceIdGenerator,
+            ImportOrchestratorTaskResult orchrestratorTaskResult,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IImportOrchestratorTaskDataStoreOperation importOrchestratorTaskDataStoreOperation,
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
             TaskInfo taskInfo,
+            ImportTaskConfiguration importTaskConfiguration,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(orchestratorInputData, nameof(orchestratorInputData));
-            EnsureArg.IsNotNull(importTaskResult, nameof(importTaskResult));
-            EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
+            EnsureArg.IsNotNull(orchrestratorTaskResult, nameof(orchrestratorTaskResult));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(importOrchestratorTaskDataStoreOperation, nameof(importOrchestratorTaskDataStoreOperation));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
+            EnsureArg.IsNotNull(importTaskConfiguration, nameof(importTaskConfiguration));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _mediator = mediator;
             _orchestratorInputData = orchestratorInputData;
-            _importTaskResult = importTaskResult;
-            _sequenceIdGenerator = sequenceIdGenerator;
+            _orchestratorTaskResult = orchrestratorTaskResult;
             _contextAccessor = contextAccessor;
             _importOrchestratorTaskDataStoreOperation = importOrchestratorTaskDataStoreOperation;
             _integrationDataStoreClient = integrationDataStoreClient;
             _queueClient = queueClient;
             _taskInfo = taskInfo;
+            _importTaskConfiguration = importTaskConfiguration;
             _logger = loggerFactory.CreateLogger<ImportOrchestratorTask>();
         }
 
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     method: "Import",
                     uriString: _orchestratorInputData.RequestUri.ToString(),
                     baseUriString: _orchestratorInputData.BaseUri.ToString(),
-                    correlationId: _orchestratorInputData.TaskId,
+                    correlationId: _taskInfo.Id.ToString(),
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
             {
@@ -94,8 +95,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _contextAccessor.RequestContext = fhirRequestContext;
 
-            _importTaskResult.Request = _orchestratorInputData.RequestUri.ToString();
-            _importTaskResult.TransactionTime = _orchestratorInputData.TaskCreateTime;
+            _orchestratorTaskResult.Request = _orchestratorInputData.RequestUri.ToString();
+            _orchestratorTaskResult.TransactionTime = _orchestratorInputData.TaskCreateTime;
 
             try
             {
@@ -104,32 +105,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                if (_importTaskResult.Progress == ImportOrchestratorTaskProgress.Initialized)
+                if (_orchestratorTaskResult.Progress == ImportOrchestratorTaskProgress.Initialized)
                 {
                     await ValidateResourcesAsync(cancellationToken);
 
-                    _importTaskResult.Progress = ImportOrchestratorTaskProgress.InputResourcesValidated;
-                    progress.Report(JsonConvert.SerializeObject(_importTaskResult));
+                    _orchestratorTaskResult.Progress = ImportOrchestratorTaskProgress.InputResourcesValidated;
+                    progress.Report(JsonConvert.SerializeObject(_orchestratorTaskResult));
 
                     _logger.LogInformation("Input Resources Validated");
                 }
 
-                if (_importTaskResult.Progress == ImportOrchestratorTaskProgress.InputResourcesValidated)
+                if (_orchestratorTaskResult.Progress == ImportOrchestratorTaskProgress.InputResourcesValidated)
                 {
                     await _importOrchestratorTaskDataStoreOperation.PreprocessAsync(cancellationToken);
 
-                    _importTaskResult.Progress = ImportOrchestratorTaskProgress.PreprocessCompleted;
-                    _importTaskResult.CurrentSequenceId = _sequenceIdGenerator.GetCurrentSequenceId();
-                    progress.Report(JsonConvert.SerializeObject(_importTaskResult));
+                    _orchestratorTaskResult.Progress = ImportOrchestratorTaskProgress.PreprocessCompleted;
+                    _orchestratorTaskResult.CurrentSequenceId = _orchestratorInputData.StartSequenceId;
+                    progress.Report(JsonConvert.SerializeObject(_orchestratorTaskResult));
 
                     _logger.LogInformation("Preprocess Completed");
                 }
 
-                if (_importTaskResult.Progress == ImportOrchestratorTaskProgress.PreprocessCompleted)
+                if (_orchestratorTaskResult.Progress == ImportOrchestratorTaskProgress.PreprocessCompleted)
                 {
                     await ExecuteImportProcessingTaskAsync(progress, cancellationToken);
-                    _importTaskResult.Progress = ImportOrchestratorTaskProgress.SubTasksCompleted;
-                    progress.Report(JsonConvert.SerializeObject(_importTaskResult));
+                    _orchestratorTaskResult.Progress = ImportOrchestratorTaskProgress.SubTasksCompleted;
+                    progress.Report(JsonConvert.SerializeObject(_orchestratorTaskResult));
 
                     _logger.LogInformation("SubTasks Completed");
                 }
@@ -205,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new TaskExecutionException(ex.Message, errorResult, ex);
             }
 
-            if (_importTaskResult.Progress > ImportOrchestratorTaskProgress.InputResourcesValidated)
+            if (_orchestratorTaskResult.Progress > ImportOrchestratorTaskProgress.InputResourcesValidated)
             {
                 // Post-process operation cannot be cancelled.
                 try
@@ -232,7 +233,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             await SendImportMetricsNotification(TaskResult.Success);
 
-            return JsonConvert.SerializeObject(_importTaskResult);
+            return JsonConvert.SerializeObject(_orchestratorTaskResult);
         }
 
         private static long CalculateResourceNumberByResourceSize(long blobSizeInBytes, long resourceCountPerBytes)
@@ -258,43 +259,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task SendImportMetricsNotification(TaskResult taskResult)
         {
             ImportTaskMetricsNotification importTaskMetricsNotification = new ImportTaskMetricsNotification(
-                _orchestratorInputData.TaskId,
+                _taskInfo.Id.ToString(),
                 taskResult.ToString(),
                 _orchestratorInputData.TaskCreateTime,
                 Clock.UtcNow,
-                _importTaskResult.TotalSizeInBytes,
-                _importTaskResult.SucceedImportCount,
-                _importTaskResult.FailedImportCount);
+                _orchestratorTaskResult.TotalSizeInBytes,
+                _orchestratorTaskResult.SucceedImportCount,
+                _orchestratorTaskResult.FailedImportCount);
 
             await _mediator.Publish(importTaskMetricsNotification, CancellationToken.None);
         }
 
         private async Task ExecuteImportProcessingTaskAsync(IProgress<string> progress, CancellationToken cancellationToken)
         {
-            _importTaskResult.TotalSizeInBytes = _importTaskResult.TotalSizeInBytes ?? 0;
+            _orchestratorTaskResult.TotalSizeInBytes = _orchestratorTaskResult.TotalSizeInBytes ?? 0;
 
-            foreach (var input in _orchestratorInputData.Input.Skip(_importTaskResult.CreatedTaskCount))
+            foreach (var input in _orchestratorInputData.Input.Skip(_orchestratorTaskResult.CreatedTaskCount))
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
                     throw new OperationCanceledException();
                 }
 
-                while (_importTaskResult.RunningTaskIds.Count >= _orchestratorInputData.MaxConcurrentProcessingTaskCount)
+                while (_orchestratorTaskResult.RunningTaskIds.Count >= _importTaskConfiguration.MaxRunningProcessingTaskCount)
                 {
                     await WaitRunningTaskComplete(progress, cancellationToken);
                 }
 
                 (long processingTaskId, long endSequenceId, long blobSizeInBytes) = await CreateNewProcessingTaskAsync(input, cancellationToken);
 
-                _importTaskResult.RunningTaskIds.Add(processingTaskId);
-                _importTaskResult.CurrentSequenceId = endSequenceId;
-                _importTaskResult.TotalSizeInBytes += blobSizeInBytes;
-                _importTaskResult.CreatedTaskCount += 1;
-                progress.Report(JsonConvert.SerializeObject(_importTaskResult));
+                _orchestratorTaskResult.RunningTaskIds.Add(processingTaskId);
+                _orchestratorTaskResult.CurrentSequenceId = endSequenceId;
+                _orchestratorTaskResult.TotalSizeInBytes += blobSizeInBytes;
+                _orchestratorTaskResult.CreatedTaskCount += 1;
+                progress.Report(JsonConvert.SerializeObject(_orchestratorTaskResult));
             }
 
-            while (_importTaskResult.RunningTaskIds.Count > 0)
+            while (_orchestratorTaskResult.RunningTaskIds.Count > 0)
             {
                 await WaitRunningTaskComplete(progress, cancellationToken);
             }
@@ -303,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task WaitRunningTaskComplete(IProgress<string> progress, CancellationToken cancellationToken)
         {
             HashSet<long> completedTaskIds = new HashSet<long>();
-            foreach (long taskId in _importTaskResult.RunningTaskIds)
+            foreach (long taskId in _orchestratorTaskResult.RunningTaskIds)
             {
                 TaskInfo latestTaskInfo = await _queueClient.GetTaskByIdAsync(_taskInfo.QueueType, taskId, false, cancellationToken);
 
@@ -316,8 +317,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             if (completedTaskIds.Count > 0)
             {
-                _importTaskResult.RunningTaskIds.RemoveAll(id => completedTaskIds.Contains(id));
-                progress.Report(JsonConvert.SerializeObject(_importTaskResult));
+                _orchestratorTaskResult.RunningTaskIds.RemoveAll(id => completedTaskIds.Contains(id));
+                progress.Report(JsonConvert.SerializeObject(_orchestratorTaskResult));
             }
 
             await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
@@ -328,7 +329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
             long blobSizeInBytes = (long)properties[IntegrationDataStoreClientConstants.BlobPropertyLength];
             long estimatedResourceNumber = CalculateResourceNumberByResourceSize(blobSizeInBytes, DefaultResourceSizePerByte);
-            long beginSequenceId = _importTaskResult.CurrentSequenceId;
+            long beginSequenceId = _orchestratorTaskResult.CurrentSequenceId;
             long endSequenceId = beginSequenceId + estimatedResourceNumber;
 
             ImportProcessingTaskInputData importTaskPayload = new ImportProcessingTaskInputData()
@@ -364,58 +365,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             if (taskResultData.Result == TaskResult.Success)
             {
                 ImportProcessingTaskResult procesingTaskResult = JsonConvert.DeserializeObject<ImportProcessingTaskResult>(taskResultData.ResultData);
-                _importTaskResult.SucceedImportCount += procesingTaskResult.SucceedCount;
-                _importTaskResult.FailedImportCount += procesingTaskResult.FailedCount;
+                _orchestratorTaskResult.SucceedImportCount += procesingTaskResult.SucceedCount;
+                _orchestratorTaskResult.FailedImportCount += procesingTaskResult.FailedCount;
             }
-        }
-
-        // Should deprecate after schema upgrade
-        private async Task<Dictionary<Uri, TaskInfo>> GenerateSubTaskRecordsAsync(CancellationToken cancellationToken)
-        {
-            Dictionary<Uri, TaskInfo> result = new Dictionary<Uri, TaskInfo>();
-
-            long beginSequenceId = _sequenceIdGenerator.GetCurrentSequenceId();
-            long totalSizeInBytes = 0;
-
-            foreach (var input in _orchestratorInputData.Input)
-            {
-                string taskId = Guid.NewGuid().ToString("N");
-
-                Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
-                long blobSizeInBytes = (long)properties[IntegrationDataStoreClientConstants.BlobPropertyLength];
-                long estimatedResourceNumber = CalculateResourceNumberByResourceSize(blobSizeInBytes, DefaultResourceSizePerByte);
-                long endSequenceId = beginSequenceId + estimatedResourceNumber;
-
-                ImportProcessingTaskInputData importTaskPayload = new ImportProcessingTaskInputData()
-                {
-                    ResourceLocation = input.Url.ToString(),
-                    UriString = _orchestratorInputData.RequestUri.ToString(),
-                    BaseUriString = _orchestratorInputData.BaseUri.ToString(),
-                    ResourceType = input.Type,
-                    TaskId = taskId,
-                    BeginSequenceId = beginSequenceId,
-                    EndSequenceId = endSequenceId,
-                };
-
-                TaskInfo processingTask = new TaskInfo()
-                {
-                    QueueId = _orchestratorInputData.ProcessingTaskQueueId,
-                    TaskId = taskId,
-                    TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
-                    Definition = JsonConvert.SerializeObject(importTaskPayload),
-                    MaxRetryCount = _orchestratorInputData.ProcessingTaskMaxRetryCount,
-                };
-
-                result[input.Url] = processingTask;
-
-                beginSequenceId = endSequenceId;
-
-                totalSizeInBytes += blobSizeInBytes;
-            }
-
-            _importTaskResult.TotalSizeInBytes = totalSizeInBytes;
-
-            return result;
         }
 
         private async Task CancelProcessingTasksAsync()

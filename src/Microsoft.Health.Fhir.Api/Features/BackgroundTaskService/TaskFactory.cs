@@ -6,7 +6,9 @@
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -30,6 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private readonly IContextUpdaterFactory _contextUpdaterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
+        private readonly OperationsConfiguration _operationsConfiguration;
         private readonly ILoggerFactory _loggerFactory;
 
         public TaskFactory(
@@ -42,6 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IIntegrationDataStoreClient integrationDataStoreClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            IOptions<OperationsConfiguration> operationsConfig,
             IMediator mediator,
             ILoggerFactory loggerFactory)
         {
@@ -55,6 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _importResourceLoader = importResourceLoader;
@@ -67,6 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _contextUpdaterFactory = contextUpdaterFactory;
             _contextAccessor = contextAccessor;
             _mediator = mediator;
+            _operationsConfiguration = operationsConfig.Value;
             _loggerFactory = loggerFactory;
         }
 
@@ -99,12 +105,12 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     _mediator,
                     inputData,
                     null,
-                    _sequenceIdGenerator,
                     _contextAccessor,
                     _importOrchestratorTaskDataStoreOperation,
                     _integrationDataStoreClient,
                     _queueClient,
                     taskInfo,
+                    _operationsConfiguration.Import,
                     _loggerFactory);
             }
 

@@ -60,25 +60,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
 
-                if (inputData.StoreProgressInSubTask)
+                ImportTaskResult result = new ImportTaskResult()
                 {
-                    ImportTaskResult result = new ImportTaskResult()
-                    {
-                        Request = inputData.RequestUri.ToString(),
-                        TransactionTime = DateTimeOffset.UtcNow,
-                    };
-                    (List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)
-                            = await GetProcessingResultAsync(taskInfo, cancellationToken);
+                    Request = inputData.RequestUri.ToString(),
+                    TransactionTime = DateTimeOffset.UtcNow,
+                };
+                (List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)
+                        = await GetProcessingResultAsync(taskInfo, cancellationToken);
 
-                    result.Output = completedOperationOutcome;
-                    result.Error = failedOperationOutcome;
+                result.Output = completedOperationOutcome;
+                result.Error = failedOperationOutcome;
 
-                    return new GetImportResponse(HttpStatusCode.Accepted, result);
-                }
-                else
-                {
-                    return new GetImportResponse(HttpStatusCode.Accepted);
-                }
+                return new GetImportResponse(HttpStatusCode.Accepted, result);
             }
             else
             {
@@ -87,14 +80,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(resultData.ResultData);
 
-                    if (inputData.StoreProgressInSubTask)
-                    {
-                        (List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)
-                            = await GetProcessingResultAsync(taskInfo, cancellationToken);
+                    (List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)
+                        = await GetProcessingResultAsync(taskInfo, cancellationToken);
 
-                        result.Output = completedOperationOutcome;
-                        result.Error = failedOperationOutcome;
-                    }
+                    result.Output = completedOperationOutcome;
+                    result.Error = failedOperationOutcome;
 
                     return new GetImportResponse(HttpStatusCode.OK, result);
                 }

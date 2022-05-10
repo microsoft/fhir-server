@@ -44,9 +44,6 @@ namespace Microsoft.Health.TaskManagement
 
         public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationToken)
         {
-            queueType.ToString();
-            workerName.ToString();
-
             using CancellationTokenSource keepAliveCancellationToken = new CancellationTokenSource();
             Task keepAliveTask = KeepAliveTasksAsync(keepAliveCancellationToken.Token);
 

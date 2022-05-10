@@ -35,11 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public Uri BaseUri { get; set; }
 
         /// <summary>
-        /// Task id for the orchestrator task.
-        /// </summary>
-        public string TaskId { get; set; }
-
-        /// <summary>
         /// Input resource list
         /// </summary>
         public IReadOnlyList<InputResource> Input { get; set; }
@@ -50,28 +45,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportRequestStorageDetail StorageDetail { get; set; }
 
         /// <summary>
-        /// Max running sub data processing task count at the same time.
-        /// </summary>
-        public int MaxConcurrentProcessingTaskCount { get; set; }
-
-        /// <summary>
-        /// Max retry count for processing task
-        /// </summary>
-        public short? ProcessingTaskMaxRetryCount { get; set; }
-
-        /// <summary>
-        /// Sub processing task queue id.
-        /// </summary>
-        public string ProcessingTaskQueueId { get; set; }
-
-        /// <summary>
         /// Task create time.
         /// </summary>
         public DateTimeOffset TaskCreateTime { get; set; }
 
         /// <summary>
-        /// Store progress in sub task to support large number blob files.
+        /// Start sequence id
         /// </summary>
-        public bool StoreProgressInSubTask { get; set; }
+        public long StartSequenceId { get; set; }
     }
 }

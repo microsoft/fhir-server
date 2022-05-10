@@ -120,6 +120,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlQueueClient>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<SqlServerTaskConsumer>()
                 .Scoped()
                 .AsSelf()

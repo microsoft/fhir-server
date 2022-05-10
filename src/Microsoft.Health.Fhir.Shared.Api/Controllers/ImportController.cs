@@ -17,7 +17,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
@@ -111,7 +110,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.StorageDetail,
                  HttpContext.RequestAborted);
 
-            var bulkImportResult = ImportResult.Accepted();
+            var bulkImportResult = Features.ActionResults.ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);
             return bulkImportResult;
         }
@@ -124,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             CancelImportResponse response = await _mediator.CancelImportAsync(idParameter, HttpContext.RequestAborted);
 
             _logger.LogInformation($"CancelImport {response.StatusCode}");
-            return new ImportResult(response.StatusCode);
+            return new Features.ActionResults.ImportResult(response.StatusCode);
         }
 
         [HttpGet]
@@ -138,21 +137,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // If the job is complete, we need to return 200 along with the completed data to the client.
             // Else we need to return 202 - Accepted.
-            ImportResult bulkImportActionResult;
+            Features.ActionResults.ImportResult bulkImportActionResult;
             if (getBulkImportResult.StatusCode == HttpStatusCode.OK)
             {
-                bulkImportActionResult = ImportResult.Ok(getBulkImportResult.TaskResult);
+                bulkImportActionResult = Features.ActionResults.ImportResult.Ok(getBulkImportResult.TaskResult);
                 bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
             }
             else
             {
                 if (getBulkImportResult.TaskResult == null)
                 {
-                    bulkImportActionResult = ImportResult.Accepted();
+                    bulkImportActionResult = Features.ActionResults.ImportResult.Accepted();
                 }
                 else
                 {
-                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.TaskResult);
+                    bulkImportActionResult = Features.ActionResults.ImportResult.Accepted(getBulkImportResult.TaskResult);
                     bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
                 }
             }

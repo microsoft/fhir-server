@@ -24,11 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportOrchestratorTaskProgress Progress { get; set; }
 
         /// <summary>
-        /// Import result during execution
-        /// </summary>
-        public ImportTaskResult ImportResult { get; set; }
-
-        /// <summary>
         /// Import total file size
         /// </summary>
         public long? TotalSizeInBytes { get; set; }
