@@ -75,9 +75,8 @@ namespace Microsoft.Health.Fhir.Azure
                     {
                         await blob.DownloadToAsync(targetStream, blobDownloadToOptions, cancellationToken);
                     }
-                    catch (Exception ex)
+                    catch (RequestFailedException ex)
                     {
-                        // placeholder
                         throw new AnonymizationConfigurationFetchException(ex.Message, ex);
                     }
                 }
