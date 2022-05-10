@@ -14,6 +14,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// </summary>
     public class ImportOrchestratorTaskInputData
     {
+        public int TypeId { get; set; }
+
         /// <summary>
         /// Request Uri for the import operation
         /// </summary>

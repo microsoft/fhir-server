@@ -19,17 +19,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class CancelImportRequestHandler : IRequestHandler<CancelImportRequest, CancelImportResponse>
     {
-        private readonly ITaskManager _taskManager;
+        private readonly IQueueClient _queueClient;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ILogger<CancelImportRequestHandler> _logger;
 
-        public CancelImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService, ILogger<CancelImportRequestHandler> logger)
+        public CancelImportRequestHandler(IQueueClient queueClient, IAuthorizationService<DataActions> authorizationService, ILogger<CancelImportRequestHandler> logger)
         {
-            EnsureArg.IsNotNull(taskManager, nameof(taskManager));
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _taskManager = taskManager;
+            _queueClient = queueClient;
             _authorizationService = authorizationService;
             _logger = logger;
         }
@@ -43,22 +43,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            try
-            {
-                TaskInfo taskInfo = await _taskManager.CancelTaskAsync(request.TaskId, cancellationToken);
+            TaskInfo taskInfo = await _queueClient.GetTaskByIdAsync(ImportConstants.ImportQueueType, request.TaskId, false, cancellationToken);
 
-                if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
-                {
-                    throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
-                }
-                else
-                {
-                    return new CancelImportResponse(HttpStatusCode.Accepted);
-                }
-            }
-            catch (TaskNotExistException)
+            if (taskInfo == null)
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
+            }
+
+            if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
+            {
+                throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
+            }
+            else
+            {
+                await _queueClient.CancelTaskAsync(ImportConstants.ImportQueueType, taskInfo.GroupId, cancellationToken);
+                return new CancelImportResponse(HttpStatusCode.Accepted);
             }
         }
     }

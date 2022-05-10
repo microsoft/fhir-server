@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportProcessingTask : ITask
     {
         public const short ImportProcessingTaskId = 1;
+        public const string CancelledErrorMessage = "Data processing task is canceled.";
 
         private ImportProcessingTaskInputData _inputData;
         private ImportProcessingTaskResult _importResult;
@@ -161,11 +162,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (TaskCanceledException canceledEx)
             {
-                _logger.LogInformation(canceledEx, "Data processing task is canceled.");
+                _logger.LogInformation(canceledEx, CancelledErrorMessage);
 
                 await CleanResourceForFailureAsync(canceledEx);
 
-                throw;
+                ImportProcessingTaskErrorResult error = new ImportProcessingTaskErrorResult()
+                {
+                    Message = CancelledErrorMessage,
+                };
+
+                throw new TaskExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (OperationCanceledException canceledEx)
             {
@@ -173,7 +179,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CleanResourceForFailureAsync(canceledEx);
 
-                throw;
+                ImportProcessingTaskErrorResult error = new ImportProcessingTaskErrorResult()
+                {
+                    Message = CancelledErrorMessage,
+                };
+
+                throw new TaskExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (RetriableTaskException retriableEx)
             {
@@ -189,7 +200,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CleanResourceForFailureAsync(ex);
 
-                throw;
+                ImportProcessingTaskErrorResult error = new ImportProcessingTaskErrorResult()
+                {
+                    Message = ex.Message,
+                };
+
+                throw new TaskExecutionException(ex.Message, error, ex);
             }
         }
 

@@ -7,7 +7,7 @@ using System.Net;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportTaskErrorResult
+    public class ImportOrchestratorTaskErrorResult
     {
         /// <summary>
         /// Err http status code
@@ -22,6 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Inner error if there're multiple errors
         /// </summary>
-        public ImportTaskErrorResult InnerError { get; set; }
+        public ImportOrchestratorTaskErrorResult InnerError { get; set; }
     }
 }

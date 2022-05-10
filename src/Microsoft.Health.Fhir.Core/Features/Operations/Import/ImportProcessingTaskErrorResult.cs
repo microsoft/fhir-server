@@ -3,20 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using MediatR;
-
-namespace Microsoft.Health.Fhir.Core.Messages.Import
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class GetImportRequest : IRequest<GetImportResponse>
+    public class ImportProcessingTaskErrorResult
     {
-        public GetImportRequest(long taskId)
-        {
-            TaskId = taskId;
-        }
-
-        /// <summary>
-        /// Import task id
-        /// </summary>
-        public long TaskId { get; }
+        public string Message { get; set; }
     }
 }

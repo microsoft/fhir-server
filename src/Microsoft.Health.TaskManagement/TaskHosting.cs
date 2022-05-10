@@ -143,6 +143,7 @@ namespace Microsoft.Health.TaskManagement
                 {
                     _logger.LogError(ex, "Task {taskId} failed.", taskInfo.TaskId);
                     taskInfo.Result = JsonConvert.SerializeObject(ex.Error);
+                    taskInfo.Status = TaskStatus.Failed;
 
                     try
                     {
@@ -161,6 +162,7 @@ namespace Microsoft.Health.TaskManagement
 
                     object error = new { message = ex.Message };
                     taskInfo.Result = JsonConvert.SerializeObject(error);
+                    taskInfo.Status = TaskStatus.Failed;
 
                     try
                     {
