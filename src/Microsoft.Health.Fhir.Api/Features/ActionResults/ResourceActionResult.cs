@@ -57,9 +57,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
             HttpResponse response = context.HttpContext.Response;
 
-            if (fhirContext.CheckIsPartialContent())
+            if (fhirContext.GetMissingResourceCode() != null)
             {
-                response.StatusCode = (int)HttpStatusCode.PartialContent;
+                response.StatusCode = (int)fhirContext.GetMissingResourceCode().Value;
             }
             else if (StatusCode.HasValue)
             {

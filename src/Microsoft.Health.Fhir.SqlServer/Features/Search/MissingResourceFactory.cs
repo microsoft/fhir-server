@@ -7,15 +7,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal static class MissingResourceFactory
     {
-        public static string CreateJson(string resourceId, string resourceType)
+        public static string CreateJson(string resourceId, string resourceType, string severity, string code)
         {
             return @$"{{
   ""resourceType"": ""OperationOutcome"",
   ""id"": ""{resourceId}"",
   ""issue"": [
     {{
-      ""severity"": ""warning"",
-      ""code"": ""incomplete"",
+      ""severity"": ""{severity}"",
+      ""code"": ""{code}"",
       ""diagnostics"": ""{string.Format(Resources.ResourceNotAvailable, resourceType, resourceId)}"",
       ""expression"": [
         ""{resourceType}""

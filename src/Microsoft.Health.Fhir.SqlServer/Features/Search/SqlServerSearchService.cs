@@ -15,7 +15,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
@@ -376,8 +375,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         if (string.IsNullOrEmpty(rawResource))
                         {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId));
-                            _requestContextAccessor.IndicatePartialContent();
+                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
                         }
 
                         // See if this resource is a continuation token candidate and increase the count

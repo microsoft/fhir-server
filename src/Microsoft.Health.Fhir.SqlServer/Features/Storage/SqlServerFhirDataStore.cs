@@ -461,8 +461,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         if (string.IsNullOrEmpty(rawResource))
                         {
-                            rawResource = MissingResourceFactory.CreateJson(key.Id, key.ResourceType);
-                            _requestContextAccessor.IndicatePartialContent();
+                            rawResource = MissingResourceFactory.CreateJson(key.Id, key.ResourceType, "error", "exception");
+                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.InternalServerError);
                         }
 
                         _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(key.ResourceType)}: {key.ResourceType}; {nameof(rawResource)} length: {rawResource.Length}");
