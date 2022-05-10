@@ -633,6 +633,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // Serialize into NDJson and write to the file.
                     data = _resourceToByteArraySerializer.StringSerialize(element);
                 }
+                else if (!resourceWrapper.RawResource.IsMetaSet)
+                {
+                    // For older records in Cosmos the metadata isn't included in the raw resource
+                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
+                    data = _resourceToByteArraySerializer.StringSerialize(element);
+                }
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
             }
