@@ -666,7 +666,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(8, numberOfCompartmentCalls);
 
             CheckAllSingleIdFiles(KnownResourceTypes.Patient, 4);
-            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 8);
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
+            Assert.Equal("12", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-2.ndjson");
+            Assert.Equal("34", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-3.ndjson");
+            Assert.Equal("56", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-4.ndjson");
+            Assert.Equal("78", exportedIds);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -712,90 +719,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             CheckAllSingleIdFiles(KnownResourceTypes.Patient, 4);
             Assert.Equal(4, _inMemoryDestinationClient.ExportedDataFileCount);
-
-            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
-        }
-
-        [Fact]
-        public async Task GivenAPatientExportJobToResumeWithinACompartment_WhenExecuted_ThenItShouldExportAllResources()
-        {
-            // We are using the SearchService to throw an exception in order to simulate the export job task
-            // "crashing" while in the middle of the process.
-            var exportJobRecordWithCommitPages = CreateExportJobRecord(
-                exportJobType: ExportJobType.Patient,
-                numberOfPagesPerCommit: 2);
-            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
-
-            int numberOfCalls = 0;
-
-            _searchService.SearchAsync(
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken,
-                true)
-                .Returns(x =>
-                {
-                    numberOfCalls++;
-                    return CreateSearchResult(
-                        new[]
-                        {
-                            CreateSearchResultEntry("1", "Patient"),
-                            CreateSearchResultEntry("2", "Patient"),
-                        });
-                });
-
-            int numberOfCompartmentCalls = 0;
-            int numberOfSuccessfulCompartmentPages = 5;
-
-            _searchService.SearchCompartmentAsync(
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken,
-                true)
-                .Returns(x =>
-                {
-                    numberOfCompartmentCalls++;
-                    if (numberOfCompartmentCalls - numberOfSuccessfulCompartmentPages == 0)
-                    {
-                        throw new Exception();
-                    }
-
-                    return CreateSearchResult(
-                        new[]
-                        {
-                            CreateSearchResultEntry(numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture), "Observation"),
-                        },
-                        continuationToken: numberOfCompartmentCalls % 3 == 0 ? null : "ct");
-                });
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
-            Assert.Null(exportedIds);
-
-            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 4);
-
-            Assert.NotNull(_exportJobRecord.Progress);
-            Assert.NotNull(_exportJobRecord.Progress.SubSearch);
-
-            // We create a new export job task here to simulate the worker picking up the "old" export job record
-            // and resuming the export process. The export destination client contains data that has
-            // been committed up until the "crash".
-            _inMemoryDestinationClient = new InMemoryExportDestinationClient();
-            var secondExportJobTask = CreateExportJobTask();
-
-            await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
-            Assert.Equal("12", exportedIds);
-
-            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-5.ndjson");
-
-            // 4 was in the commit buffer when the crash happened, and 5 is the one that triggered the crash.
-            // Since the 'id' is based on the number of times the mock method has been called these values never get exported.
-            Assert.Equal("6", exportedIds);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -858,8 +781,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             string exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
             Assert.Equal("1", exportedIds);
-
-            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 4);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
+            Assert.Equal("123", exportedIds);
 
             Assert.NotNull(_exportJobRecord.Progress);
             Assert.NotNull(_exportJobRecord.Progress.SubSearch);
@@ -878,10 +801,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Patient + "-2.ndjson");
             Assert.Equal("2", exportedIds);
 
-            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-5.ndjson");
+            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-3.ndjson");
 
             // 4 was in the commit buffer when the crash happened, and 5 is the one that triggered the crash.
             // Since the 'id' is based on the number of times the mock method has been called these values never get exported.
+            // The file is called Observation-3 because the test keeps the JobRecord in memory, it doesn't reload it from the database.
+            // This means it thinks an Observation-2 exists because it started to create one before the crash.
+            // If it had reloaded from the database this wouldn't happen because the buffered, but uncommited, file's existance was never recorded to the database.
             Assert.Equal("6", exportedIds);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
@@ -1116,10 +1042,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
             Assert.Equal("12", exportedIds);
             exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
-            Assert.Equal("1", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(KnownResourceTypes.Observation + "-2.ndjson");
-            Assert.Equal("2", exportedIds);
-            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal("12", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -1355,9 +1279,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            CheckAllSingleIdFiles(KnownResourceTypes.Observation, 3);
-            CheckAllSingleIdFiles(KnownResourceTypes.Encounter, 3);
-            Assert.Equal(6, _inMemoryDestinationClient.ExportedDataFileCount);
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
+            Assert.Equal("123", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(EncounterFileName);
+            Assert.Equal("123", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -1740,7 +1666,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            CheckAllSingleIdFiles(KnownResourceTypes.Patient, 2);
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(PatientFileName);
+            Assert.Equal("12", exportedIds);
+
             string observationIds = _inMemoryDestinationClient.GetExportedData(ObservationFileName);
             string encounterIds = _inMemoryDestinationClient.GetExportedData(EncounterFileName);
 
@@ -1751,7 +1679,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.Equal("1", observationIds);
             Assert.Equal("1", encounterIds);
-            Assert.Equal(4, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
