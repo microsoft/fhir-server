@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
-            schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
+            (SchemaInitializer schemaInitializerInstance, ServiceProvider serviceProvider) = CreateSchemaInitializer(schemaInitializer, testConnectionString, maximumSupportedSchemaVersion);
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
@@ -91,7 +92,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await sqlCommand.ExecuteScalarAsync(cancellationToken);
             });
 
-            await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
+            var parametersArray = new object[] { serviceProvider.CreateScope(), forceIncrementalSchemaUpgrade, cancellationToken };
+            dynamic task = typeof(SchemaInitializer).GetMethod("InitializeAsync", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(schemaInitializerInstance, parametersArray);
+            await task;
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
         }
 
@@ -216,30 +219,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private SchemaInitializer CreateSchemaInitializer(string testConnectionString, int maxSupportedSchemaVersion)
+        private (SchemaInitializer schemaInitializer, ServiceProvider serviceProvider) CreateSchemaInitializer(SchemaInitializer schemaInitializer, string testConnectionString, int maxSupportedSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
-            var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, SqlConfigurableRetryFactory.CreateNoneRetryProvider());
 
             var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
             sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => GetSqlConnection(testConnectionString));
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
+            var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = testConnectionString };
+            ISqlConnectionStringProvider sqlConnectionString = new DefaultSqlConnectionStringProvider(Options.Create(sqlServerDataStoreConfiguration));
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnection, sqlRetryLogicBaseProvider, config);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(new ScriptProvider<SchemaVersion>(), new BaseScriptProvider(), NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
+            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProvider = p => sqlConnectionString;
+            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => sqlConnectionWrapperFactory;
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
 
             var collection = new ServiceCollection();
-            collection.AddScoped(schemaUpgradeRunnerFactory);
+            collection.AddScoped(sqlConnectionStringProvider);
+            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaManagerDataStoreFactory);
+            collection.AddScoped(schemaUpgradeRunnerFactory);
             var serviceProvider = collection.BuildServiceProvider();
-            return new SchemaInitializer(serviceProvider, config, schemaInformation, defaultSqlConnectionBuilder, sqlConnectionStringProvider, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            return (schemaInitializer ?? new SchemaInitializer(serviceProvider, config, schemaInformation, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance), serviceProvider);
         }
 
         protected async Task<SqlConnection> GetSqlConnection(string connectionString)
