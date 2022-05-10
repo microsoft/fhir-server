@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
+        private bool _unionAllVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
         public SqlQueryGenerator(
@@ -418,7 +419,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
             }
-            else
+            else if (searchParamTableExpression.ChainLevel == 1 && _unionAllVisited)
             {
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).AppendLine(" AS T2, ")
@@ -430,6 +431,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T1");
                     delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append("Sid1");
+                }
+            }
+            else
+            {
+                StringBuilder.Append("SELECT T1, Sid1, ")
+                    .Append(VLatest.Resource.ResourceTypeId, null).AppendLine(" AS T2, ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
+                    .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
+                    .Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
+
+                using (var delimited = StringBuilder.BeginDelimitedOnClause())
+                {
+                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2");
+                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append("Sid2");
                 }
             }
 
@@ -890,12 +905,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
         }
 
-        private void HandleTableKindUnionAll(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
-        {
-            StringBuilder.Append(searchParamTableExpression);
-            bool sortValueNeeded = IsSortValueNeeded(context);
-        }
-
         private void HandleTableKindIncludeUnionAll(SearchOptions context)
         {
             StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial ");
@@ -1075,6 +1084,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             StringBuilder.Append(")");
+
+            _unionAllVisited = true;
         }
 
         private void AppendNewTableExpression(IndentedStringBuilder sb, SearchParamTableExpression tableExpression, int cteId, SearchOptions context)
