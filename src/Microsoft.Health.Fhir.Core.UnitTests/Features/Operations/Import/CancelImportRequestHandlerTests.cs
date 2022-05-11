@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
     public class CancelImportRequestHandlerTests
     {
-        private const string TaskId = "taskId";
+        private const long TaskId = 12345;
 
-        private readonly ITaskManager _taskManager = Substitute.For<ITaskManager>();
+        private readonly IQueueClient _queueClient = Substitute.For<IQueueClient>();
         private readonly IMediator _mediator;
 
         private readonly CancellationToken _cancellationToken = new CancellationTokenSource().Token;
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             var collection = new ServiceCollection();
             collection
                 .Add(sp => new CancelImportRequestHandler(
-                    _taskManager,
+                    _queueClient,
                     DisabledFhirAuthorizationService.Instance,
                     NullLogger<CancelImportRequestHandler>.Instance))
                 .Singleton()
@@ -73,13 +73,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             TaskInfo taskInfo = await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Accepted);
 
-            await _taskManager.Received(1).CancelTaskAsync(taskInfo.TaskId, _cancellationToken);
+            await _queueClient.Received(1).CancelTaskAsync(ImportConstants.ImportQueueType, taskInfo.GroupId, _cancellationToken);
         }
 
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingWithNotExistTask_ThenNotFoundShouldBeReturned()
         {
-            _taskManager.CancelTaskAsync(Arg.Any<string>(), _cancellationToken).Returns<Task<TaskInfo>>(_ => throw new TaskNotExistException("Task not exist."));
+            _queueClient.CancelTaskAsync(Arg.Any<byte>(), Arg.Any<long>(), _cancellationToken).Returns<Task>(_ => throw new TaskNotExistException("Task not exist."));
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelImportAsync(TaskId, _cancellationToken));
         }
 
@@ -99,7 +99,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             var taskInfo = new TaskInfo
             {
-                TaskId = TaskId,
+                Id = TaskId,
+                GroupId = TaskId,
                 QueueId = "0",
                 Status = taskStatus,
                 TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
@@ -107,8 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 CancelRequested = isCanceled,
             };
 
-            _taskManager.GetTaskAsync(TaskId, _cancellationToken).Returns(taskInfo);
-            _taskManager.CancelTaskAsync(TaskId, _cancellationToken).Returns(taskInfo);
+            _queueClient.GetTaskByIdAsync(Arg.Any<byte>(), TaskId, Arg.Any<bool>(), _cancellationToken).Returns(taskInfo);
 
             return taskInfo;
         }
