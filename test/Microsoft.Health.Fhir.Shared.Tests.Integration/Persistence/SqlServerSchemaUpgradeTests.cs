@@ -173,8 +173,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 serviceProviderSchemaInitializer,
                 config,
                 schemaInformation,
-                defaultSqlConnectionBuilder,
-                sqlConnectionStringProvider,
                 mediator,
                 NullLogger<SchemaInitializer>.Instance);
 
