@@ -298,16 +298,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
         {
-            // Generate a unique hash
-            var hashObject = new
-            {
-                _exportRequest.RequestUri,
-                Clock.UtcNow,
-            };
-
-            string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
-
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, hash, rollingFileSizeInMB: 64);
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "N/A", rollingFileSizeInMB: 64, storageAccountContainerName: Guid.NewGuid().ToString());
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
