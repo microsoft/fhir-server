@@ -99,8 +99,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => _schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
+            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProviderFunc = p => sqlConnectionStringProvider;
+            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => sqlConnectionWrapperFactory;
 
             var collection = new ServiceCollection();
+            collection.AddScoped(sqlConnectionStringProviderFunc);
+            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
