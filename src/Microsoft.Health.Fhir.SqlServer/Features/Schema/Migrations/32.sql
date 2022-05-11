@@ -1664,11 +1664,13 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.DequeueJob
-@QueueType TINYINT, @StartPartitionId TINYINT, @Worker VARCHAR (100), @HeartbeatTimeoutSec INT
+@QueueType TINYINT, @StartPartitionId TINYINT=NULL, @Worker VARCHAR (100), @HeartbeatTimeoutSec INT
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'DequeueJob', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' P=' + isnull(CONVERT (VARCHAR, @StartPartitionId), 'NULL') + ' H=' + isnull(CONVERT (VARCHAR, @HeartbeatTimeoutSec), 'NULL') + ' W=' + isnull(@Worker, 'NULL'), @Rows AS INT, @st AS DATETIME = getUTCdate(), @JobId AS BIGINT, @msg AS VARCHAR (100), @Lock AS VARCHAR (100), @PartitionId AS TINYINT = @StartPartitionId, @MaxPartitions AS TINYINT = 16, @LookedAtPartitions AS TINYINT = 0;
 BEGIN TRY
+    IF @StartPartitionId IS NULL
+        SET @StartPartitionId = @MaxPartitions * rand();
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
     WHILE @JobId IS NULL
           AND @LookedAtPartitions <= @MaxPartitions

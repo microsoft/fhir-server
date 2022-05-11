@@ -117,7 +117,7 @@ namespace Microsoft.Health.TaskManagement
             {
                 try
                 {
-                    if (taskInfo.CancelRequested)
+                    if (taskInfo.CancelRequested && !taskCancellationToken.IsCancellationRequested)
                     {
                         // For cancelled task, try to execute it for potential cleanup.
                         taskCancellationToken.Cancel();
@@ -147,7 +147,7 @@ namespace Microsoft.Health.TaskManagement
 
                     try
                     {
-                        await _queueClient.CompleteTaskAsync(taskInfo, false, taskCancellationToken.Token);
+                        await _queueClient.CompleteTaskAsync(taskInfo, true, CancellationToken.None);
                     }
                     catch (Exception completeEx)
                     {
@@ -166,7 +166,7 @@ namespace Microsoft.Health.TaskManagement
 
                     try
                     {
-                        await _queueClient.CompleteTaskAsync(taskInfo, false, taskCancellationToken.Token);
+                        await _queueClient.CompleteTaskAsync(taskInfo, true, CancellationToken.None);
                     }
                     catch (Exception completeEx)
                     {
@@ -178,7 +178,7 @@ namespace Microsoft.Health.TaskManagement
 
                 try
                 {
-                    await _queueClient.CompleteTaskAsync(taskInfo, false, cancellationToken);
+                    await _queueClient.CompleteTaskAsync(taskInfo, true, CancellationToken.None);
                     _logger.LogInformation("Task {taskId} completed.", taskInfo.TaskId);
                 }
                 catch (Exception completeEx)
@@ -199,7 +199,7 @@ namespace Microsoft.Health.TaskManagement
                 bool shouldCancel = false;
                 try
                 {
-                    TaskInfo keepAliveResult = await _queueClient.KeepAliveTaskAsync(taskInfo, taskCancellationToken.Token);
+                    TaskInfo keepAliveResult = await _queueClient.KeepAliveTaskAsync(taskInfo, CancellationToken.None);
                     shouldCancel |= keepAliveResult.CancelRequested;
                 }
                 catch (TaskNotExistException notExistEx)

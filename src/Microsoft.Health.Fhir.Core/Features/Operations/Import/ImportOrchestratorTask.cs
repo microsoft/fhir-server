@@ -98,6 +98,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _orchestratorTaskResult.Request = _orchestratorInputData.RequestUri.ToString();
             _orchestratorTaskResult.TransactionTime = _orchestratorInputData.TaskCreateTime;
 
+            ImportOrchestratorTaskErrorResult errorResult = null;
+
             try
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -139,51 +141,57 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(taskCanceledEx, "Import task canceled. {0}", taskCanceledEx.Message);
 
+                errorResult = new ImportOrchestratorTaskErrorResult()
+                {
+                    HttpStatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessage = taskCanceledEx.Message,
+                };
+
                 await CancelProcessingTasksAsync();
                 await SendImportMetricsNotification(TaskResult.Canceled);
-
-                throw;
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogInformation(canceledEx, "Import task canceled. {0}", canceledEx.Message);
 
+                errorResult = new ImportOrchestratorTaskErrorResult()
+                {
+                    HttpStatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessage = canceledEx.Message,
+                };
+
                 await CancelProcessingTasksAsync();
                 await SendImportMetricsNotification(TaskResult.Canceled);
-
-                throw;
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
                 _logger.LogInformation(integrationDataStoreEx, "Failed to access input files.");
 
-                ImportOrchestratorTaskErrorResult errorResult = new ImportOrchestratorTaskErrorResult()
+                errorResult = new ImportOrchestratorTaskErrorResult()
                 {
                     HttpStatusCode = integrationDataStoreEx.StatusCode,
                     ErrorMessage = integrationDataStoreEx.Message,
                 };
 
                 await SendImportMetricsNotification(TaskResult.Fail);
-                throw new TaskExecutionException(integrationDataStoreEx.Message, errorResult, integrationDataStoreEx);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
                 _logger.LogInformation(eTagEx, "Import file etag not match.");
 
-                ImportOrchestratorTaskErrorResult errorResult = new ImportOrchestratorTaskErrorResult()
+                errorResult = new ImportOrchestratorTaskErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = eTagEx.Message,
                 };
 
                 await SendImportMetricsNotification(TaskResult.Fail);
-                throw new TaskExecutionException(eTagEx.Message, errorResult, eTagEx);
             }
             catch (ImportProcessingException processingEx)
             {
                 _logger.LogInformation(processingEx, "Failed to process input resources.");
 
-                ImportOrchestratorTaskErrorResult errorResult = new ImportOrchestratorTaskErrorResult()
+                errorResult = new ImportOrchestratorTaskErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = processingEx.Message,
@@ -191,13 +199,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CancelProcessingTasksAsync();
                 await SendImportMetricsNotification(TaskResult.Fail);
-                throw new TaskExecutionException(processingEx.Message, errorResult, processingEx);
             }
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Failed to import data.");
 
-                ImportOrchestratorTaskErrorResult errorResult = new ImportOrchestratorTaskErrorResult()
+                errorResult = new ImportOrchestratorTaskErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.InternalServerError,
                     ErrorMessage = ex.Message,
@@ -205,36 +212,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CancelProcessingTasksAsync();
                 await SendImportMetricsNotification(TaskResult.Fail);
-                throw new TaskExecutionException(ex.Message, errorResult, ex);
             }
 
-            if (_orchestratorTaskResult.Progress > ImportOrchestratorTaskProgress.InputResourcesValidated)
+            // Post-process operation cannot be cancelled.
+            try
             {
-                // Post-process operation cannot be cancelled.
-                try
+                await _importOrchestratorTaskDataStoreOperation.PostprocessAsync(CancellationToken.None);
+
+                _logger.LogInformation("Postprocess Completed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "Failed at postprocess step.");
+
+                ImportOrchestratorTaskErrorResult postProcessErrorResult = new ImportOrchestratorTaskErrorResult()
                 {
-                    await _importOrchestratorTaskDataStoreOperation.PostprocessAsync(CancellationToken.None);
+                    HttpStatusCode = HttpStatusCode.InternalServerError,
+                    ErrorMessage = ex.Message,
+                };
 
-                    _logger.LogInformation("Postprocess Completed");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogInformation(ex, "Failed at postprocess step.");
+                await SendImportMetricsNotification(TaskResult.Fail);
 
-                    ImportOrchestratorTaskErrorResult postProcessErrorResult = new ImportOrchestratorTaskErrorResult()
-                    {
-                        HttpStatusCode = HttpStatusCode.InternalServerError,
-                        ErrorMessage = ex.Message,
-                    };
+                throw new RetriableTaskException(JsonConvert.SerializeObject(postProcessErrorResult));
+            }
 
-                    await SendImportMetricsNotification(TaskResult.Fail);
-
-                    throw new RetriableTaskException(JsonConvert.SerializeObject(postProcessErrorResult));
-                }
+            if (errorResult != null)
+            {
+                throw new TaskExecutionException(errorResult.ErrorMessage, errorResult);
             }
 
             await SendImportMetricsNotification(TaskResult.Success);
-
             return JsonConvert.SerializeObject(_orchestratorTaskResult);
         }
 
@@ -379,8 +386,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _logger.LogWarning(ex, "failed to cancel task {0}", _taskInfo.GroupId);
             }
 
-            // Wait task cancel for WaitRunningTaskCancelTimeoutInSec
-            // await WaitRunningTaskCompleteAsync();
+            await WaitRunningTaskCompleteAsync();
+        }
+
+        private async Task WaitRunningTaskCompleteAsync()
+        {
+            while (true)
+            {
+                try
+                {
+                    IEnumerable<TaskInfo> taskInfos = await _queueClient.GetTaskByGroupIdAsync(ImportConstants.ImportQueueType, _taskInfo.GroupId, false, CancellationToken.None);
+
+                    if (taskInfos.All(t => (t.Status != TaskStatus.Created && t.Status != TaskStatus.Running) || t.Id == _taskInfo.Id))
+                    {
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "failed to get tasks by groupId {0}", _taskInfo.GroupId);
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
         }
     }
 }
