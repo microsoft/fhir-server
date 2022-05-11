@@ -15,6 +15,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -212,7 +213,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
-                    _logger.LogInformation($"Upserting {resource.ResourceTypeName} with a stream length of {stream.Length}");
+                    _logger.LogTrace("Upserting resource of type: {0} with a stream length of {1}, request method: {2}", resource.ResourceTypeName, stream.Length, resource.Request.Method);
+
+                    // throwing ServiceUnavailableException in order to send a 503 error message to the client
+                    // indicating the server has a transient error, and the client can try again
+                    if (stream.Length < 31) // rather than error on a length of 0, a stream with a small number of bytes should still throw an error. RawResource.Data = null, still results in a stream of 29 bytes
+                    {
+                        _logger.LogCritical("Stream size for resource of type: {0} is less than 50 bytes, request method: {1}", resource.ResourceTypeName, resource.Request.Method);
+                        throw new ServiceUnavailableException();
+                    }
 
                     PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
 
