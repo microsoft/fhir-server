@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 var jobResult = new ExportJobResult(
-                    outcome.JobRecord.QueuedTime,
+                    outcome.JobRecord.QueuedTime.Value,
                     outcome.JobRecord.RequestUri,
                     requiresAccessToken: false,
                     allFiles.Select(x => x.ToExportOutputResponse()).OrderBy(x => x.Type, StringComparer.Ordinal).ToList(),

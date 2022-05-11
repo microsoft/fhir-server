@@ -113,8 +113,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
             await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
-
+            var command = new SqlCommand("DELETE FROM dbo.JobQueue WHERE QueueType = @QueueType", connection);
+            command.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Export);
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
@@ -122,11 +122,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
             await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand("DELETE FROM dbo.ExportJob WHERE Id = @id", connection);
-
-            var parameter = new SqlParameter { ParameterName = "@id", Value = id };
-            command.Parameters.Add(parameter);
-
+            var command = new SqlCommand("DELETE FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @id", connection);
+            command.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Export);
+            command.Parameters.AddWithValue("@id", id);
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
         }

@@ -55,17 +55,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            jobRecord.Id = string.Empty;
+            jobRecord.QueuedTime = null;
             var def = JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings);
-            VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, 1, new[] { new StringListRow(def) }, null, false);
+            VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, new[] { new StringListRow(def) }, null, false);
             var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             if (!reader.Read())
             {
-                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, "Failed to create export job because no row version was returned."), HttpStatusCode.InternalServerError);
+                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, "Failed to create export job."), HttpStatusCode.InternalServerError);
             }
 
             var id = reader.GetInt64(VLatest.JobQueue.JobId);
             var version = reader.GetInt64(VLatest.JobQueue.Version);
-            return CreateExportJobOutcome(id, jobRecord, version);
+            var createDate = reader.GetDateTime(VLatest.JobQueue.CreateDate);
+            return CreateExportJobOutcome(id, jobRecord, version, createDate);
         }
 
         public async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
@@ -75,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             var jobId = long.Parse(id);
-            VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, 1, jobId, null, null, true);
+            VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, jobId, null, null, true);
             var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             if (!reader.Read())
             {
@@ -86,30 +89,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var version = reader.GetInt64(VLatest.JobQueue.Version);
             var status = reader.GetByte(VLatest.JobQueue.Status);
             var result = reader.IsDBNull(VLatest.JobQueue.Result) ? null : reader.GetString(VLatest.JobQueue.Result);
+            var createDate = reader.GetDateTime(VLatest.JobQueue.CreateDate);
             var rawJobRecord = result ?? def;
-            return CreateExportJobOutcome(jobId, rawJobRecord, version, status);
-        }
-
-        public async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
-        {
-            if (hash != null)
-            {
-                throw new NotSupportedException();
-            }
-
-            //// TODO: Remove the rest
-            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
-            var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            VLatest.GetExportJobByHash.PopulateCommand(sqlCommandWrapper, hash);
-            var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-            if (!reader.Read())
-            {
-                return null;
-            }
-
-            (string rawJobRecord, byte[] rowVersion) = reader.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
-            return CreateExportJobOutcome(0, rawJobRecord, 0, 0);
+            return CreateExportJobOutcome(jobId, rawJobRecord, version, status, createDate);
         }
 
         public async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
@@ -125,12 +107,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
             if (jobRecord.Status == OperationStatus.Running)
             {
-                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, 1, jobId, version, null, jobStr); // this does not change version
+                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, jobId, version, null, jobStr); // this does not change version
             }
             else
             {
                 var success = jobRecord.Status == OperationStatus.Completed;
-                VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, 1, jobId, version, !success, -1, jobStr, true); // this update is final and version change does not matter
+                VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, jobId, version, !success, -1, jobStr, true); // this update is final and version change does not matter
             }
 
             try
@@ -161,7 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt32(jobHeartbeatTimeoutThreshold.TotalSeconds);
-            VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, 1, null, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
+            VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, null, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
             var acquiredJobs = new List<ExportJobOutcome>();
             var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -171,8 +153,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var version = reader.GetInt64(VLatest.JobQueue.Version);
                 var status = reader.GetByte(VLatest.JobQueue.Status);
                 var result = reader.IsDBNull(VLatest.JobQueue.Result) ? null : reader.GetString(VLatest.JobQueue.Result);
+                var createDate = reader.GetDateTime(VLatest.JobQueue.CreateDate);
                 var rawJobRecord = result ?? def;
-                acquiredJobs.Add(CreateExportJobOutcome(id, rawJobRecord, version, status));
+                acquiredJobs.Add(CreateExportJobOutcome(id, rawJobRecord, version, status, createDate));
             }
 
             return acquiredJobs;
@@ -321,18 +304,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private ExportJobOutcome CreateExportJobOutcome(long jobId, string rawJobRecord, long version, byte status)
+        private ExportJobOutcome CreateExportJobOutcome(long jobId, string rawJobRecord, long version, byte status, DateTime createDate)
         {
             var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
             exportJobRecord.Id = jobId.ToString();
             exportJobRecord.Status = (OperationStatus)status;
+            exportJobRecord.QueuedTime = createDate;
             var etag = GetRowVersionAsEtag(BitConverter.GetBytes(version));
             return new ExportJobOutcome(exportJobRecord, etag);
         }
 
-        private static ExportJobOutcome CreateExportJobOutcome(long jobId, ExportJobRecord jobRecord, long version)
+        private static ExportJobOutcome CreateExportJobOutcome(long jobId, ExportJobRecord jobRecord, long version, DateTime createDate)
         {
             jobRecord.Id = jobId.ToString();
+            jobRecord.QueuedTime = createDate;
             var etag = GetRowVersionAsEtag(BitConverter.GetBytes(version));
             return new ExportJobOutcome(jobRecord, etag);
         }

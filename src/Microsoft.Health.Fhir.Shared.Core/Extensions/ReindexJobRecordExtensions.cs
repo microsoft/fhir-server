@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 progress = 0;
             }
 
-            parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime));
+            parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime.Value));
             parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(job.Count));
             parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(job.Progress));
             parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(Math.Round(progress, 1)));

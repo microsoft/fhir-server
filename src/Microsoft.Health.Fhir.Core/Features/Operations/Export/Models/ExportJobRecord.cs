@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
 
         [JsonProperty(JobRecordProperties.Hash)]
-        public string Hash { get; private set; }
+        public string Hash { get; internal set; }
 
         [JsonProperty(JobRecordProperties.Output, ItemConverterType = typeof(ExportJobRecordOutputConverter))]
         public IDictionary<string, List<ExportFileInfo>> Output { get; private set; } = new Dictionary<string, List<ExportFileInfo>>();
