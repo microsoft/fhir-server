@@ -8,8 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Core;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -17,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
