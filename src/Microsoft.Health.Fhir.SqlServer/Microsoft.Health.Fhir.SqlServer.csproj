@@ -5,7 +5,7 @@
 
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>31</LatestSchemaVersion>
+    <LatestSchemaVersion>32</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
   </PropertyGroup>
@@ -44,6 +44,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="Features\Schema\Migrations\32.diff.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\DequeueJob.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\EnqueueJobs.sql" />
     <None Remove="Features\Schema\Sql\Sprocs\GetJobs.sql" />
