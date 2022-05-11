@@ -13,7 +13,7 @@ namespace Microsoft.Health.TaskManagement
 
         public const short DefaultMaxRetryCount = 3;
 
-        public const int DefaultTaskHeartbeatTimeoutThresholdInSeconds = 60;
+        public const int DefaultTaskHeartbeatTimeoutThresholdInSeconds = 120;
 
         public const int DefaultTaskHeartbeatIntervalInSeconds = 10;
     }

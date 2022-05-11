@@ -147,7 +147,7 @@ namespace Microsoft.Health.TaskManagement
 
                     try
                     {
-                        await _queueClient.CompleteTaskAsync(taskInfo, true, CancellationToken.None);
+                        await _queueClient.CompleteTaskAsync(taskInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
                     }
                     catch (Exception completeEx)
                     {
@@ -178,6 +178,7 @@ namespace Microsoft.Health.TaskManagement
 
                 try
                 {
+                    taskInfo.Status = TaskStatus.Completed;
                     await _queueClient.CompleteTaskAsync(taskInfo, true, CancellationToken.None);
                     _logger.LogInformation("Task {taskId} completed.", taskInfo.TaskId);
                 }

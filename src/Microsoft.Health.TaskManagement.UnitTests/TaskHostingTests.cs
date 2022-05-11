@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using NSubstitute;
-using NSubstitute.Core;
 using Xunit;
 
 namespace Microsoft.Health.TaskManagement.UnitTests
@@ -28,48 +27,43 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         [Fact]
         public async Task GivenValidTasks_WhenTaskHostingStart_ThenTasksShouldBeExecute()
         {
+            TestQueueClient queueClient = new TestQueueClient();
             int taskCount = 10;
-            string resultMessage = "success";
-            List<TaskInfo> taskInfos = new List<TaskInfo>();
+            List<string> definitions = new List<string>();
             for (int i = 0; i < taskCount; ++i)
             {
-                TaskInfo taskInfo = new TaskInfo();
-                taskInfo.TaskId = Guid.NewGuid().ToString();
-                taskInfo.TaskTypeId = 0;
-
-                taskInfos.Add(taskInfo);
+                definitions.Add(taskCount.ToString());
             }
 
+            IEnumerable<TaskInfo> tasks = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, CancellationToken.None);
+
             int executedTaskCount = 0;
-            TestTaskConsumer consumer = new TestTaskConsumer(taskInfos.ToArray());
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 return new TestTask(
-                    async () =>
+                    async (progress, cancellationToken) =>
                     {
                         Interlocked.Increment(ref executedTaskCount);
 
                         await Task.Delay(TimeSpan.FromMilliseconds(20));
-                        return new TaskResultData(TaskResult.Success, resultMessage);
-                    },
-                    null);
+                        return t.Definition;
+                    });
             });
 
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 5;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await taskHosting.StartAsync(0, null, tokenSource);
+            await taskHosting.StartAsync(0, "test", tokenSource);
 
-            Assert.True(taskCount <= executedTaskCount);
-            foreach (string resultString in taskInfos.Select(t => t.Result))
+            Assert.True(taskCount == executedTaskCount);
+            foreach (TaskInfo task in tasks)
             {
-                TaskResultData result = JsonConvert.DeserializeObject<TaskResultData>(resultString);
-                Assert.Equal(TaskResult.Success, result.Result);
-                Assert.Equal(resultMessage, result.ResultData);
+                Assert.Equal(TaskStatus.Completed, task.Status);
+                Assert.Equal(task.Definition, task.Result);
             }
         }
 
@@ -77,65 +71,79 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         public async Task GivenTaskWithCriticalException_WhenTaskHostingStart_ThenTaskShouldFailWithErrorMessage()
         {
             string errorMessage = "Test error";
+            object error = new { error = errorMessage };
+            object defaultError = new { message = errorMessage };
 
-            TaskInfo taskInfo0 = new TaskInfo();
-            taskInfo0.TaskId = Guid.NewGuid().ToString();
-            taskInfo0.TaskTypeId = 0;
+            string definition1 = "definition1";
+            string definition2 = "definition2";
 
-            int executeCount0 = 0;
-            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0 });
+            TestQueueClient queueClient = new TestQueueClient();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { definition1 }, null, false, CancellationToken.None)).First();
+            TaskInfo task2 = (await queueClient.EnqueueAsync(0, new string[] { definition2 }, null, false, CancellationToken.None)).First();
+
+            int executeCount = 0;
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
-                return new TestTask(
-                        () =>
-                        {
-                            Interlocked.Increment(ref executeCount0);
+                if (definition1.Equals(t.Definition))
+                {
+                    return new TestTask(
+                            (progress, token) =>
+                            {
+                                Interlocked.Increment(ref executeCount);
 
-                            throw new Exception(errorMessage);
-                        },
-                        null);
+                                throw new TaskExecutionException(errorMessage, error);
+                            });
+                }
+                else
+                {
+                    return new TestTask(
+                            (progress, token) =>
+                            {
+                                Interlocked.Increment(ref executeCount);
+
+                                throw new Exception(errorMessage);
+                            });
+                }
             });
 
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(1));
-            await taskHosting.StartAsync(0, null, tokenSource);
+            await taskHosting.StartAsync(0, "test", tokenSource);
 
-            Assert.Equal(1, executeCount0);
+            Assert.Equal(2, executeCount);
 
-            // If task failcount > MaxRetryCount + 1, the Task should failed with error message.
-            TaskResultData taskResult0 = JsonConvert.DeserializeObject<TaskResultData>(taskInfo0.Result);
-            Assert.Equal(TaskResult.Fail, taskResult0.Result);
-            Assert.Equal(errorMessage, taskResult0.ResultData);
+            Assert.Equal(TaskStatus.Failed, task1.Status);
+            Assert.Equal(JsonConvert.SerializeObject(error), task1.Result);
+            Assert.Equal(TaskStatus.Failed, task2.Status);
+            Assert.Equal(JsonConvert.SerializeObject(defaultError), task2.Result);
         }
 
         [Fact]
         public async Task GivenAnCrashTask_WhenTaskHostingStart_ThenTaskShouldBeRePickup()
         {
-            TaskInfo taskInfo0 = new TaskInfo();
-            taskInfo0.TaskId = Guid.NewGuid().ToString();
-            taskInfo0.TaskTypeId = 0;
-            taskInfo0.Status = TaskStatus.Running;
-
             int executeCount0 = 0;
-            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0 });
+            TestQueueClient queueClient = new TestQueueClient();
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 return new TestTask(
-                        () =>
+                        (progress, token) =>
                         {
                             Interlocked.Increment(ref executeCount0);
 
-                            return Task.FromResult(new TaskResultData(TaskResult.Success, string.Empty));
-                        },
-                        null);
+                            return Task.FromResult(t.Definition);
+                        });
             });
 
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+            task1.Status = TaskStatus.Running;
+            task1.HeartbeatDateTime = DateTime.Now.AddSeconds(-3);
+
+            TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 2;
@@ -143,429 +151,220 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(0, null, tokenSource);
+            await taskHosting.StartAsync(0, "test", tokenSource);
 
-            Assert.Equal(1, executeCount0);
-
-            // If task failcount > MaxRetryCount + 1, the Task should failed with error message.
-            TaskResultData taskResult0 = JsonConvert.DeserializeObject<TaskResultData>(taskInfo0.Result);
-            Assert.Equal(TaskResult.Success, taskResult0.Result);
+            Assert.Equal(TaskStatus.Completed, task1.Status);
             Assert.Equal(1, executeCount0);
         }
 
         [Fact]
         public async Task GivenAnLongRunningTask_WhenTaskHostingStop_ThenTaskShouldBeCompleted()
         {
-            TaskInfo taskInfo0 = new TaskInfo();
-            taskInfo0.TaskId = Guid.NewGuid().ToString();
-            taskInfo0.TaskTypeId = 0;
-            taskInfo0.Status = TaskStatus.Running;
             AutoResetEvent autoResetEvent = new AutoResetEvent(false);
 
             int executeCount0 = 0;
-            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0 });
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 return new TestTask(
-                        async () =>
+                        async (progress, token) =>
                         {
                             autoResetEvent.Set();
                             await Task.Delay(TimeSpan.FromSeconds(10));
                             Interlocked.Increment(ref executeCount0);
 
-                            return new TaskResultData(TaskResult.Success, string.Empty);
-                        },
-                        null);
+                            return t.Definition;
+                        });
             });
 
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
+            TestQueueClient queueClient = new TestQueueClient();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+            TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 2;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            Task hostingTask = taskHosting.StartAsync(0, null, tokenSource);
+            Task hostingTask = taskHosting.StartAsync(0, "test", tokenSource);
             autoResetEvent.WaitOne();
             tokenSource.Cancel();
 
             await hostingTask;
-            Assert.Equal(1, executeCount0);
 
             // If task failcount > MaxRetryCount + 1, the Task should failed with error message.
-            TaskResultData taskResult0 = JsonConvert.DeserializeObject<TaskResultData>(taskInfo0.Result);
-            Assert.Equal(TaskResult.Success, taskResult0.Result);
+            Assert.Equal(TaskStatus.Completed, task1.Status);
             Assert.Equal(1, executeCount0);
-        }
-
-        [Fact]
-        public async Task GivenTaskCrash_WhenTaskHostingRepickupTask_ThenFirstTasksShouldBeCancelled()
-        {
-            string resultMessage = "success";
-            List<TaskInfo> taskInfos = new List<TaskInfo>();
-            TaskInfo taskInfo = new TaskInfo();
-            taskInfo.TaskId = Guid.NewGuid().ToString();
-            taskInfo.TaskTypeId = 0;
-
-            taskInfos.Add(taskInfo);
-
-            TestTaskConsumer consumer = new TestTaskConsumer(taskInfos.ToArray());
-            bool isCancelled = false;
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-            TestTaskFactory factory = new TestTaskFactory(t =>
-            {
-                return new TestTask(
-                    async () =>
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(10));
-                        return new TaskResultData(TaskResult.Success, resultMessage);
-                    },
-                    async () =>
-                    {
-                        await Task.Delay(TimeSpan.FromMilliseconds(20));
-                        isCancelled = true;
-                        tokenSource.Cancel();
-                    })
-                {
-                    RunId = Guid.NewGuid().ToString(),
-                };
-            });
-
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
-            taskHosting.PollingFrequencyInSeconds = 0;
-            taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 0;
-
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(0, null, tokenSource);
-
-            Assert.True(isCancelled);
-        }
-
-        [Fact]
-        public async Task GivenBatchTaskMoreThanMaxConcurrentLimit_WhenExecuteTasks_ThenRunningTaskCountShouldLessThanLimit()
-        {
-            string resultMessage = "success";
-            List<TaskInfo> taskInfos = new List<TaskInfo>();
-
-            int count = 10;
-            short maxConcurrentCount = 2;
-            for (int i = 0; i < count; ++i)
-            {
-                TaskInfo taskInfo = new TaskInfo();
-                taskInfo.TaskId = Guid.NewGuid().ToString();
-                taskInfo.TaskTypeId = 0;
-
-                taskInfos.Add(taskInfo);
-            }
-
-            ILogger<TaskHosting> logger = Substitute.For<ILogger<TaskHosting>>();
-            TestTaskConsumer consumer = new TestTaskConsumer(taskInfos.ToArray());
-            int runningTaskCount = 0;
-            int maxRunningTaskCount = 0;
-            bool runningTaskCountLargeThanLimit = false;
-            TestTaskFactory factory = new TestTaskFactory(t =>
-            {
-                return new TestTask(
-                    async () =>
-                    {
-                        Interlocked.Increment(ref runningTaskCount);
-
-                        maxRunningTaskCount = Math.Max(runningTaskCount, maxRunningTaskCount);
-
-                        try
-                        {
-                            await Task.Delay(TimeSpan.FromMilliseconds(10));
-                            return new TaskResultData(TaskResult.Success, resultMessage);
-                        }
-                        finally
-                        {
-                            Interlocked.Decrement(ref runningTaskCount);
-                        }
-                    },
-                    null);
-            });
-
-            TaskHosting taskHosting = new TaskHosting(null, factory, logger);
-            taskHosting.PollingFrequencyInSeconds = 0;
-            taskHosting.MaxRunningTaskCount = maxConcurrentCount;
-
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await taskHosting.StartAsync(0, null, tokenSource);
-
-            Assert.False(runningTaskCountLargeThanLimit);
-            Assert.Equal(2, maxRunningTaskCount);
-
-            foreach (ICall call in logger.ReceivedCalls())
-            {
-                if (call.GetMethodInfo().Name.Equals("Log"))
-                {
-                    Assert.NotEqual(LogLevel.Error, call.GetArguments()[0]);
-                }
-            }
         }
 
         [Fact]
         public async Task GivenTaskWithRetriableException_WhenTaskHostingStart_ThenTaskShouldBeRetry()
         {
-            string errorMessage = "Test error";
-            short maxRetryCount = 2;
-
-            TaskInfo taskInfo0 = new TaskInfo();
-            taskInfo0.TaskId = Guid.NewGuid().ToString();
-            taskInfo0.TaskTypeId = 0;
-            taskInfo0.MaxRetryCount = maxRetryCount;
-
-            TaskInfo taskInfo1 = new TaskInfo();
-            taskInfo1.TaskId = Guid.NewGuid().ToString();
-            taskInfo1.TaskTypeId = 1;
-            taskInfo1.MaxRetryCount = maxRetryCount;
-
             int executeCount0 = 0;
-            int executeCount1 = 0;
-            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0, taskInfo1 });
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 if (t.TaskTypeId == 0)
                 {
                     return new TestTask(
-                        () =>
+                        (progress, token) =>
                         {
                             Interlocked.Increment(ref executeCount0);
-
-                            throw new RetriableTaskException(errorMessage);
-                        },
-                        null);
-                }
-                else
-                {
-                    return new TestTask(
-                        () =>
-                        {
-                            Interlocked.Increment(ref executeCount1);
-
-                            if (executeCount1 < maxRetryCount + 1)
+                            if (executeCount0 <= 1)
                             {
-                                throw new RetriableTaskException(errorMessage);
+                                throw new RetriableTaskException("test");
                             }
 
-                            return Task.FromResult<TaskResultData>(new TaskResultData(TaskResult.Success, string.Empty));
-                        },
-                        null);
+                            return Task.FromResult(t.Result);
+                        });
                 }
+
+                return null;
             });
 
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
+            TestQueueClient queueClient = new TestQueueClient();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+
+            TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
+            taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 2;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(0, null, tokenSource);
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
+            await taskHosting.StartAsync(0, "test", tokenSource);
 
-            Assert.Equal(maxRetryCount + 1, executeCount0);
-            Assert.Equal(maxRetryCount + 1, executeCount1);
-
-            // If task failcount > MaxRetryCount + 1, the Task should failed with error message.
-            TaskResultData taskResult0 = JsonConvert.DeserializeObject<TaskResultData>(taskInfo0.Result);
-            Assert.Equal(TaskResult.Fail, taskResult0.Result);
-            Assert.Equal(errorMessage, taskResult0.ResultData);
-
-            // If task failcount < MaxRetryCount + 1, the Task should success.
-            TaskResultData taskResult1 = JsonConvert.DeserializeObject<TaskResultData>(taskInfo1.Result);
-            Assert.Equal(TaskResult.Success, taskResult1.Result);
+            Assert.Equal(TaskStatus.Completed, task1.Status);
+            Assert.Equal(2, executeCount0);
         }
 
         [Fact]
-        public async Task GivenTaskRunning_WhenCancel_ThenTaskShouldBeCompleteWithCancelledStatus()
+        public async Task GivenTaskRunning_WhenCancel_ThenTaskShouldBeCancelled()
         {
-            TaskInfo taskInfo0 = new TaskInfo();
-            taskInfo0.TaskId = Guid.NewGuid().ToString();
-            taskInfo0.TaskTypeId = 0;
-
-            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0 });
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-            AutoResetEvent autoResetEvent1 = new AutoResetEvent(false);
-            AutoResetEvent autoResetEvent2 = new AutoResetEvent(false);
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 return new TestTask(
-                        () =>
+                        async (progress, token) =>
                         {
-                            autoResetEvent2.Set();
-                            autoResetEvent1.WaitOne();
+                            autoResetEvent.Set();
 
-                            tokenSource.Cancel();
+                            while (!token.IsCancellationRequested)
+                            {
+                                await Task.Delay(TimeSpan.FromMilliseconds(100));
+                            }
 
-                            return Task.FromResult(new TaskResultData(TaskResult.Canceled, string.Empty));
-                        },
-                        () =>
-                        {
-                            autoResetEvent1.Set();
+                            return t.Definition;
                         });
             });
 
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
+            TestQueueClient queueClient = new TestQueueClient();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+
+            TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
-            Task hostingTask = taskHosting.StartAsync(0, null, tokenSource);
-            autoResetEvent2.WaitOne();
-            taskInfo0.CancelRequested = true;
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+            Task hostingTask = taskHosting.StartAsync(0, "test", tokenSource);
+
+            autoResetEvent.WaitOne();
+            await queueClient.CancelTaskAsync(0, task1.GroupId, CancellationToken.None);
 
             await hostingTask;
 
-            TaskResultData taskResult = JsonConvert.DeserializeObject<TaskResultData>(taskInfo0.Result);
-            Assert.Equal(TaskResult.Canceled, taskResult.Result);
+            Assert.Equal(TaskStatus.Completed, task1.Status);
         }
 
-        [Fact(Skip = "Fault injection test require local environment.")]
-        public async Task GivenTaskThrowException_WhenTaskHostingStart_ThenTaskHostingShouldKeepRunning()
+        [Fact]
+        public async Task GivenTaskRunning_WhenUpdateCurrentResult_ThenCurrentResultShouldBePersisted()
         {
-            int taskCount = 1000;
-            List<TaskInfo> taskInfos = new List<TaskInfo>();
-            for (int i = 0; i < taskCount; ++i)
-            {
-                TaskInfo taskInfo = new TaskInfo();
-                taskInfo.TaskId = Guid.NewGuid().ToString();
-                taskInfo.TaskTypeId = (short)(i % 10 == 0 ? 1 : 0);
-
-                taskInfos.Add(taskInfo);
-            }
-
-            int executedTaskCount = 0;
-            int failedTaskCount = 0;
-            TestTaskConsumer consumer = new TestTaskConsumer(taskInfos.ToArray());
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
-                if (t.TaskTypeId == 0)
-                {
-                    return new TestTask(
-                        async () =>
+                return new TestTask(
+                        async (progress, token) =>
                         {
-                            Interlocked.Increment(ref executedTaskCount);
+                            autoResetEvent.Set();
 
+                            progress.Report("Progress");
+                            await Task.Delay(TimeSpan.FromSeconds(10));
+
+                            return t.Definition;
+                        });
+            });
+
+            TestQueueClient queueClient = new TestQueueClient();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+
+            TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
+            taskHosting.PollingFrequencyInSeconds = 0;
+            taskHosting.MaxRunningTaskCount = 1;
+            taskHosting.TaskHeartbeatIntervalInSeconds = 1;
+
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+            Task hostingTask = taskHosting.StartAsync(0, "test", tokenSource);
+
+            autoResetEvent.WaitOne();
+            Assert.Equal("Progress", task1.Result);
+
+            await hostingTask;
+
+            Assert.Equal(TaskStatus.Completed, task1.Status);
+        }
+
+        [Fact]
+        public async Task GivenRandomFailuresInQueueClient_WhenStartHosting_ThenAllTasksShouldBeCompleted()
+        {
+            TestTaskFactory factory = new TestTaskFactory(t =>
+            {
+                return new TestTask(
+                        async (progress, token) =>
+                        {
                             await Task.Delay(TimeSpan.FromMilliseconds(10));
-                            return new TaskResultData(TaskResult.Success, string.Empty);
-                        },
-                        null);
-                }
-                else
-                {
-                    return new TestTask(
-                        () =>
-                        {
-                            Interlocked.Increment(ref failedTaskCount);
-
-                            throw new Exception();
-                        },
-                        null);
-                }
+                            return t.Definition;
+                        });
             });
 
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
+            TestQueueClient queueClient = new TestQueueClient();
+            int randomNumber = 0;
+            int errorNumber = 0;
+            Action faultAction = () =>
+            {
+                Interlocked.Increment(ref randomNumber);
+
+                if (randomNumber % 2 == 0)
+                {
+                    Interlocked.Increment(ref errorNumber);
+                    throw new InvalidOperationException();
+                }
+            };
+
+            queueClient.CompleteFaultAction = faultAction;
+            queueClient.DequeueFaultAction = faultAction;
+            queueClient.HeartbeatFaultAction = faultAction;
+
+            List<string> definitions = new List<string>();
+            for (int i = 0; i < 100; ++i)
+            {
+                definitions.Add(i.ToString());
+            }
+
+            var tasks = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, CancellationToken.None);
+
+            TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
-            taskHosting.MaxRunningTaskCount = 5;
+            taskHosting.MaxRunningTaskCount = 50;
+            taskHosting.TaskHeartbeatIntervalInSeconds = 1;
+            taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 2;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
+            await taskHosting.StartAsync(0, "test", tokenSource);
 
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(20));
-            await taskHosting.StartAsync(0, null, tokenSource);
-
-            Assert.Equal(900, executedTaskCount);
-            Assert.Equal(100, failedTaskCount);
-
-            foreach (TaskInfo taskInfo in taskInfos)
-            {
-                TaskResultData taskResult = JsonConvert.DeserializeObject<TaskResultData>(taskInfo.Result);
-
-                if (taskInfo.TaskTypeId == 0)
-                {
-                    Assert.Equal(TaskResult.Success, taskResult.Result);
-                }
-                else
-                {
-                    Assert.Equal(TaskResult.Fail, taskResult.Result);
-                }
-            }
-        }
-
-        [Fact(Skip = "Fault injection test require local environment.")]
-        public async Task GivenTempUnavailableConsumer_WhenTaskHostingStart_ThenTaskHostingShouldKeepRunning()
-        {
-            Random random = new Random();
-            int taskCount = 1000;
-            List<TaskInfo> taskInfos = new List<TaskInfo>();
-
-            for (int i = 0; i < taskCount; ++i)
-            {
-                TaskInfo taskInfo = new TaskInfo();
-                taskInfo.TaskId = Guid.NewGuid().ToString();
-                taskInfo.TaskTypeId = (short)(i % 10 == 0 ? 1 : 0);
-
-                taskInfos.Add(taskInfo);
-            }
-
-            int faultInjected = 0;
-            TestTaskConsumer consumer = new TestTaskConsumer(
-                taskInfos.ToArray(),
-                faultInjectionAction: (method) =>
-                {
-                    if (random.NextDouble() < 0.1)
-                    {
-                        Interlocked.Increment(ref faultInjected);
-                        throw new Exception($"Injected Exception in {method}");
-                    }
-                });
-
-            TestTaskFactory factory = new TestTaskFactory(t =>
-            {
-                if (t.TaskTypeId == 0)
-                {
-                    return new TestTask(
-                        async () =>
-                        {
-                            await Task.Delay(TimeSpan.FromMilliseconds(1));
-                            return new TaskResultData(TaskResult.Success, string.Empty);
-                        },
-                        null);
-                }
-                else
-                {
-                    return new TestTask(
-                        () =>
-                        {
-                            throw new Exception();
-                        },
-                        null);
-                }
-            });
-
-            TaskHosting taskHosting = new TaskHosting(null, factory, _logger);
-            taskHosting.PollingFrequencyInSeconds = 0;
-            taskHosting.MaxRunningTaskCount = 20;
-            taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 1;
-
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(20));
-            await taskHosting.StartAsync(0, null, tokenSource);
-
-            foreach (TaskInfo taskInfo in taskInfos)
-            {
-                TaskResultData taskResult = JsonConvert.DeserializeObject<TaskResultData>(taskInfo.Result);
-
-                if (taskInfo.TaskTypeId == 0)
-                {
-                    Assert.Equal(TaskResult.Success, taskResult.Result);
-                }
-                else
-                {
-                    Assert.Equal(TaskResult.Fail, taskResult.Result);
-                }
-            }
+            Assert.True(tasks.All(t => t.Status == TaskStatus.Completed));
+            Assert.True(errorNumber > 0);
         }
     }
 }

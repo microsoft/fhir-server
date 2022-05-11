@@ -154,10 +154,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, taskInfo.QueueType, taskInfo.Id, taskInfo.Version, taskInfo.Data, taskInfo.Result);
-                await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                try
+                {
+                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, taskInfo.QueueType, taskInfo.Id, taskInfo.Version, taskInfo.Data, taskInfo.Result);
+                    await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                return await GetTaskByIdAsync(taskInfo.QueueType, taskInfo.Id, false, cancellationToken);
+                    return await GetTaskByIdAsync(taskInfo.QueueType, taskInfo.Id, false, cancellationToken);
+                }
+                catch (SqlException sqlEx)
+                {
+                    if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
+                    {
+                        throw new TaskNotExistException(sqlEx.Message);
+                    }
+
+                    throw;
+                }
             }
         }
     }

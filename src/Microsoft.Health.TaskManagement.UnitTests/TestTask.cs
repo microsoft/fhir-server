@@ -11,34 +11,16 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 {
     public class TestTask : ITask
     {
-        private Func<Task<TaskResultData>> _executeFunc;
-        private Action _cancelAction;
+        private Func<IProgress<string>, CancellationToken, Task<string>> _executeFunc;
 
-        public TestTask(Func<Task<TaskResultData>> executeFunc, Action cancelAction)
+        public TestTask(Func<IProgress<string>, CancellationToken, Task<string>> executeFunc)
         {
             _executeFunc = executeFunc;
-            _cancelAction = cancelAction;
         }
 
-        public string RunId { get; set; }
-
-        public Task<TaskResultData> ExecuteAsync()
+        public async Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
         {
-            return _executeFunc();
-        }
-
-        public void Cancel()
-        {
-            _cancelAction?.Invoke();
-        }
-
-        public void Dispose()
-        {
-        }
-
-        public Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
+            return await _executeFunc(progress, cancellationToken);
         }
     }
 }

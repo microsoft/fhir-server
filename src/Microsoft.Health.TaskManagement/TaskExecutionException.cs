@@ -38,5 +38,7 @@ namespace Microsoft.Health.TaskManagement
         }
 
         public object Error { get; private set; }
+
+        public bool RequestCancellationOnFailure { get; set; }
     }
 }
