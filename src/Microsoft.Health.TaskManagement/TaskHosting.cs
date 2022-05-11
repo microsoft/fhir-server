@@ -166,7 +166,7 @@ namespace Microsoft.Health.TaskManagement
 
                     try
                     {
-                        await _queueClient.CompleteTaskAsync(taskInfo, true, CancellationToken.None);
+                        await _queueClient.CompleteTaskAsync(taskInfo, false, CancellationToken.None);
                     }
                     catch (Exception completeEx)
                     {
