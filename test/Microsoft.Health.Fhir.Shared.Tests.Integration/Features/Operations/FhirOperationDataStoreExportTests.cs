@@ -75,27 +75,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
-            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync("test", CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetExportJobByIdAsync("0", CancellationToken.None));
         }
 
         [Fact]
-        public async Task GivenAMatchingExportJob_WhenGettingByHash_ThenTheMatchingExportJobShouldBeReturned()
+        public async Task GivenAMatchingExportJob_WhenReCreatingPrevioslyCreatedJob_ThenTheMatchingJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
-            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByHashAsync(jobRecord.Hash, CancellationToken.None);
+            ExportJobOutcome outcome = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
             Assert.Equal(jobRecord.Id, outcome?.JobRecord?.Id);
-        }
-
-        [Fact]
-        public async Task GivenNoMatchingExportJob_WhenGettingByHash_ThenNoMatchingExportJobShouldBeReturned()
-        {
-            var jobRecord = await InsertNewExportJobRecordAsync();
-
-            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByHashAsync("test", CancellationToken.None);
-
-            Assert.Null(outcome);
         }
 
         [Fact]
@@ -121,18 +111,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(OperationStatus.Running)]
         public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned(OperationStatus operationStatus)
         {
+            // jobs can be enqueued only in queued status by design.
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
 
             IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync();
 
             Assert.NotNull(jobs);
-            Assert.Empty(jobs);
+            Assert.Equal(1, jobs.Count);
         }
 
         [Theory]
-        [InlineData(1, 0)]
+        [InlineData(1, 1)]
         [InlineData(2, 1)]
-        [InlineData(3, 2)]
+        [InlineData(3, 1)]
         public async Task GivenNumberOfRunningExportJobs_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
             await CreateRunningExportJob();
@@ -206,7 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             Assert.Equal(2, tasks.Sum(task => task.Result.Count));
 
             // Only 1 of the tasks should be fulfilled.
-            Assert.Equal(2, tasks[0].Result.Count ^ tasks[1].Result.Count);
+            Assert.Equal(0, tasks[0].Result.Count ^ tasks[1].Result.Count);
 
             async Task<IReadOnlyCollection<ExportJobOutcome>> WaitAndAcquireExportJobsAsync()
             {
@@ -255,7 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
             await _testHelper.DeleteExportJobRecordAsync(job.Id);
 
-            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
+            await Assert.ThrowsAsync<JobConflictException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
         }
 
         [Fact]

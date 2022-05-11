@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
-        private readonly Random _rand = new Random();
 
         public SqlServerFhirOperationDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -54,71 +53,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            var def = JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings);
+            VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, 1, new[] { new StringListRow(def) }, null, false);
+            var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+            if (!reader.Read())
             {
-                VLatest.CreateExportJob.PopulateCommand(
-                    sqlCommandWrapper,
-                    jobRecord.Id,
-                    jobRecord.Hash,
-                    jobRecord.Status.ToString(),
-                    JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings));
-
-                var rowVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-
-                if (rowVersion == null)
-                {
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, "Failed to create export job because no row version was returned."), HttpStatusCode.InternalServerError);
-                }
-
-                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(rowVersion.ToString()));
+                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, "Failed to create export job because no row version was returned."), HttpStatusCode.InternalServerError);
             }
+
+            var id = reader.GetInt64(VLatest.JobQueue.JobId);
+            var version = reader.GetInt64(VLatest.JobQueue.Version);
+            return CreateExportJobOutcome(id, jobRecord, version);
         }
 
         public async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            var jobId = long.Parse(id);
+            VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, 1, jobId, null, null, true);
+            var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+            if (!reader.Read())
             {
-                VLatest.GetExportJobById.PopulateCommand(sqlCommandWrapper, id);
-
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
-                {
-                    if (!sqlDataReader.Read())
-                    {
-                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
-                    }
-
-                    (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
-
-                    return CreateExportJobOutcome(rawJobRecord, rowVersion);
-                }
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
             }
+
+            var def = reader.GetString(VLatest.JobQueue.Definition);
+            var version = reader.GetInt64(VLatest.JobQueue.Version);
+            var status = reader.GetByte(VLatest.JobQueue.Status);
+            var result = reader.IsDBNull(VLatest.JobQueue.Result) ? null : reader.GetString(VLatest.JobQueue.Result);
+            var rawJobRecord = result ?? def;
+            return CreateExportJobOutcome(jobId, rawJobRecord, version, status);
         }
 
         public async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
-
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            if (hash != null)
             {
-                VLatest.GetExportJobByHash.PopulateCommand(sqlCommandWrapper, hash);
-
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
-                {
-                    if (!sqlDataReader.Read())
-                    {
-                        return null;
-                    }
-
-                    (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
-
-                    return CreateExportJobOutcome(rawJobRecord, rowVersion);
-                }
+                throw new NotSupportedException();
             }
+
+            //// TODO: Remove the rest
+            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
+            var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            VLatest.GetExportJobByHash.PopulateCommand(sqlCommandWrapper, hash);
+            var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+            if (!reader.Read())
+            {
+                return null;
+            }
+
+            (string rawJobRecord, byte[] rowVersion) = reader.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
+            return CreateExportJobOutcome(0, rawJobRecord, 0, 0);
         }
 
         public async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
@@ -126,69 +117,65 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
             byte[] rowVersionAsBytes = GetRowVersionAsBytes(eTag);
+            var version = BitConverter.ToInt64(rowVersionAsBytes);
+            var jobId = long.Parse(jobRecord.Id);
+            var jobStr = JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings);
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            var sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
+            if (jobRecord.Status == OperationStatus.Running)
             {
-                VLatest.UpdateExportJob.PopulateCommand(
-                    sqlCommandWrapper,
-                    jobRecord.Id,
-                    jobRecord.Status.ToString(),
-                    JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings),
-                    rowVersionAsBytes);
+                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, 1, jobId, version, null, jobStr); // this does not change version
+            }
+            else
+            {
+                var success = jobRecord.Status == OperationStatus.Completed;
+                VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, 1, jobId, version, !success, -1, jobStr, true); // this update is final and version change does not matter
+            }
 
-                try
+            try
+            {
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                return new ExportJobOutcome(jobRecord, eTag);
+            }
+            catch (SqlException e)
+            {
+                if (e.Number == SqlErrorCodes.PreconditionFailed)
                 {
-                    var rowVersion = (byte[])await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-
-                    if (rowVersion.NullIfEmpty() == null)
-                    {
-                        throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, "Failed to create export job because no row version was returned."), HttpStatusCode.InternalServerError);
-                    }
-
-                    return new ExportJobOutcome(jobRecord, GetRowVersionAsEtag(rowVersion));
+                    throw new JobConflictException();
                 }
-                catch (SqlException e)
+                else if (e.Number == SqlErrorCodes.NotFound)
                 {
-                    if (e.Number == SqlErrorCodes.PreconditionFailed)
-                    {
-                        throw new JobConflictException();
-                    }
-                    else if (e.Number == SqlErrorCodes.NotFound)
-                    {
-                        throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
-                    }
-                    else
-                    {
-                        _logger.LogError(e, "Error from SQL database on export job update.");
-                        throw;
-                    }
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+                }
+                else
+                {
+                    _logger.LogError(e, "Error from SQL database on export job update.");
+                    throw;
                 }
             }
         }
 
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt32(jobHeartbeatTimeoutThreshold.TotalSeconds);
+            VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, 1, null, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
+            var acquiredJobs = new List<ExportJobOutcome>();
+            var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
             {
-                var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt32(jobHeartbeatTimeoutThreshold.TotalSeconds);
-
-                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, 1, null, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
-
-                var acquiredJobs = new List<ExportJobOutcome>();
-
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
-                {
-                    while (await sqlDataReader.ReadAsync(cancellationToken))
-                    {
-                        (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
-                        acquiredJobs.Add(CreateExportJobOutcome(rawJobRecord, rowVersion));
-                    }
-                }
-
-                return acquiredJobs;
+                var id = reader.GetInt64(VLatest.JobQueue.JobId);
+                var def = reader.GetString(VLatest.JobQueue.Definition);
+                var version = reader.GetInt64(VLatest.JobQueue.Version);
+                var status = reader.GetByte(VLatest.JobQueue.Status);
+                var result = reader.IsDBNull(VLatest.JobQueue.Result) ? null : reader.GetString(VLatest.JobQueue.Result);
+                var rawJobRecord = result ?? def;
+                acquiredJobs.Add(CreateExportJobOutcome(id, rawJobRecord, version, status));
             }
+
+            return acquiredJobs;
         }
 
         public async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)
@@ -334,13 +321,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private ExportJobOutcome CreateExportJobOutcome(string rawJobRecord, byte[] rowVersionAsBytes)
+        private ExportJobOutcome CreateExportJobOutcome(long jobId, string rawJobRecord, long version, byte status)
         {
             var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
-
-            WeakETag etag = GetRowVersionAsEtag(rowVersionAsBytes);
-
+            exportJobRecord.Id = jobId.ToString();
+            exportJobRecord.Status = (OperationStatus)status;
+            var etag = GetRowVersionAsEtag(BitConverter.GetBytes(version));
             return new ExportJobOutcome(exportJobRecord, etag);
+        }
+
+        private static ExportJobOutcome CreateExportJobOutcome(long jobId, ExportJobRecord jobRecord, long version)
+        {
+            jobRecord.Id = jobId.ToString();
+            var etag = GetRowVersionAsEtag(BitConverter.GetBytes(version));
+            return new ExportJobOutcome(jobRecord, etag);
         }
 
         private static WeakETag GetRowVersionAsEtag(byte[] rowVersionAsBytes)
@@ -360,7 +354,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // The SQL rowversion data type is 8 bytes in length.
             var versionAsBytes = new byte[8];
 
-            BitConverter.TryWriteBytes(versionAsBytes, int.Parse(eTag.VersionId));
+            BitConverter.TryWriteBytes(versionAsBytes, long.Parse(eTag.VersionId));
 
             if (BitConverter.IsLittleEndian)
             {

@@ -17,10 +17,9 @@ DECLARE @SP varchar(100) = 'DequeueJob'
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
        ,@LookedAtPartitions tinyint = 0
 
-
 BEGIN TRY
-  IF @StartPartitionId IS NULL
-    SET @StartPartitionId = @MaxPartitions * rand()
+  IF @PartitionId IS NULL
+    SET @PartitionId = @MaxPartitions * rand()
 
   SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
 
