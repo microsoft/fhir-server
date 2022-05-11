@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
-            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, config, SchemaInformation, SqlConnectionBuilder, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
+            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, config, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 

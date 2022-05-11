@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
             var serviceProvider = collection.BuildServiceProvider();
-            return new SchemaInitializer(serviceProvider, config, schemaInformation, defaultSqlConnectionBuilder, sqlConnectionStringProvider, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer(serviceProvider, config, schemaInformation, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
         }
 
         protected async Task<SqlConnection> GetSqlConnection(string connectionString)
