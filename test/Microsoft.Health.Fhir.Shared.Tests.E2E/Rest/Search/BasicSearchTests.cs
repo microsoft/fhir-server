@@ -1063,7 +1063,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<Observation> createdObservation = await Client.CreateAsync(patient);
                 patients[i] = MaskingNode.ForElements(new ScopedNode(createdObservation.Resource.ToTypedElement()), elements)
                     .ToPoco<Observation>();
-                var subsettedTag = new Coding("http://hl7.org/fhir/v3/ObservationValue", "SUBSETTED");
+                var subsettedTag = new Coding("http://terminology.hl7.org/CodeSystem/v3-ObservationValue", "SUBSETTED");
                 patients[i].Meta.Tag.Add(subsettedTag);
             }
 
