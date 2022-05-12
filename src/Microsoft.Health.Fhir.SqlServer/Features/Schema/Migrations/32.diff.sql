@@ -301,13 +301,15 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-CREATE OR ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit
+CREATE OR ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit, @IsCompleted bit = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' D='+convert(varchar,(SELECT count(*) FROM @Definitions))
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
+                           +' F='+isnull(convert(varchar,@ForceOneActiveJobGroup),'NULL')
+                           +' C='+isnull(convert(varchar,@IsCompleted),'NULL')
        ,@st datetime = getUTCdate()
        ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
        ,@MaxJobId bigint
@@ -344,6 +346,7 @@ BEGIN TRY
             ,JobId
             ,Definition
             ,DefinitionHash
+            ,Status
         )
       OUTPUT inserted.JobId INTO @JobIds
       SELECT @QueueType
@@ -351,6 +354,7 @@ BEGIN TRY
             ,JobId
             ,Definition
             ,DefinitionHash
+            ,Status = CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END
         FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY substring(Definition,1,1)), * FROM @Input) A
         WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
     SET @Rows = @@rowcount
@@ -628,7 +632,12 @@ BEGIN TRY
   SET @Rows = @@rowcount
   
   IF @Rows = 0
-    THROW 50412, 'Precondition failed', 1
+  BEGIN
+    IF EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId)
+      THROW 50412, 'Precondition failed', 1
+    ELSE
+      THROW 50404, 'Job record not found', 1
+  END
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
@@ -666,8 +675,13 @@ BEGIN TRY
   SET @Rows = @@rowcount
   
   IF @Rows = 0
-    THROW 50412, 'Precondition failed', 1
-  
+  BEGIN
+    IF EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId)
+      THROW 50412, 'Precondition failed', 1
+    ELSE
+      THROW 50404, 'Job record not found', 1
+  END
+
   IF @Failed = 1 AND @RequestCancellationOnFailure = 1
     EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId
 

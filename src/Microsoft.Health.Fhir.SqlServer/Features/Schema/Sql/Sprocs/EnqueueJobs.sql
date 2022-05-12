@@ -1,12 +1,14 @@
 ﻿--DROP PROCEDURE dbo.EnqueueJobs
 GO
-CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit
+CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit, @IsCompleted bit = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' D='+convert(varchar,(SELECT count(*) FROM @Definitions))
                            +' G='+isnull(convert(varchar,@GroupId),'NULL')
+                           +' F='+isnull(convert(varchar,@ForceOneActiveJobGroup),'NULL')
+                           +' C='+isnull(convert(varchar,@IsCompleted),'NULL')
        ,@st datetime = getUTCdate()
        ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
        ,@MaxJobId bigint
@@ -43,6 +45,7 @@ BEGIN TRY
             ,JobId
             ,Definition
             ,DefinitionHash
+            ,Status
         )
       OUTPUT inserted.JobId INTO @JobIds
       SELECT @QueueType
@@ -50,6 +53,7 @@ BEGIN TRY
             ,JobId
             ,Definition
             ,DefinitionHash
+            ,Status = CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END
         FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY substring(Definition,1,1)), * FROM @Input) A
         WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
     SET @Rows = @@rowcount

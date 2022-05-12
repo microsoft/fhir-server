@@ -1785,11 +1785,11 @@ RETURN @IsExecuted;
 
 GO
 CREATE PROCEDURE dbo.EnqueueJobs
-@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT
+@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT, @IsCompleted BIT=NULL
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'EnqueueJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' D=' + CONVERT (VARCHAR, (SELECT count(*)
-                                                                                                                                                         FROM   @Definitions)) + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL'), @st AS DATETIME = getUTCdate(), @Lock AS VARCHAR (100) = 'EnqueueJobs_' + CONVERT (VARCHAR, @QueueType), @MaxJobId AS BIGINT, @Rows AS INT, @msg AS VARCHAR (1000), @JobIds AS BigintList, @InputRows AS INT;
+                                                                                                                                                         FROM   @Definitions)) + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' F=' + isnull(CONVERT (VARCHAR, @ForceOneActiveJobGroup), 'NULL') + ' C=' + isnull(CONVERT (VARCHAR, @IsCompleted), 'NULL'), @st AS DATETIME = getUTCdate(), @Lock AS VARCHAR (100) = 'EnqueueJobs_' + CONVERT (VARCHAR, @QueueType), @MaxJobId AS BIGINT, @Rows AS INT, @msg AS VARCHAR (1000), @JobIds AS BigintList, @InputRows AS INT;
 BEGIN TRY
     DECLARE @Input TABLE (
         DefinitionHash VARBINARY (20) PRIMARY KEY,
@@ -1823,13 +1823,14 @@ BEGIN TRY
                                     FROM     dbo.JobQueue
                                     WHERE    QueueType = @QueueType
                                     ORDER BY JobId DESC), 0);
-            INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash)
+            INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status)
             OUTPUT inserted.JobId INTO @JobIds
             SELECT @QueueType,
                    isnull(@GroupId, @MaxJobId + 1) AS GroupId,
                    JobId,
                    Definition,
-                   DefinitionHash
+                   DefinitionHash,
+                   CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END AS Status
             FROM   (SELECT @MaxJobId + row_number() OVER (ORDER BY substring(Definition, 1, 1)) AS JobId,
                            *
                     FROM   @Input) AS A
@@ -2397,7 +2398,16 @@ BEGIN TRY
                AND Version = @Version;
     SET @Rows = @@rowcount;
     IF @Rows = 0
-        THROW 50412, 'Precondition failed', 1;
+        BEGIN
+            IF EXISTS (SELECT *
+                       FROM   dbo.JobQueue
+                       WHERE  QueueType = @QueueType
+                              AND PartitionId = @PartitionId
+                              AND JobId = @JobId)
+                THROW 50412, 'Precondition failed', 1;
+            ELSE
+                THROW 50404, 'Job record not found', 1;
+        END
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH
@@ -2429,7 +2439,16 @@ BEGIN TRY
            AND Version = @Version;
     SET @Rows = @@rowcount;
     IF @Rows = 0
-        THROW 50412, 'Precondition failed', 1;
+        BEGIN
+            IF EXISTS (SELECT *
+                       FROM   dbo.JobQueue
+                       WHERE  QueueType = @QueueType
+                              AND PartitionId = @PartitionId
+                              AND JobId = @JobId)
+                THROW 50412, 'Precondition failed', 1;
+            ELSE
+                THROW 50404, 'Job record not found', 1;
+        END
     IF @Failed = 1
        AND @RequestCancellationOnFailure = 1
         EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId;

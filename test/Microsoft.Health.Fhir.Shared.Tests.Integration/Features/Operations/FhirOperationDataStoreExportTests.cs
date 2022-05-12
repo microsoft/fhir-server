@@ -102,11 +102,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Theory]
-        [InlineData(OperationStatus.Canceled)]
-        [InlineData(OperationStatus.Completed)]
-        [InlineData(OperationStatus.Failed)]
-        [InlineData(OperationStatus.Running)]
-        public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned(OperationStatus operationStatus)
+        [InlineData(OperationStatus.Canceled, 1)]
+        [InlineData(OperationStatus.Completed, 0)]
+        [InlineData(OperationStatus.Failed, 1)]
+        [InlineData(OperationStatus.Running, 1)]
+        public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned(OperationStatus operationStatus, int expectedNumberOfJobsReturned)
         {
             // jobs can be enqueued only in queued status by design.
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync();
 
             Assert.NotNull(jobs);
-            Assert.Equal(1, jobs.Count);
+            Assert.Equal(expectedNumberOfJobsReturned, jobs.Count);
         }
 
 #pragma warning disable SA1107 // Code should not contain multiple statements on one line
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Canceled; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2"); });
             await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Completed; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3"); });
             ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(jr => jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4")); // Queued
-            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Failed; r.RequestUri = new Uri(jr.RequestUri.ToString() + "5"); });
+            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Failed; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "5"); });
 
             // The running job should not be acquired.
             var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2 };
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             ExportJobOutcome jobOutcome = await CreateRunningExportJob();
 
-            await Task.Delay(1200);
+            await Task.Delay(2000);
 
             IReadOnlyCollection<ExportJobOutcome> expiredJobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
 
