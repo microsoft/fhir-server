@@ -309,7 +309,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.Value.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
                 Tuple.Create("_type", resourceType).Equals(arg[2]);
         }
 
@@ -317,7 +317,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.Value.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
                 Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
                 Tuple.Create("_type", resourceType).Equals(arg[3]);
         }
@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.Value.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
                 Tuple.Create("_type", resourceType).Equals(arg[2]) &&
                 Tuple.Create("ct", continuationToken).Equals(arg[3]);
         }
@@ -335,7 +335,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.Value.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
                 Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
                 Tuple.Create("_type", resourceType).Equals(arg[3]) &&
                 Tuple.Create("ct", continuationToken).Equals(arg[4]);
@@ -1569,7 +1569,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string dateTime = _exportJobRecord.QueuedTime.Value.UtcDateTime.ToString("s")
+            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
                 .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
                 .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
             string uriSuffix = "/" + dateTime + "_" + _exportJobRecord.Id + "-1.ndjson";

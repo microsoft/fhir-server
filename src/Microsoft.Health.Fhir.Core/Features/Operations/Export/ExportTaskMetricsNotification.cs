@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             Id = exportJobRecord.Id ?? string.Empty;
             Status = exportJobRecord.Status.ToString();
-            QueuedTime = exportJobRecord.QueuedTime.Value;
+            QueuedTime = exportJobRecord.QueuedTime;
             EndTime = exportJobRecord.EndTime;
             DataSize = exportJobRecord.Output?.Values.Sum(fileList => fileList.Sum(job => job?.CommittedBytes ?? 0)) ?? 0;
             IsAnonymizedExport = !string.IsNullOrEmpty(exportJobRecord.AnonymizationConfigurationLocation);

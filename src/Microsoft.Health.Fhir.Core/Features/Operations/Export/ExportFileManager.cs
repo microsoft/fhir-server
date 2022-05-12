@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 fileName = $"{_exportJobRecord.ExportFormat}-{fileSequence}.ndjson";
             }
 
-            string dateTime = _exportJobRecord.QueuedTime.Value.UtcDateTime.ToString("s")
+            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
                     .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
                     .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
 
