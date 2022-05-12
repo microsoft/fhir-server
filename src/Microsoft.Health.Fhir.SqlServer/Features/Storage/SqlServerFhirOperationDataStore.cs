@@ -77,7 +77,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            var jobId = long.Parse(id);
+            if (!long.TryParse(id, out var jobId) || jobId < 0)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+            }
+
             VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, jobId, null, null, true);
             var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             if (!reader.Read())
