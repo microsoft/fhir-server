@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private const string _testHl7v2RootTemplate = "ADT_A01";
         private const string _testCcdaRootTemplate = "CCD";
         private const string _testJsonRootTemplate = "ExamplePatient";
+        private const string _testFhirStu3ToR4RootTemplate = "Patient";
 
         public ConvertDataControllerTests()
         {
@@ -60,6 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetParamsResourceWithInconsistentParamsWrongHl7v2DefaultTemplates(),
                 GetParamsResourceWithInconsistentParamsWrongCcdaDefaultTemplates(),
                 GetParamsResourceWithInconsistentParamsWrongJsonDefaultTemplates(),
+                GetParamsResourceWithInconsistentParamsWrongFhirDefaultTemplates(),
             };
 
         public static TheoryData<Parameters> Hl7v2ValidBody =>
@@ -84,6 +86,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetJsonValidConvertDataParams(),
                 GetJsonValidConvertDataParamsIgnoreCasesAllLowercase(),
                 GetJsonValidConvertDataParamsIgnoreCasesAllUppercase(),
+            };
+
+        public static TheoryData<Parameters> FhirValidBody =>
+            new TheoryData<Parameters>
+            {
+                GetFhirValidConvertDataParams(),
+                GetFhirValidConvertDataParamsIgnoreCasesAllLowercase(),
+                GetFhirValidConvertDataParamsIgnoreCasesAllUppercase(),
             };
 
         [Theory]
@@ -172,6 +182,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [MemberData(nameof(Hl7v2ValidBody), MemberType = typeof(ConvertDataControllerTests))]
         [MemberData(nameof(CcdaValidBody), MemberType = typeof(ConvertDataControllerTests))]
         [MemberData(nameof(JsonValidBody), MemberType = typeof(ConvertDataControllerTests))]
+        [MemberData(nameof(FhirValidBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
             _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
@@ -257,6 +268,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private static Parameters GetParamsResourceWithInconsistentParamsWrongJsonDefaultTemplates()
         => GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", "microsofthealth/jsontemplates:default", _testHl7v2RootTemplate);
 
+        private static Parameters GetParamsResourceWithInconsistentParamsWrongFhirDefaultTemplates()
+        => GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", "microsofthealth/stu3tor4templates:default", _testHl7v2RootTemplate);
+
         private static Parameters GetParamsResourceWithUnsupportedDataType()
         => GetConvertDataParams(Samples.SampleHl7v2Message, "invalid", _testImageReference, _testHl7v2RootTemplate);
 
@@ -286,6 +300,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static Parameters GetJsonValidConvertDataParamsIgnoreCasesAllUppercase()
         => GetConvertDataParams(Samples.SampleJsonMessage, "JSON", _testImageReference, _testJsonRootTemplate);
+
+        private static Parameters GetFhirValidConvertDataParams()
+        => GetConvertDataParams(Samples.SampleFhirStu3Message, "Fhir", _testImageReference, _testFhirStu3ToR4RootTemplate);
+
+        private static Parameters GetFhirValidConvertDataParamsIgnoreCasesAllLowercase()
+        => GetConvertDataParams(Samples.SampleFhirStu3Message, "fhir", _testImageReference, _testFhirStu3ToR4RootTemplate);
+
+        private static Parameters GetFhirValidConvertDataParamsIgnoreCasesAllUppercase()
+        => GetConvertDataParams(Samples.SampleFhirStu3Message, "FHIR", _testImageReference, _testFhirStu3ToR4RootTemplate);
 
         private static Parameters GetConvertDataParams(string inputData, string inputDataType, string templateSetReference, string rootTemplate)
         {
