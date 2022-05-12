@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
-using Microsoft.Health.TaskManagement;
 using NSubstitute;
 using Xunit;
 
@@ -284,64 +283,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 Assert.True(isDisabled);
                 Assert.False(isExecuted);
             }
-        }
-
-        [Fact]
-        public async Task GivenListOfProcessingTasks_WhenGetProcessingResult_ThenListOfResultShouldBeReturned()
-        {
-            string queueId = Guid.NewGuid().ToString();
-            string parentTaskId = Guid.NewGuid().ToString();
-
-            TaskHostingConfiguration config = new TaskHostingConfiguration()
-            {
-                Enabled = true,
-                QueueId = queueId,
-                TaskHeartbeatTimeoutThresholdInSeconds = 60,
-            };
-            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            taskHostingConfig.Value.Returns(config);
-
-            TaskInfo taskInfo1 = new TaskInfo()
-            {
-                TaskId = Guid.NewGuid().ToString(),
-                QueueId = queueId,
-                TaskTypeId = 1,
-                Definition = string.Empty,
-                ParentTaskId = parentTaskId,
-            };
-
-            TaskInfo taskInfo2 = new TaskInfo()
-            {
-                TaskId = Guid.NewGuid().ToString(),
-                QueueId = queueId,
-                TaskTypeId = 1,
-                Definition = string.Empty,
-                ParentTaskId = parentTaskId,
-            };
-
-            TaskInfo taskInfo3 = new TaskInfo()
-            {
-                TaskId = Guid.NewGuid().ToString(),
-                QueueId = queueId,
-                TaskTypeId = 1,
-                Definition = string.Empty,
-                ParentTaskId = parentTaskId,
-            };
-
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
-
-            await sqlServerTaskManager.CreateTaskAsync(taskInfo1, false, CancellationToken.None);
-            await sqlServerTaskManager.CreateTaskAsync(taskInfo2, false, CancellationToken.None);
-            await sqlServerTaskManager.CreateTaskAsync(taskInfo3, false, CancellationToken.None);
-
-            taskInfo1 = await sqlServerTaskConsumer.GetNextMessagesAsync(10, CancellationToken.None);
-            await sqlServerTaskConsumer.CompleteAsync(taskInfo1.TaskId, new TaskResultData(TaskResult.Success, "Task1"), taskInfo1.RunId, CancellationToken.None);
-
-            await sqlServerTaskConsumer.GetNextMessagesAsync(10, CancellationToken.None);
-
-            IEnumerable<string> progressDetails = await _sqlServerFhirDataBulkOperation.GetImportProcessingTaskResultAsync(queueId, parentTaskId, CancellationToken.None);
-            Assert.Single(progressDetails);
         }
 
         private static SqlBulkCopyDataWrapper CreateTestResource(string resourceId, long surrogateId)

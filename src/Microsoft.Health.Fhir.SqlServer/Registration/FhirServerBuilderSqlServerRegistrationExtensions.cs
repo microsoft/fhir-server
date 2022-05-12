@@ -125,16 +125,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerTaskConsumer>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlServerTaskContextUpdaterFactory>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<SqlImportOperation>()
                 .Scoped()
                 .AsSelf()
