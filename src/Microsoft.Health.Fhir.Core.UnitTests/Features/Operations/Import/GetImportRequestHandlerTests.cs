@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,37 +27,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
     public class GetImportRequestHandlerTests
     {
-        private const string TaskId = "taskId";
-        private readonly ITaskManager _taskManager = Substitute.For<ITaskManager>();
-        private readonly IImportTaskDataStore _importTaskDataStore = Substitute.For<IImportTaskDataStore>();
         private readonly IMediator _mediator;
-        private readonly Uri _createRequestUri = new Uri("https://localhost/$import/");
-        private HttpStatusCode _failureStatusCode = HttpStatusCode.BadRequest;
+        private IQueueClient _queueClient = Substitute.For<IQueueClient>();
 
         public GetImportRequestHandlerTests()
         {
-            _importTaskDataStore.GetImportProcessingTaskResultAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    ImportProcessingTaskResult importProcessingTaskResult = new ImportProcessingTaskResult()
-                    {
-                        ErrorLogLocation = "http://test",
-                        ResourceLocation = "http://test",
-                        FailedCount = 1,
-                        SucceedCount = 1,
-                        ResourceType = "Patient",
-                        ImportError = "Error",
-                    };
-                    TaskResultData taskResultData = new TaskResultData()
-                    {
-                        Result = TaskResult.Success,
-                        ResultData = JsonConvert.SerializeObject(importProcessingTaskResult),
-                    };
-
-                    return new string[] { JsonConvert.SerializeObject(taskResultData) };
-                });
             var collection = new ServiceCollection();
-            collection.Add(x => new GetImportRequestHandler(null, _importTaskDataStore, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetImportRequestHandler(_queueClient, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -65,16 +42,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            ImportTaskResult expectedResult = new ImportTaskResult();
-            expectedResult.Request = "test";
-
-            TaskResultData taskResultData = new TaskResultData()
+            ImportOrchestratorTaskResult orchestratorTaskResult = new ImportOrchestratorTaskResult()
             {
-                Result = TaskResult.Success,
-                ResultData = JsonConvert.SerializeObject(expectedResult),
+                TransactionTime = DateTime.Now,
+                Request = "Request",
             };
 
-            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed, false, taskResultData);
+            TaskInfo orchestratorTask = new TaskInfo()
+            {
+                Status = TaskStatus.Completed,
+                Result = JsonConvert.SerializeObject(orchestratorTaskResult),
+            };
+
+            ImportProcessingTaskResult processingTaskResult = new ImportProcessingTaskResult()
+            {
+                ResourceLocation = "http://ResourceLocation",
+                ResourceType = "Patient",
+                SucceedCount = 1,
+                FailedCount = 1,
+                ErrorLogLocation = "http://ResourceLocation",
+            };
+
+            TaskInfo processingTask = new TaskInfo()
+            {
+                Status = TaskStatus.Completed,
+                Result = JsonConvert.SerializeObject(processingTaskResult),
+            };
+
+            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(orchestratorTask, new List<TaskInfo>() { processingTask });
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.Equal(1, result.TaskResult.Output.Count);
@@ -84,16 +79,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnCompletedImportTaskWithFailure_ThenHttpResponseCodeShouldBeExpected()
         {
-            ImportOrchestratorTaskErrorResult expectedResult = new ImportOrchestratorTaskErrorResult();
-            expectedResult.HttpStatusCode = HttpStatusCode.BadRequest;
-
-            TaskResultData taskResultData = new TaskResultData()
+            ImportOrchestratorTaskErrorResult orchestratorTaskResult = new ImportOrchestratorTaskErrorResult()
             {
-                Result = TaskResult.Fail,
-                ResultData = JsonConvert.SerializeObject(expectedResult),
+                HttpStatusCode = HttpStatusCode.BadRequest,
+                ErrorMessage = "error",
             };
 
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed, false, taskResultData));
+            TaskInfo orchestratorTask = new TaskInfo()
+            {
+                Status = TaskStatus.Failed,
+                Result = JsonConvert.SerializeObject(orchestratorTaskResult),
+            };
+
+            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(orchestratorTask, new List<TaskInfo>()));
 
             Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
             Assert.NotNull(ofe.Message);
@@ -102,53 +100,79 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskThatWasCanceled_ThenOperationFailedExceptionIsThrownWithBadRequestHttpResponseCode()
         {
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Created, true));
+            TaskInfo orchestratorTask = new TaskInfo()
+            {
+                Status = TaskStatus.Cancelled,
+            };
+            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(orchestratorTask, new List<TaskInfo>()));
 
-            Assert.NotNull(ofe);
-            Assert.Equal(_failureStatusCode, ofe.ResponseStatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
         }
 
-        [Theory]
-        [InlineData(TaskStatus.Running)]
-        [InlineData(TaskStatus.Created)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
         {
-            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(taskStatus);
+            ImportOrchestratorTaskResult orchestratorTaskResult = new ImportOrchestratorTaskResult()
+            {
+                TransactionTime = DateTime.Now,
+                Request = "Request",
+            };
+
+            TaskInfo orchestratorTask = new TaskInfo()
+            {
+                Status = TaskStatus.Running,
+                Result = JsonConvert.SerializeObject(orchestratorTaskResult),
+            };
+
+            ImportProcessingTaskResult processingTaskResult = new ImportProcessingTaskResult()
+            {
+                ResourceLocation = "http://ResourceLocation",
+                ResourceType = "Patient",
+                SucceedCount = 1,
+                FailedCount = 1,
+                ErrorLogLocation = "http://ResourceLocation",
+            };
+
+            TaskInfo processingTask1 = new TaskInfo()
+            {
+                Status = TaskStatus.Completed,
+                Result = JsonConvert.SerializeObject(processingTaskResult),
+            };
+
+            TaskInfo processingTask2 = new TaskInfo()
+            {
+                Status = TaskStatus.Completed,
+                Result = JsonConvert.SerializeObject(processingTaskResult),
+            };
+
+            TaskInfo processingTask3 = new TaskInfo()
+            {
+                Status = TaskStatus.Running,
+                Result = JsonConvert.SerializeObject(processingTaskResult),
+            };
+
+            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(orchestratorTask, new List<TaskInfo>() { processingTask1, processingTask2, processingTask3 });
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
-            Assert.Equal(1, result.TaskResult.Output.Count);
-            Assert.Equal(1, result.TaskResult.Error.Count);
+            Assert.Equal(2, result.TaskResult.Output.Count);
+            Assert.Equal(2, result.TaskResult.Error.Count);
         }
 
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingWithNotExistTask_ThenNotFoundShouldBeReturned()
         {
-            _taskManager.GetTaskAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<TaskInfo>(null));
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(1, CancellationToken.None));
         }
 
-        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false, TaskResultData resultData = null)
+        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskInfo orchestratorTaskInfo, List<TaskInfo> processingTaskInfos)
         {
-            ImportOrchestratorTaskInputData inputData = new ImportOrchestratorTaskInputData()
-            {
-                RequestUri = new Uri("http://dummy"),
-            };
+            _queueClient.GetTaskByIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(orchestratorTaskInfo);
 
-            // Result may be changed to real style result later
-            var taskInfo = new TaskInfo
-            {
-                TaskId = TaskId,
-                QueueId = "0",
-                Status = taskStatus,
-                TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
-                Definition = JsonConvert.SerializeObject(inputData),
-                CancelRequested = isCanceled,
-                Result = resultData != null ? JsonConvert.SerializeObject(resultData) : string.Empty,
-            };
+            List<TaskInfo> allTasks = new List<TaskInfo>(processingTaskInfos);
+            allTasks.Add(orchestratorTaskInfo);
+            _queueClient.GetTaskByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(allTasks);
 
-            _taskManager.GetTaskAsync(taskInfo.TaskId, Arg.Any<CancellationToken>()).Returns(taskInfo);
-
-            return await _mediator.GetImportStatusAsync(taskInfo.Id, CancellationToken.None);
+            return await _mediator.GetImportStatusAsync(orchestratorTaskInfo.Id, CancellationToken.None);
         }
     }
 }

@@ -23,17 +23,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class GetImportRequestHandler : IRequestHandler<GetImportRequest, GetImportResponse>
     {
         private readonly IQueueClient _queueClient;
-        private readonly IImportTaskDataStore _importTaskDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
-        public GetImportRequestHandler(IQueueClient queueClient, IImportTaskDataStore importTaskDataStore, IAuthorizationService<DataActions> authorizationService)
+        public GetImportRequestHandler(IQueueClient queueClient, IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(importTaskDataStore, nameof(importTaskDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
 
             _queueClient = queueClient;
-            _importTaskDataStore = importTaskDataStore;
             _authorizationService = authorizationService;
         }
 
@@ -76,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     Error = failedOperationOutcome,
                 };
 
-                return new GetImportResponse(HttpStatusCode.OK, result);
+                return new GetImportResponse(HttpStatusCode.Accepted, result);
             }
             else if (taskInfo.Status == TaskStatus.Completed)
             {

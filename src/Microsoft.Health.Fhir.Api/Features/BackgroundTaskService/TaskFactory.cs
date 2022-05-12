@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
         private readonly IIntegrationDataStoreClient _integrationDataStoreClient;
         private readonly IQueueClient _queueClient;
-        private readonly IContextUpdaterFactory _contextUpdaterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
         private readonly OperationsConfiguration _operationsConfiguration;
@@ -40,7 +39,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
             IImportOrchestratorTaskDataStoreOperation importOrchestratorTaskDataStoreOperation,
-            IContextUpdaterFactory contextUpdaterFactory,
             IQueueClient queueClient,
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IIntegrationDataStoreClient integrationDataStoreClient,
@@ -53,7 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             EnsureArg.IsNotNull(resourceBulkImporter, nameof(resourceBulkImporter));
             EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
             EnsureArg.IsNotNull(importOrchestratorTaskDataStoreOperation, nameof(importOrchestratorTaskDataStoreOperation));
-            EnsureArg.IsNotNull(contextUpdaterFactory, nameof(contextUpdaterFactory));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
@@ -69,7 +66,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _sequenceIdGenerator = sequenceIdGenerator;
             _integrationDataStoreClient = integrationDataStoreClient;
             _queueClient = queueClient;
-            _contextUpdaterFactory = contextUpdaterFactory;
             _contextAccessor = contextAccessor;
             _mediator = mediator;
             _operationsConfiguration = operationsConfig.Value;
