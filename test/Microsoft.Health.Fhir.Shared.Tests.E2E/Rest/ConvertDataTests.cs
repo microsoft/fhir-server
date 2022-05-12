@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private const string Hl7v2DefaultTemplateSetReference = "microsofthealth/hl7v2templates:default";
         private const string CcdaDefaultTemplateSetReference = "microsofthealth/ccdatemplates:default";
         private const string JsonDefaultTemplateSetReference = "microsofthealth/jsontemplates:default";
+        private const string FhirStu3ToR4DefaultTemplateSetReference = "microsofthealth/stu3tor4templates:default";
 
         private readonly TestFhirClient _testFhirClient;
         private readonly bool _convertDataEnabled = false;
@@ -113,10 +114,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(patientResource.Id);
         }
 
+        [SkippableFact]
+        public async Task GivenAFhirValidRequestWithDefaultTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
+        {
+            Skip.IfNot(_convertDataEnabled);
+
+            var parameters = GetConvertDataParams(Samples.SampleFhirStu3Message, "Fhir", FhirStu3ToR4DefaultTemplateSetReference, "Patient");
+            var requestMessage = GenerateConvertDataRequest(parameters);
+            HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var patientContent = await response.Content.ReadAsStringAsync();
+            var setting = new ParserSettings
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
+            var patientResource = parser.Parse<Patient>(patientContent);
+            Assert.NotEmpty(patientResource.Id);
+        }
+
         [SkippableTheory]
         [InlineData("           ")]
         [InlineData("cda")]
-        [InlineData("fhir")]
+        [InlineData("fhirstu3")]
         [InlineData("jpeg")]
         public async Task GivenAValidRequestWithInvalidInputDataType_WhenConvertData_ShouldReturnBadRequest(string inputDataType)
         {
@@ -247,12 +270,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableTheory]
+        [InlineData("abc")]
+        [InlineData("{\"a\": \"b\"]")]
+        [InlineData("{\"a\": 99 * 0.6}")]
+        [InlineData("[\"a\": \"b\"]")]
+        [InlineData("{\"a\"}")]
+        public async Task GivenAFhirValidRequestWithDefaultTemplateSet_ButInputDataIsNotValidJson_WhenConvertData_ShouldReturnBadRequest(string inputData)
+        {
+            Skip.IfNot(_convertDataEnabled);
+
+            var parameters = GetConvertDataParams(inputData, "Fhir", FhirStu3ToR4DefaultTemplateSetReference, "Patient");
+
+            var requestMessage = GenerateConvertDataRequest(parameters);
+            HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains("The input data could not be parsed correctly", responseContent);
+        }
+
+        [SkippableTheory]
         [InlineData(Samples.SampleHl7v2Message, "Ccda", Hl7v2DefaultTemplateSetReference, "ADT_A01")]
         [InlineData(Samples.SampleCcdaMessage, "Json", CcdaDefaultTemplateSetReference, "CCD")]
         [InlineData(Samples.SampleJsonMessage, "Hl7v2", JsonDefaultTemplateSetReference, "ExamplePatient")]
+        [InlineData(Samples.SampleFhirStu3Message, "Ccda", FhirStu3ToR4DefaultTemplateSetReference, "Patient")]
         [InlineData(Samples.SampleHl7v2Message, "Hl7v2", CcdaDefaultTemplateSetReference, "ADT_A01")]
         [InlineData(Samples.SampleCcdaMessage, "Ccda", JsonDefaultTemplateSetReference, "CCD")]
         [InlineData(Samples.SampleJsonMessage, "Json", Hl7v2DefaultTemplateSetReference, "ExamplePatient")]
+        [InlineData(Samples.SampleFhirStu3Message, "Fhir", CcdaDefaultTemplateSetReference, "Patient")]
         public async Task GivenAValidRequestWithDefaultTemplateSet_ButInconsistentInputDataTypeAndDefaultTemplateSetReference_WhenConvertData_ShouldReturnBadRequest(string inputData, string inputDataType, string templateSetReference, string rootTemplate)
         {
             Skip.IfNot(_convertDataEnabled);

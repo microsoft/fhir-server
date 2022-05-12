@@ -51,7 +51,6 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 - [FHIR Proxy](https://github.com/microsoft/fhir-proxy): Secure FHIR Gateway and Proxy to FHIR Servers.
 
 ## Tutorials & How-to Guides
-- [Health Architectures](https://aka.ms/healtharchitectures): A collection of reference architectures illustrating end-to-end best practices for using the Azure API for FHIR and related technologies.
 - [FHIR Server Samples Repo](https://github.com/Microsoft/fhir-server-samples): A demo sandbox using the Azure API for FHIR.
 - [SMART on FHIR Proxy tutorial](docs/SMARTonFHIR.md): Describes how to use the proxy to enable SMART on FHIR applications with the FHIR Server.
 - [FHIR Postman tutorial](https://docs.microsoft.com/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
