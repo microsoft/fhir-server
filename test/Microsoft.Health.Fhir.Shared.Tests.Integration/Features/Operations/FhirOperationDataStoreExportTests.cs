@@ -117,6 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             Assert.Equal(1, jobs.Count);
         }
 
+#pragma warning disable SA1107 // Code should not contain multiple statements on one line
         [Theory]
         [InlineData(1, 1)]
         [InlineData(2, 1)]
@@ -124,11 +125,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         public async Task GivenNumberOfRunningExportJobs_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
             await CreateRunningExportJob();
-            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(); // Queued
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
-            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(); // Queued
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
+            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(jr => jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1")); // Queued
+            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Canceled; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2"); });
+            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Completed; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3"); });
+            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(jr => jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4")); // Queued
+            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Failed; r.RequestUri = new Uri(jr.RequestUri.ToString() + "5"); });
 
             // The running job should not be acquired.
             var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2 };
@@ -172,10 +173,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             ExportJobRecord[] jobRecords = new[]
             {
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4"); }),
             };
 
             var completionSource = new TaskCompletionSource<bool>();
@@ -203,6 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 return await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2);
             }
         }
+#pragma warning restore SA1107 // Code should not contain multiple statements on one line
 
         [Fact]
         public async Task GivenARunningExportJob_WhenUpdatingTheExportJob_ThenTheExportJobShouldBeUpdated()
@@ -243,7 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
             await _testHelper.DeleteExportJobRecordAsync(job.Id);
 
-            await Assert.ThrowsAsync<JobConflictException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.UpdateExportJobAsync(job, jobVersion, CancellationToken.None));
         }
 
         [Fact]
@@ -295,7 +297,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "N/A", rollingFileSizeInMB: 64, storageAccountContainerName: Guid.NewGuid().ToString());
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "Unknown", rollingFileSizeInMB: 64, storageAccountContainerName: Guid.NewGuid().ToString());
 
             jobRecordCustomizer?.Invoke(jobRecord);
 

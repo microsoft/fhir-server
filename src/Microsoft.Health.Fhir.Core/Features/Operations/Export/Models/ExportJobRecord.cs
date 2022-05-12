@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         }
 
         [JsonProperty(JobRecordProperties.RequestUri)]
-        public Uri RequestUri { get; private set; }
+        public Uri RequestUri { get; internal set; }
 
         [JsonProperty(JobRecordProperties.ExportType)]
         public ExportJobType ExportType { get; private set; }
