@@ -455,7 +455,8 @@ CREATE TABLE dbo.Resource (
     RawResource          VARBINARY (MAX) NOT NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT CH_Resource_RawResource_Length CHECK (DATALENGTH(RawResource) > 0)
 );
 
 ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
@@ -612,7 +613,6 @@ CREATE TABLE [dbo].[TaskInfo] (
     [EndDateTime]       DATETIME2 (7) NULL,
     [Worker]            VARCHAR (100) NULL,
     [RestartInfo]       VARCHAR (MAX) NULL,
-    [ParentTaskId]      VARCHAR (64)  NULL,
     CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
 
@@ -620,11 +620,6 @@ CREATE TABLE [dbo].[TaskInfo] (
 GO
 CREATE NONCLUSTERED INDEX IX_QueueId_Status
     ON dbo.TaskInfo(QueueId, Status);
-
-
-GO
-CREATE NONCLUSTERED INDEX IX_QueueId_ParentTaskId
-    ON dbo.TaskInfo(QueueId, ParentTaskId);
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
@@ -1515,8 +1510,8 @@ SELECT CAST (MIN_ACTIVE_ROWVERSION() AS INT);
 COMMIT TRANSACTION;
 
 GO
-CREATE PROCEDURE [dbo].[CreateTask_3]
-@taskId VARCHAR (64), @queueId VARCHAR (64), @taskTypeId SMALLINT, @parentTaskId VARCHAR (64), @maxRetryCount SMALLINT=3, @inputData VARCHAR (MAX), @isUniqueTaskByType BIT
+CREATE PROCEDURE [dbo].[CreateTask_2]
+@taskId VARCHAR (64), @queueId VARCHAR (64), @taskTypeId SMALLINT, @maxRetryCount SMALLINT=3, @inputData VARCHAR (MAX), @isUniqueTaskByType BIT
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -1545,9 +1540,20 @@ ELSE
                 THROW 50409, 'Task already existed', 1;
             END
     END
-INSERT  INTO [dbo].[TaskInfo] (TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, ParentTaskId)
-VALUES                       (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @maxRetryCount, @heartbeatDateTime, @inputData, @parentTaskId);
-EXECUTE dbo.GetTaskDetails @TaskId = @taskId;
+INSERT  INTO [dbo].[TaskInfo] (TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData)
+VALUES                       (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @maxRetryCount, @heartbeatDateTime, @inputData);
+SELECT TaskId,
+       QueueId,
+       Status,
+       TaskTypeId,
+       RunId,
+       IsCanceled,
+       RetryCount,
+       MaxRetryCount,
+       HeartbeatDateTime,
+       InputData
+FROM   [dbo].[TaskInfo]
+WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
 
 GO
@@ -1658,17 +1664,6 @@ FROM   dbo.ExportJob
 WHERE  Id = @id;
 
 GO
-CREATE PROCEDURE [dbo].[GetImportProcessingTaskResult]
-@queueId VARCHAR (64), @importTaskId VARCHAR (64)
-AS
-SET NOCOUNT ON;
-SELECT Result
-FROM   [dbo].[TaskInfo] WITH (INDEX (IX_QueueId_ParentTaskId))
-WHERE  ParentTaskId = @importTaskId
-       AND TaskTypeId = 1
-       AND Status = 3;
-
-GO
 CREATE PROCEDURE dbo.GetNextTask_3
 @queueId VARCHAR (64), @taskHeartbeatTimeoutThresholdInSeconds INT=600
 AS
@@ -1757,8 +1752,7 @@ SELECT TaskId,
        HeartbeatDateTime,
        InputData,
        TaskContext,
-       Result,
-       ParentTaskId
+       Result
 FROM   [dbo].[TaskInfo]
 WHERE  TaskId = @taskId;
 

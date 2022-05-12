@@ -5,7 +5,7 @@
 
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>32</LatestSchemaVersion>
+    <LatestSchemaVersion>33</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
   </PropertyGroup>
@@ -44,23 +44,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Features\Schema\Sql\Sprocs\DequeueJob.sql" />
-    <None Remove="Features\Schema\Sql\Sprocs\EnqueueJobs.sql" />
-    <None Remove="Features\Schema\Sql\Sprocs\GetJobs.sql" />
-    <None Remove="Features\Schema\Sql\Sprocs\GetResourcesByTypeAndSurrogateIdRange.sql" />
-    <None Remove="Features\Schema\Sql\Sprocs\GetResourceSurrogateIdRanges.sql" />
-    <None Remove="Features\Schema\Sql\Sprocs\LogEvent.sql" />
-    <None Remove="Features\Schema\Sql\Sprocs\PutJobCancelation.sql" />
-    <None Remove="Features\Schema\Sql\Sprocs\PutJobHeartbeat.sql" />
-    <None Remove="Features\Schema\Sql\Sprocs\PutJobStatus.sql" />
-    <None Remove="Features\Schema\Sql\Tables\EventLog.sql" />
-    <None Remove="Features\Schema\Sql\Tables\JobQueue.sql" />
-    <None Remove="Features\Schema\Sql\Tables\Parameters.sql" />
-    <None Remove="Features\Schema\Sql\Types\BigintList.sql" />
-    <None Remove="Features\Schema\Sql\Types\StringList.sql" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
@@ -72,6 +55,9 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Update="Features\Schema\Migrations\33.sql">
+      <MutableClassVersion>Latest</MutableClassVersion>
+    </EmbeddedResource>
     <EmbeddedResource Update="Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
