@@ -7,23 +7,18 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.IO;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
     internal class SqlService
     {
-        private byte _partitionId;
-        private object _partitioinLocker = new object();
-        private byte _numberOfPartitions;
-        private byte _queueType = 1;
-
         private string _connectionString;
+        private byte _queueType = (byte)QueueType.Export;
 
         public SqlService(string connectionString)
         {
             _connectionString = connectionString;
-            _numberOfPartitions = 16;
-            _partitionId = 0;
         }
 
         public string ConnectionString => _connectionString;
@@ -70,20 +65,6 @@ namespace Microsoft.Health.Fhir.Store.Export
             return $"server={builder.DataSource};database={builder.InitialCatalog}";
         }
 
-        private byte GetNextPartitionId(int? thread)
-        {
-            if (thread.HasValue)
-            {
-                return (byte)(thread.Value % _numberOfPartitions);
-            }
-
-            lock (_partitioinLocker)
-            {
-                _partitionId = _partitionId == _numberOfPartitions - 1 ? (byte)0 : ++_partitionId;
-                return _partitionId;
-            }
-        }
-
         internal bool JobQueueIsNotEmpty()
         {
             using var conn = new SqlConnection(ConnectionString);
@@ -94,7 +75,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             return cnt > 0;
         }
 
-        internal void DequeueJob(int? thread, out long groupId, out long jobId, out long version, out string definition)
+        internal void DequeueJob(out long groupId, out long jobId, out long version, out string definition)
         {
             definition = null;
             groupId = -1L;
@@ -105,7 +86,6 @@ namespace Microsoft.Health.Fhir.Store.Export
             conn.Open();
             using var command = new SqlCommand("dbo.DequeueJob", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             command.Parameters.AddWithValue("@QueueType", _queueType);
-            command.Parameters.AddWithValue("@StartPartitionId", GetNextPartitionId(thread));
             command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
             command.Parameters.AddWithValue("@HeartbeatTimeoutSec", 600);
             using var reader = command.ExecuteReader();
@@ -119,9 +99,9 @@ namespace Microsoft.Health.Fhir.Store.Export
             }
         }
 
-        internal void DequeueJob(int? thread, out long groupId, out long jobId, out long version, out short? resourceTypeId, out string minSurIdOrUrl, out string maxSurId)
+        internal void DequeueJob(out long groupId, out long jobId, out long version, out short? resourceTypeId, out string minSurIdOrUrl, out string maxSurId)
         {
-            DequeueJob(thread, out groupId, out jobId, out version, out var definition);
+            DequeueJob(out groupId, out jobId, out version, out var definition);
             resourceTypeId = null;
             minSurIdOrUrl = string.Empty;
             maxSurId = string.Empty;
@@ -197,6 +177,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             cmd.Parameters.AddWithValue("@StartId", startId);
             cmd.Parameters.AddWithValue("@EndId", endId);
             cmd.Parameters.AddWithValue("@UnitSize", unitSize);
+            cmd.Parameters.AddWithValue("@NumberOfRanges", (int)(2e9 / unitSize));
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {

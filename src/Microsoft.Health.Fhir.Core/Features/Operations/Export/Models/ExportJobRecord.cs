@@ -151,5 +151,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.RollingFileSizeInMB)]
         public uint RollingFileSizeInMB { get; private set; }
+
+        internal ExportJobRecord Clone()
+        {
+            return (ExportJobRecord)MemberwiseClone();
+        }
     }
 }
