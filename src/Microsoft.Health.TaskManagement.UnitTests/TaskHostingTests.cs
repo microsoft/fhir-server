@@ -202,22 +202,17 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             int executeCount0 = 0;
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
-                if (t.TaskTypeId == 0)
-                {
-                    return new TestTask(
-                        (progress, token) =>
+                return new TestTask(
+                    (progress, token) =>
+                    {
+                        Interlocked.Increment(ref executeCount0);
+                        if (executeCount0 <= 1)
                         {
-                            Interlocked.Increment(ref executeCount0);
-                            if (executeCount0 <= 1)
-                            {
-                                throw new RetriableTaskException("test");
-                            }
+                            throw new RetriableTaskException("test");
+                        }
 
-                            return Task.FromResult(t.Result);
-                        });
-                }
-
-                return null;
+                        return Task.FromResult(t.Result);
+                    });
             });
 
             TestQueueClient queueClient = new TestQueueClient();
@@ -279,16 +274,17 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         [Fact]
         public async Task GivenTaskRunning_WhenUpdateCurrentResult_ThenCurrentResultShouldBePersisted()
         {
-            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
+            AutoResetEvent autoResetEvent1 = new AutoResetEvent(false);
+            AutoResetEvent autoResetEvent2 = new AutoResetEvent(false);
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 return new TestTask(
                         async (progress, token) =>
                         {
-                            autoResetEvent.Set();
-
                             progress.Report("Progress");
-                            await Task.Delay(TimeSpan.FromSeconds(10));
+                            await Task.Delay(TimeSpan.FromSeconds(2));
+                            autoResetEvent1.Set();
+                            await Task.Delay(TimeSpan.FromSeconds(1));
 
                             return t.Definition;
                         });
@@ -306,7 +302,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
             Task hostingTask = taskHosting.StartAsync(0, "test", tokenSource);
 
-            autoResetEvent.WaitOne();
+            autoResetEvent1.WaitOne();
             Assert.Equal("Progress", task1.Result);
 
             await hostingTask;

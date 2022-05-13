@@ -36,23 +36,5 @@ namespace Microsoft.Health.TaskManagement
         public DateTime? EndDate { get; set; }
 
         public DateTime HeartbeatDateTime { get; set; }
-
-        //---------------------------
-
-        public string TaskId { get; set; }
-
-        public string QueueId { get; set; }
-
-        public short TaskTypeId { get; set; }
-
-        public string RunId { get; set; }
-
-        public short RetryCount { get; set; }
-
-        public short? MaxRetryCount { get; set; }
-
-        public string Context { get; set; }
-
-        public string ParentTaskId { get; set; }
     }
 }

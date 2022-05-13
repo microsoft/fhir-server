@@ -109,7 +109,7 @@ namespace Microsoft.Health.TaskManagement
 
             if (task == null)
             {
-                _logger.LogWarning("Not supported task type: {taskTypeId}", taskInfo.TaskTypeId);
+                _logger.LogWarning("Not supported task type");
                 return;
             }
 
@@ -134,14 +134,14 @@ namespace Microsoft.Health.TaskManagement
                 }
                 catch (RetriableTaskException ex)
                 {
-                    _logger.LogError(ex, "Task {taskId} failed with retriable exception.", taskInfo.TaskId);
+                    _logger.LogError(ex, "Task {taskId} failed with retriable exception.", taskInfo.Id);
 
                     // Not complete the task for retriable exception.
                     return;
                 }
                 catch (TaskExecutionException ex)
                 {
-                    _logger.LogError(ex, "Task {taskId} failed.", taskInfo.TaskId);
+                    _logger.LogError(ex, "Task {taskId} failed.", taskInfo.Id);
                     taskInfo.Result = JsonConvert.SerializeObject(ex.Error);
                     taskInfo.Status = TaskStatus.Failed;
 
@@ -151,14 +151,14 @@ namespace Microsoft.Health.TaskManagement
                     }
                     catch (Exception completeEx)
                     {
-                        _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.TaskId);
+                        _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.Id);
                     }
 
                     return;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Task {taskId} failed.", taskInfo.TaskId);
+                    _logger.LogError(ex, "Task {taskId} failed.", taskInfo.Id);
 
                     object error = new { message = ex.Message };
                     taskInfo.Result = JsonConvert.SerializeObject(error);
@@ -170,7 +170,7 @@ namespace Microsoft.Health.TaskManagement
                     }
                     catch (Exception completeEx)
                     {
-                        _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.TaskId);
+                        _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.Id);
                     }
 
                     return;
@@ -180,11 +180,11 @@ namespace Microsoft.Health.TaskManagement
                 {
                     taskInfo.Status = TaskStatus.Completed;
                     await _queueClient.CompleteTaskAsync(taskInfo, true, CancellationToken.None);
-                    _logger.LogInformation("Task {taskId} completed.", taskInfo.TaskId);
+                    _logger.LogInformation("Task {taskId} completed.", taskInfo.Id);
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.TaskId);
+                    _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.Id);
                 }
             }
             finally
