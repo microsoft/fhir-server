@@ -31,7 +31,6 @@
                 "TaskHosting:MaxRunningTaskCount": "2",
                 "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:Import:Enabled": "true",
-                "FhirServer:Operations:Import:StoreProcessingResultInSubTasks": "true",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
             "applicationUrl": "https://localhost:44348/"
