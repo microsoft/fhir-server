@@ -119,9 +119,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
 #pragma warning disable SA1107 // Code should not contain multiple statements on one line
         [Theory]
-        [InlineData(1, 0)]
+        ////TODO: Revise below when per instance max is introduced.
+        ////[InlineData(1, 0)]
         [InlineData(2, 1)]
-        [InlineData(3, 2)]
+        ////[InlineData(3, 2)]
         public async Task GivenNumberOfRunningExportJobs_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
             await CreateRunningExportJob();
