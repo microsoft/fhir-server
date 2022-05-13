@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public bool EnsureInitializedAsync()
         {
-            return _schemaInformation.Current != null;
+            return _schemaInformation.Current != 0 && _schemaInformation.Current != null;
         }
 
         public async Task<TaskInfo> CompleteAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken)
