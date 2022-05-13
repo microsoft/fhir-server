@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                 var i = 0;
                 foreach (var ex in expression)
                 {
-                    location[i] = ex + " // " + Resources.OperationOutcomeLocationDeprication;
+                    location[i] = $"{ex} // {Resources.OperationOutcomeLocationDeprication}";
                     i++;
                 }
             }
