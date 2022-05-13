@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             ImportOrchestratorTaskInputData inputData = new ImportOrchestratorTaskInputData()
             {
                 StoreProgressInSubTask = true,
-                RequestUri = new Uri("http://dummy"),
+                RequestUri = new Uri("http://test"),
             };
 
             // Result may be changed to real style result later
