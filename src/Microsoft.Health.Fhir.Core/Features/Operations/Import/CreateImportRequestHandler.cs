@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                TaskInfo taskInfo = (await _queueClient.EnqueueAsync(ImportConstants.ImportQueueType, new string[] { definition }, null, true, cancellationToken)).First();
+                TaskInfo taskInfo = (await _queueClient.EnqueueAsync(ImportConstants.ImportQueueType, new string[] { definition }, null, true, false, cancellationToken)).First();
                 return new CreateImportResponse(taskInfo.Id.ToString());
             }
             catch (TaskConflictException)

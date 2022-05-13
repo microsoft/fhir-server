@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             string[] definitions = new string[] { JsonConvert.SerializeObject(importTaskPayload) };
 
-            TaskInfo taskInfoFromServer = (await _queueClient.EnqueueAsync(_taskInfo.QueueType, definitions, _taskInfo.GroupId, false, cancellationToken)).First();
+            TaskInfo taskInfoFromServer = (await _queueClient.EnqueueAsync(_taskInfo.QueueType, definitions, _taskInfo.GroupId, false, false, cancellationToken)).First();
 
             return (taskInfoFromServer.Id, endSequenceId, blobSizeInBytes);
         }
@@ -379,7 +379,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             try
             {
-                await _queueClient.CancelTaskAsync(_taskInfo.QueueType, _taskInfo.GroupId, CancellationToken.None);
+                await _queueClient.CancelTaskAsync(_taskInfo.QueueType, _taskInfo.GroupId, null, CancellationToken.None);
             }
             catch (Exception ex)
             {

@@ -35,7 +35,12 @@ BEGIN TRY
   SET @Rows = @@rowcount
   
   IF @Rows = 0
-    THROW 50412, 'Precondition failed', 1
+  BEGIN
+    IF EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId)
+      THROW 50412, 'Precondition failed', 1
+    ELSE
+      THROW 50404, 'Job record not found', 1
+  END
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY

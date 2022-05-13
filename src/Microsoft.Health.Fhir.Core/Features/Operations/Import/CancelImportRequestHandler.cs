@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else
             {
-                await _queueClient.CancelTaskAsync(ImportConstants.ImportQueueType, taskInfo.GroupId, cancellationToken);
+                await _queueClient.CancelTaskAsync(ImportConstants.ImportQueueType, taskInfo.GroupId, null, cancellationToken);
                 return new CancelImportResponse(HttpStatusCode.Accepted);
             }
         }

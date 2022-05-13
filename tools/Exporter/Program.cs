@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             retry:
                 try
                 {
-                    Queue.DequeueJob(null, out var _, out unitId, out version, out resourceTypeId, out minId, out maxId);
+                    Queue.DequeueJob(out var _, out unitId, out version, out resourceTypeId, out minId, out maxId);
                     if (resourceTypeId.HasValue)
                     {
                         var container = GetContainer(BlobConnectionString, BlobContainerName);

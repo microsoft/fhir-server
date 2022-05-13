@@ -19,8 +19,8 @@ DECLARE @SP varchar(100) = 'DequeueJob'
 
 
 BEGIN TRY
-  IF @StartPartitionId IS NULL
-    SET @StartPartitionId = @MaxPartitions * rand()
+  IF @PartitionId IS NULL
+    SET @PartitionId = @MaxPartitions * rand()
 
   SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
 

@@ -35,7 +35,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 definitions.Add(taskCount.ToString());
             }
 
-            IEnumerable<TaskInfo> tasks = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, CancellationToken.None);
+            IEnumerable<TaskInfo> tasks = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
 
             int executedTaskCount = 0;
             TestTaskFactory factory = new TestTaskFactory(t =>
@@ -78,8 +78,8 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             string definition2 = "definition2";
 
             TestQueueClient queueClient = new TestQueueClient();
-            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { definition1 }, null, false, CancellationToken.None)).First();
-            TaskInfo task2 = (await queueClient.EnqueueAsync(0, new string[] { definition2 }, null, false, CancellationToken.None)).First();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { definition1 }, null, false, false, CancellationToken.None)).First();
+            TaskInfo task2 = (await queueClient.EnqueueAsync(0, new string[] { definition2 }, null, false, false, CancellationToken.None)).First();
 
             int executeCount = 0;
             TestTaskFactory factory = new TestTaskFactory(t =>
@@ -139,7 +139,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         });
             });
 
-            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
             task1.Status = TaskStatus.Running;
             task1.HeartbeatDateTime = DateTime.Now.AddSeconds(-3);
 
@@ -177,7 +177,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             });
 
             TestQueueClient queueClient = new TestQueueClient();
-            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
             TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
@@ -216,7 +216,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             });
 
             TestQueueClient queueClient = new TestQueueClient();
-            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
 
             TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
@@ -253,7 +253,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             });
 
             TestQueueClient queueClient = new TestQueueClient();
-            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
 
             TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
@@ -264,7 +264,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             Task hostingTask = taskHosting.StartAsync(0, "test", tokenSource);
 
             autoResetEvent.WaitOne();
-            await queueClient.CancelTaskAsync(0, task1.GroupId, CancellationToken.None);
+            await queueClient.CancelTaskAsync(0, task1.GroupId, null, CancellationToken.None);
 
             await hostingTask;
 
@@ -291,7 +291,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             });
 
             TestQueueClient queueClient = new TestQueueClient();
-            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
+            TaskInfo task1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
 
             TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
@@ -347,7 +347,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 definitions.Add(i.ToString());
             }
 
-            var tasks = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, CancellationToken.None);
+            var tasks = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
 
             TaskHosting taskHosting = new TaskHosting(queueClient, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;

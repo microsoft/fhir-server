@@ -33,14 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Gets an export job by hash.
-        /// </summary>
-        /// <param name="hash">The hash of the job.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>An instance of the matching export job; otherwise, <c>null</c>.</returns>
-        Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken);
-
-        /// <summary>
         /// Updates an existing export job.
         /// </summary>
         /// <param name="jobRecord">The job record.</param>

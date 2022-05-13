@@ -13,7 +13,7 @@ namespace Microsoft.Health.TaskManagement
     {
         bool IsInitialized();
 
-        public Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken);
+        public Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken);
 
         public Task<TaskInfo> DequeueAsync(byte queueType, byte startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
 
@@ -25,7 +25,7 @@ namespace Microsoft.Health.TaskManagement
 
         public Task<TaskInfo> KeepAliveTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken);
 
-        public Task CancelTaskAsync(byte queueType, long groupId, CancellationToken cancellationToken);
+        public Task CancelTaskAsync(byte queueType, long? groupId, long? jobId, CancellationToken cancellationToken);
 
         public Task CompleteTaskAsync(TaskInfo taskInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
     }

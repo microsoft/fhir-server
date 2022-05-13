@@ -13,7 +13,7 @@ CREATE TABLE dbo.JobQueue
     ,Definition          varchar(max)  NOT NULL -- unique info identifying a job
     ,DefinitionHash      varbinary(20) NOT NULL -- to ensure idempotence
     ,Version             bigint        NOT NULL CONSTRAINT DF_JobQueue_Version DEFAULT datediff_big(millisecond,'0001-01-01',getUTCdate()) -- to prevent racing
-    ,Status              tinyint       NOT NULL CONSTRAINT DF_JobQueue_Status DEFAULT 0 -- 0:created  1=running, 2=completed, 3=failed, 4=cancelled, 5=archived
+    ,Status              tinyint       NOT NULL CONSTRAINT DF_JobQueue_Status DEFAULT 0 -- 0=created, 1=running, 2=completed, 3=failed, 4=cancelled, 5=archived
     ,Priority            tinyint       NOT NULL CONSTRAINT DF_JobQueue_Priority DEFAULT 100 
     ,Data                bigint        NULL
     ,Result              varchar(max)  NULL

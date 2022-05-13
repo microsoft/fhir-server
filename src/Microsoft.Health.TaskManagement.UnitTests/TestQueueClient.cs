@@ -22,7 +22,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
         public Action CompleteFaultAction { get; set; }
 
-        public Task CancelTaskAsync(byte queueType, long groupId, CancellationToken cancellationToken)
+        public Task CancelTaskAsync(byte queueType, long? groupId, long? jobId, CancellationToken cancellationToken)
         {
             foreach (TaskInfo taskInfo in taskInfos.Where(t => t.GroupId == groupId))
             {
@@ -50,7 +50,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
             if (requestCancellationOnFailure && taskInfo.Status == TaskStatus.Failed)
             {
-                await CancelTaskAsync(taskInfo.QueueType, taskInfo.GroupId, cancellationToken);
+                await CancelTaskAsync(taskInfo.QueueType, taskInfo.GroupId, null, cancellationToken);
             }
         }
 
@@ -68,7 +68,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             return Task.FromResult(task);
         }
 
-        public Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, CancellationToken cancellationToken)
+        public Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
         {
             List<TaskInfo> result = new List<TaskInfo>();
 
