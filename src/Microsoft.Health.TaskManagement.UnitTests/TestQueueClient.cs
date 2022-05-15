@@ -22,6 +22,13 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
         public Action CompleteFaultAction { get; set; }
 
+        public Func<TestQueueClient, long, TaskInfo> GetTaskByIdFunc { get; set; }
+
+        public List<TaskInfo> TaskInfos
+        {
+            get { return taskInfos; }
+        }
+
         public Task CancelTaskAsync(byte queueType, long? groupId, long? jobId, CancellationToken cancellationToken)
         {
             foreach (TaskInfo taskInfo in taskInfos.Where(t => t.GroupId == groupId))
@@ -104,6 +111,11 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
         public Task<TaskInfo> GetTaskByIdAsync(byte queueType, long taskId, bool returnDefinition, CancellationToken cancellationToken)
         {
+            if (GetTaskByIdFunc != null)
+            {
+                return Task.FromResult(GetTaskByIdFunc(this, taskId));
+            }
+
             TaskInfo result = taskInfos.FirstOrDefault(t => t.Id == taskId);
             return Task.FromResult(result);
         }
