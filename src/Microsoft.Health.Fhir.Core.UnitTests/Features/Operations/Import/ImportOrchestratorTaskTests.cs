@@ -244,6 +244,225 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenAnOrchestratorTask_WhenRetriableExceptionThrow_ThenTaskExecutionShuldFailedWithRetriableException()
+        {
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            IMediator mediator = Substitute.For<IMediator>();
+            ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
+            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
+
+            importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
+            importOrchestratorTaskInputData.BaseUri = new Uri("http://dummy");
+            var inputs = new List<InputResource>();
+            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
+
+            importOrchestratorTaskInputData.Input = inputs;
+            importOrchestratorTaskInputData.InputFormat = "ndjson";
+            importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
+            importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+
+            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Dictionary<string, object> properties = new Dictionary<string, object>();
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
+                    return properties;
+                });
+
+            fhirDataBulkImportOperation.PreprocessAsync(Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    throw new RetriableTaskException("test");
+                });
+
+            TestQueueClient testQueueClient = new TestQueueClient();
+            TaskInfo orchestratorTaskInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorTaskInputData) }, 1, false, false, CancellationToken.None)).First();
+
+            ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
+                importOrchestratorTaskInputData,
+                new ImportOrchestratorTaskResult(),
+                contextAccessor,
+                fhirDataBulkImportOperation,
+                integrationDataStoreClient,
+                testQueueClient,
+                orchestratorTaskInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingTaskCount = 1 },
+                loggerFactory);
+            orchestratorTask.PollingFrequencyInSeconds = 0;
+
+            await Assert.ThrowsAnyAsync<RetriableTaskException>(() => orchestratorTask.ExecuteAsync(new Progress<string>(), CancellationToken.None));
+
+            _ = mediator.DidNotReceive().Publish(
+                Arg.Any<ImportTaskMetricsNotification>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAnOrchestratorTask_WhenSubTaskFailed_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated()
+        {
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
+            ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
+            TestQueueClient testQueueClient = new TestQueueClient();
+            testQueueClient.GetTaskByIdFunc = (queueClient, id) =>
+            {
+                TaskInfo taskInfo = new TaskInfo()
+                {
+                    Status = TaskManagement.TaskStatus.Failed,
+                    Result = JsonConvert.SerializeObject(new ImportProcessingTaskErrorResult() { Message = "error" }),
+                };
+
+                return taskInfo;
+            };
+
+            importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
+            importOrchestratorTaskInputData.BaseUri = new Uri("http://dummy");
+
+            var inputs = new List<InputResource>();
+            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
+
+            importOrchestratorTaskInputData.Input = inputs;
+            importOrchestratorTaskInputData.InputFormat = "ndjson";
+            importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
+            importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+
+            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Dictionary<string, object> properties = new Dictionary<string, object>();
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
+                    return properties;
+                });
+
+            sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
+            TaskInfo orchestratorTaskInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorTaskInputData) }, 1, false, false, CancellationToken.None)).First();
+
+            ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
+                importOrchestratorTaskInputData,
+                new ImportOrchestratorTaskResult(),
+                contextAccessor,
+                fhirDataBulkImportOperation,
+                integrationDataStoreClient,
+                testQueueClient,
+                orchestratorTaskInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingTaskCount = 1 },
+                loggerFactory);
+            orchestratorTask.PollingFrequencyInSeconds = 0;
+
+            var taskExecutionException = await Assert.ThrowsAnyAsync<TaskExecutionException>(() => orchestratorTask.ExecuteAsync(new Progress<string>(), CancellationToken.None));
+            ImportOrchestratorTaskErrorResult resultDetails = (ImportOrchestratorTaskErrorResult)taskExecutionException.Error;
+
+            Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
+            Assert.Equal("error", resultDetails.ErrorMessage);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == orchestratorTaskInfo.Id.ToString() &&
+                    notification.Status == TaskResult.Fail.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.SucceedCount == 0 &&
+                    notification.FailedCount == 0),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAnOrchestratorTask_WhenFailedAtPostProcessStep_ThenRetrableExceptionShouldBeThrowAndContextUpdated()
+        {
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
+            ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
+            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
+            TestQueueClient testQueueClient = new TestQueueClient();
+            testQueueClient.GetTaskByIdFunc = (testQueueClient, id) =>
+            {
+                TaskInfo taskInfo = testQueueClient.TaskInfos.First(t => t.Id == id);
+
+                if (taskInfo == null)
+                {
+                    return null;
+                }
+
+                if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
+                {
+                    return taskInfo;
+                }
+
+                ImportProcessingTaskInputData processingInput = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(taskInfo.Definition);
+                ImportProcessingTaskResult processingResult = new ImportProcessingTaskResult();
+                processingResult.ResourceType = processingInput.ResourceType;
+                processingResult.SucceedCount = 1;
+                processingResult.FailedCount = 1;
+                processingResult.ErrorLogLocation = "http://dummy/error";
+                surrogatedIdRanges.Add((processingInput.BeginSequenceId, processingInput.EndSequenceId));
+
+                taskInfo.Result = JsonConvert.SerializeObject(processingResult);
+                taskInfo.Status = TaskManagement.TaskStatus.Completed;
+                return taskInfo;
+            };
+
+            importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
+            importOrchestratorTaskInputData.BaseUri = new Uri("http://dummy");
+            var inputs = new List<InputResource>();
+            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
+
+            importOrchestratorTaskInputData.Input = inputs;
+            importOrchestratorTaskInputData.InputFormat = "ndjson";
+            importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
+            importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+
+            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Dictionary<string, object> properties = new Dictionary<string, object>();
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
+                    return properties;
+                });
+
+            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    throw new InvalidCastException();
+                });
+
+            TaskInfo orchestratorTaskInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorTaskInputData) }, 1, false, false, CancellationToken.None)).First();
+
+            ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
+                importOrchestratorTaskInputData,
+                new ImportOrchestratorTaskResult(),
+                contextAccessor,
+                fhirDataBulkImportOperation,
+                integrationDataStoreClient,
+                testQueueClient,
+                orchestratorTaskInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingTaskCount = 1 },
+                loggerFactory);
+            orchestratorTask.PollingFrequencyInSeconds = 0;
+
+            await Assert.ThrowsAnyAsync<RetriableTaskException>(() => orchestratorTask.ExecuteAsync(new Progress<string>(), CancellationToken.None));
+
+            _ = mediator.DidNotReceive().Publish(
+                Arg.Any<ImportTaskMetricsNotification>(),
+                Arg.Any<CancellationToken>());
+        }
+
         private static async Task VerifyCommonOrchestratorTaskAsync(int inputFileCount, int concurrentCount, int resumeFrom = -1, int completedCount = 0)
         {
             IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();

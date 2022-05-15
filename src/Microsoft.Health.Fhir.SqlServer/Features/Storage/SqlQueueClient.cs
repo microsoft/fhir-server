@@ -40,14 +40,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
-        public async Task CancelTaskAsync(byte queueType, long? groupId, long? jobId, CancellationToken cancellationToken)
+        public async Task CancelTaskAsync(byte queueType, long? groupId, long? taskId, CancellationToken cancellationToken)
         {
             try
             {
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
-                    VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, groupId, jobId);
+                    VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, groupId, taskId);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                 }
             }

@@ -200,6 +200,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 await CancelProcessingTasksAsync();
                 await SendImportMetricsNotification(TaskResult.Fail);
             }
+            catch (RetriableTaskException ex)
+            {
+                _logger.LogInformation(ex, "Failed with RetriableTaskException.");
+
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Failed to import data.");
@@ -230,8 +236,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     HttpStatusCode = HttpStatusCode.InternalServerError,
                     ErrorMessage = ex.Message,
                 };
-
-                await SendImportMetricsNotification(TaskResult.Fail);
 
                 throw new RetriableTaskException(JsonConvert.SerializeObject(postProcessErrorResult));
             }
