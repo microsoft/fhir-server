@@ -48,7 +48,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public bool EnsureInitializedAsync()
         {
-            return _schemaInformation.Current != null;
+            // While applying the full schema, CurrentVersion is set as 0 in InstanceSchema table
+            return _schemaInformation.Current != 0 && _schemaInformation.Current != null;
         }
 
         public async Task<TaskInfo> CompleteAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken)
