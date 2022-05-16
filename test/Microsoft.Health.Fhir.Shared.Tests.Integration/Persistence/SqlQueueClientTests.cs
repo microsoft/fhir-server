@@ -247,15 +247,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             byte queueType = (byte)TestQueueType.GivenGroupTasks_WhenCancelTasksById_ThenOnlySingleTaskShouldBeCancelled;
 
             SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await sqlQueueClient.EnqueueAsync(queueType, new string[] { "task1", "task2", "task3" }, null, false, false, CancellationToken.None);
+            var tasks = await sqlQueueClient.EnqueueAsync(queueType, new string[] { "task1", "task2", "task3" }, null, false, false, CancellationToken.None);
+
+            await sqlQueueClient.CancelTaskByIdAsync(queueType, tasks.First().Id, CancellationToken.None);
+            Assert.Equal(TaskStatus.Cancelled, (await sqlQueueClient.GetTaskByIdAsync(queueType, tasks.First().Id, false, CancellationToken.None)).Status);
 
             TaskInfo taskInfo1 = await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 0, CancellationToken.None);
             TaskInfo taskInfo2 = await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 0, CancellationToken.None);
 
-            await sqlQueueClient.CancelTaskByIdAsync(queueType, taskInfo1.Id, CancellationToken.None);
-            Assert.True((await sqlQueueClient.GetTaskByIdAsync(queueType, taskInfo1.Id, false, CancellationToken.None)).CancelRequested);
-            Assert.False((await sqlQueueClient.GetTaskByIdAsync(queueType, taskInfo2.Id, false, CancellationToken.None)).CancelRequested);
-            Assert.NotNull(await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 0, CancellationToken.None));
+            Assert.False(taskInfo1.CancelRequested);
+            Assert.False(taskInfo2.CancelRequested);
         }
 
         [Fact]
