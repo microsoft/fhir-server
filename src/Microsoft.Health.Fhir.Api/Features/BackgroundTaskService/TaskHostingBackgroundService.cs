@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     }
 
                     using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                    await taskHostingValue.StartAsync(ImportConstants.ImportQueueType, Environment.MachineName, cancellationTokenSource);
+                    await taskHostingValue.StartAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource);
                 }
             }
             catch (Exception ex)

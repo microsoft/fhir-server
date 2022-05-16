@@ -8,7 +8,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public static class ImportConstants
     {
         public const string InitialLoadMode = "InitialLoad";
-
-        public const byte ImportQueueType = 0;
     }
 }
