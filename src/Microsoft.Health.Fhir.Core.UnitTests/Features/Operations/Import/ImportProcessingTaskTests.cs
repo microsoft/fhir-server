@@ -280,6 +280,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(1 + failedCountFromProgress, result.FailedCount);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceedCount);
 
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
             ImportProcessingTaskResult progressForContext = JsonConvert.DeserializeObject<ImportProcessingTaskResult>(progressResult);
             Assert.Equal(progressForContext.SucceedCount, result.SucceedCount);
             Assert.Equal(progressForContext.FailedCount, result.FailedCount);

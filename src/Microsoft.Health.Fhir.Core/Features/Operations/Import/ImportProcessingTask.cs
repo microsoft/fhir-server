@@ -126,18 +126,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     await importTask;
                 }
-                catch (TaskCanceledException)
-                {
-                    throw;
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to import data.");
-                    throw new RetriableTaskException("Failed to import data.", ex);
+                    throw;
                 }
 
                 try
@@ -164,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(canceledEx, CancelledErrorMessage);
 
-                await CleanResourceForFailureAsync(canceledEx);
+                await CleanResourceForFailureAsync();
 
                 ImportProcessingTaskErrorResult error = new ImportProcessingTaskErrorResult()
                 {
@@ -177,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(canceledEx, "Data processing task is canceled.");
 
-                await CleanResourceForFailureAsync(canceledEx);
+                await CleanResourceForFailureAsync();
 
                 ImportProcessingTaskErrorResult error = new ImportProcessingTaskErrorResult()
                 {
@@ -190,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(retriableEx, "Error in data processing task.");
 
-                await CleanResourceForFailureAsync(retriableEx);
+                await CleanResourceForFailureAsync();
 
                 throw;
             }
@@ -198,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(ex, "Critical error in data processing task.");
 
-                await CleanResourceForFailureAsync(ex);
+                await CleanResourceForFailureAsync();
 
                 ImportProcessingTaskErrorResult error = new ImportProcessingTaskErrorResult()
                 {
@@ -209,7 +201,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task CleanResourceForFailureAsync(Exception failureException)
+        /// <summary>
+        /// Try best to clean failure data.
+        /// </summary>
+        private async Task CleanResourceForFailureAsync()
         {
             try
             {
@@ -218,7 +213,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Data processing task is canceled. Failed to clean resource.");
-                throw new RetriableTaskException(ex.Message, failureException);
             }
         }
 

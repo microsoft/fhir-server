@@ -390,10 +390,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _logger.LogWarning(ex, "failed to cancel task {0}", _taskInfo.GroupId);
             }
 
-            await WaitRunningTaskCompleteAsync();
+            await WaitRunningTaskCompleteOrCancelledAsync();
         }
 
-        private async Task WaitRunningTaskCompleteAsync()
+        private async Task WaitRunningTaskCompleteOrCancelledAsync()
         {
             while (true)
             {
@@ -409,6 +409,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "failed to get tasks by groupId {0}", _taskInfo.GroupId);
+                    throw new RetriableTaskException(ex.Message, ex);
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(5));

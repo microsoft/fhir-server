@@ -17,7 +17,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
-using Microsoft.Health.TaskManagement;
 using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -149,14 +148,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
                 await _sqlImportOperation.CleanBatchResourceAsync(inputData.ResourceType, beginSequenceId + endIndex, endSequenceId, cancellationToken);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Failed to clean batch resource.");
-                throw new RetriableTaskException("Failed to clean resource before import task start.", ex);
+                throw;
             }
         }
 
@@ -413,16 +408,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             importTasks.Enqueue(newTask);
 
             return newTask;
-        }
-
-        private static DataTable RemoveDuplicatesRecords(DataTable inputTable)
-        {
-            if (inputTable.Rows.Count == 0)
-            {
-                return inputTable;
-            }
-
-            return inputTable.DefaultView.ToTable(true);
         }
     }
 }
