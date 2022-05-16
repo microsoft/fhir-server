@@ -383,7 +383,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             try
             {
-                await _queueClient.CancelTaskAsync(_taskInfo.QueueType, _taskInfo.GroupId, null, CancellationToken.None);
+                await _queueClient.CancelTaskByGroupIdAsync(_taskInfo.QueueType, _taskInfo.GroupId, CancellationToken.None);
             }
             catch (Exception ex)
             {

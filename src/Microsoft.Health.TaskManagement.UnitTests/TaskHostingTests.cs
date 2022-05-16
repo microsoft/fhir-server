@@ -264,7 +264,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             Task hostingTask = taskHosting.StartAsync(0, "test", tokenSource);
 
             autoResetEvent.WaitOne();
-            await queueClient.CancelTaskAsync(0, task1.GroupId, null, CancellationToken.None);
+            await queueClient.CancelTaskByGroupIdAsync(0, task1.GroupId, CancellationToken.None);
 
             await hostingTask;
 

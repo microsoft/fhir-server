@@ -33,7 +33,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenTaskKeepPutHeartbeatWithResult_WhenDequeue_ThenTaskWithResultShouldNotBeReturened,
         GivenTaskNotHeartbeat_WhenDequeue_ThenTaskShouldBeReturenedAgain,
         GivenGroupTasks_WhenCompleteTask_ThenTasksShouldBeCompleted,
-        GivenGroupTasks_WhenCancelTasks_ThenAllTasksShouldBeCancelled,
+        GivenGroupTasks_WhenCancelTasksByGroupId_ThenAllTasksShouldBeCancelled,
+        GivenGroupTasks_WhenCancelTasksById_ThenOnlySingleTaskShouldBeCancelled,
         GivenGroupTasks_WhenOneTaskFailedAndRequestCancellation_ThenAllTasksShouldBeCancelled,
     }
 
@@ -212,9 +213,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenGroupTasks_WhenCancelTasks_ThenAllTasksShouldBeCancelled()
+        public async Task GivenGroupTasks_WhenCancelTasksByGroupId_ThenAllTasksShouldBeCancelled()
         {
-            byte queueType = (byte)TestQueueType.GivenGroupTasks_WhenCancelTasks_ThenAllTasksShouldBeCancelled;
+            byte queueType = (byte)TestQueueType.GivenGroupTasks_WhenCancelTasksByGroupId_ThenAllTasksShouldBeCancelled;
 
             SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "task1", "task2", "task3" }, null, false, false, CancellationToken.None);
@@ -222,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             TaskInfo taskInfo1 = await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 0, CancellationToken.None);
             TaskInfo taskInfo2 = await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 0, CancellationToken.None);
 
-            await sqlQueueClient.CancelTaskAsync(queueType, taskInfo1.GroupId, null, CancellationToken.None);
+            await sqlQueueClient.CancelTaskByGroupIdAsync(queueType, taskInfo1.GroupId, CancellationToken.None);
             Assert.True((await sqlQueueClient.GetTaskByGroupIdAsync(queueType, taskInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status == TaskStatus.Cancelled || (t.Status == TaskStatus.Running && t.CancelRequested)));
 
             taskInfo1.Status = TaskStatus.Failed;
@@ -238,6 +239,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             taskInfo = await sqlQueueClient.GetTaskByIdAsync(queueType, taskInfo2.Id, false, CancellationToken.None);
             Assert.Equal(TaskStatus.Completed, taskInfo.Status);
             Assert.Equal(taskInfo2.Result, taskInfo.Result);
+        }
+
+        [Fact]
+        public async Task GivenGroupTasks_WhenCancelTasksById_ThenOnlySingleTaskShouldBeCancelled()
+        {
+            byte queueType = (byte)TestQueueType.GivenGroupTasks_WhenCancelTasksById_ThenOnlySingleTaskShouldBeCancelled;
+
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            await sqlQueueClient.EnqueueAsync(queueType, new string[] { "task1", "task2", "task3" }, null, false, false, CancellationToken.None);
+
+            TaskInfo taskInfo1 = await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 0, CancellationToken.None);
+            TaskInfo taskInfo2 = await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 0, CancellationToken.None);
+
+            await sqlQueueClient.CancelTaskByIdAsync(queueType, taskInfo1.Id, CancellationToken.None);
+            Assert.True((await sqlQueueClient.GetTaskByIdAsync(queueType, taskInfo1.Id, false, CancellationToken.None)).CancelRequested);
+            Assert.False((await sqlQueueClient.GetTaskByIdAsync(queueType, taskInfo2.Id, false, CancellationToken.None)).CancelRequested);
+            Assert.NotNull(await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 0, CancellationToken.None));
         }
 
         [Fact]

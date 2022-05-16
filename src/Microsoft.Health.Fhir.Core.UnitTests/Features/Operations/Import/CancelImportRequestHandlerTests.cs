@@ -68,13 +68,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             TaskInfo taskInfo = await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Accepted);
 
-            await _queueClient.Received(1).CancelTaskAsync((byte)Core.Features.Operations.QueueType.Import, taskInfo.GroupId, null, _cancellationToken);
+            await _queueClient.Received(1).CancelTaskByGroupIdAsync((byte)Core.Features.Operations.QueueType.Import, taskInfo.GroupId, _cancellationToken);
         }
 
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingWithNotExistTask_ThenNotFoundShouldBeReturned()
         {
-            _queueClient.CancelTaskAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<long>(), _cancellationToken).Returns<Task>(_ => throw new TaskNotExistException("Task not exist."));
+            _queueClient.CancelTaskByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), _cancellationToken).Returns<Task>(_ => throw new TaskNotExistException("Task not exist."));
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelImportAsync(TaskId, _cancellationToken));
         }
 

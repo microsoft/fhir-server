@@ -40,20 +40,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
-        public async Task CancelTaskAsync(byte queueType, long? groupId, long? taskId, CancellationToken cancellationToken)
+        public async Task CancelTaskByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
         {
             try
             {
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
-                    VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, groupId, taskId);
+                    VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, groupId, null);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "CancelTaskAsync failed.");
+                _logger.LogError(ex, "CancelTaskByGroupIdAsync failed.");
+                if (ex.IsRetryable())
+                {
+                    throw new RetriableTaskException(ex.Message, ex);
+                }
+
+                throw;
+            }
+        }
+
+        public async Task CancelTaskByIdAsync(byte queueType, long taskId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                {
+                    VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, null, taskId);
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "CancelTaskByIdAsync failed.");
                 if (ex.IsRetryable())
                 {
                     throw new RetriableTaskException(ex.Message, ex);

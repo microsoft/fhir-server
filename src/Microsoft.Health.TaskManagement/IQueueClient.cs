@@ -73,13 +73,20 @@ namespace Microsoft.Health.TaskManagement
         public Task<TaskInfo> KeepAliveTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Cancel tasks by group id or job id
+        /// Cancel tasks by group id
         /// </summary>
         /// <param name="queueType">Queue Type</param>
         /// <param name="groupId">Task group id</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        public Task CancelTaskByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Cancel tasks by task id
+        /// </summary>
+        /// <param name="queueType">Queue Type</param>
         /// <param name="taskId">Task id</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task CancelTaskAsync(byte queueType, long? groupId, long? taskId, CancellationToken cancellationToken);
+        public Task CancelTaskByIdAsync(byte queueType, long taskId, CancellationToken cancellationToken);
 
         /// <summary>
         /// Complete task

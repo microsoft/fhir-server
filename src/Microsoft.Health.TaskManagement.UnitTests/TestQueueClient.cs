@@ -29,9 +29,27 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             get { return taskInfos; }
         }
 
-        public Task CancelTaskAsync(byte queueType, long? groupId, long? jobId, CancellationToken cancellationToken)
+        public Task CancelTaskByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
         {
             foreach (TaskInfo taskInfo in taskInfos.Where(t => t.GroupId == groupId))
+            {
+                if (taskInfo.Status == TaskStatus.Created)
+                {
+                    taskInfo.Status = TaskStatus.Cancelled;
+                }
+
+                if (taskInfo.Status == TaskStatus.Running)
+                {
+                    taskInfo.CancelRequested = true;
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task CancelTaskByIdAsync(byte queueType, long taskId, CancellationToken cancellationToken)
+        {
+            foreach (TaskInfo taskInfo in taskInfos.Where(t => t.Id == taskId))
             {
                 if (taskInfo.Status == TaskStatus.Created)
                 {
@@ -57,7 +75,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
             if (requestCancellationOnFailure && taskInfo.Status == TaskStatus.Failed)
             {
-                await CancelTaskAsync(taskInfo.QueueType, taskInfo.GroupId, null, cancellationToken);
+                await CancelTaskByGroupIdAsync(taskInfo.QueueType, taskInfo.GroupId, cancellationToken);
             }
         }
 
