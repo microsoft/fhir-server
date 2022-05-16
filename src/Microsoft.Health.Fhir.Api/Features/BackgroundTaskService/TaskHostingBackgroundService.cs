@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -48,7 +49,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             {
                 using (IScoped<TaskHosting> taskHosting = _taskHostingFactory())
                 {
-                    var taskHostingValue = taskHosting.Value;
+                    TaskHosting taskHostingValue = taskHosting.Value;
+                    taskHostingValue.StartPartitionId = (byte)RandomNumberGenerator.GetInt32(0, 32);
                     if (_taskHostingConfiguration != null)
                     {
                         taskHostingValue.PollingFrequencyInSeconds = _taskHostingConfiguration.PollingFrequencyInSeconds ?? taskHostingValue.PollingFrequencyInSeconds;

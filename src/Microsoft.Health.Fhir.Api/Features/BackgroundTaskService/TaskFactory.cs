@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -26,7 +27,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private readonly IResourceBulkImporter _resourceBulkImporter;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly IImportOrchestratorTaskDataStoreOperation _importOrchestratorTaskDataStoreOperation;
-        private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
         private readonly IIntegrationDataStoreClient _integrationDataStoreClient;
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             IImportErrorStoreFactory importErrorStoreFactory,
             IImportOrchestratorTaskDataStoreOperation importOrchestratorTaskDataStoreOperation,
             IQueueClient queueClient,
-            ISequenceIdGenerator<long> sequenceIdGenerator,
             IIntegrationDataStoreClient integrationDataStoreClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IOptions<OperationsConfiguration> operationsConfig,
@@ -52,7 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
             EnsureArg.IsNotNull(importOrchestratorTaskDataStoreOperation, nameof(importOrchestratorTaskDataStoreOperation));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -63,7 +61,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _resourceBulkImporter = resourceBulkImporter;
             _importErrorStoreFactory = importErrorStoreFactory;
             _importOrchestratorTaskDataStoreOperation = importOrchestratorTaskDataStoreOperation;
-            _sequenceIdGenerator = sequenceIdGenerator;
             _integrationDataStoreClient = integrationDataStoreClient;
             _queueClient = queueClient;
             _contextAccessor = contextAccessor;
@@ -76,15 +73,19 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         {
             EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
 
-            ITask task = CreateProcessingTask(taskInfo);
-            if (task != null)
+            Func<TaskInfo, ITask>[] taskFactoryFuncs =
+                new Func<TaskInfo, ITask>[] { CreateProcessingTask, CreateOrchestratorTask };
+
+            foreach (Func<TaskInfo, ITask> factoryFunc in taskFactoryFuncs)
             {
-                return task;
+                ITask task = factoryFunc(taskInfo);
+                if (task != null)
+                {
+                    return task;
+                }
             }
 
-            task = CreateOrchestratorTask(taskInfo);
-
-            return task;
+            throw new NotSupportedException($"Unknown task definition. ID: {taskInfo?.Id ?? -1}");
         }
 
         private ITask CreateOrchestratorTask(TaskInfo taskInfo)

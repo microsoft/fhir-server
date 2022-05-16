@@ -53,17 +53,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         [Theory]
         [InlineData(TaskStatus.Completed)]
+        [InlineData(TaskStatus.Cancelled)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
             OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Conflict));
 
             Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCanceled_ThenAcceptedCodeShouldBeReturned()
-        {
-            await SetupAndExecuteCancelImportAsync(TaskStatus.Created, HttpStatusCode.Accepted, true);
         }
 
         [Theory]
@@ -73,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             TaskInfo taskInfo = await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Accepted);
 
-            await _queueClient.Received(1).CancelTaskAsync(ImportConstants.ImportQueueType, taskInfo.GroupId, null, _cancellationToken);
+            await _queueClient.Received(1).CancelTaskAsync((byte)Core.Features.Operations.QueueType.Import, taskInfo.GroupId, null, _cancellationToken);
         }
 
         [Fact]

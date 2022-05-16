@@ -399,7 +399,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 try
                 {
-                    IEnumerable<TaskInfo> taskInfos = await _queueClient.GetTaskByGroupIdAsync(ImportConstants.ImportQueueType, _taskInfo.GroupId, false, CancellationToken.None);
+                    IEnumerable<TaskInfo> taskInfos = await _queueClient.GetTaskByGroupIdAsync((byte)QueueType.Import, _taskInfo.GroupId, false, CancellationToken.None);
 
                     if (taskInfos.All(t => (t.Status != TaskStatus.Created && t.Status != TaskStatus.Running) || t.Id == _taskInfo.Id))
                     {

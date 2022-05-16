@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            TaskInfo taskInfo = await _queueClient.GetTaskByIdAsync(ImportConstants.ImportQueueType, request.TaskId, false, cancellationToken);
+            TaskInfo taskInfo = await _queueClient.GetTaskByIdAsync((byte)QueueType.Import, request.TaskId, false, cancellationToken);
             if (taskInfo == null || taskInfo.Status == TaskStatus.Archived)
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task<(List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)> GetProcessingResultAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
         {
-            IEnumerable<TaskInfo> tasks = await _queueClient.GetTaskByGroupIdAsync(ImportConstants.ImportQueueType, taskInfo.GroupId, false, cancellationToken);
+            IEnumerable<TaskInfo> tasks = await _queueClient.GetTaskByGroupIdAsync((byte)QueueType.Import, taskInfo.GroupId, false, cancellationToken);
             List<ImportOperationOutcome> completedOperationOutcome = new List<ImportOperationOutcome>();
             List<ImportFailedOperationOutcome> failedOperationOutcome = new List<ImportFailedOperationOutcome>();
             foreach (var task in tasks)
