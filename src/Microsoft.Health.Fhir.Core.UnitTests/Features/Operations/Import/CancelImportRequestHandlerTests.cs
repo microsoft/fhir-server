@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Theory]
         [InlineData(TaskStatus.Completed)]
         [InlineData(TaskStatus.Cancelled)]
+        [InlineData(TaskStatus.Failed)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
             OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Conflict));

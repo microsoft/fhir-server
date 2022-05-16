@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                 using (IScoped<TaskHosting> taskHosting = _taskHostingFactory())
                 {
                     TaskHosting taskHostingValue = taskHosting.Value;
-                    taskHostingValue.StartPartitionId = (byte)RandomNumberGenerator.GetInt32(0, 32);
+                    taskHostingValue.StartPartitionId = (byte)RandomNumberGenerator.GetInt32(0, 16);
                     if (_taskHostingConfiguration != null)
                     {
                         taskHostingValue.PollingFrequencyInSeconds = _taskHostingConfiguration.PollingFrequencyInSeconds ?? taskHostingValue.PollingFrequencyInSeconds;

@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
             }
 
-            if (taskInfo.Status == TaskManagement.TaskStatus.Completed || taskInfo.Status == TaskManagement.TaskStatus.Cancelled)
+            if (taskInfo.Status == TaskManagement.TaskStatus.Completed || taskInfo.Status == TaskManagement.TaskStatus.Cancelled || taskInfo.Status == TaskManagement.TaskStatus.Failed)
             {
                 throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
             }

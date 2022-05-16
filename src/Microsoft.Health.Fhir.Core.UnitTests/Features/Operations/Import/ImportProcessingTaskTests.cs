@@ -109,38 +109,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportTaskInput_WhenExceptionThrowForCleanData_ThenRetriableExceptionShouldBeThrow()
-        {
-            ImportProcessingTaskInputData inputData = GetInputData();
-            ImportProcessingTaskResult result = new ImportProcessingTaskResult();
-
-            IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
-            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
-            IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            ILoggerFactory loggerFactory = new NullLoggerFactory();
-
-            importer.CleanResourceAsync(Arg.Any<ImportProcessingTaskInputData>(), Arg.Any<ImportProcessingTaskResult>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    throw new InvalidOperationException();
-                });
-
-            Progress<string> progress = new Progress<string>();
-            ImportProcessingTask task = new ImportProcessingTask(
-                                    inputData,
-                                    result,
-                                    loader,
-                                    importer,
-                                    importErrorStoreFactory,
-                                    contextAccessor,
-                                    loggerFactory);
-
-            await Assert.ThrowsAsync<RetriableTaskException>(() => task.ExecuteAsync(progress, CancellationToken.None));
-        }
-
-        [Fact]
         public async Task GivenImportTaskInput_WhenOperationWasCancelledExceptionThrow_ThenTaskShouldFailed()
         {
             ImportProcessingTaskInputData inputData = GetInputData();
