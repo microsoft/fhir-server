@@ -164,8 +164,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
+            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProviderFunc = p => sqlConnectionStringProvider;
+            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => defaultSqlConnectionWrapperFactory;
 
             var collection = new ServiceCollection();
+            collection.AddScoped(sqlConnectionStringProviderFunc);
+            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
@@ -174,8 +178,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 serviceProviderSchemaInitializer,
                 config,
                 schemaInformation,
-                defaultSqlConnectionBuilder,
-                sqlConnectionStringProvider,
                 mediator,
                 NullLogger<SchemaInitializer>.Instance);
 

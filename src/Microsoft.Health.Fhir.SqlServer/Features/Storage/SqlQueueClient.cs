@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public bool IsInitialized()
         {
-            return _schemaInformation.Current != null;
+            return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
         public async Task<TaskInfo> KeepAliveTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
