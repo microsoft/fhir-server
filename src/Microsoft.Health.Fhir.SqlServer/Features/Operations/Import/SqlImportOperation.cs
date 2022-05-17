@@ -163,12 +163,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "BulkCopyDataAsync failed.");
-                if (ex.IsRetryable())
-                {
-                    throw new RetriableTaskException(ex.Message, ex);
-                }
 
-                throw;
+                throw new RetriableTaskException(ex.Message, ex);
             }
         }
 
@@ -202,12 +198,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "BulkMergeResourceAsync failed.");
-                if (ex.IsRetryable())
-                {
-                    throw new RetriableTaskException(ex.Message, ex);
-                }
-
-                throw;
+                throw new RetriableTaskException(ex.Message, ex);
             }
         }
 
