@@ -1,6 +1,6 @@
 # Convert Data operation
 
-FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently, the $convert-data operation supports four types of conversions: **HL7v2 to FHIR**, **C-CDA to FHIR**, **JSON to FHIR**, **FHIR STU3 to R4**. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project that define mappings between the input data format and FHIR resource structure. 
+FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently, the $convert-data operation supports four types of conversions: **HL7v2 to FHIR**, **C-CDA to FHIR**, **JSON to FHIR** and **FHIR STU3 to R4**. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project that define mappings between the input data format and FHIR resource structure. 
 
 ## How to use $convert-data
 
