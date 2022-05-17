@@ -186,7 +186,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CompressedRawResourceConverter(),
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
-                ModelInfoProvider.Instance);
+                ModelInfoProvider.Instance,
+                _fhirRequestContextAccessor);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
