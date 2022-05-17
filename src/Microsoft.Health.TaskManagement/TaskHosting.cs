@@ -82,7 +82,7 @@ namespace Microsoft.Health.TaskManagement
 
                 if (nextTask != null)
                 {
-                    runningTasks.Add(ExecuteTaskAsync(nextTask, cancellationToken));
+                    runningTasks.Add(ExecuteTaskAsync(nextTask));
                 }
                 else
                 {
@@ -100,10 +100,10 @@ namespace Microsoft.Health.TaskManagement
             }
         }
 
-        private async Task ExecuteTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
+        private async Task ExecuteTaskAsync(TaskInfo taskInfo)
         {
             EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
-            using var taskCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            using CancellationTokenSource taskCancellationToken = new CancellationTokenSource();
 
             ITask task = _taskFactory.Create(taskInfo);
 

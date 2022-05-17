@@ -169,7 +169,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         async (progress, token) =>
                         {
                             autoResetEvent.Set();
-                            await Task.Delay(TimeSpan.FromSeconds(10));
+                            await Task.Delay(TimeSpan.FromSeconds(10), token);
                             Interlocked.Increment(ref executeCount0);
 
                             return t.Definition;

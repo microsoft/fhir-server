@@ -369,7 +369,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 ResourceType = input.Type,
                 BeginSequenceId = beginSequenceId,
                 EndSequenceId = endSequenceId,
-                TaskId = _taskInfo.GroupId.ToString(),
+                TaskId = $"{_taskInfo.GroupId}_{beginSequenceId}",
             };
 
             string[] definitions = new string[] { JsonConvert.SerializeObject(importTaskPayload) };
