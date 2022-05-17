@@ -11,8 +11,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -149,23 +151,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var mediator = Substitute.For<IMediator>();
 
             var schemaManagerDataStore = new SchemaManagerDataStore(
-                defaultSqlConnectionBuilder,
+                defaultSqlConnectionWrapperFactory,
                 config,
                 NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(
                 scriptProvider,
                 baseScriptProvider,
                 NullLogger<SchemaUpgradeRunner>.Instance,
-                defaultSqlConnectionBuilder,
+                defaultSqlConnectionWrapperFactory,
                 schemaManagerDataStore);
 
+            Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
+            Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
+            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProviderFunc = p => sqlConnectionStringProvider;
+            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => defaultSqlConnectionWrapperFactory;
+
+            var collection = new ServiceCollection();
+            collection.AddScoped(sqlConnectionStringProviderFunc);
+            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
+            collection.AddScoped(schemaUpgradeRunnerFactory);
+            collection.AddScoped(schemaManagerDataStoreFactory);
+            var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
+
             var schemaInitializer = new SchemaInitializer(
+                serviceProviderSchemaInitializer,
                 config,
-                schemaManagerDataStore,
-                schemaUpgradeRunner,
                 schemaInformation,
-                defaultSqlConnectionBuilder,
-                sqlConnectionStringProvider,
                 mediator,
                 NullLogger<SchemaInitializer>.Instance);
 

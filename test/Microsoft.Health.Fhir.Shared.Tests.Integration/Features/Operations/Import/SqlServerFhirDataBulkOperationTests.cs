@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     {
         private SqlServerFhirStorageTestsFixture _fixture;
         private SqlImportOperation _sqlServerFhirDataBulkOperation;
+        private static string _rawResourceTestValue = "{\"resourceType\": \"Parameters\",\"parameter\": []}";
 
         public SqlServerFhirDataBulkOperationTests(
             SqlServerFhirStorageTestsFixture fixture)
@@ -287,7 +288,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     resourceId,
                     "0",
                     "Dummy",
-                    new RawResource("Test", Fhir.Core.Models.FhirResourceFormat.Json, true),
+                    new RawResource(_rawResourceTestValue, Fhir.Core.Models.FhirResourceFormat.Json, true),
                     new ResourceRequest("PUT"),
                     DateTimeOffset.UtcNow,
                     false,

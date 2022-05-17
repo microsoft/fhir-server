@@ -165,4 +165,7 @@
     <value>Invalid resource type '{0}'.</value>
     <comment>{0} is the invalid value found.</comment>
   </data>
+  <data name="ResourceNotAvailable" xml:space="preserve">
+    <value>Resource with type {0} and ID {1} is not available.</value>
+  </data>
 </root>

@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string SampleJsonMessage = "{\"PatientId\": 12434, \"MRN\": \"M0R1N2\",\"FirstName\": \"Jerry\", \"LastName\": \"Smith\", \"Phone Number\": [\"1234-5678\", \"1234-5679\"], \"Gender\": \"M\", \"DOB\": \"20010110\"}";
 
+        public const string SampleFhirStu3Message = "{\"resourceType\": \"Patient\", \"id\": 12434, \"animal\": {\"species\": {\"coding\": [ {\"system\": \"http://hl7.org/fhir/animal-species\", \"code\": \"canislf\", \"display\": \"Dog\"}]}}}";
+
         public const string SampleConvertDataResponse = "{ \"resourceType\": \"Bundle\" }";
 
         /// <summary>
