@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             var result = validator.Validate(createMemberMatchRequest);
             Assert.False(result.IsValid);
             Assert.True(result.Errors.Count >= 1);
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("min. cardinality 1 cannot be null")));
+            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("minimum cardinality 1 cannot be null")));
         }
 #endif
 

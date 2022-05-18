@@ -27,10 +27,9 @@
     <TargetFramework>net6.0</TargetFramework>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>6.0.0</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>6.1.10</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>3.8.2</Hl7FhirVersion>
+    <HealthcareSharedPackageVersion>6.1.37</HealthcareSharedPackageVersion>
+    <Hl7FhirVersion>4.0.0</Hl7FhirVersion>
   </PropertyGroup>
-
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test'))">
       <PropertyGroup>
@@ -54,6 +53,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
-    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.321" PrivateAssets="All" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.435" PrivateAssets="All" />
   </ItemGroup>
 </Project>

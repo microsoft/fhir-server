@@ -4,7 +4,7 @@ A .NET Core implementation of the FHIR standard.
 
 | CI Build & Deployment | Azure Government Deployment |
 |---|---|
-| [![Build Status](https://microsofthealthoss.visualstudio.com/FhirServer/_apis/build/status/CI%20Build%20%26%20Deploy?branchName=master)](https://microsofthealthoss.visualstudio.com/FhirServer/_build/latest?definitionId=27&branchName=master) | [![Build Status](https://microsofthealthoss.visualstudio.com/FhirServer/_apis/build/status/CI%20Deployment%20MAG?branchName=master)](https://microsofthealthoss.visualstudio.com/FhirServer/_build/latest?definitionId=28&branchName=master)
+| [![Build Status](https://microsofthealthoss.visualstudio.com/FhirServer/_apis/build/status/CI%20Build%20%26%20Deploy?branchName=main)](https://microsofthealthoss.visualstudio.com/FhirServer/_build/latest?definitionId=27&branchName=main) | [![Build Status](https://microsofthealthoss.visualstudio.com/FhirServer/_apis/build/status/CI%20Deployment%20MAG?branchName=main)](https://microsofthealthoss.visualstudio.com/FhirServer/_build/latest?definitionId=28&branchName=main)
 
 FHIR Server for Azure is an open-source implementation of the emerging [HL7 Fast Healthcare Interoperability Resources (FHIR) specification](https://www.hl7.org/fhir/) designed for the Microsoft cloud. The FHIR specification defines how clinical health data can be made interoperable across systems, and the FHIR Server for Azure helps facilitate that interoperability in the cloud. The goal of this Microsoft Healthcare project is to enable developers to rapidly deploy a FHIR service.
  
@@ -51,7 +51,6 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 - [FHIR Proxy](https://github.com/microsoft/fhir-proxy): Secure FHIR Gateway and Proxy to FHIR Servers.
 
 ## Tutorials & How-to Guides
-- [Health Architectures](https://aka.ms/healtharchitectures): A collection of reference architectures illustrating end-to-end best practices for using the Azure API for FHIR and related technologies.
 - [FHIR Server Samples Repo](https://github.com/Microsoft/fhir-server-samples): A demo sandbox using the Azure API for FHIR.
 - [SMART on FHIR Proxy tutorial](docs/SMARTonFHIR.md): Describes how to use the proxy to enable SMART on FHIR applications with the FHIR Server.
 - [FHIR Postman tutorial](https://docs.microsoft.com/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
