@@ -11,7 +11,8 @@
     IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0,
     SearchParamHash             varchar(64)             NULL,
 
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId),
+    CONSTRAINT CH_Resource_RawResource_Length CHECK (DATALENGTH(RawResource) > 0)
 )
 
 ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )

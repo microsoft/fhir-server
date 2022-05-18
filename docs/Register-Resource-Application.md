@@ -40,7 +40,7 @@ The Azure API for FHIR and the OSS FHIR Server for Azure use [Azure Active Direc
 
 1. Click **App roles | Preview**
 1. Select **Create app role**
-1. Add the details from the [roles](https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.Shared.Web/roles.json) file.  This includes globalAdmin, globalWriter, globalReader, and globalExporter. Select Both fo Allowed member types.
+1. Add the details from the [roles](https://github.com/microsoft/fhir-server/blob/main/src/Microsoft.Health.Fhir.Shared.Web/roles.json) file.  This includes globalAdmin, globalWriter, globalReader, and globalExporter. Select Both fo Allowed member types.
 
 ![Add App Roles](images/resource-application/approles.png)
 

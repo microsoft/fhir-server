@@ -32,7 +32,7 @@ Anyone can review a PR, even if you are not assigned as the reviewer.
   - Someone on the team who hasn’t worked on the feature before should be able to understand the PR
   - If applicable, add additional information about how we would do acceptance for the PR change (if it isn’t in the user story)
   - If possible, add examples of API calls that could be made to test the PR change
-- Tag your PRs with the appropriate labels to help provide context for the release notes (see [Squash Merge Requirements](https://github.com/microsoft/fhir-server/blob/master/SquashMergeRequirements.md) for more details)
+- Tag your PRs with the appropriate labels to help provide context for the release notes (see [Squash Merge Requirements](https://github.com/microsoft/fhir-server/blob/main/SquashMergeRequirements.md) for more details)
 
 ## Make comments actionable
 
