@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // indicating the server has a transient error, and the client can try again
                     if (stream.Length < 31) // rather than error on a length of 0, a stream with a small number of bytes should still throw an error. RawResource.Data = null, still results in a stream of 29 bytes
                     {
-                        _logger.LogCritical("Stream size for resource of type: {0} is less than 50 bytes, request method: {1}", resource.ResourceTypeName, resource.Request.Method);
+                        _logger.LogCritical("Stream size for resource of type: {ResourceTypeName} is less than 50 bytes, request method: {RequestMethod}", resource.ResourceTypeName, resource.Request.Method);
                         throw new ServiceUnavailableException();
                     }
 
@@ -464,7 +464,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             rawResource = MissingResourceFactory.CreateJson(key.Id, key.ResourceType, "error", "exception");
                             _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.InternalServerError);
                         }
-                        
+
                         _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceType}: {ResourceType}; {NameOfRawResource} length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(key.ResourceType), key.ResourceType, nameof(rawResource), rawResource.Length);
 
                         var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
