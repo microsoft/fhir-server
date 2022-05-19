@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             await context.Response.Body.WriteAsync(body);
         }
 
-        private static Memory<byte> CreateThrottledBody(string message) => Encoding.UTF8.GetBytes($@"{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{message}""}}").AsMemory();
+        private static Memory<byte> CreateThrottledBody(string message) => Encoding.UTF8.GetBytes($@"{{""resourceType"":""OperationOutcome"",""issue"":[{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{message}""}}]}}").AsMemory();
 
         public async ValueTask DisposeAsync()
         {
