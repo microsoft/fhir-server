@@ -723,3 +723,8 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+IF object_id('ExportJob') IS NOT NULL
+  UPDATE dbo.ExportJob
+    SET Status = 'Canceled'
+    WHERE Status IN ('Queued','Running')
+GO

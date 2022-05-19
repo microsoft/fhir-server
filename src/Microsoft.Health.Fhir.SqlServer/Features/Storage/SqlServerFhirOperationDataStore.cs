@@ -79,7 +79,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            if (!long.TryParse(id, out var jobId) || jobId < 0)
+            if (!long.TryParse(id, out var jobId))
+            {
+                // Invoke old logic. Must be eventually removed.
+                VLatest.GetExportJobById.PopulateCommand(sqlCommandWrapper, id);
+                var readerToBeDeprecated = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+                if (!readerToBeDeprecated.Read())
+                {
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
+                }
+
+                (string rawJobRecordToBeDeprecated, byte[] rowVersion) = readerToBeDeprecated.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
+                return CreateExportJobOutcomeToBeDeprecated(rawJobRecordToBeDeprecated, rowVersion);
+            }
+
+            if (jobId < 0)
             {
                 throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
             }
@@ -339,6 +353,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             jobRecord.Status = (OperationStatus)status;
             var etag = GetRowVersionAsEtag(BitConverter.GetBytes(version));
             return new ExportJobOutcome(jobRecord, etag);
+        }
+
+        private ExportJobOutcome CreateExportJobOutcomeToBeDeprecated(string rawJobRecord, byte[] rowVersionAsBytes)
+        {
+            var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
+            WeakETag etag = GetRowVersionAsEtag(rowVersionAsBytes);
+            return new ExportJobOutcome(exportJobRecord, etag);
         }
 
         private static WeakETag GetRowVersionAsEtag(byte[] rowVersionAsBytes)

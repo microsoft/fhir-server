@@ -284,6 +284,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return _testHelper;
             }
 
+            if (serviceType == typeof(ISqlServerFhirStorageTestHelper))
+            {
+                return _testHelper;
+            }
+
             if (serviceType.IsInstanceOfType(this))
             {
                 return this;
