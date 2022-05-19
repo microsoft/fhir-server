@@ -1721,9 +1721,9 @@ BEGIN TRY
             SET    StartDate     = getUTCdate(),
                    HeartbeatDate = getUTCdate(),
                    Worker        = @Worker,
-                   Status        = 1,
+                   Status        = CASE WHEN CancelRequested = 0 THEN 1 ELSE 4 END,
                    Version       = datediff_big(millisecond, '0001-01-01', getUTCdate()),
-                   @JobId        = T.JobId,
+                   @JobId        = CASE WHEN CancelRequested = 0 THEN T.JobId END,
                    Info          = isnull(Info, '') + ' Prev: Worker=' + Worker + ' Start=' + CONVERT (VARCHAR, StartDate, 121)
             FROM   dbo.JobQueue AS T WITH (PAGLOCK)
                    INNER JOIN
@@ -2360,6 +2360,16 @@ BEGIN TRY
                    AND JobId = @JobId
                    AND Status = 0;
             SET @Rows = @@rowcount;
+            IF @Rows = 0
+                BEGIN
+                    UPDATE dbo.JobQueue
+                    SET    CancelRequested = 1
+                    WHERE  QueueType = @QueueType
+                           AND PartitionId = @PartitionId
+                           AND JobId = @JobId
+                           AND Status = 1;
+                    SET @Rows = @@rowcount;
+                END
         END
     ELSE
         BEGIN
@@ -2444,7 +2454,7 @@ SET @Mode = 'Q=' + CONVERT (VARCHAR, @QueueType) + ' J=' + CONVERT (VARCHAR, @Jo
 BEGIN TRY
     UPDATE dbo.JobQueue
     SET    EndDate  = getUTCdate(),
-           Status   = CASE WHEN @Failed = 1 THEN 3 ELSE 2 END,
+           Status   = CASE WHEN @Failed = 1 THEN 3 WHEN CancelRequested = 1 THEN 4 ELSE 2 END,
            Data     = @Data,
            Result   = @FinalResult,
            Version  = datediff_big(millisecond, '0001-01-01', getUTCdate()),

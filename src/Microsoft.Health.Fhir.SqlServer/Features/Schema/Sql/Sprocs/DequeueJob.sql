@@ -75,9 +75,9 @@ BEGIN TRY
       SET StartDate = getUTCdate()
          ,HeartbeatDate = getUTCdate()
          ,Worker = @Worker 
-         ,Status = 1 -- running
+         ,Status = CASE WHEN CancelRequested = 0 THEN 1 ELSE 4 END 
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
-         ,@JobId = T.JobId
+         ,@JobId = CASE WHEN CancelRequested = 0 THEN T.JobId END
          ,Info = isnull(Info,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,StartDate,121)
       FROM dbo.JobQueue T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 

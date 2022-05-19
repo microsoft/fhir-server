@@ -15,7 +15,7 @@ SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='
 BEGIN TRY
   UPDATE dbo.JobQueue
     SET EndDate = getUTCdate()
-       ,Status = CASE WHEN @Failed = 1 THEN 3 ELSE 2 END -- 2=completed 3=failed
+       ,Status = CASE WHEN @Failed = 1 THEN 3 WHEN CancelRequested = 1 THEN 4 ELSE 2 END -- 2=completed 3=failed 4=cancelled
        ,Data = @Data
        ,Result = @FinalResult
        ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
