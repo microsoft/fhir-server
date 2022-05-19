@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class SecurityConfiguration
     {
-        public delegate void AddAuthenticaionLibraryMethod(IServiceCollection services, string authority, string audience);
+        public delegate void AddAuthenticaionLibraryMethod(IServiceCollection services, SecurityConfiguration securityConfiguration);
 
         public bool Enabled { get; set; }
 
@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public virtual HashSet<string> PrincipalClaims { get; } = new HashSet<string>(StringComparer.Ordinal);
 
         public AuthorizationConfiguration Authorization { get; set; } = new AuthorizationConfiguration();
+
+        public string ServicePrincipalClientId { get; set; }
 
         public AddAuthenticaionLibraryMethod AddAuthenticaionLibrary { get; set; }
     }

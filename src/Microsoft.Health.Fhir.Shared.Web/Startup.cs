@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Web
             }
         }
 
-        private static void AddAuthenticationLibrary(IServiceCollection services, string authority, string audience)
+        private static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
         {
             services.AddAuthentication(options =>
             {
@@ -146,10 +146,10 @@ namespace Microsoft.Health.Fhir.Web
             })
                 .AddJwtBearer(options =>
                 {
-                    options.Authority = authority;
-                    options.Audience = audience;
+                    options.Authority = securityConfiguration.Authentication.Authority;
+                    options.Audience = securityConfiguration.Authentication.Audience;
                     options.RequireHttpsMetadata = true;
-                    options.Challenge = $"Bearer authorization_uri=\"{authority}\", resource_id=\"{audience}\", realm=\"{audience}\"";
+                    options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
                 });
         }
     }
