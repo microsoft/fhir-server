@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -10,6 +11,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
@@ -39,6 +42,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 	]
 }";
 
+        private static string exportJobRecord = JsonConvert.SerializeObject(CreateDummyExportJobRecord());
+
         [Fact]
         public async Task GivenAValidAnonymizationConfiguration_WhenCreatingAnonymizer_AnonymizerShouldBeCreated()
         {
@@ -54,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            IAnonymizer anonymizer = await factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None);
+            IAnonymizer anonymizer = await factory.CreateAnonymizerAsync(exportJobRecord, CancellationToken.None);
 
             Assert.NotNull(anonymizer);
         }
@@ -74,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            _ = await Assert.ThrowsAsync<FailedToParseAnonymizationConfigurationException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
+            _ = await Assert.ThrowsAsync<FailedToParseAnonymizationConfigurationException>(() => factory.CreateAnonymizerAsync(exportJobRecord, CancellationToken.None));
         }
 
         [Fact]
@@ -90,7 +95,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            _ = await Assert.ThrowsAsync<AnonymizationConfigurationNotFoundException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
+            _ = await Assert.ThrowsAsync<AnonymizationConfigurationNotFoundException>(() => factory.CreateAnonymizerAsync(exportJobRecord, CancellationToken.None));
+        }
+
+        private static ExportJobRecord CreateDummyExportJobRecord()
+        {
+            return new ExportJobRecord(
+                new Uri("http://localhost/dummy/"),
+                ExportJobType.Patient,
+                ExportFormatTags.ResourceName,
+                resourceType: null,
+                filters: null,
+                hash: "123",
+                rollingFileSizeInMB: 64,
+                anonymizationConfigurationLocation: "dummy",
+                requestorClaims: null)
+            {
+                Status = OperationStatus.Queued,
+            };
         }
     }
 }

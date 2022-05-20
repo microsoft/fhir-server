@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -477,9 +478,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
         {
-            string configurationWithEtag = $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
-
-            return await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationWithEtag, cancellationToken);
+            string exportJobRecordStr = JsonConvert.SerializeObject(_exportJobRecord);
+            return await _anonymizerFactory.Value.CreateAnonymizerAsync(exportJobRecordStr, cancellationToken);
         }
 
         private async Task RunExportCompartmentSearch(

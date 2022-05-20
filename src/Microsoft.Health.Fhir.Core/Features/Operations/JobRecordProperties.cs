@@ -91,6 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string SearchParams = "searchParams";
 
+        public const string AnonymizationConfigurationCollectionReference = "anonymizationConfigurationCollectionReference";
+
         public const string AnonymizationConfigurationLocation = "anonymizationConfigurationLocation";
 
         public const string AnonymizationConfigurationFileETag = "anonymizationConfigurationFileHash";

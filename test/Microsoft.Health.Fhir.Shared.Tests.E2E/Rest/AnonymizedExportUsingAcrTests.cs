@@ -1,29 +1,37 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Azure.ContainerRegistry;
+using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.TemplateManagement.Utilities;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.Rest;
 using Newtonsoft.Json;
 using Xunit;
 using FhirGroup = Hl7.Fhir.Model.Group;
@@ -33,8 +41,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.AnonymizedExport)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class AnonymizedExportTests : IClassFixture<ExportTestFixture>
+    public class AnonymizedExportUsingAcrTests : IClassFixture<ExportTestFixture>
     {
+        private const string TestRepositoryName = "anonymizationconfigs";
+        private const string TestConfigName = "testconfigname.json";
+        private const string TestRepositoryTag = "e2etest";
+
         private const string LocalIntegrationStoreConnectionString = "UseDevelopmentStorage=true";
 
         private bool _isUsingInProcTestServer = false;
@@ -48,27 +60,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     ]
 }";
 
-        public AnonymizedExportTests(ExportTestFixture fixture)
+        public AnonymizedExportUsingAcrTests(ExportTestFixture fixture)
         {
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("")]
         [InlineData("Patient/")]
-        public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
+        public async Task GivenAValidConfigurationWithAcrReference_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
         {
+            var registry = GetTestContainerRegistryInfo();
+
+            // Here we skip local E2E test since we need Managed Identity for container registry token.
+            // We also skip the case when environmental variable is not provided (not able to upload configurations)
+            Skip.If(_isUsingInProcTestServer || registry == null);
+            await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
+
             _metricHandler?.ResetCount();
             var dateTime = DateTimeOffset.UtcNow;
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
             await _testFhirClient.UpdateAsync(resourceToCreate);
 
-            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, path);
+            string reference = $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}";
+            Uri contentLocation = await _testFhirClient.AnonymizedExportUsingAcrAsync(TestConfigName, reference, dateTime, containerName, path);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -89,11 +108,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
-        public async Task GivenAValidConfigurationWithETag_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
+        [SkippableFact]
+        public async Task GivenAValidConfigurationWithAcrReference_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
         {
-            _metricHandler?.ResetCount();
+            var registry = GetTestContainerRegistryInfo();
 
+            // Here we skip local E2E test since we need Managed Identity for container registry token.
+            // We also skip the case when environmental variable is not provided (not able to upload configurations)
+            Skip.If(_isUsingInProcTestServer || registry == null);
+            await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
+
+            _metricHandler?.ResetCount();
             var patientToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             var dateTime = DateTimeOffset.UtcNow;
             patientToCreate.Id = Guid.NewGuid().ToString();
@@ -116,9 +141,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var groupReponse = await _testFhirClient.UpdateAsync(group);
             var groupId = groupReponse.Resource.Id;
 
-            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, $"Group/{groupId}/");
+            string reference = $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}";
+            Uri contentLocation = await _testFhirClient.AnonymizedExportUsingAcrAsync(TestConfigName, reference, dateTime, containerName, $"Group/{groupId}/");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -141,31 +166,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact]
-        public async Task GivenAValidConfigurationWithETagNoQuotes_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
+        [SkippableTheory]
+        [InlineData("configimage:1234567890")]
+        [InlineData("configimage@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
+        [InlineData("wrongimage:default")]
+        public async Task GivenAInvalidAcrReference_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned(string imageReference)
         {
+            var registry = GetTestContainerRegistryInfo();
+
+            // Here we skip local E2E test since we need Managed Identity for container registry token.
+            // We also skip the case when environmental variable is not provided (not able to upload configurations)
+            Skip.If(_isUsingInProcTestServer || registry == null);
+            await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
+
             _metricHandler?.ResetCount();
             var dateTime = DateTimeOffset.UtcNow;
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
             await _testFhirClient.UpdateAsync(resourceToCreate);
 
-            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
-            etag = etag.Substring(1, 17);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
+            string reference = $"{registry.Server}/{imageReference}";
+            Uri contentLocation = await _testFhirClient.AnonymizedExportUsingAcrAsync(TestConfigName, reference, dateTime, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            IList<Uri> blobUris = await CheckExportStatus(response);
 
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
-
-            foreach (string content in dataFromExport)
-            {
-                Resource result = parser.Parse<Resource>(content);
-
-                Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
-            }
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Assert.Contains($"Image Not Found.", responseContent);
 
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
@@ -175,48 +201,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
-        public async Task GivenAValidConfigurationWithoutETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
+        public async Task GivenInvalidConfigurationNotInAcr_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
+            var registry = GetTestContainerRegistryInfo();
+
+            // Here we skip local E2E test since we need Managed Identity for container registry token.
+            // We also skip the case when environmental variable is not provided (not able to upload configurations)
+            Skip.If(_isUsingInProcTestServer || registry == null);
+            await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, "Invalid Json.");
+
             _metricHandler?.ResetCount();
-
-            var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
-            resourceToCreate.Id = Guid.NewGuid().ToString();
-            var dateTime = DateTimeOffset.UtcNow;
-            await _testFhirClient.UpdateAsync(resourceToCreate);
-
-            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
-
-            string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName);
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            IList<Uri> blobUris = await CheckExportStatus(response);
-
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
-
-            foreach (string content in dataFromExport)
-            {
-                Resource result = parser.Parse<Resource>(content);
-
-                Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
-            }
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
-        }
-
-        [SkippableFact]
-        public async Task GivenInvalidConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
-        {
-            _metricHandler?.ResetCount();
-
-            (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
             var dateTime = DateTimeOffset.UtcNow;
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
+            string reference = $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}";
+            Uri contentLocation = await _testFhirClient.AnonymizedExportUsingAcrAsync(TestConfigName, reference, dateTime, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -231,81 +229,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
-        public async Task GivenAGroupIdNotExisted_WhenExportingGroupAnonymizedData_ThenBadRequestShouldBeReturned()
+        public async Task GivenAConfigurationNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
+            var registry = GetTestContainerRegistryInfo();
+
+            // Here we skip local E2E test since we need Managed Identity for container registry token.
+            // We also skip the case when environmental variable is not provided (not able to upload configurations)
+            Skip.If(_isUsingInProcTestServer || registry == null);
+            await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
+
             _metricHandler?.ResetCount();
             var dateTime = DateTimeOffset.UtcNow;
-            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
-
-            string groupId = "not-exist-id";
-            string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, $"Group/{groupId}/");
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            string responseContent = await response.Content.ReadAsStringAsync();
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains($"Group {groupId} was not found", responseContent);
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
-        }
-
-        [SkippableFact]
-        public async Task GivenInvalidEtagProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
-        {
-            _metricHandler?.ResetCount();
-            var dateTime = DateTimeOffset.UtcNow;
-            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, "\"0x000000000000000\"");
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            string responseContent = await response.Content.ReadAsStringAsync();
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("The condition specified using HTTP conditional header(s) is not met.", responseContent);
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
-        }
-
-        [SkippableFact]
-        public async Task GivenEtagInWrongFormatProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
-        {
-            _metricHandler?.ResetCount();
-            var dateTime = DateTimeOffset.UtcNow;
-            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
-
-            string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, "\"invalid-etag");
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            string responseContent = await response.Content.ReadAsStringAsync();
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("invalid-etag' is invalid.", responseContent);
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
-        }
-
-        [SkippableFact]
-        public async Task GivenAContainerNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
-        {
-            _metricHandler?.ResetCount();
-            var dateTime = DateTimeOffset.UtcNow;
-            await InitializeAnonymizationContainer();
-
-            string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", dateTime, containerName);
+            string reference = $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}";
+            Uri contentLocation = await _testFhirClient.AnonymizedExportUsingAcrAsync("not-exist.json", reference, dateTime, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -320,15 +258,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
-        public async Task GivenALargeConfigurationProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
+        public async Task GivenALargeConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
+            var registry = GetTestContainerRegistryInfo();
+
+            // Here we skip local E2E test since we need Managed Identity for container registry token.
+            // We also skip the case when environmental variable is not provided (not able to upload configurations)
+            Skip.If(_isUsingInProcTestServer || registry == null);
+            string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
+            await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, largeConfig);
+
             _metricHandler?.ResetCount();
             var dateTime = DateTimeOffset.UtcNow;
-            string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
-            (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
+            string reference = $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}";
+            Uri contentLocation = await _testFhirClient.AnonymizedExportUsingAcrAsync(TestConfigName, reference, dateTime, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -340,38 +285,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
             }
-        }
-
-        [SkippableFact]
-        public async Task GivenAnAnonymizedExportRequestWithoutContainerName_WhenExportingAnonymizedData_ThenFhirExceptionShouldBeThrewFromFhirClient()
-        {
-            var dateTime = DateTimeOffset.UtcNow;
-            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
-
-            string containerName = string.Empty;
-            await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName));
-        }
-
-        private async Task<(string name, string eTag)> UploadConfigurationAsync(string configurationContent, string blobName = null)
-        {
-            blobName = blobName ?? $"{Guid.NewGuid()}.json";
-            CloudBlobContainer container = await InitializeAnonymizationContainer();
-
-            CloudBlockBlob blob = container.GetBlockBlobReference(blobName);
-            await blob.DeleteIfExistsAsync();
-
-            await blob.UploadTextAsync(configurationContent);
-
-            return (blobName, blob.Properties.ETag);
-        }
-
-        private async Task<CloudBlobContainer> InitializeAnonymizationContainer()
-        {
-            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference("anonymization");
-            await container.CreateIfNotExistsAsync();
-            return container;
         }
 
         private async Task<HttpResponseMessage> WaitForCompleteAsync(Uri contentLocation)
@@ -455,6 +368,112 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             return storageAccount;
+        }
+
+        private ContainerRegistryInfo GetTestContainerRegistryInfo()
+        {
+            var containerRegistry = new ContainerRegistryInfo
+            {
+                Server = Environment.GetEnvironmentVariable("TestContainerRegistryServer"),
+                Username = Environment.GetEnvironmentVariable("TestContainerRegistryServer")?.Split('.')[0],
+                Password = Environment.GetEnvironmentVariable("TestContainerRegistryPassword"),
+            };
+
+            if (string.IsNullOrEmpty(containerRegistry.Server) || string.IsNullOrEmpty(containerRegistry.Password))
+            {
+                return null;
+            }
+
+            return containerRegistry;
+        }
+
+        private static string ComputeDigest(Stream s)
+        {
+            s.Position = 0;
+            StringBuilder sb = new StringBuilder();
+
+            using (var hash = SHA256.Create())
+            {
+                byte[] result = hash.ComputeHash(s);
+                foreach (byte b in result)
+                {
+                    sb.Append(b.ToString("x2"));
+                }
+            }
+
+            return "sha256:" + sb.ToString();
+        }
+
+        private async Task UploadBlob(AzureContainerRegistryClient acrClient, Stream stream, string repository, string digest)
+        {
+            stream.Position = 0;
+            var uploadInfo = await acrClient.Blob.StartUploadAsync(repository);
+            var uploadedLayer = await acrClient.Blob.UploadAsync(stream, uploadInfo.Location);
+            await acrClient.Blob.EndUploadAsync(digest, uploadedLayer.Location);
+        }
+
+        private async Task PushConfigurationAsync(ContainerRegistryInfo registry, string repository, string tag, string configContent)
+        {
+            AzureContainerRegistryClient acrClient = new AzureContainerRegistryClient(registry.Server, new AcrBasicToken(registry));
+
+            int schemaV2 = 2;
+            string mediatypeV2Manifest = "application/vnd.docker.distribution.manifest.v2+json";
+            string mediatypeV1Manifest = "application/vnd.oci.image.config.v1+json";
+            string emptyConfigStr = "{}";
+
+            // Upload config blob
+            byte[] originalConfigBytes = Encoding.UTF8.GetBytes(emptyConfigStr);
+            using var originalConfigStream = new MemoryStream(originalConfigBytes);
+            string originalConfigDigest = ComputeDigest(originalConfigStream);
+            await UploadBlob(acrClient, originalConfigStream, repository, originalConfigDigest);
+
+            // Upload memory blob
+            byte[] configContentBytes = Encoding.UTF8.GetBytes(configContent);
+
+            configContentBytes = StreamUtility.CompressToTarGz(new Dictionary<string, byte[]>() { { TestConfigName, configContentBytes } }, false);
+            using Stream byteStream = new MemoryStream(configContentBytes);
+            var blobLength = byteStream.Length;
+            string blobDigest = ComputeDigest(byteStream);
+            await UploadBlob(acrClient, byteStream, repository, blobDigest);
+
+            // Push manifest
+            List<Descriptor> layers = new List<Descriptor>
+            {
+                new Descriptor("application/vnd.oci.image.layer.v1.tar", blobLength, blobDigest),
+            };
+            var v2Manifest = new V2Manifest(schemaV2, mediatypeV2Manifest, new Descriptor(mediatypeV1Manifest, originalConfigBytes.Length, originalConfigDigest), layers);
+            await acrClient.Manifests.CreateAsync(repository, tag, v2Manifest);
+        }
+
+        internal class ContainerRegistryInfo
+        {
+            public string Server { get; set; }
+
+            public string Username { get; set; }
+
+            public string Password { get; set; }
+        }
+
+        internal class AcrBasicToken : ServiceClientCredentials
+        {
+            private ContainerRegistryInfo _registry;
+
+            public AcrBasicToken(ContainerRegistryInfo registry)
+            {
+                _registry = registry;
+            }
+
+            public override void InitializeServiceClient<T>(ServiceClient<T> client)
+            {
+                base.InitializeServiceClient(client);
+            }
+
+            public override Task ProcessHttpRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                var basicToken = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_registry.Username}:{_registry.Password}"));
+                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicToken);
+                return base.ProcessHttpRequestAsync(request, cancellationToken);
+            }
         }
     }
 }

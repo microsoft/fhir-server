@@ -99,6 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     request.GroupId,
                     storageAccountConnectionHash,
                     _exportJobConfiguration.StorageAccountUri,
+                    request.AnonymizationConfigurationCollectionReference,
                     request.AnonymizationConfigurationLocation,
                     request.AnonymizationConfigurationFileETag,
                     _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,

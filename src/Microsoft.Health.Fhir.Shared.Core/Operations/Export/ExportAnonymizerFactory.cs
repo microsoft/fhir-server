@@ -10,6 +10,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Anonymizer.Core;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -29,7 +31,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public async Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrEmpty(configurationLocation, nameof(configurationLocation));
+            ExportJobRecord exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(configurationLocation);
+            EnsureArg.IsNotNullOrEmpty(exportJobRecord.AnonymizationConfigurationLocation, nameof(exportJobRecord.AnonymizationConfigurationLocation));
 
             using (Stream stream = new MemoryStream())
             {
@@ -44,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError("Failed to fetch Anonymization configuration file: {configLocation}", configurationLocation);
+                    _logger.LogError("Failed to fetch Anonymization configuration file: {configLocation}", exportJobRecord.AnonymizationConfigurationLocation);
                     throw new AnonymizationConfigurationFetchException(ex.Message, ex);
                 }
 

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -11,10 +12,11 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Anonymizer.Core.Utility;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -23,6 +25,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class ExportAnonymizerTests
     {
+        private static string exportJobRecord = JsonConvert.SerializeObject(CreateDummyExportJobRecord());
+
         [Fact]
         public async Task GivenRedactAnonymizationConfig_WhenAnonymizeResource_ThenPropertiesShouldBeRedacted()
         {
@@ -187,7 +191,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            return await factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None);
+            return await factory.CreateAnonymizerAsync(exportJobRecord, CancellationToken.None);
+        }
+
+        private static ExportJobRecord CreateDummyExportJobRecord()
+        {
+            return new ExportJobRecord(
+                new Uri("http://localhost/dummy/"),
+                ExportJobType.Patient,
+                ExportFormatTags.ResourceName,
+                resourceType: null,
+                filters: null,
+                hash: "123",
+                rollingFileSizeInMB: 64,
+                anonymizationConfigurationLocation: "dummy",
+                requestorClaims: null)
+            {
+                Status = OperationStatus.Queued,
+            };
         }
     }
 }
