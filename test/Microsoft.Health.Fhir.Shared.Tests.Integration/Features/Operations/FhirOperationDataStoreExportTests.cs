@@ -168,7 +168,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 ValidateExportJobOutcome(expectedJobRecord, acquiredJobRecord);
             }
         }
-#pragma warning restore SA1107 // Code should not contain multiple statements on one line
 
         [Fact]
         public async Task GivenThereIsARunningExportJobThatExpired_WhenAcquiringExportJobs_ThenTheExpiredExportJobShouldBeReturned()
@@ -191,10 +190,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             ExportJobRecord[] jobRecords = new[]
             {
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4"); }),
             };
 
             var completionSource = new TaskCompletionSource<bool>();
@@ -222,6 +221,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 return await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2);
             }
         }
+#pragma warning restore SA1107 // Code should not contain multiple statements on one line
 
         [Fact]
         public async Task GivenARunningExportJob_WhenUpdatingTheExportJob_ThenTheExportJobShouldBeUpdated()
