@@ -239,19 +239,19 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenUnclusteredIndexes_WhenRebuildIndexes_ThenOnlyDisabledIndexShouldBeBuilt()
         {
-            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.IndexesList().Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName, bool pageCompression)[] indexes = _sqlServerFhirDataBulkOperation.IndexesList().Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)).ToArray();
             foreach (var index in indexes)
             {
                 await DisableIndex(index.tableName, index.indexName);
                 bool isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.True(isDisabled);
 
-                bool isExecuted = await RebuildIndex(index.tableName, index.indexName);
+                bool isExecuted = await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.False(isDisabled);
                 Assert.True(isExecuted);
 
-                isExecuted = await RebuildIndex(index.tableName, index.indexName);
+                isExecuted = await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.False(isDisabled);
                 Assert.False(isExecuted);
@@ -261,10 +261,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenUnclusteredIndexes_WhenDisableIndexes_ThenOnlyBuiltIndexShouldBeDisabled()
         {
-            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.IndexesList().Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName, bool pageCompression)[] indexes = _sqlServerFhirDataBulkOperation.IndexesList().Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)).ToArray();
             foreach (var index in indexes)
             {
-                await RebuildIndex(index.tableName, index.indexName);
+                await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
                 bool isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.False(isDisabled);
 
@@ -314,13 +314,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             }
         }
 
-        private async Task<bool> RebuildIndex(string tableName, string indexName)
+        private async Task<bool> RebuildIndex(string tableName, string indexName, bool pageCompression)
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
+                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
                 var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Int);
                 returnParameter.Direction = ParameterDirection.ReturnValue;
 

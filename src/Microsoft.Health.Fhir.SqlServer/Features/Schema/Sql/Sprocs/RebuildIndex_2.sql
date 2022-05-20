@@ -13,9 +13,14 @@
 --         * index table name
 --     @indexName
 --         * index name
-CREATE PROCEDURE [dbo].[RebuildIndex]
+--     @pageCompression
+--         * index page compression
+
+GO
+CREATE PROCEDURE [dbo].[RebuildIndex_2]
     @tableName nvarchar(128),
-    @indexName nvarchar(128)
+    @indexName nvarchar(128),
+    @pageCompression bit
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -30,7 +35,11 @@ IF EXISTS (SELECT *
                   AND is_disabled = 1)
     BEGIN
         DECLARE @Sql AS NVARCHAR (MAX);
-        SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild';
+        IF @pageCompression = 0 
+            SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild'
+	    ELSE 
+            SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild WITH (DATA_COMPRESSION = PAGE)'
+        
         EXECUTE sp_executesql @Sql;
         SET @IsExecuted = 1;
     END

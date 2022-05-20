@@ -226,6 +226,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[FetchResourceChanges]"),
                 ("Procedure", "[dbo].[FetchResourceChanges_2]"),
                 ("Procedure", "[dbo].[RemovePartitionFromResourceChanges]"),
+                ("Procedure", "[dbo].[RebuildIndex]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),
