@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;
 
-            if (outcome.JobRecord.Status == OperationStatus.Completed)
+            if (outcome.JobRecord.Status == OperationStatus.Completed || outcome.JobRecord.Status == OperationStatus.Canceled)
             {
                 List<ExportFileInfo> allFiles = new List<ExportFileInfo>();
                 foreach (List<ExportFileInfo> fileList in outcome.JobRecord.Output.Values)
@@ -67,16 +67,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             else if (outcome.JobRecord.Status == OperationStatus.Failed || outcome.JobRecord.Status == OperationStatus.Canceled)
             {
-                var failureReason = outcome.JobRecord.FailureDetails != null
-                                            ? outcome.JobRecord.FailureDetails.FailureReason
-                                            : outcome.JobRecord.Status == OperationStatus.Canceled
-                                                    ? Core.Resources.UserRequestedCancellation
-                                                    : Core.Resources.UnknownError;
-                var failureStatusCode = outcome.JobRecord.FailureDetails != null
-                                            ? outcome.JobRecord.FailureDetails.FailureStatusCode
-                                            : outcome.JobRecord.Status == OperationStatus.Canceled
-                                                    ? HttpStatusCode.OK
-                                                    : HttpStatusCode.InternalServerError;
+                string failureReason = outcome.JobRecord.FailureDetails != null ? outcome.JobRecord.FailureDetails.FailureReason : Core.Resources.UnknownError;
+                HttpStatusCode failureStatusCode = outcome.JobRecord.FailureDetails != null ? outcome.JobRecord.FailureDetails.FailureStatusCode : HttpStatusCode.InternalServerError;
 
                 throw new OperationFailedException(
                     string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, failureReason), failureStatusCode);
