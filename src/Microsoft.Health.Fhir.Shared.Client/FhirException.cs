@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public OperationOutcome OperationOutcome => Response.Resource;
 
-        public override string Message => $"{StatusCode} ({GetOperationId()}): {OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics}";
+        public override string Message => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics} ({GetOperationId()})";
 
         public void Dispose()
         {

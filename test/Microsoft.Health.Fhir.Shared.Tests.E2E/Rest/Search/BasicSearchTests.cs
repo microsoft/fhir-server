@@ -616,7 +616,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.ElementsAndSummaryParametersAreIncompatible, KnownQueryParameterNames.Summary, KnownQueryParameterNames.Elements);
 
-            Assert.Equal(expectedErrorMessage, ex.Message);
+            Assert.StartsWith(expectedErrorMessage, ex.Message);
         }
 
         [Fact]
@@ -798,7 +798,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var supportedTotalTypes = new string($"'{TotalType.Accurate}', '{TotalType.None}'").ToLower(CultureInfo.CurrentCulture);
             var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.UnsupportedTotalParameter, totalType, supportedTotalTypes);
 
-            Assert.Equal(expectedErrorMessage, ex.Message);
+            Assert.StartsWith(expectedErrorMessage, ex.Message);
         }
 
         [InlineData("_total", "count")]
@@ -815,7 +815,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var supportedTotalTypes = new string($"'{TotalType.Accurate}', '{TotalType.None}'").ToLower(CultureInfo.CurrentCulture);
             var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.InvalidTotalParameter, val, supportedTotalTypes);
 
-            Assert.Equal(expectedErrorMessage, ex.Message);
+            Assert.StartsWith(expectedErrorMessage, ex.Message);
         }
 
         [Fact]
