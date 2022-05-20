@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Theory]
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Canceled)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk(OperationStatus operationStatus)
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedOrCancelledStatus_ThenHttpResponseCodeShouldBeOk(OperationStatus operationStatus)
         {
             GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
 
