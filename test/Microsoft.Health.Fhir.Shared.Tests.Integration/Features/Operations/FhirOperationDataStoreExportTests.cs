@@ -26,15 +26,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
     {
         private readonly IFhirOperationDataStore _operationDataStore;
         private readonly IFhirStorageTestHelper _testHelper;
-        private readonly ISqlServerFhirStorageTestHelper _sqlHelper;
+        private readonly FhirStorageTestsFixture _fixture;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), ExportJobType.All);
 
         public FhirOperationDataStoreExportTests(FhirStorageTestsFixture fixture)
         {
+            _fixture = fixture;
             _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
-            _sqlHelper = fixture.SqlHelper;
         }
 
         public async Task InitializeAsync()
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.RequestType, ExportFormatTags.ResourceName, _exportRequest.ResourceType, null, "hash", rollingFileSizeInMB: 64);
             var raw = JsonConvert.SerializeObject(jobRecord);
             var jobId = jobRecord.Id;
-            await _sqlHelper.ExecuteSqlCmd("INSERT INTO dbo.ExportJob (Id, Hash, Status, RawJobRecord) SELECT '" + jobId + "', 'test', 'Queued', '" + raw + "'");
+            await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.ExportJob (Id, Hash, Status, RawJobRecord) SELECT '" + jobId + "', 'test', 'Queued', '" + raw + "'");
             var outcome = await _operationDataStore.GetExportJobByIdAsync(jobId, CancellationToken.None);
             Assert.NotNull(outcome);
             Assert.Equal(jobId, outcome.JobRecord.Id);
