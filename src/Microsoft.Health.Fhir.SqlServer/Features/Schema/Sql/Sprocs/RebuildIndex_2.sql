@@ -21,13 +21,10 @@ CREATE PROCEDURE [dbo].[RebuildIndex_2]
     @tableName nvarchar(128),
     @indexName nvarchar(128),
     @pageCompression bit
+WITH EXECUTE AS 'dbo'
 AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 DECLARE @IsExecuted AS INT;
 SET @IsExecuted = 0;
-BEGIN TRANSACTION;
 IF EXISTS (SELECT *
            FROM   [sys].[indexes]
            WHERE  name = @indexName
@@ -43,6 +40,5 @@ IF EXISTS (SELECT *
         EXECUTE sp_executesql @Sql;
         SET @IsExecuted = 1;
     END
-COMMIT TRANSACTION;
 RETURN @IsExecuted;
 GO
