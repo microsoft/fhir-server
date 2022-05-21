@@ -29,8 +29,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public OperationOutcome OperationOutcome => Response.Resource;
 
-        public override string Message
-            => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics}";
+        public override string Message => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics} ({GetOperationId()})";
 
         public void Dispose()
         {
@@ -45,6 +44,16 @@ namespace Microsoft.Health.Fhir.Client
                 // free managed resources
                 Response?.Dispose();
             }
+        }
+
+        private string GetOperationId()
+        {
+            if (Response.Headers.TryGetValues("X-Request-Id", out var values))
+            {
+                return values.First();
+            }
+
+            return string.Empty;
         }
     }
 }

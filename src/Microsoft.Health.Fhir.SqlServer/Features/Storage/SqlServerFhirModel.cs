@@ -463,7 +463,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void ThrowIfCurrentSchemaVersionIsNull()
         {
-            if (_schemaInformation.Current == null)
+            // While applying the full schema, CurrentVersion is set as 0 in InstanceSchema table
+            if (_schemaInformation.Current == null || _schemaInformation.Current == 0)
             {
                 throw new InvalidOperationException(Resources.SchemaVersionShouldNotBeNull);
             }

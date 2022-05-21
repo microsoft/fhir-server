@@ -61,6 +61,12 @@ CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
     CYCLE
     CACHE 1000000;
 
+CREATE TYPE dbo.BigintList AS TABLE (
+    Id BIGINT NOT NULL PRIMARY KEY);
+
+CREATE TYPE dbo.StringList AS TABLE (
+    String VARCHAR (MAX));
+
 CREATE TYPE dbo.BulkResourceWriteClaimTableType_1 AS TABLE (
     Offset      INT            NOT NULL,
     ClaimTypeId TINYINT        NOT NULL,
@@ -306,6 +312,36 @@ IF NOT EXISTS (SELECT 1
         ) ON [PRIMARY];
     END
 
+CREATE PARTITION FUNCTION EventLogPartitionFunction(TINYINT)
+    AS RANGE RIGHT
+    FOR VALUES (0, 1, 2, 3, 4, 5, 6, 7);
+
+
+GO
+CREATE PARTITION SCHEME EventLogPartitionScheme
+    AS PARTITION EventLogPartitionFunction
+    ALL TO ([PRIMARY]);
+
+
+GO
+CREATE TABLE dbo.EventLog (
+    PartitionId   AS               isnull(CONVERT (TINYINT, EventId % 8), 0) PERSISTED,
+    EventId       BIGINT           IDENTITY (1, 1) NOT NULL,
+    EventDate     DATETIME         NOT NULL,
+    Process       VARCHAR (100)    NOT NULL,
+    Status        VARCHAR (10)     NOT NULL,
+    Mode          VARCHAR (100)    NULL,
+    Action        VARCHAR (20)     NULL,
+    Target        VARCHAR (100)    NULL,
+    Rows          BIGINT           NULL,
+    Milliseconds  INT              NULL,
+    EventText     NVARCHAR (3500)  NULL,
+    ParentEventId BIGINT           NULL,
+    SPID          SMALLINT         NOT NULL,
+    HostName      VARCHAR (64)     NOT NULL,
+    TraceId       UNIQUEIDENTIFIER NULL CONSTRAINT PKC_EventLog_EventDate_EventId_PartitionId PRIMARY KEY CLUSTERED (EventDate, EventId, PartitionId) ON EventLogPartitionScheme (PartitionId)
+);
+
 CREATE TABLE dbo.ExportJob (
     Id                VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     Hash              VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -318,6 +354,57 @@ CREATE TABLE dbo.ExportJob (
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime
     ON dbo.ExportJob(Hash, Status, HeartbeatDateTime);
+
+CREATE PARTITION FUNCTION TinyintPartitionFunction(TINYINT)
+    AS RANGE RIGHT
+    FOR VALUES (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255);
+
+
+GO
+CREATE PARTITION SCHEME TinyintPartitionScheme
+    AS PARTITION TinyintPartitionFunction
+    ALL TO ([PRIMARY]);
+
+
+GO
+CREATE TABLE dbo.JobQueue (
+    QueueType       TINYINT        NOT NULL,
+    GroupId         BIGINT         NOT NULL,
+    JobId           BIGINT         NOT NULL,
+    PartitionId     AS             CONVERT (TINYINT, JobId % 16) PERSISTED,
+    Definition      VARCHAR (MAX)  NOT NULL,
+    DefinitionHash  VARBINARY (20) NOT NULL,
+    Version         BIGINT         CONSTRAINT DF_JobQueue_Version DEFAULT datediff_big(millisecond, '0001-01-01', getUTCdate()) NOT NULL,
+    Status          TINYINT        CONSTRAINT DF_JobQueue_Status DEFAULT 0 NOT NULL,
+    Priority        TINYINT        CONSTRAINT DF_JobQueue_Priority DEFAULT 100 NOT NULL,
+    Data            BIGINT         NULL,
+    Result          VARCHAR (MAX)  NULL,
+    CreateDate      DATETIME       CONSTRAINT DF_JobQueue_CreateDate DEFAULT getUTCdate() NOT NULL,
+    StartDate       DATETIME       NULL,
+    EndDate         DATETIME       NULL,
+    HeartbeatDate   DATETIME       CONSTRAINT DF_JobQueue_HeartbeatDate DEFAULT getUTCdate() NOT NULL,
+    Worker          VARCHAR (100)  NULL,
+    Info            VARCHAR (1000) NULL,
+    CancelRequested BIT            CONSTRAINT DF_JobQueue_CancelRequested DEFAULT 0 NOT NULL CONSTRAINT PKC_JobQueue_QueueType_PartitionId_JobId PRIMARY KEY CLUSTERED (QueueType, PartitionId, JobId) ON TinyintPartitionScheme (QueueType)
+);
+
+
+GO
+CREATE INDEX IX_QueueType_PartitionId_Status_Priority
+    ON dbo.JobQueue(PartitionId, Status, Priority)
+    ON TinyintPartitionScheme (QueueType);
+
+
+GO
+CREATE INDEX IX_QueueType_GroupId
+    ON dbo.JobQueue(QueueType, GroupId)
+    ON TinyintPartitionScheme (QueueType);
+
+
+GO
+CREATE INDEX IX_QueueType_DefinitionHash
+    ON dbo.JobQueue(QueueType, DefinitionHash)
+    ON TinyintPartitionScheme (QueueType);
 
 CREATE TABLE dbo.NumberSearchParam (
     ResourceTypeId      SMALLINT        NOT NULL,
@@ -347,6 +434,31 @@ CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
     ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId) WHERE IsHistory = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE TABLE dbo.Parameters (
+    Id          VARCHAR (100)   NOT NULL,
+    Date        DATETIME        NULL,
+    Number      FLOAT           NULL,
+    Bigint      BIGINT          NULL,
+    Char        VARCHAR (4000)  NULL,
+    Binary      VARBINARY (MAX) NULL,
+    UpdatedDate DATETIME        NULL,
+    UpdatedBy   NVARCHAR (255)  NULL CONSTRAINT PKC_Parameters_Id PRIMARY KEY CLUSTERED (Id)
+);
+
+
+GO
+CREATE TABLE dbo.ParametersHistory (
+    ChangeId    INT             IDENTITY (1, 1) NOT NULL,
+    Id          VARCHAR (100)   NOT NULL,
+    Date        DATETIME        NULL,
+    Number      FLOAT           NULL,
+    Bigint      BIGINT          NULL,
+    Char        VARCHAR (4000)  NULL,
+    Binary      VARBINARY (MAX) NULL,
+    UpdatedDate DATETIME        NULL,
+    UpdatedBy   NVARCHAR (255)  NULL
+);
 
 CREATE TABLE dbo.QuantityCode (
     QuantityCodeId INT            IDENTITY (1, 1) NOT NULL,
@@ -613,7 +725,6 @@ CREATE TABLE [dbo].[TaskInfo] (
     [EndDateTime]       DATETIME2 (7) NULL,
     [Worker]            VARCHAR (100) NULL,
     [RestartInfo]       VARCHAR (MAX) NULL,
-    [ParentTaskId]      VARCHAR (64)  NULL,
     CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
 
@@ -621,11 +732,6 @@ CREATE TABLE [dbo].[TaskInfo] (
 GO
 CREATE NONCLUSTERED INDEX IX_QueueId_Status
     ON dbo.TaskInfo(QueueId, Status);
-
-
-GO
-CREATE NONCLUSTERED INDEX IX_QueueId_ParentTaskId
-    ON dbo.TaskInfo(QueueId, ParentTaskId);
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
@@ -1516,8 +1622,8 @@ SELECT CAST (MIN_ACTIVE_ROWVERSION() AS INT);
 COMMIT TRANSACTION;
 
 GO
-CREATE PROCEDURE [dbo].[CreateTask_3]
-@taskId VARCHAR (64), @queueId VARCHAR (64), @taskTypeId SMALLINT, @parentTaskId VARCHAR (64), @maxRetryCount SMALLINT=3, @inputData VARCHAR (MAX), @isUniqueTaskByType BIT
+CREATE PROCEDURE [dbo].[CreateTask_2]
+@taskId VARCHAR (64), @queueId VARCHAR (64), @taskTypeId SMALLINT, @maxRetryCount SMALLINT=3, @inputData VARCHAR (MAX), @isUniqueTaskByType BIT
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -1546,10 +1652,112 @@ ELSE
                 THROW 50409, 'Task already existed', 1;
             END
     END
-INSERT  INTO [dbo].[TaskInfo] (TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, ParentTaskId)
-VALUES                       (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @maxRetryCount, @heartbeatDateTime, @inputData, @parentTaskId);
-EXECUTE dbo.GetTaskDetails @TaskId = @taskId;
+INSERT  INTO [dbo].[TaskInfo] (TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData)
+VALUES                       (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @maxRetryCount, @heartbeatDateTime, @inputData);
+SELECT TaskId,
+       QueueId,
+       Status,
+       TaskTypeId,
+       RunId,
+       IsCanceled,
+       RetryCount,
+       MaxRetryCount,
+       HeartbeatDateTime,
+       InputData
+FROM   [dbo].[TaskInfo]
+WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
+
+GO
+CREATE PROCEDURE dbo.DequeueJob
+@QueueType TINYINT, @StartPartitionId TINYINT=NULL, @Worker VARCHAR (100), @HeartbeatTimeoutSec INT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'DequeueJob', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' P=' + isnull(CONVERT (VARCHAR, @StartPartitionId), 'NULL') + ' H=' + isnull(CONVERT (VARCHAR, @HeartbeatTimeoutSec), 'NULL') + ' W=' + isnull(@Worker, 'NULL'), @Rows AS INT, @st AS DATETIME = getUTCdate(), @JobId AS BIGINT, @msg AS VARCHAR (100), @Lock AS VARCHAR (100), @PartitionId AS TINYINT = @StartPartitionId, @MaxPartitions AS TINYINT = 16, @LookedAtPartitions AS TINYINT = 0;
+BEGIN TRY
+    IF @PartitionId IS NULL
+        SET @PartitionId = @MaxPartitions * rand();
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    WHILE @JobId IS NULL
+          AND @LookedAtPartitions <= @MaxPartitions
+        BEGIN
+            SET @Lock = 'DequeueJob_' + CONVERT (VARCHAR, @QueueType) + '_' + CONVERT (VARCHAR, @PartitionId);
+            BEGIN TRANSACTION;
+            EXECUTE sp_getapplock @Lock, 'Exclusive';
+            UPDATE T
+            SET    StartDate     = getUTCdate(),
+                   HeartbeatDate = getUTCdate(),
+                   Worker        = @Worker,
+                   Status        = 1,
+                   Version       = datediff_big(millisecond, '0001-01-01', getUTCdate()),
+                   @JobId        = T.JobId
+            FROM   dbo.JobQueue AS T WITH (PAGLOCK)
+                   INNER JOIN
+                   (SELECT   TOP 1 JobId
+                    FROM     dbo.JobQueue WITH (INDEX (IX_QueueType_PartitionId_Status_Priority))
+                    WHERE    QueueType = @QueueType
+                             AND PartitionId = @PartitionId
+                             AND Status = 0
+                    ORDER BY Priority, JobId) AS S
+                   ON QueueType = @QueueType
+                      AND PartitionId = @PartitionId
+                      AND T.JobId = S.JobId;
+            SET @Rows = @@rowcount;
+            COMMIT TRANSACTION;
+            IF @JobId IS NULL
+                BEGIN
+                    SET @PartitionId = CASE WHEN @PartitionId = 15 THEN 0 ELSE @PartitionId + 1 END;
+                    SET @LookedAtPartitions = @LookedAtPartitions + 1;
+                END
+        END
+    SET @LookedAtPartitions = 0;
+    WHILE @JobId IS NULL
+          AND @LookedAtPartitions <= @MaxPartitions
+        BEGIN
+            SET @Lock = 'DequeueStoreCopyWorkUnit_' + CONVERT (VARCHAR, @PartitionId);
+            BEGIN TRANSACTION;
+            EXECUTE sp_getapplock @Lock, 'Exclusive';
+            UPDATE T
+            SET    StartDate     = getUTCdate(),
+                   HeartbeatDate = getUTCdate(),
+                   Worker        = @Worker,
+                   Status        = CASE WHEN CancelRequested = 0 THEN 1 ELSE 4 END,
+                   Version       = datediff_big(millisecond, '0001-01-01', getUTCdate()),
+                   @JobId        = CASE WHEN CancelRequested = 0 THEN T.JobId END,
+                   Info          = isnull(Info, '') + ' Prev: Worker=' + Worker + ' Start=' + CONVERT (VARCHAR, StartDate, 121)
+            FROM   dbo.JobQueue AS T WITH (PAGLOCK)
+                   INNER JOIN
+                   (SELECT   TOP 1 JobId
+                    FROM     dbo.JobQueue WITH (INDEX (IX_QueueType_PartitionId_Status_Priority))
+                    WHERE    QueueType = @QueueType
+                             AND PartitionId = @PartitionId
+                             AND Status = 1
+                             AND datediff(second, HeartbeatDate, getUTCdate()) > @HeartbeatTimeoutSec
+                    ORDER BY Priority, JobId) AS S
+                   ON QueueType = @QueueType
+                      AND PartitionId = @PartitionId
+                      AND T.JobId = S.JobId;
+            SET @Rows = @@rowcount;
+            COMMIT TRANSACTION;
+            IF @JobId IS NULL
+                BEGIN
+                    SET @PartitionId = CASE WHEN @PartitionId = 15 THEN 0 ELSE @PartitionId + 1 END;
+                    SET @LookedAtPartitions = @LookedAtPartitions + 1;
+                END
+        END
+    IF @JobId IS NOT NULL
+        EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobId = @JobId;
+    SET @msg = 'J=' + isnull(CONVERT (VARCHAR, @JobId), 'NULL') + ' P=' + CONVERT (VARCHAR, @PartitionId);
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows, @Text = @msg;
+END TRY
+BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK;
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
 
 GO
 CREATE PROCEDURE [dbo].[DisableIndex]
@@ -1574,6 +1782,77 @@ IF EXISTS (SELECT *
     END
 COMMIT TRANSACTION;
 RETURN @IsExecuted;
+
+GO
+CREATE PROCEDURE dbo.EnqueueJobs
+@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT, @IsCompleted BIT=NULL
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'EnqueueJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' D=' + CONVERT (VARCHAR, (SELECT count(*)
+                                                                                                                                                         FROM   @Definitions)) + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' F=' + isnull(CONVERT (VARCHAR, @ForceOneActiveJobGroup), 'NULL') + ' C=' + isnull(CONVERT (VARCHAR, @IsCompleted), 'NULL'), @st AS DATETIME = getUTCdate(), @Lock AS VARCHAR (100) = 'EnqueueJobs_' + CONVERT (VARCHAR, @QueueType), @MaxJobId AS BIGINT, @Rows AS INT, @msg AS VARCHAR (1000), @JobIds AS BigintList, @InputRows AS INT;
+BEGIN TRY
+    DECLARE @Input TABLE (
+        DefinitionHash VARBINARY (20) PRIMARY KEY,
+        Definition     VARCHAR (MAX) );
+    INSERT INTO @Input
+    SELECT hashbytes('SHA1', String) AS DefinitionHash,
+           String AS Definition
+    FROM   @Definitions;
+    SET @InputRows = @@rowcount;
+    INSERT INTO @JobIds
+    SELECT JobId
+    FROM   @Input AS A
+           INNER JOIN
+           dbo.JobQueue AS B
+           ON B.QueueType = @QueueType
+              AND B.DefinitionHash = A.DefinitionHash
+              AND B.Status <> 5;
+    IF @@rowcount < @InputRows
+        BEGIN
+            BEGIN TRANSACTION;
+            EXECUTE sp_getapplock @Lock, 'Exclusive';
+            IF @ForceOneActiveJobGroup = 1
+               AND EXISTS (SELECT *
+                           FROM   dbo.JobQueue
+                           WHERE  QueueType = @QueueType
+                                  AND Status IN (0, 1)
+                                  AND (@GroupId IS NULL
+                                       OR GroupId <> @GroupId))
+                RAISERROR ('There are other active job groups', 18, 127);
+            SET @MaxJobId = isnull((SELECT   TOP 1 JobId
+                                    FROM     dbo.JobQueue
+                                    WHERE    QueueType = @QueueType
+                                    ORDER BY JobId DESC), 0);
+            INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status)
+            OUTPUT inserted.JobId INTO @JobIds
+            SELECT @QueueType,
+                   isnull(@GroupId, @MaxJobId + 1) AS GroupId,
+                   JobId,
+                   Definition,
+                   DefinitionHash,
+                   CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END AS Status
+            FROM   (SELECT @MaxJobId + row_number() OVER (ORDER BY substring(Definition, 1, 1)) AS JobId,
+                           *
+                    FROM   @Input) AS A
+            WHERE  NOT EXISTS (SELECT *
+                               FROM   dbo.JobQueue AS B
+                               WHERE  B.QueueType = @QueueType
+                                      AND B.DefinitionHash = A.DefinitionHash
+                                      AND B.Status <> 5);
+            SET @Rows = @@rowcount;
+            COMMIT TRANSACTION;
+        END
+    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
+END TRY
+BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK;
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
 
 GO
 CREATE OR ALTER PROCEDURE dbo.FetchEventAgentCheckpoint
@@ -1659,15 +1938,83 @@ FROM   dbo.ExportJob
 WHERE  Id = @id;
 
 GO
-CREATE PROCEDURE [dbo].[GetImportProcessingTaskResult]
-@queueId VARCHAR (64), @importTaskId VARCHAR (64)
+CREATE PROCEDURE dbo.GetJobs
+@QueueType TINYINT, @JobId BIGINT=NULL, @JobIds BigintList READONLY, @GroupId BIGINT=NULL, @ReturnDefinition BIT=1
 AS
 SET NOCOUNT ON;
-SELECT Result
-FROM   [dbo].[TaskInfo] WITH (INDEX (IX_QueueId_ParentTaskId))
-WHERE  ParentTaskId = @importTaskId
-       AND TaskTypeId = 1
-       AND Status = 3;
+DECLARE @SP AS VARCHAR (100) = 'GetJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' J=' + isnull(CONVERT (VARCHAR, @JobId), 'NULL') + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL'), @st AS DATETIME = getUTCdate(), @PartitionId AS TINYINT = @JobId % 16;
+BEGIN TRY
+    IF @JobId IS NULL
+       AND @GroupId IS NULL
+       AND NOT EXISTS (SELECT *
+                       FROM   @JobIds)
+        RAISERROR ('@JobId = NULL and @GroupId = NULL and @JobIds is empty', 18, 127);
+    IF @JobId IS NOT NULL
+        SELECT GroupId,
+               JobId,
+               CASE WHEN @ReturnDefinition = 1 THEN Definition ELSE NULL END AS Definition,
+               Version,
+               Status,
+               Priority,
+               Data,
+               Result,
+               CreateDate,
+               StartDate,
+               EndDate,
+               HeartbeatDate,
+               CancelRequested
+        FROM   dbo.JobQueue
+        WHERE  QueueType = @QueueType
+               AND PartitionId = @PartitionId
+               AND JobId = isnull(@JobId, -1)
+               AND Status <> 5;
+    ELSE
+        IF @GroupId IS NOT NULL
+            SELECT GroupId,
+                   JobId,
+                   CASE WHEN @ReturnDefinition = 1 THEN Definition ELSE NULL END AS Definition,
+                   Version,
+                   Status,
+                   Priority,
+                   Data,
+                   Result,
+                   CreateDate,
+                   StartDate,
+                   EndDate,
+                   HeartbeatDate,
+                   CancelRequested
+            FROM   dbo.JobQueue WITH (INDEX (IX_QueueType_GroupId))
+            WHERE  QueueType = @QueueType
+                   AND GroupId = isnull(@GroupId, -1)
+                   AND Status <> 5;
+        ELSE
+            SELECT GroupId,
+                   JobId,
+                   CASE WHEN @ReturnDefinition = 1 THEN Definition ELSE NULL END AS Definition,
+                   Version,
+                   Status,
+                   Priority,
+                   Data,
+                   Result,
+                   CreateDate,
+                   StartDate,
+                   EndDate,
+                   HeartbeatDate,
+                   CancelRequested
+            FROM   dbo.JobQueue
+            WHERE  QueueType = @QueueType
+                   AND JobId IN (SELECT Id
+                                 FROM   @JobIds)
+                   AND PartitionId = JobId % 16
+                   AND Status <> 5;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
 
 GO
 CREATE PROCEDURE dbo.GetNextTask_3
@@ -1732,6 +2079,109 @@ FROM   dbo.ReindexJob
 WHERE  Id = @id;
 
 GO
+CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
+@ResourceTypeId SMALLINT, @StartId BIGINT, @EndId BIGINT, @GlobalStartId BIGINT=NULL, @GlobalEndId BIGINT=NULL
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'GetResourcesByTypeAndSurrogateIdRange', @Mode AS VARCHAR (100) = 'RT=' + isnull(CONVERT (VARCHAR, @ResourceTypeId), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @StartId), 'NULL') + ' E=' + isnull(CONVERT (VARCHAR, @EndId), 'NULL') + ' GS=' + isnull(CONVERT (VARCHAR, @GlobalStartId), 'NULL') + ' GE=' + isnull(CONVERT (VARCHAR, @GlobalEndId), 'NULL'), @st AS DATETIME = getUTCdate();
+BEGIN TRY
+    DECLARE @ResourceIds TABLE (
+        ResourceId          VARCHAR (64) COLLATE Latin1_General_100_CS_AS,
+        ResourceSurrogateId BIGINT      ,
+        RowId               INT         ,
+        PRIMARY KEY (ResourceId, RowId));
+    IF @GlobalStartId IS NULL
+        SET @GlobalStartId = 0;
+    IF @GlobalEndId IS NOT NULL
+        INSERT INTO @ResourceIds
+        SELECT ResourceId,
+               ResourceSurrogateId,
+               row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId) AS RowId
+        FROM   dbo.Resource
+        WHERE  ResourceTypeId = @ResourceTypeId
+               AND ResourceId IN (SELECT DISTINCT ResourceId
+                                  FROM   dbo.Resource
+                                  WHERE  ResourceTypeId = @ResourceTypeId
+                                         AND ResourceSurrogateId BETWEEN @StartId AND @EndId
+                                         AND IsHistory = 1)
+               AND ResourceSurrogateId BETWEEN @GlobalStartId AND @GlobalEndId;
+    IF EXISTS (SELECT *
+               FROM   @ResourceIds)
+        BEGIN
+            DECLARE @SurrogateIdMap TABLE (
+                MinSurrogateId BIGINT,
+                MaxSurrogateId BIGINT);
+            INSERT INTO @SurrogateIdMap
+            SELECT A.ResourceSurrogateId AS MinSurrogateId,
+                   C.ResourceSurrogateId AS MaxSurrogateId
+            FROM   (SELECT *
+                    FROM   @ResourceIds
+                    WHERE  RowId = 1
+                           AND ResourceSurrogateId BETWEEN @StartId AND @EndId) AS A CROSS APPLY (SELECT ResourceSurrogateId
+                                                                                                  FROM   @ResourceIds AS B
+                                                                                                  WHERE  B.ResourceId = A.ResourceId) AS C;
+            SELECT isnull(C.RawResource, A.RawResource)
+            FROM   dbo.Resource AS A
+                   LEFT OUTER JOIN
+                   @SurrogateIdMap AS B
+                   ON B.MinSurrogateId = A.ResourceSurrogateId
+                   LEFT OUTER JOIN
+                   dbo.Resource AS C
+                   ON C.ResourceTypeId = @ResourceTypeId
+                      AND C.ResourceSurrogateId = MaxSurrogateId
+            WHERE  A.ResourceTypeId = @ResourceTypeId
+                   AND A.ResourceSurrogateId BETWEEN @StartId AND @EndId
+                   AND (A.IsHistory = 0
+                        OR MaxSurrogateId IS NOT NULL);
+        END
+    ELSE
+        SELECT RawResource
+        FROM   dbo.Resource
+        WHERE  ResourceTypeId = @ResourceTypeId
+               AND ResourceSurrogateId BETWEEN @StartId AND @EndId
+               AND IsHistory = 0
+               AND IsDeleted = 0;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.GetResourceSurrogateIdRanges
+@ResourceTypeId SMALLINT, @StartId BIGINT, @EndId BIGINT, @UnitSize INT, @NumberOfRanges INT=100
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'GetResourceSurrogateIdRanges', @Mode AS VARCHAR (100) = 'RT=' + isnull(CONVERT (VARCHAR, @ResourceTypeId), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @StartId), 'NULL') + ' E=' + isnull(CONVERT (VARCHAR, @EndId), 'NULL') + ' U=' + isnull(CONVERT (VARCHAR, @UnitSize), 'NULL'), @st AS DATETIME = getUTCdate(), @IntStartId AS BIGINT, @IntEndId AS BIGINT;
+BEGIN TRY
+    SELECT   UnitId,
+             min(ResourceSurrogateId),
+             max(ResourceSurrogateId),
+             count(*)
+    FROM     (SELECT isnull(CONVERT (INT, (row_number() OVER (ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0) AS UnitId,
+                     ResourceSurrogateId
+              FROM   (SELECT   TOP (@UnitSize * @NumberOfRanges) ResourceSurrogateId
+                      FROM     dbo.Resource
+                      WHERE    ResourceTypeId = @ResourceTypeId
+                               AND ResourceSurrogateId >= @StartId
+                               AND ResourceSurrogateId < @EndId
+                      ORDER BY ResourceSurrogateId) AS A) AS A
+    GROUP BY UnitId
+    ORDER BY UnitId
+    OPTION (MAXDOP 1);
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
 SET NOCOUNT ON;
@@ -1758,8 +2208,7 @@ SELECT TaskId,
        HeartbeatDateTime,
        InputData,
        TaskContext,
-       Result,
-       ParentTaskId
+       Result
 FROM   [dbo].[TaskInfo]
 WHERE  TaskId = @taskId;
 
@@ -1844,11 +2293,200 @@ WHERE  ResourceTypeId = @resourceTypeId
 COMMIT TRANSACTION;
 
 GO
+CREATE PROCEDURE dbo.LogEvent
+@Process VARCHAR (100), @Status VARCHAR (10), @Mode VARCHAR (200)=NULL, @Action VARCHAR (20)=NULL, @Target VARCHAR (100)=NULL, @Rows BIGINT=NULL, @Start DATETIME=NULL, @Text NVARCHAR (3500)=NULL, @EventId BIGINT=NULL OUTPUT, @Retry INT=NULL
+AS
+SET NOCOUNT ON;
+DECLARE @ErrorNumber AS INT = error_number(), @ErrorMessage AS VARCHAR (1000) = '', @TranCount AS INT = @@trancount, @DoWork AS BIT = 0, @NumberAdded AS BIT;
+IF @ErrorNumber IS NOT NULL
+   OR @Status IN ('Warn', 'Error')
+    SET @DoWork = 1;
+IF @DoWork = 0
+    SET @DoWork = CASE WHEN EXISTS (SELECT *
+                                    FROM   dbo.Parameters
+                                    WHERE  Id = isnull(@Process, '')
+                                           AND Char = 'LogEvent') THEN 1 ELSE 0 END;
+IF @DoWork = 0
+    RETURN;
+IF @ErrorNumber IS NOT NULL
+    SET @ErrorMessage = CASE WHEN @Retry IS NOT NULL THEN 'Retry ' + CONVERT (VARCHAR, @Retry) + ', ' ELSE '' END + 'Error ' + CONVERT (VARCHAR, error_number()) + ': ' + CONVERT (VARCHAR (1000), error_message()) + ', Level ' + CONVERT (VARCHAR, error_severity()) + ', State ' + CONVERT (VARCHAR, error_state()) + CASE WHEN error_procedure() IS NOT NULL THEN ', Procedure ' + error_procedure() ELSE '' END + ', Line ' + CONVERT (VARCHAR, error_line());
+IF @TranCount > 0
+   AND @ErrorNumber IS NOT NULL
+    ROLLBACK;
+IF databasepropertyex(db_name(), 'UpdateAbility') = 'READ_WRITE'
+    BEGIN
+        INSERT INTO dbo.EventLog (Process, Status, Mode, Action, Target, Rows, Milliseconds, EventDate, EventText, SPID, HostName)
+        SELECT @Process,
+               @Status,
+               @Mode,
+               @Action,
+               @Target,
+               @Rows,
+               datediff(millisecond, @Start, getUTCdate()),
+               getUTCdate() AS EventDate,
+               CASE WHEN @ErrorNumber IS NULL THEN @Text ELSE @ErrorMessage + CASE WHEN isnull(@Text, '') <> '' THEN '. ' + @Text ELSE '' END END AS Text,
+               @@SPID,
+               host_name() AS HostName;
+        SET @EventId = scope_identity();
+    END
+IF @TranCount > 0
+   AND @ErrorNumber IS NOT NULL
+    BEGIN TRANSACTION;
+
+GO
 CREATE PROCEDURE dbo.LogSchemaMigrationProgress
 @message VARCHAR (MAX)
 AS
 INSERT  INTO dbo.SchemaMigrationProgress (Message)
 VALUES                                  (@message);
+
+GO
+CREATE PROCEDURE dbo.PutJobCancelation
+@QueueType TINYINT, @GroupId BIGINT=NULL, @JobId BIGINT=NULL
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'PutJobCancelation', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL') + ' J=' + isnull(CONVERT (VARCHAR, @JobId), 'NULL'), @st AS DATETIME = getUTCdate(), @Rows AS INT, @PartitionId AS TINYINT = @JobId % 16;
+BEGIN TRY
+    IF @JobId IS NULL
+       AND @GroupId IS NULL
+        RAISERROR ('@JobId = NULL and @GroupId = NULL', 18, 127);
+    IF @JobId IS NOT NULL
+        BEGIN
+            UPDATE dbo.JobQueue
+            SET    Status  = 4,
+                   Version = datediff_big(millisecond, '0001-01-01', getUTCdate())
+            WHERE  QueueType = @QueueType
+                   AND PartitionId = @PartitionId
+                   AND JobId = @JobId
+                   AND Status = 0;
+            SET @Rows = @@rowcount;
+            IF @Rows = 0
+                BEGIN
+                    UPDATE dbo.JobQueue
+                    SET    CancelRequested = 1
+                    WHERE  QueueType = @QueueType
+                           AND PartitionId = @PartitionId
+                           AND JobId = @JobId
+                           AND Status = 1;
+                    SET @Rows = @@rowcount;
+                END
+        END
+    ELSE
+        BEGIN
+            UPDATE dbo.JobQueue
+            SET    Status  = 4,
+                   Version = datediff_big(millisecond, '0001-01-01', getUTCdate())
+            WHERE  QueueType = @QueueType
+                   AND GroupId = @GroupId
+                   AND Status = 0;
+            SET @Rows = @@rowcount;
+            UPDATE dbo.JobQueue
+            SET    CancelRequested = 1
+            WHERE  QueueType = @QueueType
+                   AND GroupId = @GroupId
+                   AND Status = 1;
+            SET @Rows += @@rowcount;
+        END
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.PutJobHeartbeat
+@QueueType TINYINT, @JobId BIGINT, @Version BIGINT, @Data BIGINT=NULL, @CurrentResult VARCHAR (MAX)=NULL
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'PutJobHeartbeat', @Mode AS VARCHAR (100), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @PartitionId AS TINYINT = @JobId % 16;
+SET @Mode = 'Q=' + CONVERT (VARCHAR, @QueueType) + ' J=' + CONVERT (VARCHAR, @JobId) + ' P=' + CONVERT (VARCHAR, @PartitionId) + ' V=' + CONVERT (VARCHAR, @Version) + ' D=' + isnull(CONVERT (VARCHAR, @Data), 'NULL');
+BEGIN TRY
+    IF @CurrentResult IS NULL
+        UPDATE dbo.JobQueue
+        SET    HeartbeatDate = getUTCdate(),
+               Data          = isnull(@Data, Data)
+        WHERE  QueueType = @QueueType
+               AND PartitionId = @PartitionId
+               AND JobId = @JobId
+               AND Status = 1
+               AND Version = @Version;
+    ELSE
+        UPDATE dbo.JobQueue
+        SET    HeartbeatDate = getUTCdate(),
+               Data          = isnull(@Data, Data),
+               Result        = @CurrentResult
+        WHERE  QueueType = @QueueType
+               AND PartitionId = @PartitionId
+               AND JobId = @JobId
+               AND Status = 1
+               AND Version = @Version;
+    SET @Rows = @@rowcount;
+    IF @Rows = 0
+        BEGIN
+            IF EXISTS (SELECT *
+                       FROM   dbo.JobQueue
+                       WHERE  QueueType = @QueueType
+                              AND PartitionId = @PartitionId
+                              AND JobId = @JobId)
+                THROW 50412, 'Precondition failed', 1;
+            ELSE
+                THROW 50404, 'Job record not found', 1;
+        END
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.PutJobStatus
+@QueueType TINYINT, @JobId BIGINT, @Version BIGINT, @Failed BIT, @Data BIGINT, @FinalResult VARCHAR (MAX), @RequestCancellationOnFailure BIT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'PutJobStatus', @Mode AS VARCHAR (100), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @PartitionId AS TINYINT = @JobId % 16, @GroupId AS BIGINT;
+SET @Mode = 'Q=' + CONVERT (VARCHAR, @QueueType) + ' J=' + CONVERT (VARCHAR, @JobId) + ' P=' + CONVERT (VARCHAR, @PartitionId) + ' V=' + CONVERT (VARCHAR, @Version) + ' F=' + CONVERT (VARCHAR, @Failed) + ' R=' + isnull(@FinalResult, 'NULL');
+BEGIN TRY
+    UPDATE dbo.JobQueue
+    SET    EndDate  = getUTCdate(),
+           Status   = CASE WHEN @Failed = 1 THEN 3 WHEN CancelRequested = 1 THEN 4 ELSE 2 END,
+           Data     = @Data,
+           Result   = @FinalResult,
+           Version  = datediff_big(millisecond, '0001-01-01', getUTCdate()),
+           @GroupId = GroupId
+    WHERE  QueueType = @QueueType
+           AND PartitionId = @PartitionId
+           AND JobId = @JobId
+           AND Status = 1
+           AND Version = @Version;
+    SET @Rows = @@rowcount;
+    IF @Rows = 0
+        BEGIN
+            IF EXISTS (SELECT *
+                       FROM   dbo.JobQueue
+                       WHERE  QueueType = @QueueType
+                              AND PartitionId = @PartitionId
+                              AND JobId = @JobId)
+                THROW 50412, 'Precondition failed', 1;
+            ELSE
+                THROW 50404, 'Job record not found', 1;
+        END
+    IF @Failed = 1
+       AND @RequestCancellationOnFailure = 1
+        EXECUTE dbo.PutJobCancelation @QueueType = @QueueType, @GroupId = @GroupId;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
 
 GO
 CREATE PROCEDURE dbo.ReadResource

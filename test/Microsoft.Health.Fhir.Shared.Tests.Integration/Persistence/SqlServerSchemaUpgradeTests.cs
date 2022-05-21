@@ -4,10 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Numerics;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -67,7 +67,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     SchemaVersionConstants.Max,
                     forceIncrementalSchemaUpgrade: true);
 
-                CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                var diff = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                Assert.True(string.IsNullOrEmpty(diff), diff);
             }
             finally
             {
@@ -163,8 +164,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
+            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProviderFunc = p => sqlConnectionStringProvider;
+            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => defaultSqlConnectionWrapperFactory;
 
             var collection = new ServiceCollection();
+            collection.AddScoped(sqlConnectionStringProviderFunc);
+            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
@@ -173,8 +178,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 serviceProviderSchemaInitializer,
                 config,
                 schemaInformation,
-                defaultSqlConnectionBuilder,
-                sqlConnectionStringProvider,
                 mediator,
                 NullLogger<SchemaInitializer>.Instance);
 
@@ -187,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return (testHelper, schemaUpgradeRunner);
         }
 
-        private void CompareDatabaseSchemas(string databaseName1, string databaseName2)
+        private string CompareDatabaseSchemas(string databaseName1, string databaseName2)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
@@ -217,7 +220,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[ReindexResource]"),
                 ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[CreateTask]"),
-                ("Procedure", "[dbo].[CreateTask_2]"),
                 ("Procedure", "[dbo].[GetNextTask]"),
                 ("Procedure", "[dbo].[GetNextTask_2]"),
                 ("Procedure", "[dbo].[ResetTask]"),
@@ -254,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            List<SchemaDifference> schemaDifferences = new List<SchemaDifference>();
+            var unexpectedDifference = new StringBuilder();
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 if (schemaDifference.Name == "SqlTable" &&
@@ -271,29 +273,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         }
                         else
                         {
-                            schemaDifferences.Add(child);
+                            unexpectedDifference.AppendLine($"source={child.SourceObject?.Name} target={child.TargetObject?.Name}");
                         }
                     }
                 }
                 else
                 {
-                    SchemaDifference diff = schemaDifference;
-                    schemaDifferences.Add(diff);
-                    while (diff.Children?.FirstOrDefault() != null)
+                    //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
+                    //// Skipping queue objects
+                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus" };
+                    if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
-                        diff = diff.Children.FirstOrDefault();
-                        schemaDifferences.Add(diff);
+                        continue;
                     }
+
+                    unexpectedDifference.AppendLine($"source={schemaDifference.SourceObject?.Name} target={schemaDifference.TargetObject?.Name}");
                 }
             }
-
-            Assert.Empty(schemaDifferences.Select(d => $"{d.Name}_{d.SourceObject?.Name}_{d.TargetObject?.Name}"));
 
             // if TransactionCheckWithInitialiScript(which has current version as x-1) is not updated with the new x version then x.sql will have a wrong version inserted into SchemaVersion table
             // this will cause an entry like (x-1, started) and (x, completed) at the end of of the transaction in fullsnapshot database (testConnectionString1)
             // If any schema version is in started state then there might be a problem
-            Assert.False(SchemaVersionInStartedState(testConnectionString1).Result);
-            Assert.False(SchemaVersionInStartedState(testConnectionString2).Result);
+            if (SchemaVersionInStartedState(testConnectionString1).Result || SchemaVersionInStartedState(testConnectionString2).Result)
+            {
+                // if the test hits below statement then there is a possibility that TransactionCheckWithInitialiScript is not updated with the new version
+                unexpectedDifference.AppendLine("Different SchemaVersionInStartedState.Result");
+            }
+
+            return unexpectedDifference.ToString();
         }
 
         public async Task<bool> SchemaVersionInStartedState(string connectionString)
