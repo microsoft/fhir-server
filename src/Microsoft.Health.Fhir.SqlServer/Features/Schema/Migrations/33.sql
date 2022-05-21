@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (32, 'started');
+VALUES (33, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -2523,8 +2523,8 @@ ELSE
     END
 
 GO
-CREATE PROCEDURE [dbo].[RebuildIndex]
-@tableName NVARCHAR (128), @indexName NVARCHAR (128)
+CREATE PROCEDURE [dbo].[RebuildIndex_2]
+@tableName NVARCHAR (128), @indexName NVARCHAR (128), @pageCompression BIT
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -2539,7 +2539,10 @@ IF EXISTS (SELECT *
                   AND is_disabled = 1)
     BEGIN
         DECLARE @Sql AS NVARCHAR (MAX);
-        SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild';
+        IF @pageCompression = 0
+            SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild';
+        ELSE
+            SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild WITH (DATA_COMPRESSION = PAGE)';
         EXECUTE sp_executesql @Sql;
         SET @IsExecuted = 1;
     END
