@@ -462,8 +462,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var respone = await _client.CancelImport(checkLocation);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.CheckImportAsync(checkLocation));
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             // wait task completed
             while (respone.StatusCode != HttpStatusCode.Conflict)
@@ -472,16 +470,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 await Task.Delay(TimeSpan.FromSeconds(3));
             }
 
-            // Only check metric for local tests
-            if (_fixture.IsUsingInProcTestServer)
-            {
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Single(notificationList);
-                Assert.Equal(TaskResult.Canceled.ToString(), notification.Status);
-                Assert.Null(notification.SucceedCount);
-                Assert.Null(notification.FailedCount);
-            }
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.CheckImportAsync(checkLocation));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
         [Fact(Skip = "long running tests for invalid url")]
@@ -574,8 +564,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notification = notificationList.First() as ImportTaskMetricsNotification;
                 Assert.Equal(TaskResult.Fail.ToString(), notification.Status);
                 Assert.Null(notification.DataSize);
-                Assert.Null(notification.SucceedCount);
-                Assert.Null(notification.FailedCount);
+                Assert.Equal(0, notification.SucceedCount);
+                Assert.Equal(0, notification.FailedCount);
             }
         }
 
