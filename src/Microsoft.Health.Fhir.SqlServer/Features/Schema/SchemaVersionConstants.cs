@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int PutCreateWithVersionedUpdatePolicyVersion = (int)SchemaVersion.V27;
         public const int RemoveCountForGexNextTaskStoredProcedure = (int)SchemaVersion.V29;
         public const int PreventUpdatesFromCreatingVersionWhenNoImpact = (int)SchemaVersion.V30;
-        public const int SupportParentTask = (int)SchemaVersion.V32;
+        public const int SupportParentTask = (int)SchemaVersion.V33;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

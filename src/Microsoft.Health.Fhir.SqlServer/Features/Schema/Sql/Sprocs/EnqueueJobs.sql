@@ -1,4 +1,4 @@
---DROP PROCEDURE dbo.EnqueueJobs
+﻿--DROP PROCEDURE dbo.EnqueueJobs
 GO
 CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit, @IsCompleted bit = NULL
 AS

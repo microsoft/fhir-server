@@ -1,4 +1,4 @@
---DROP PROCEDURE dbo.GetJobs
+﻿--DROP PROCEDURE dbo.GetJobs
 GO
 CREATE PROCEDURE dbo.GetJobs
    @QueueType        tinyint

@@ -96,6 +96,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
         }
 
+        public async Task ExecuteSqlCmd(string sql)
+        {
+            using var connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            using var command = new SqlCommand(sql, connection);
+            await command.Connection.OpenAsync(CancellationToken.None);
+            await command.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>

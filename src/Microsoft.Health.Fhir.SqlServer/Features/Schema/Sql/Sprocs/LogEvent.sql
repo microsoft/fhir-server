@@ -1,4 +1,4 @@
---DROP PROCEDURE dbo.LogEvent
+﻿--DROP PROCEDURE dbo.LogEvent
 GO
 CREATE PROCEDURE dbo.LogEvent    
    @Process         varchar(100)

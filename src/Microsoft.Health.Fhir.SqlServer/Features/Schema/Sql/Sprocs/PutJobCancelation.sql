@@ -1,4 +1,4 @@
---DROP PROCEDURE dbo.PutJobCancelation
+﻿--DROP PROCEDURE dbo.PutJobCancelation
 GO
 CREATE PROCEDURE dbo.PutJobCancelation @QueueType tinyint, @GroupId bigint = NULL, @JobId bigint = NULL
 AS
@@ -25,6 +25,17 @@ BEGIN TRY
         AND JobId = @JobId
         AND Status = 0
     SET @Rows = @@rowcount
+
+    IF @Rows = 0
+    BEGIN
+      UPDATE dbo.JobQueue
+        SET CancelRequested = 1 -- It is upto job logic to determine what to do 
+        WHERE QueueType = @QueueType
+          AND PartitionId = @PartitionId
+          AND JobId = @JobId
+          AND Status = 1
+      SET @Rows = @@rowcount
+    END
   END
   ELSE 
   BEGIN

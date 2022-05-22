@@ -1,4 +1,4 @@
-CREATE PARTITION FUNCTION EventLogPartitionFunction (tinyint) AS RANGE RIGHT FOR VALUES (0,1,2,3,4,5,6,7)
+﻿CREATE PARTITION FUNCTION EventLogPartitionFunction (tinyint) AS RANGE RIGHT FOR VALUES (0,1,2,3,4,5,6,7)
 GO
 CREATE PARTITION SCHEME EventLogPartitionScheme AS PARTITION EventLogPartitionFunction ALL TO ([PRIMARY])
 GO

@@ -1,4 +1,4 @@
---DROP PROCEDURE dbo.PutJobHeartbeat
+﻿--DROP PROCEDURE dbo.PutJobHeartbeat
 GO
 CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CurrentResult varchar(max) = NULL
 AS
