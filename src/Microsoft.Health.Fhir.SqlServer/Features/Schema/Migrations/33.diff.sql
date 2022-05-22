@@ -76,7 +76,7 @@ GO
 --         * index name
 
 GO
-CREATE PROCEDURE [dbo].[DisableIndex]
+CREATE OR ALTER PROCEDURE [dbo].[DisableIndex]
     @tableName nvarchar(128),
     @indexName nvarchar(128)
 WITH EXECUTE AS 'dbo'
