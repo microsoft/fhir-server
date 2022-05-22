@@ -23,10 +23,10 @@ CREATE PROCEDURE [dbo].[RebuildIndex_2]
     @pageCompression bit
 WITH EXECUTE AS 'dbo'
 AS
-DECLARE @errorTxt varchar(1000)
-       ,@sql nvarchar (1000)
-       ,@isDisabled bit = 0
-       ,@isExecuted int = 0
+DECLARE @errorTxt as varchar(1000)
+       ,@sql as nvarchar (1000)
+       ,@isDisabled as bit = 0
+       ,@isExecuted as int = 0
 
 IF object_id(@tableName) IS NULL
 BEGIN
