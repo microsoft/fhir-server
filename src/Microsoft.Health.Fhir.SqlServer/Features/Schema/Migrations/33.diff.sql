@@ -74,7 +74,9 @@ GO
 --         * index table name
 --     @indexName
 --         * index name
-CREATE OR ALTER PROCEDURE [dbo].[DisableIndex]
+
+GO
+CREATE PROCEDURE [dbo].[DisableIndex]
     @tableName nvarchar(128),
     @indexName nvarchar(128)
 WITH EXECUTE AS 'dbo'
@@ -99,11 +101,11 @@ END
 
 IF @isDisabled = 0
 BEGIN
-    DECLARE @Sql AS NVARCHAR (MAX);
-    SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Disable';
-    EXECUTE sp_executesql @Sql;
+    SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Disable'
+    EXECUTE sp_executesql @sql
     
-    SET @isExecuted = 1;
+    SET @isExecuted = 1
 END
-RETURN @isExecuted;
+RETURN @isExecuted
 GO
+

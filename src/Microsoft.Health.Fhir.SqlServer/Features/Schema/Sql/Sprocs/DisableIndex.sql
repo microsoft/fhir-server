@@ -14,6 +14,8 @@
 --         * index table name
 --     @indexName
 --         * index name
+
+GO
 CREATE PROCEDURE [dbo].[DisableIndex]
     @tableName nvarchar(128),
     @indexName nvarchar(128)
