@@ -345,7 +345,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             if (completedTaskIds.Count > 0)
             {
-                _orchestratorTaskResult.RunningTaskIds.RemoveAll(id => completedTaskIds.Contains(id));
+                _orchestratorTaskResult.RunningTaskIds.ExceptWith(completedTaskIds);
                 progress.Report(JsonConvert.SerializeObject(_orchestratorTaskResult));
             }
 

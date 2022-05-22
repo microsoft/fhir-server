@@ -48,9 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Current running task id list
         /// </summary>
-#pragma warning disable CA1002 // Do not expose generic lists
-        public List<long> RunningTaskIds { get; } = new List<long>();
-#pragma warning restore CA1002 // Do not expose generic lists
+        public ISet<long> RunningTaskIds { get; } = new HashSet<long>();
 
         /// <summary>
         /// Orchestrator task progress.
