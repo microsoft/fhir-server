@@ -301,5 +301,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatchDocumentWithDateTime_WhenDateTimeHasOffset_ThenOffsetShouldBePreserved()
+        {
+            var poco = Samples.GetJsonSample("PatientWithMinimalData").ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string dateTimeOffsetString = "2022-05-02T14:00:00+02:00";
+            string patchDocument =
+                $@"[{{""op"":""add"",""path"":""/deceasedDateTime"",""value"":""{dateTimeOffsetString}""}}]";
+
+            FhirResponse<Patient> patchResponse = await _client.JsonPatchAsync(response.Resource, patchDocument);
+            Patient p = patchResponse.Resource;
+
+            Assert.Equal(dateTimeOffsetString, p.Deceased.ToString());
+        }
     }
 }

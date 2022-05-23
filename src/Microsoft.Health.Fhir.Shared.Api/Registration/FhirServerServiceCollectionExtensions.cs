@@ -56,7 +56,10 @@ namespace Microsoft.Extensions.DependencyInjection
                     options.EnableEndpointRouting = false;
                     options.RespectBrowserAcceptHeader = true;
                 })
-                .AddNewtonsoftJson()
+                .AddNewtonsoftJson(options =>
+                {
+                    options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
+                })
                 .AddRazorRuntimeCompilation();
 
             var fhirServerConfiguration = new FhirServerConfiguration();
