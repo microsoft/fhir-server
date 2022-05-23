@@ -25,8 +25,8 @@ WITH EXECUTE AS 'dbo'
 AS
 DECLARE @errorTxt as varchar(1000)
        ,@sql as nvarchar (1000)
-       ,@isDisabled as bit = 0
-       ,@isExecuted as int = 0
+       ,@isDisabled as bit
+       ,@isExecuted as int
 
 IF object_id(@tableName) IS NULL
 BEGIN

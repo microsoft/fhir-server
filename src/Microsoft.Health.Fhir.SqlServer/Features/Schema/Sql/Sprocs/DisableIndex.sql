@@ -23,7 +23,7 @@ WITH EXECUTE AS 'dbo'
 AS
 DECLARE @errorTxt as varchar(1000)
        ,@sql as nvarchar (1000)
-       ,@isDisabled as bit = 0
+       ,@isDisabled as bit
 
 IF object_id(@tableName) IS NULL
 BEGIN
