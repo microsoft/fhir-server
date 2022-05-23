@@ -17,7 +17,7 @@
 --         * index page compression
 
 GO
-CREATE PROCEDURE [dbo].[RebuildIndex_2]
+CREATE PROCEDURE dbo.RebuildIndex_2
     @tableName nvarchar(128),
     @indexName nvarchar(128),
     @pageCompression bit
@@ -34,7 +34,7 @@ BEGIN
     RAISERROR(@errorTxt, 18, 127)
 END
 
-SELECT TOP 1 @isDisabled = is_disabled FROM sys.indexes WHERE object_id = object_id(@tableName) AND name = @indexName
+SET @isDisabled = (SELECT is_disabled FROM sys.indexes WHERE object_id = object_id(@tableName) AND name = @indexName)
 IF @isDisabled IS NULL
 BEGIN
     SET @errorTxt = @indexName +' does not exist or you don''t have permissions.'

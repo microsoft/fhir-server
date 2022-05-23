@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 list.Add((V24.Resource, V24.Resource.IX_Resource_ResourceSurrogateId, false));
             }
 
-            list.Add((VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId, false));
+            list.Add((VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId, true));
             list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime, false));
             list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long, false));
             list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime, false));
