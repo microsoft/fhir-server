@@ -43,10 +43,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _mediator = new Mediator(type => provider.GetService(type));
         }
 
-        [Fact]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
+        [Theory]
+        [InlineData(OperationStatus.Completed)]
+        [InlineData(OperationStatus.Canceled)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedOrCancelledStatus_ThenHttpResponseCodeShouldBeOk(OperationStatus operationStatus)
         {
-            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(OperationStatus.Completed);
+            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(operationStatus);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.NotNull(result.JobResult);
@@ -92,8 +94,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData(OperationStatus.Canceled, HttpStatusCode.NoContent)]
-        [InlineData(OperationStatus.Canceled, HttpStatusCode.InternalServerError)]
         [InlineData(OperationStatus.Failed, HttpStatusCode.BadRequest)]
         [InlineData(OperationStatus.Failed, HttpStatusCode.InternalServerError)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatus_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(OperationStatus operationStatus, HttpStatusCode failureStatusCode)
@@ -119,7 +119,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData(OperationStatus.Canceled)]
         [InlineData(OperationStatus.Failed)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithFailedStatusAndNoFailureDetails_ThenOperationFailedExceptionIsThrownWithCorrectHttpResponseCode(OperationStatus operationStatus)
         {

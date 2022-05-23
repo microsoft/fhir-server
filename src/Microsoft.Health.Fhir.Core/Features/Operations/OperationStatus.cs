@@ -7,12 +7,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public enum OperationStatus
     {
-        Unknown,
-        Queued,
-        Running,
-        Completed,
-        Failed,
-        Canceled,
-        Paused,
+        Unknown = -1,
+        Queued = 0,
+        Running = 1,
+        Completed = 2,
+        Failed = 3,
+        Canceled = 4,
+        Paused = 5,
     }
 }

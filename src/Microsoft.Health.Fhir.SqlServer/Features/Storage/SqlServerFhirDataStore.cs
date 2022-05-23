@@ -15,14 +15,18 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -37,6 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly V6.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV6;
@@ -77,7 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -98,6 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -212,7 +219,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
-                    _logger.LogInformation($"Upserting {resource.ResourceTypeName} with a stream length of {stream.Length}");
+                    _logger.LogTrace("Upserting resource of type: {0} with a stream length of {1}, request method: {2}", resource.ResourceTypeName, stream.Length, resource.Request.Method);
+
+                    // throwing ServiceUnavailableException in order to send a 503 error message to the client
+                    // indicating the server has a transient error, and the client can try again
+                    if (stream.Length < 31) // rather than error on a length of 0, a stream with a small number of bytes should still throw an error. RawResource.Data = null, still results in a stream of 29 bytes
+                    {
+                        _logger.LogCritical("Stream size for resource of type: {0} is less than 50 bytes, request method: {1}", resource.ResourceTypeName, resource.Request.Method);
+                        throw new ServiceUnavailableException();
+                    }
 
                     PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
 
@@ -442,6 +457,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         using (rawResourceStream)
                         {
                             rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        }
+
+                        if (string.IsNullOrEmpty(rawResource))
+                        {
+                            rawResource = MissingResourceFactory.CreateJson(key.Id, key.ResourceType, "error", "exception");
+                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.InternalServerError);
                         }
 
                         _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(key.ResourceType)}: {key.ResourceType}; {nameof(rawResource)} length: {rawResource.Length}");
