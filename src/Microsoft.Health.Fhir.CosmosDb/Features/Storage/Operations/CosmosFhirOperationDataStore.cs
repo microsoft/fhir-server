@@ -14,6 +14,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -25,6 +26,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
@@ -88,6 +90,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         {
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
+            var hashObject = new { jobRecord.RequestUri, jobRecord.RequestorClaims };
+            var hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
+
+            var resultFromHash = await GetExportJobByHashAsync(hash, cancellationToken);
+            if (resultFromHash != null)
+            {
+                return resultFromHash;
+            }
+
+            jobRecord.Hash = hash;
+
             var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
 
             try
@@ -143,7 +156,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        public async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
+        private async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
 

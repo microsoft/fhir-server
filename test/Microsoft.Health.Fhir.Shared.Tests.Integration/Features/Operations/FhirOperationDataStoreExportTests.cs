@@ -8,8 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Core;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -28,11 +26,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
     {
         private readonly IFhirOperationDataStore _operationDataStore;
         private readonly IFhirStorageTestHelper _testHelper;
+        private readonly FhirStorageTestsFixture _fixture;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), ExportJobType.All);
 
         public FhirOperationDataStoreExportTests(FhirStorageTestsFixture fixture)
         {
+            _fixture = fixture;
             _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
         }
@@ -45,6 +45,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         public Task DisposeAsync()
         {
             return Task.CompletedTask;
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task ReturnExportRegisteredInOldSchema()
+        {
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.RequestType, ExportFormatTags.ResourceName, _exportRequest.ResourceType, null, "hash", rollingFileSizeInMB: 64);
+            var raw = JsonConvert.SerializeObject(jobRecord);
+            var jobId = jobRecord.Id;
+            await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.ExportJob (Id, Hash, Status, RawJobRecord) SELECT '" + jobId + "', 'test', 'Queued', '" + raw + "'");
+            var outcome = await _operationDataStore.GetExportJobByIdAsync(jobId, CancellationToken.None);
+            Assert.NotNull(outcome);
+            Assert.Equal(jobId, outcome.JobRecord.Id);
         }
 
         [Fact]
@@ -79,23 +92,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenAMatchingExportJob_WhenGettingByHash_ThenTheMatchingExportJobShouldBeReturned()
+        public async Task GivenAMatchingExportJob_WhenReCreatingPreviouslyCreatedJob_ThenTheMatchingJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
-            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByHashAsync(jobRecord.Hash, CancellationToken.None);
+            ExportJobOutcome outcome = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
             Assert.Equal(jobRecord.Id, outcome?.JobRecord?.Id);
-        }
-
-        [Fact]
-        public async Task GivenNoMatchingExportJob_WhenGettingByHash_ThenNoMatchingExportJobShouldBeReturned()
-        {
-            var jobRecord = await InsertNewExportJobRecordAsync();
-
-            ExportJobOutcome outcome = await _operationDataStore.GetExportJobByHashAsync("test", CancellationToken.None);
-
-            Assert.Null(outcome);
         }
 
         [Fact]
@@ -115,32 +118,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Theory]
-        [InlineData(OperationStatus.Canceled)]
-        [InlineData(OperationStatus.Completed)]
-        [InlineData(OperationStatus.Failed)]
-        [InlineData(OperationStatus.Running)]
-        public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned(OperationStatus operationStatus)
+        [InlineData(OperationStatus.Canceled, 0)]
+        [InlineData(OperationStatus.Completed, 0)]
+        [InlineData(OperationStatus.Failed, 0)]
+        [InlineData(OperationStatus.Queued, 1)]
+        public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned(OperationStatus operationStatus, int expectedNumberOfJobsReturned)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
 
             IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync();
 
             Assert.NotNull(jobs);
-            Assert.Empty(jobs);
+            Assert.Equal(expectedNumberOfJobsReturned, jobs.Count);
         }
 
+#pragma warning disable SA1107 // Code should not contain multiple statements on one line
         [Theory]
-        [InlineData(1, 0)]
+        ////TODO: Revise below when per instance max is introduced.
+        ////[InlineData(1, 0)]
         [InlineData(2, 1)]
-        [InlineData(3, 2)]
+        ////[InlineData(3, 2)]
         public async Task GivenNumberOfRunningExportJobs_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
             await CreateRunningExportJob();
-            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(); // Queued
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
-            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(); // Queued
-            await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Failed);
+            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Canceled; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1"); });
+            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Completed; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2"); });
+            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Failed; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3"); });
+            ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(jr => jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4")); // Queued
+            ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(jr => jr.RequestUri = new Uri(jr.RequestUri.ToString() + "5")); // Queued
 
             // The running job should not be acquired.
             var expectedJobRecords = new List<ExportJobRecord> { jobRecord1, jobRecord2 };
@@ -169,7 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             ExportJobOutcome jobOutcome = await CreateRunningExportJob();
 
-            await Task.Delay(1200);
+            await Task.Delay(2000);
 
             IReadOnlyCollection<ExportJobOutcome> expiredJobs = await AcquireExportJobsAsync(jobHeartbeatTimeoutThreshold: TimeSpan.FromSeconds(1));
 
@@ -180,14 +185,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // TODO: Adopt for SQL when checked in.
         public async Task GivenThereAreQueuedExportJobs_WhenSimultaneouslyAcquiringExportJobs_ThenCorrectExportJobsShouldBeReturned()
         {
             ExportJobRecord[] jobRecords = new[]
             {
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
-                await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Queued),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3"); }),
+                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4"); }),
             };
 
             var completionSource = new TaskCompletionSource<bool>();
@@ -215,6 +221,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 return await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2);
             }
         }
+#pragma warning restore SA1107 // Code should not contain multiple statements on one line
 
         [Fact]
         public async Task GivenARunningExportJob_WhenUpdatingTheExportJob_ThenTheExportJobShouldBeUpdated()
@@ -307,20 +314,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
         private async Task<ExportJobRecord> InsertNewExportJobRecordAsync(Action<ExportJobRecord> jobRecordCustomizer = null)
         {
-            // Generate a unique hash
-            var hashObject = new
-            {
-                _exportRequest.RequestUri,
-                Clock.UtcNow,
-            };
-
-            string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
-
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, hash, rollingFileSizeInMB: 64);
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "Unknown", rollingFileSizeInMB: 64, storageAccountContainerName: Guid.NewGuid().ToString());
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
-            ExportJobOutcome result = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
+            var result = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
+            if (jobRecord.Status != OperationStatus.Queued && jobRecord.Status != result.JobRecord.Status) // SQL enqueues only queued and completed
+            {
+                jobRecord.Id = result.JobRecord.Id;
+                if (jobRecord.Status == OperationStatus.Canceled)
+                {
+                    await _operationDataStore.UpdateExportJobAsync(jobRecord, null, CancellationToken.None);
+                }
+                else if (jobRecord.Status == OperationStatus.Failed)
+                {
+                    var single = _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(600), CancellationToken.None).Result.First();
+                    single.JobRecord.Status = jobRecord.Status;
+                    await _operationDataStore.UpdateExportJobAsync(single.JobRecord, single.ETag, CancellationToken.None);
+                }
+            }
 
             return result.JobRecord;
         }
