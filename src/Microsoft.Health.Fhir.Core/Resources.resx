@@ -627,4 +627,8 @@
   <data name="SearchParameterDefinitionNullorEmptyCodeValue" xml:space="preserve">
     <value>Code value cannot be null or empty</value>
   </data>
+  <data name="SearchCountResultsExceedLimit" xml:space="preserve">
+    <value>Search count returned {0} and exceeds the maximum defined limit of {1}.</value>
+    <comment>{0} is the rows returned by the query, {1} is the defined limit of the bundle.Total field.</comment>
+  </data>
 </root>

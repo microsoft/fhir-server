@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     {
         private SqlServerFhirStorageTestsFixture _fixture;
         private SqlImportOperation _sqlServerFhirDataBulkOperation;
+        private static string _rawResourceTestValue = "{\"resourceType\": \"Parameters\",\"parameter\": []}";
 
         public SqlServerFhirDataBulkOperationTests(
             SqlServerFhirStorageTestsFixture fixture)
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
-            _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
+            _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
         }
 
         [Fact]
@@ -287,7 +288,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     resourceId,
                     "0",
                     "Dummy",
-                    new RawResource("Test", Fhir.Core.Models.FhirResourceFormat.Json, true),
+                    new RawResource(_rawResourceTestValue, Fhir.Core.Models.FhirResourceFormat.Json, true),
                     new ResourceRequest("PUT"),
                     DateTimeOffset.UtcNow,
                     false,
@@ -305,7 +306,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using (SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
-            using (SqlCommandWrapper command = connection.CreateSqlCommand())
+            using (SqlCommandWrapper command = connection.CreateRetrySqlCommand())
             {
                 command.CommandText = $"select is_disabled from sys.indexes where name = '{indexName}'";
 
@@ -317,7 +318,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
                 var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Int);
@@ -334,7 +335,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 VLatest.DisableIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
                 var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Int);
@@ -366,7 +367,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
-            using SqlCommandWrapper command = connection.CreateSqlCommand();
+            using SqlCommandWrapper command = connection.CreateRetrySqlCommand();
             command.CommandText = $"select count(*) from {tableName} where ResourceSurrogateId >= {startSurrogateId} and ResourceSurrogateId < {endSurrogateId}";
 
             return (int)(await command.ExecuteScalarAsync(CancellationToken.None));

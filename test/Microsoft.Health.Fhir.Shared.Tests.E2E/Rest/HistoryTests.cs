@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private FhirResponse<Observation> _createdResource;
         private readonly TestFhirClient _client;
+        private const string ContentUpdated = "Updated resource content";
 
         public HistoryTests(HttpIntegrationTestFixture fixture)
         {
@@ -75,11 +76,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATypeAndId_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
+            UpdateObservation(_createdResource.Resource);
             await _client.UpdateAsync(_createdResource.Resource);
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"Observation/{_createdResource.Resource.Id}/_history");
-
-            AssertCount(2, readResponse.Resource.Entry);
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"Observation/{_createdResource.Resource.Id}/_history", string.Empty);
+            AssertCount(2, readResponse);
         }
 
         [Fact]
@@ -98,14 +99,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var weakETag = $"W/\"{int.Parse(newCreatedResource.Meta.VersionId).ToString()}\"";
 
+            UpdateObservation(newCreatedResource);
             await _client.UpdateAsync(newCreatedResource, weakETag);
             await _client.DeleteAsync(newCreatedResource);
             await _client.DeleteAsync(newCreatedResource);
 
-            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"Observation/{newCreatedResource.Id}/_history");
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"Observation/{newCreatedResource.Id}/_history", string.Empty);
 
-            AssertCount(3, readResponse.Resource.Entry);
-            foreach (var ent in readResponse.Resource.Entry)
+            AssertCount(3, readResponse);
+            foreach (var ent in readResponse)
             {
                 if (ent.Request.Method == Bundle.HTTPVerb.POST)
                 {
@@ -412,7 +414,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         /// <summary>
-        /// Get all the results for given search string
+        /// Get all the results for given search string matching the tag
         /// </summary>
         /// <returns>List<Bundle.EntryComponent> for the given search string</returns>
         private async Task<List<Bundle.EntryComponent>> GetAllResultsWithMatchingTagForGivenSearch(string searchString, string tag)
@@ -426,7 +428,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 searchString = response.Resource.NextLink?.ToString();
             }
 
-            return readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
+            if (!string.IsNullOrEmpty(tag))
+            {
+                return readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
+            }
+
+            return readResponse;
         }
 
         private async Task<T> CreateResourceWithTag<T>(T resource, string tag)
@@ -455,6 +462,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             throw new XunitException(sb.ToString());
+        }
+
+        private static void UpdateObservation(Observation observationResource)
+        {
+            observationResource.Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>{ContentUpdated}</div>",
+            };
         }
     }
 }

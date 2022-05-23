@@ -1,0 +1,70 @@
+{
+  "resourceType": "Claim",
+  "id": "9f8960b2-fcb1-9060-1b8d-8c95b62b59e2",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "pharmacy"
+      }
+    ]
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/262741b0-50fe-114c-103f-be34d5cd3e37"
+  },
+  "billablePeriod": {
+    "start": "1922-05-27T14:39:56+00:00",
+    "end": "1922-05-27T14:54:56+00:00"
+  },
+  "created": "1922-05-27T14:54:56+00:00",
+  "provider": {
+    "reference": "Organization/d692e283-0833-3201-8e55-4f868a9c0736",
+    "display": "HALLMARK HEALTH SYSTEM"
+  },
+  "priority": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/processpriority",
+        "code": "normal"
+      }
+    ]
+  },
+  "prescription": {
+    "reference": "MedicationRequest/81c0e779-ddfa-da03-9a90-92acc52c9357"
+  },
+  "insurance": [
+    {
+      "sequence": 1,
+      "focal": true,
+      "coverage": {
+        "display": "Blue Cross Blue Shield"
+      }
+    }
+  ],
+  "item": [
+    {
+      "sequence": 1,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://snomed.info/sct",
+            "code": "185345009",
+            "display": "Encounter for symptom"
+          }
+        ],
+        "text": "Encounter for symptom"
+      },
+      "encounter": [
+        {
+          "reference": "Encounter/bc97ae0b-d99d-3952-4560-0f246b7ee546"
+        }
+      ]
+    }
+  ],
+  "total": {
+    "value": 35.68,
+    "currency": "USD"
+  }
+}

@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,6 +13,11 @@ namespace Microsoft.Health.TaskManagement
     /// </summary>
     public interface ITaskConsumer
     {
+        /// <summary>
+        /// Ensure the sql db initialized.
+        /// </summary>
+        bool EnsureInitializedAsync();
+
         /// <summary>
         /// Complete the task with result.
         /// </summary>
@@ -27,11 +31,10 @@ namespace Microsoft.Health.TaskManagement
         /// <summary>
         /// Get next available tasks in task queue.
         /// </summary>
-        /// <param name="count">max retrieve task batch count</param>
         /// <param name="taskHeartbeatTimeoutThresholdInSeconds">heartbeat timeout threshold in seconds</param>
         /// <param name="cancellationToken">Cancelllation Token</param>
         /// <returns>List of available tasks</returns>
-        Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(short count, int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken);
+        Task<TaskInfo> GetNextMessagesAsync(int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken);
 
         /// <summary>
         /// Send keep alive request for task heartbeat

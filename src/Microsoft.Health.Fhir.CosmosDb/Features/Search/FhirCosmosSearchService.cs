@@ -309,7 +309,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     .Select(g =>
                         Expression.And(
                             Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, g.Key)),
-                            Expression.SearchParameter(_resourceIdSearchParameter, new InExpression(FieldName.TokenCode, null, g.Select(x => x.ResourceId)))));
+                            Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId)))));
 
                 return typeAndResourceExpressions.Count() == 1 ? typeAndResourceExpressions.First() : Expression.Or(typeAndResourceExpressions.ToArray());
             }
@@ -325,7 +325,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         .Select(g =>
                             Expression.And(
                                 Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
-                                new InExpression(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList()));
+                                Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList()));
         }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(
@@ -539,7 +539,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency, // execute counts across all partitions
             };
 
-            return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
+            long count = (await _fhirDataStore.ExecuteDocumentQueryAsync<long>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
+            if (count > int.MaxValue)
+            {
+                _requestContextAccessor.RequestContext.BundleIssues.Add(
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Error,
+                        OperationOutcomeConstants.IssueType.NotSupported,
+                        string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
+                throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+            }
+
+            return (int)count;
         }
 
         private SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)
@@ -630,13 +642,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                     .Select(g =>
                                         Expression.And(
                                             Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
-                                            new InExpression(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId).ToArray()))).ToList())),
+                                            Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList())),
                         /* This part of the expression ensures that the reference isn't the same as a resource that has already been selected as a match */
                         Expression.Not(Expression.Or(matchesGroupedByType
                             .Select(g =>
                                 Expression.And(
                                     Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, g.Key, false)),
-                                    Expression.SearchParameter(_resourceIdSearchParameter, new InExpression(FieldName.TokenCode, null, g.Select(x => x.ResourceId).ToArray())))).ToList())));
+                                    Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId))))).ToList())));
 
                     Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
 

@@ -24,9 +24,10 @@ To run the code in this article in Azure Cloud Shell:
 
 Pick a name for the resource group that will contain the provisioned resources and create it:
 
+(Note: this name must be globally unique to avoid DNS collision with other App Service deployments. For testing purposes, try prepending a descriptive name like `FhirService` with your intials and the date, e.g. `abMay1`)
 ```azurecli-interactive
-servicename="myfhirservice"
-az group create --name $servicename --location westus2
+servicename="abMay1FhirService"
+az group create --name $servicename --location westus
 ```
 
 ## Deploy template
@@ -36,8 +37,17 @@ The Microsoft FHIR Server for Azure [GitHub Repository](https://github.com/Micro
 Deploy using CosmosDB as the data store with the following command:
 
 ```azurecli-interactive
-az group deployment create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json --parameters serviceName=$servicename
+az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json --parameters serviceName=$servicename
 ```
+
+\
+Alternatively, to deploy using SQL Server as the data store: 
+
+```azurecli-interactive
+az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json --parameters serviceName=$servicename solutionType=FhirServerSqlServer sqlSchemaAutomaticUpdatesEnabled=auto sqlAdminPassword=<replace me>
+```
+
+(Note: ensure that your SQL admin password meets the minimum [policy requirements](https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity) to avoid deployment errors)
 
 ## Verify FHIR server is running
 

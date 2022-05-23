@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         }
 
         [JsonProperty(JobRecordProperties.RequestUri)]
-        public Uri RequestUri { get; private set; }
+        public Uri RequestUri { get; internal set; }
 
         [JsonProperty(JobRecordProperties.ExportType)]
         public ExportJobType ExportType { get; private set; }
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
 
         [JsonProperty(JobRecordProperties.Hash)]
-        public string Hash { get; private set; }
+        public string Hash { get; internal set; }
 
         [JsonProperty(JobRecordProperties.Output, ItemConverterType = typeof(ExportJobRecordOutputConverter))]
         public IDictionary<string, List<ExportFileInfo>> Output { get; private set; } = new Dictionary<string, List<ExportFileInfo>>();
@@ -156,5 +156,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.RollingFileSizeInMB)]
         public uint RollingFileSizeInMB { get; private set; }
+
+        internal ExportJobRecord Clone()
+        {
+            return (ExportJobRecord)MemberwiseClone();
+        }
     }
 }

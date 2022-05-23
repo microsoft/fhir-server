@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions
                         // When we're searching more than 1 compartment resource type (i.e. Patient/abc/*) the search parameters need to list the applicable resource types
                         if (compartmentResourceTypesToSearch.Count > 1)
                         {
-                            var inExpression = new InExpression(FieldName.TokenCode, null, grouping.Value.ResourceTypes);
+                            var inExpression = Expression.In(FieldName.TokenCode, null, grouping.Value.ResourceTypes);
 
                             SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
                                 resourceTypeSearchParameter,
