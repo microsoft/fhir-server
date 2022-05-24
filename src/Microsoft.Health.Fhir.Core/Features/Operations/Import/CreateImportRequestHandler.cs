@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 ProcessingTaskMaxRetryCount = _importTaskConfiguration.MaxRetryCount,
                 TaskId = taskId,
                 TaskCreateTime = Clock.UtcNow,
+                StoreProgressInSubTask = _importTaskConfiguration.StoreProcessingResultInSubTasks,
             };
 
             TaskInfo taskInfo = new TaskInfo()
@@ -88,6 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 MaxRetryCount = _importTaskConfiguration.MaxRetryCount,
                 QueueId = _taskHostingConfiguration.QueueId,
                 InputData = JsonConvert.SerializeObject(inputData),
+                ParentTaskId = taskId,
             };
 
             try

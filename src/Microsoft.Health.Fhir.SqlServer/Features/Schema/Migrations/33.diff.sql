@@ -1,107 +1,128 @@
-﻿
-/*************************************************************
-    Stored procedures for disable index
+﻿/*************************************************************
+    TaskInfo table
 **************************************************************/
---
--- STORED PROCEDURE
---     DisableIndex
---
--- DESCRIPTION
---     Stored procedures for disable index
---
--- PARAMETERS
---     @tableName
---         * index table name
---     @indexName
---         * index name
 
-GO
-CREATE OR ALTER PROCEDURE dbo.DisableIndex
-    @tableName nvarchar(128),
-    @indexName nvarchar(128)
-WITH EXECUTE AS 'dbo'
-AS
-DECLARE @errorTxt as varchar(1000)
-       ,@sql as nvarchar (1000)
-       ,@isDisabled as bit
-
-IF object_id(@tableName) IS NULL
+IF NOT EXISTS (SELECT 'X' FROM SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID(N'TaskInfo') AND NAME = 'ParentTaskId')
 BEGIN
-    SET @errorTxt = @tableName +' does not exist or you don''t have permissions.'
-    RAISERROR(@errorTxt, 18, 127)
-END
-
-SET @isDisabled = (SELECT is_disabled FROM sys.indexes WHERE object_id = object_id(@tableName) AND name = @indexName)
-IF @isDisabled IS NULL
-BEGIN
-    SET @errorTxt = @indexName +' does not exist or you don''t have permissions.'
-    RAISERROR(@errorTxt, 18, 127)
-END
-
-IF @isDisabled = 0
-BEGIN
-    SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Disable'
-    EXECUTE sp_executesql @sql
+ALTER TABLE dbo.TaskInfo
+ADD
+    ParentTaskId VARCHAR (64) NULL
 END
 GO
 
 /*************************************************************
-    Stored procedures for rebuild index
+    QueueId and status combined Index 
+**************************************************************/
+IF NOT EXISTS (SELECT 'X' FROM SYS.INDEXES WHERE name = 'IX_QueueId_ParentTaskId' AND OBJECT_ID = OBJECT_ID('TaskInfo'))
+BEGIN
+CREATE NONCLUSTERED INDEX IX_QueueId_ParentTaskId ON dbo.TaskInfo
+(
+    QueueId,
+    ParentTaskId
+)
+END
+GO
+
+
+/*************************************************************
+    Stored procedures for general task
 **************************************************************/
 --
 -- STORED PROCEDURE
---     RebuildIndex
+--     CreateTask_3
 --
 -- DESCRIPTION
---     Stored procedures for rebuild index
+--     Create task for given task payload.
 --
 -- PARAMETERS
---     @tableName
---         * index table name
---     @indexName
---         * index name
---     @pageCompression
---         * index page compression
+--     @taskId
+--         * The ID of the task record to create
+--     @queueId
+--         * The number of seconds that must pass before an export job is considered stale
+--     @taskTypeId
+--         * The maximum number of running jobs we can have at once
+--     @parentTaskId
+--         * The ID of the parent task
+--     @maxRetryCount
+--         * The maximum number for retry operation
+--     @inputData
+--         * Input data payload for the task
+--     @isUniqueTaskByType
+--         * Only create task if there's no other active task with same task type id
+--
 
 GO
-CREATE OR ALTER PROCEDURE dbo.RebuildIndex_2
-    @tableName nvarchar(128),
-    @indexName nvarchar(128),
-    @pageCompression bit
-WITH EXECUTE AS 'dbo'
+CREATE OR ALTER PROCEDURE [dbo].[CreateTask_3]
+@taskId VARCHAR (64), @queueId VARCHAR (64), @taskTypeId SMALLINT, @parentTaskId VARCHAR (64), @maxRetryCount SMALLINT=3, @inputData VARCHAR (MAX), @isUniqueTaskByType BIT
 AS
-DECLARE @errorTxt as varchar(1000)
-       ,@sql as nvarchar (1000)
-       ,@isDisabled as bit
-       ,@isExecuted as int
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+DECLARE @status AS SMALLINT = 1;
+DECLARE @retryCount AS SMALLINT = 0;
+DECLARE @isCanceled AS BIT = 0;
+IF (@isUniqueTaskByType = 1)
+    BEGIN
+        IF EXISTS (SELECT *
+                   FROM   [dbo].[TaskInfo]
+                   WHERE  TaskId = @taskId
+                          OR (TaskTypeId = @taskTypeId
+                              AND Status <> 3))
+            BEGIN
+                THROW 50409, 'Task already existed', 1;
+            END
+    END
+ELSE
+    BEGIN
+        IF EXISTS (SELECT *
+                   FROM   [dbo].[TaskInfo]
+                   WHERE  TaskId = @taskId)
+            BEGIN
+                THROW 50409, 'Task already existed', 1;
+            END
+    END
+INSERT  INTO [dbo].[TaskInfo] (TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, ParentTaskId)
+VALUES                       (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @maxRetryCount, @heartbeatDateTime, @inputData, @parentTaskId);
 
-IF object_id(@tableName) IS NULL
-BEGIN
-    SET @errorTxt = @tableName +' does not exist or you don''t have permissions.'
-    RAISERROR(@errorTxt, 18, 127)
-END
+EXECUTE dbo.GetTaskDetails @TaskId = @taskId
 
-SET @isDisabled = (SELECT is_disabled FROM sys.indexes WHERE object_id = object_id(@tableName) AND name = @indexName)
-IF @isDisabled IS NULL
-BEGIN
-    SET @errorTxt = @indexName +' does not exist or you don''t have permissions.'
-    RAISERROR(@errorTxt, 18, 127)
-END
+COMMIT TRANSACTION;
+GO
 
-IF @isDisabled = 1
-BEGIN
-	IF @pageCompression = 0 
-	BEGIN
-		SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild'
-	END
-	ELSE 
-	BEGIN
-		SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild WITH (DATA_COMPRESSION = PAGE)'
-	END
+/*************************************************************
+    Stored procedures for get task payload
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     GetTaskDetails
+--
+-- DESCRIPTION
+--     Get task payload.
+--
+-- PARAMETERS
+--     @taskId
+--         * The ID of the task record
+--
 
-	EXECUTE sp_executesql @sql
-	SET @isExecuted = 1
-END
-        
-RETURN @isExecuted
+GO
+CREATE OR ALTER PROCEDURE [dbo].[GetTaskDetails]
+    @taskId varchar(64)
+AS
+    SET NOCOUNT ON
+
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result, ParentTaskId
+	FROM [dbo].[TaskInfo]
+	where TaskId = @taskId
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[GetImportProcessingTaskResult]
+    @queueId VARCHAR (64),
+    @importTaskId varchar(64)
+AS
+    SET NOCOUNT ON
+
+    SELECT Result
+	FROM [dbo].[TaskInfo] WITH (INDEX (IX_QueueId_ParentTaskId))
+	where ParentTaskId = @importTaskId and TaskTypeId = 1 and Status = 3
 GO

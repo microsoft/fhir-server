@@ -17,10 +17,10 @@
 --         * index page compression
 
 GO
-CREATE PROCEDURE dbo.RebuildIndex_2
+CREATE PROCEDURE dbo.RebuildIndex
     @tableName nvarchar(128),
     @indexName nvarchar(128),
-    @pageCompression bit
+    @pageCompression bit = 0
 WITH EXECUTE AS 'dbo'
 AS
 DECLARE @errorTxt as varchar(1000)
@@ -53,8 +53,5 @@ BEGIN
 	END
 
 	EXECUTE sp_executesql @sql
-	SET @isExecuted = 1
 END
-        
-RETURN @isExecuted
 GO

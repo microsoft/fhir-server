@@ -17,11 +17,14 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.TaskManagement;
 using NSubstitute;
 using Xunit;
 using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
@@ -32,6 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     {
         private SqlServerFhirStorageTestsFixture _fixture;
         private SqlImportOperation _sqlServerFhirDataBulkOperation;
+        private SchemaInformation _schemaInformation;
         private static string _rawResourceTestValue = "{\"resourceType\": \"Parameters\",\"parameter\": []}";
 
         public SqlServerFhirDataBulkOperationTests(
@@ -41,6 +45,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
+            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
             _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
         }
 
@@ -259,20 +265,76 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.True(isDisabled);
 
-                bool isExecuted = await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
+                await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.False(isDisabled);
-                Assert.True(isExecuted);
 
-                // Can rebuild twice and skip second rebuild
-                isExecuted = await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
+                // Can rebuild twice
+                await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.False(isDisabled);
-                Assert.False(isExecuted);
 
                 string compressionAfter = await GetIndexCompression(index.indexName, index.tableName);
                 Assert.Equal($"{index.indexName}_{compressionBefore}", $"{index.indexName}_{compressionAfter}");
             }
+        }
+
+        [Fact]
+        public async Task GivenListOfProcessingTasks_WhenGetProcessingResult_ThenListOfResultShouldBeReturned()
+        {
+            string queueId = Guid.NewGuid().ToString();
+            string parentTaskId = Guid.NewGuid().ToString();
+
+            TaskHostingConfiguration config = new TaskHostingConfiguration()
+            {
+                Enabled = true,
+                QueueId = queueId,
+                TaskHeartbeatTimeoutThresholdInSeconds = 60,
+            };
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
+
+            TaskInfo taskInfo1 = new TaskInfo()
+            {
+                TaskId = Guid.NewGuid().ToString(),
+                QueueId = queueId,
+                TaskTypeId = 1,
+                InputData = string.Empty,
+                ParentTaskId = parentTaskId,
+            };
+
+            TaskInfo taskInfo2 = new TaskInfo()
+            {
+                TaskId = Guid.NewGuid().ToString(),
+                QueueId = queueId,
+                TaskTypeId = 1,
+                InputData = string.Empty,
+                ParentTaskId = parentTaskId,
+            };
+
+            TaskInfo taskInfo3 = new TaskInfo()
+            {
+                TaskId = Guid.NewGuid().ToString(),
+                QueueId = queueId,
+                TaskTypeId = 1,
+                InputData = string.Empty,
+                ParentTaskId = parentTaskId,
+            };
+
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
+
+            await sqlServerTaskManager.CreateTaskAsync(taskInfo1, false, CancellationToken.None);
+            await sqlServerTaskManager.CreateTaskAsync(taskInfo2, false, CancellationToken.None);
+            await sqlServerTaskManager.CreateTaskAsync(taskInfo3, false, CancellationToken.None);
+
+            taskInfo1 = await sqlServerTaskConsumer.GetNextMessagesAsync(10, CancellationToken.None);
+            await sqlServerTaskConsumer.CompleteAsync(taskInfo1.TaskId, new TaskResultData(TaskResult.Success, "Task1"), taskInfo1.RunId, CancellationToken.None);
+
+            await sqlServerTaskConsumer.GetNextMessagesAsync(10, CancellationToken.None);
+
+            IEnumerable<string> progressDetails = await _sqlServerFhirDataBulkOperation.GetImportProcessingTaskResultAsync(queueId, parentTaskId, CancellationToken.None);
+            Assert.Single(progressDetails);
         }
 
         private static SqlBulkCopyDataWrapper CreateTestResource(string resourceId, long surrogateId)
@@ -326,20 +388,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             }
         }
 
-        private async Task<bool> RebuildIndex(string tableName, string indexName, bool pageCompression)
+        private async Task RebuildIndex(string tableName, string indexName, bool pageCompression)
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
-                var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Int);
-                returnParameter.Direction = ParameterDirection.ReturnValue;
-
                 await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
-                bool isExecuted = Convert.ToBoolean(returnParameter.Value);
-
-                return isExecuted;
             }
         }
 

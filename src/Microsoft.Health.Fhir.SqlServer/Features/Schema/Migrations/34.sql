@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (33, 'started');
+VALUES (34, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -1755,28 +1755,30 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE PROCEDURE [dbo].[DisableIndex]
+CREATE PROCEDURE dbo.DisableIndex
 @tableName NVARCHAR (128), @indexName NVARCHAR (128)
+WITH EXECUTE AS 'dbo'
 AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-DECLARE @IsExecuted AS INT;
-SET @IsExecuted = 0;
-BEGIN TRANSACTION;
-IF EXISTS (SELECT *
-           FROM   [sys].[indexes]
-           WHERE  name = @indexName
-                  AND object_id = OBJECT_ID(@tableName)
-                  AND is_disabled = 0)
+DECLARE @errorTxt AS VARCHAR (1000), @sql AS NVARCHAR (1000), @isDisabled AS BIT;
+IF object_id(@tableName) IS NULL
     BEGIN
-        DECLARE @Sql AS NVARCHAR (MAX);
-        SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Disable';
-        EXECUTE sp_executesql @Sql;
-        SET @IsExecuted = 1;
+        SET @errorTxt = @tableName + ' does not exist or you don''t have permissions.';
+        RAISERROR (@errorTxt, 18, 127);
     END
-COMMIT TRANSACTION;
-RETURN @IsExecuted;
+SET @isDisabled = (SELECT is_disabled
+                   FROM   sys.indexes
+                   WHERE  object_id = object_id(@tableName)
+                          AND name = @indexName);
+IF @isDisabled IS NULL
+    BEGIN
+        SET @errorTxt = @indexName + ' does not exist or you don''t have permissions.';
+        RAISERROR (@errorTxt, 18, 127);
+    END
+IF @isDisabled = 0
+    BEGIN
+        SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Disable';
+        EXECUTE sp_executesql @sql;
+    END
 
 GO
 CREATE PROCEDURE dbo.EnqueueJobs
@@ -2530,28 +2532,37 @@ ELSE
     END
 
 GO
-CREATE PROCEDURE [dbo].[RebuildIndex]
-@tableName NVARCHAR (128), @indexName NVARCHAR (128)
+CREATE PROCEDURE dbo.RebuildIndex
+@tableName NVARCHAR (128), @indexName NVARCHAR (128), @pageCompression BIT=0
+WITH EXECUTE AS 'dbo'
 AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-DECLARE @IsExecuted AS INT;
-SET @IsExecuted = 0;
-BEGIN TRANSACTION;
-IF EXISTS (SELECT *
-           FROM   [sys].[indexes]
-           WHERE  name = @indexName
-                  AND object_id = OBJECT_ID(@tableName)
-                  AND is_disabled = 1)
+DECLARE @errorTxt AS VARCHAR (1000), @sql AS NVARCHAR (1000), @isDisabled AS BIT, @isExecuted AS INT;
+IF object_id(@tableName) IS NULL
     BEGIN
-        DECLARE @Sql AS NVARCHAR (MAX);
-        SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild';
-        EXECUTE sp_executesql @Sql;
-        SET @IsExecuted = 1;
+        SET @errorTxt = @tableName + ' does not exist or you don''t have permissions.';
+        RAISERROR (@errorTxt, 18, 127);
     END
-COMMIT TRANSACTION;
-RETURN @IsExecuted;
+SET @isDisabled = (SELECT is_disabled
+                   FROM   sys.indexes
+                   WHERE  object_id = object_id(@tableName)
+                          AND name = @indexName);
+IF @isDisabled IS NULL
+    BEGIN
+        SET @errorTxt = @indexName + ' does not exist or you don''t have permissions.';
+        RAISERROR (@errorTxt, 18, 127);
+    END
+IF @isDisabled = 1
+    BEGIN
+        IF @pageCompression = 0
+            BEGIN
+                SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild';
+            END
+        ELSE
+            BEGIN
+                SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild WITH (DATA_COMPRESSION = PAGE)';
+            END
+        EXECUTE sp_executesql @sql;
+    END
 
 GO
 CREATE PROCEDURE dbo.ReindexResource_2

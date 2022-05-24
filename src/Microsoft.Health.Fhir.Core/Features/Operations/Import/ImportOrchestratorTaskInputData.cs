@@ -68,5 +68,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Task create time.
         /// </summary>
         public DateTimeOffset TaskCreateTime { get; set; }
+
+        /// <summary>
+        /// Store progress in sub task to support large number blob files.
+        /// </summary>
+        public bool StoreProgressInSubTask { get; set; }
     }
 }
