@@ -273,5 +273,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatchDocumentWithDateTime_WhenDateTimeHasOffset_ThenOffsetShouldBePreserved()
+        {
+            var poco = Samples.GetJsonSample("PatientWithMinimalData").ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string dateTimeOffsetString = "2022-05-02T14:00:00+02:00";
+            var patchRequest = new Parameters().AddAddPatchParameter("Patient", "deceased", new FhirDateTime(dateTimeOffsetString));
+
+            using FhirResponse<Patient> patchResponse = await _client.FhirPatchAsync(response.Resource, patchRequest);
+            Patient p = patchResponse.Resource;
+
+            DateTimeOffset expectedDTO = DateTimeOffset.Parse(dateTimeOffsetString);
+            DateTimeOffset receivedDTO = ((FhirDateTime)p.Deceased).ToDateTimeOffset(expectedDTO.Offset);
+
+            // check that FhirDateTime conversions match
+            Assert.Equal(new FhirDateTime(dateTimeOffsetString), p.Deceased);
+
+            // check that DateTimeOffset conversions match
+            Assert.Equal(expectedDTO, receivedDTO);
+
+            // explicitly check hour and offset
+            Assert.Equal(expectedDTO.Hour, receivedDTO.Hour);
+            Assert.Equal(expectedDTO.Offset, receivedDTO.Offset);
+        }
     }
 }
