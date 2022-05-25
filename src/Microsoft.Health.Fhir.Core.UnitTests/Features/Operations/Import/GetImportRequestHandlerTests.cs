@@ -32,26 +32,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         public GetImportRequestHandlerTests()
         {
-            _importTaskDataStore.GetImportProcessingTaskResultAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    ImportProcessingTaskResult importProcessingTaskResult = new ImportProcessingTaskResult()
-                    {
-                        ErrorLogLocation = "http://test",
-                        ResourceLocation = "http://test",
-                        FailedCount = 1,
-                        SucceedCount = 1,
-                        ResourceType = "Patient",
-                        ImportError = "Error",
-                    };
-                    TaskResultData taskResultData = new TaskResultData()
-                    {
-                        Result = TaskResult.Success,
-                        ResultData = JsonConvert.SerializeObject(importProcessingTaskResult),
-                    };
-
-                    return new string[] { JsonConvert.SerializeObject(taskResultData) };
-                });
             var collection = new ServiceCollection();
             collection.Add(x => new GetImportRequestHandler(_queueClient, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
