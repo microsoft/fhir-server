@@ -8,8 +8,8 @@ If you are using the open source FHIR Server for Azure, follow the steps below t
 
 To register a resource application in Azure AD, you must have either of the following Azure role-based access control (Azure RBAC) roles:
 
-- Application Administrator 
-- Application Developer
+- [Application Administrator](https://docs.microsoft.com/azure/active-directory/roles/permissions-reference#application-administrator) 
+- [Application Developer](https://docs.microsoft.com/azure/active-directory/roles/permissions-reference#application-developer)
 
 For more information about the different type of Azure AD built-in roles, see [Azure AD built-in roles](https://docs.microsoft.com/azure/active-directory/roles/permissions-reference). 
 
