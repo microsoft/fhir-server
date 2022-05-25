@@ -27,7 +27,7 @@ using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorTaskDataStoreOperation
+    public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorTaskDataStoreOperation, IImportTaskDataStore
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerFhirModel _model;
@@ -326,6 +326,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 throw;
+            }
+        }
+
+        public async Task<IEnumerable<string>> GetImportProcessingTaskResultAsync(string queueId, string taskId, CancellationToken cancellationToken)
+        {
+            List<string> result = new List<string>();
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                try
+                {
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
+
+                    VLatest.GetImportProcessingTaskResult.PopulateCommand(sqlCommandWrapper, queueId, taskId);
+                    var sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
+                    {
+                        string processingResult = sqlDataReader.GetString(0);
+                        result.Add(processingResult);
+                    }
+
+                    return result;
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogInformation(sqlEx, "Failed to read import processing task result.");
+
+                    throw;
+                }
             }
         }
 
