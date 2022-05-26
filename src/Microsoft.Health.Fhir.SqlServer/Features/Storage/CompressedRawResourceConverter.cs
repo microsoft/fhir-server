@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // when there is no BOM
             using var reader = new StreamReader(gzipStream, LegacyResourceEncoding, detectEncodingFromByteOrderMarks: true);
 
+            // The synchronous method is being used as it was found to be ~10x faster than the asynchronous method.
             return reader.ReadToEnd();
         }
 
