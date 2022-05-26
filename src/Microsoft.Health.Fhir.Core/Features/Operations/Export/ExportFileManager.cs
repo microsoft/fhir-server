@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public void CommitFullFiles(long cutoffSize)
         {
-            // goes through files and commits any that are at or past the cutoff size in bytes
+            // Goes through files and commits any that are at or past the cutoff size in bytes
             // This should be called during compartment searches, the normall commit won't be called until a page of Patients is done
             // This will cut down on the number of files created (hopefully)
 

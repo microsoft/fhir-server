@@ -23,8 +23,8 @@ namespace Microsoft.Health.Fhir.Azure
     {
         private const string AnonymizationContainer = "anonymization";
 
-        private IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
-        private ExportJobConfiguration _exportJobConfiguration;
+        private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
+        private readonly ExportJobConfiguration _exportJobConfiguration;
         private BlobServiceClient _blobClient;
 
         public ExportDestinationArtifactProvider(

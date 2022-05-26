@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private BlobServiceClient _blobClient = null;
         private BlobContainerClient _blobContainer = null;
 
-        private Dictionary<string, List<string>> _dataBuffers = new Dictionary<string, List<string>>();
+        private readonly Dictionary<string, List<string>> _dataBuffers = new Dictionary<string, List<string>>();
 
         private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -78,9 +78,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 _logger.LogWarning(se, se.Message);
 
-                // placeholder
-                HttpStatusCode responseCode = HttpStatusCode.BadRequest;
-                throw new DestinationConnectionException(se.Message, responseCode);
+                throw new DestinationConnectionException(se.Message, (HttpStatusCode)se.Status);
             }
         }
 
@@ -117,23 +115,43 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             if (_dataBuffers.ContainsKey(fileName))
             {
-                BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
-
-                using var stream = blockBlob.OpenWrite(true);
-                using var writer = new StreamWriter(stream);
-
-                var dataLines = _dataBuffers[fileName];
-                foreach (var line in dataLines)
+                try
                 {
-                    writer.WriteLine(line);
+                    return CommitFileRetry(fileName);
                 }
-
-                _dataBuffers.Remove(fileName);
-
-                return blockBlob.Uri;
+                catch (RequestFailedException)
+                {
+                    try
+                    {
+                        return CommitFileRetry(fileName);
+                    }
+                    catch (RequestFailedException ex)
+                    {
+                        _logger.LogError(ex, "Failed to write export file");
+                        throw new DestinationConnectionException(ex.Message, (HttpStatusCode)ex.Status);
+                    }
+                }
             }
 
-            throw new ArgumentException($"Cannot commit none existant file $fileName");
+            throw new ArgumentException($"Cannot commit none existant file {fileName}");
+        }
+
+        private Uri CommitFileRetry(string fileName)
+        {
+            BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
+
+            using var stream = blockBlob.OpenWrite(true);
+            using var writer = new StreamWriter(stream);
+
+            var dataLines = _dataBuffers[fileName];
+            foreach (var line in dataLines)
+            {
+                writer.WriteLine(line);
+            }
+
+            _dataBuffers.Remove(fileName);
+
+            return blockBlob.Uri;
         }
 
         private void CheckIfClientIsConnected()
