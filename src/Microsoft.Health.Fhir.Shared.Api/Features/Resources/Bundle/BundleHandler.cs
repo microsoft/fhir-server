@@ -429,7 +429,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // Bundle types do not support $export operations
                         if (path.Contains("$export", StringComparison.OrdinalIgnoreCase))
                         {
-                            string errorMessage = "Batch and Transaction requests are not currently supported";
+                            string errorMessage = Api.Resources.ExportNotSupportedInBundle;
 
                             entryComponent = new EntryComponent
                             {
@@ -440,7 +440,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                     Outcome = CreateOperationOutcome(
                                 OperationOutcome.IssueSeverity.Error,
                                 OperationOutcome.IssueType.Invalid,
-                                string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                                Api.Resources.ExportNotSupportedInBundle),
                                 },
                             };
 
