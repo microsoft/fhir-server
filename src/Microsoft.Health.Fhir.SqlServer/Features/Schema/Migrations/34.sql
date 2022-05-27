@@ -585,10 +585,6 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId
                                                                AND IsDeleted = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceSurrogateId
-    ON dbo.Resource(ResourceSurrogateId)
-    ON [Primary];
-
 CREATE TABLE dbo.ResourceChangeData (
     Id                   BIGINT        IDENTITY (1, 1) NOT NULL,
     Timestamp            DATETIME2 (7) CONSTRAINT DF_ResourceChangeData_Timestamp DEFAULT sysutcdatetime() NOT NULL,
@@ -2561,8 +2557,6 @@ IF @isDisabled = 1
             END
         EXECUTE sp_executesql @sql;
     END
-COMMIT TRANSACTION;
-RETURN @IsExecuted;
 
 GO
 CREATE PROCEDURE dbo.ReindexResource_2
