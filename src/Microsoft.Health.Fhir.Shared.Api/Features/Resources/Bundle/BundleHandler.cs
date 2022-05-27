@@ -424,6 +424,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         HttpContext httpContext = request.HttpContext;
 
+                        string path = httpContext.Request.Path.Value;
+
+                        // Bundle types do not support $export operations
+                        if (path.Contains("$export", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string errorMessage = "Batch and Transaction requests are not currently supported";
+
+                            entryComponent = new EntryComponent
+                            {
+                                Response = new ResponseComponent
+                                {
+                                    // changed HttpStatusCode and IssueType
+                                    Status = ((int)HttpStatusCode.BadRequest).ToString(),
+                                    Outcome = CreateOperationOutcome(
+                                OperationOutcome.IssueSeverity.Error,
+                                OperationOutcome.IssueType.Invalid,
+                                string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                                },
+                            };
+
+                            if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
+                            {
+                                httpStatusCode = HttpStatusCode.BadRequest;
+                            }
+
+                            TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
+                        }
+
                         SetupContexts(request, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
