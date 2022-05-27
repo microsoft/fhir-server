@@ -57,9 +57,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public IReadOnlyList<(Table table, Index index)> OptionalUniqueIndexesForImport { get; private set; }
+        public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalUniqueIndexesForImport { get; private set; }
 
-        public IReadOnlyList<(Table table, Index index)> OptionalIndexesForImport { get; private set; }
+        public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalIndexesForImport { get; private set; }
 
         public static IReadOnlyList<string> SearchParameterTables { get; } =
             new List<string>()
@@ -81,64 +81,64 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.TokenNumberNumberCompositeSearchParam.TableName,
             };
 
-        public IReadOnlyList<(Table table, Index index)> UniqueIndexesList()
+        public IReadOnlyList<(Table table, Index index, bool pageCompression)> UniqueIndexesList()
         {
-            var list = new List<(Table table, Index index)>();
+            var list = new List<(Table table, Index index, bool pageCompression)>();
 
             if (_schemaInformation.Current >= SchemaVersionConstants.RenamedIndexForResourceTable)
             {
-                list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId));
+                list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId, false));
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyForResourceTable)
             {
-                list.Add((V25.Resource, V25.Resource.UQIX_Resource_ResourceSurrogateId));
+                list.Add((V25.Resource, V25.Resource.UQIX_Resource_ResourceSurrogateId, false));
             }
 
-            list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId));
-            list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId));
+            list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId, false));
+            list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId, false));
 
             return list;
         }
 
-        public IReadOnlyList<(Table table, Index index)> IndexesList()
+        public IReadOnlyList<(Table table, Index index, bool pageCompression)> IndexesList()
         {
-            var list = new List<(Table table, Index index)>();
+            var list = new List<(Table table, Index index, bool pageCompression)>();
 
             if (_schemaInformation.Current < SchemaVersionConstants.AddPrimaryKeyForResourceTable)
             {
-                list.Add((V24.Resource, V24.Resource.IX_Resource_ResourceSurrogateId));
+                list.Add((V24.Resource, V24.Resource.IX_Resource_ResourceSurrogateId, false));
             }
 
-            list.Add((VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId));
-            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime));
-            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long));
-            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime));
-            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long));
-            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_HighValue_LowValue));
-            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_LowValue_HighValue));
-            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_SingleValue));
-            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue));
-            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue));
-            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue));
-            list.Add((VLatest.ReferenceSearchParam, VLatest.ReferenceSearchParam.IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion));
-            list.Add((VLatest.ReferenceTokenCompositeSearchParam, VLatest.ReferenceTokenCompositeSearchParam.IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2));
-            list.Add((VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_Text));
-            list.Add((VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_TextWithOverflow));
-            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2));
-            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long));
-            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2));
-            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long));
-            list.Add((VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3));
-            list.Add((VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2));
-            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2));
-            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2));
-            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2));
-            list.Add((VLatest.TokenSearchParam, VLatest.TokenSearchParam.IX_TokenSeachParam_SearchParamId_Code_SystemId));
-            list.Add((VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2));
-            list.Add((VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow));
-            list.Add((VLatest.TokenText, VLatest.TokenText.IX_TokenText_SearchParamId_Text));
-            list.Add((VLatest.TokenTokenCompositeSearchParam, VLatest.TokenTokenCompositeSearchParam.IX_TokenTokenCompositeSearchParam_Code1_Code2));
-            list.Add((VLatest.UriSearchParam, VLatest.UriSearchParam.IX_UriSearchParam_SearchParamId_Uri));
+            list.Add((VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId, true));
+            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime, false));
+            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long, false));
+            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime, false));
+            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long, false));
+            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_HighValue_LowValue, false));
+            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_LowValue_HighValue, false));
+            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_SingleValue, false));
+            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue, false));
+            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue, false));
+            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue, false));
+            list.Add((VLatest.ReferenceSearchParam, VLatest.ReferenceSearchParam.IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion, true));
+            list.Add((VLatest.ReferenceTokenCompositeSearchParam, VLatest.ReferenceTokenCompositeSearchParam.IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2, true));
+            list.Add((VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_Text, true));
+            list.Add((VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_TextWithOverflow, true));
+            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2, true));
+            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long, true));
+            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2, true));
+            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long, true));
+            list.Add((VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3, true));
+            list.Add((VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2, true));
+            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2, true));
+            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2, true));
+            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2, true));
+            list.Add((VLatest.TokenSearchParam, VLatest.TokenSearchParam.IX_TokenSeachParam_SearchParamId_Code_SystemId, true));
+            list.Add((VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2, true));
+            list.Add((VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow, true));
+            list.Add((VLatest.TokenText, VLatest.TokenText.IX_TokenText_SearchParamId_Text, true));
+            list.Add((VLatest.TokenTokenCompositeSearchParam, VLatest.TokenTokenCompositeSearchParam.IX_TokenTokenCompositeSearchParam_Code1_Code2, true));
+            list.Add((VLatest.UriSearchParam, VLatest.UriSearchParam.IX_UriSearchParam_SearchParamId_Uri, true));
 
             // ResourceWriteClaim Table - No unclustered index
 
@@ -261,16 +261,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // Not rerebuild index by default
             if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
             {
-                List<(string tableName, string indexName)> indexesNeedRebuild = new List<(string tableName, string indexName)>();
+                List<(string tableName, string indexName, bool pageCompression)> indexesNeedRebuild = new List<(string tableName, string indexName, bool pageCompression)>();
 
                 if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
-                    indexesNeedRebuild.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                    indexesNeedRebuild.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
                 }
 
                 if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
                 {
-                    indexesNeedRebuild.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                    indexesNeedRebuild.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
                 }
 
                 List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
@@ -289,10 +289,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         runningTasks.Remove(completedTask);
                     }
 
-                    (string tableName, string indexName) nextIndex = indexesNeedRebuild.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
+                    (string tableName, string indexName, bool pageCompression) nextIndex = indexesNeedRebuild.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
                     indexesNeedRebuild.Remove(nextIndex);
                     runningRebuildTables.Add(nextIndex.tableName);
-                    runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, cancellationToken));
+                    runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, nextIndex.pageCompression, cancellationToken));
                 }
 
                 await Task.WhenAll(runningTasks.ToArray());
@@ -329,7 +329,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, CancellationToken cancellationToken)
+        private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, bool pageCompression, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
@@ -338,7 +338,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
-                    VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
+                    VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
 
                     return (tableName, indexName);
