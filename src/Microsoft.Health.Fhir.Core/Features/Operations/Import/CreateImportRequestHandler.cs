@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 TaskId = taskId,
                 TaskTypeId = ImportOrchestratorTask.ImportOrchestratorTaskId,
-                MaxRetryCount = _importTaskConfiguration.MaxRetryCount,
+                MaxRetryCount = -1, // Infinit retry for orchestrator task
                 QueueId = _taskHostingConfiguration.QueueId,
                 InputData = JsonConvert.SerializeObject(inputData),
                 ParentTaskId = taskId,
