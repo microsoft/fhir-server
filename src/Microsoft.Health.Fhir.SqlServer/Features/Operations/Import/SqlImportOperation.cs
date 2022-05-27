@@ -85,7 +85,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var list = new List<(Table table, Index index)>();
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyForResourceTable)
+            if (_schemaInformation.Current >= SchemaVersionConstants.RenamedIndexForResourceTable)
+            {
+                ////list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId));
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyForResourceTable)
             {
                 list.Add((V25.Resource, V25.Resource.UQIX_Resource_ResourceSurrogateId));
             }
