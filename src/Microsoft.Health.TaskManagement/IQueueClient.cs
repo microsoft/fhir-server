@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.TaskManagement
+namespace Microsoft.Health.JobManagement
 {
     public interface IQueueClient
     {
@@ -17,83 +17,83 @@ namespace Microsoft.Health.TaskManagement
         bool IsInitialized();
 
         /// <summary>
-        /// Enqueue new tasks
+        /// Enqueue new jobs
         /// </summary>
-        /// <param name="queueType">Queue Type for new tasks</param>
-        /// <param name="definitions">Task definiation</param>
-        /// <param name="groupId">Group id for tasks. Optional</param>
-        /// <param name="forceOneActiveJobGroup">Only enqueue task only if there's no active task with same queue type.</param>
-        /// <param name="isCompleted">Enqueue completed tasks.</param>
+        /// <param name="queueType">Queue Type for new jobs</param>
+        /// <param name="definitions">Job definiation</param>
+        /// <param name="groupId">Group id for jobs. Optional</param>
+        /// <param name="forceOneActiveJobGroup">Only enqueue job only if there's no active job with same queue type.</param>
+        /// <param name="isCompleted">Enqueue completed jobs.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        /// <returns>Task ids for all tasks, include existed tasks.</returns>
-        public Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken);
+        /// <returns>Job ids for all jobs, include existed jobs.</returns>
+        public Task<IEnumerable<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Dequeue task
+        /// Dequeue job
         /// </summary>
         /// <param name="queueType">Queue Type</param>
         /// <param name="startPartitionId">Start dequeue partition id</param>
-        /// <param name="worker">current worker name</param>
+        /// <param name="worker">Current worker name</param>
         /// <param name="heartbeatTimeoutSec">Heartbeat timeout for retry</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task<TaskInfo> DequeueAsync(byte queueType, byte startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
+        public Task<JobInfo> DequeueAsync(byte queueType, byte startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Get task by id
+        /// Get job by id
         /// </summary>
         /// <param name="queueType">Queue Type</param>
-        /// <param name="taskId">Task id</param>
+        /// <param name="jobId">Job id</param>
         /// <param name="returnDefinition">Return definition</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        public Task<TaskInfo> GetTaskByIdAsync(byte queueType, long taskId, bool returnDefinition, CancellationToken cancellationToken);
+        public Task<JobInfo> GetJobByIdAsync(byte queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Get task by id
+        /// Get job by ids
         /// </summary>
         /// <param name="queueType">Queue Type</param>
-        /// <param name="taskIds">Task ids list</param>
+        /// <param name="jobIds">Job ids list</param>
         /// <param name="returnDefinition">Return definition</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        public Task<IEnumerable<TaskInfo>> GetTaskByIdsAsync(byte queueType, long[] taskIds, bool returnDefinition, CancellationToken cancellationToken);
+        public Task<IEnumerable<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Get task by group id
+        /// Get jobs by group id
         /// </summary>
         /// <param name="queueType">Queue Type</param>
-        /// <param name="groupId">Task group id</param>
+        /// <param name="groupId">Job group id</param>
         /// <param name="returnDefinition">Return definition</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        public Task<IEnumerable<TaskInfo>> GetTaskByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken);
+        public Task<IEnumerable<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Send heart beat to keep alive task
+        /// Send heart beat to keep alive job
         /// </summary>
-        /// <param name="taskInfo">Task Info to keep alive</param>
+        /// <param name="jobInfo">Job Info to keep alive</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task<TaskInfo> KeepAliveTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken);
+        public Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Cancel tasks by group id
+        /// Cancel jobs by group id
         /// </summary>
         /// <param name="queueType">Queue Type</param>
-        /// <param name="groupId">Task group id</param>
+        /// <param name="groupId">Job group id</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task CancelTaskByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken);
+        public Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Cancel tasks by task id
+        /// Cancel jobs by id
         /// </summary>
         /// <param name="queueType">Queue Type</param>
-        /// <param name="taskId">Task id</param>
+        /// <param name="jobId">Job id</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task CancelTaskByIdAsync(byte queueType, long taskId, CancellationToken cancellationToken);
+        public Task CancelJobByIdAsync(byte queueType, long jobId, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Complete task
+        /// Complete job
         /// </summary>
-        /// <param name="taskInfo">Task info for complete</param>
-        /// <param name="requestCancellationOnFailure">Cancel other tasks with same group id if this task failed.</param>
-        /// <param name="cancellationToken">Cancellation token</param
-        public Task CompleteTaskAsync(TaskInfo taskInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
+        /// <param name="jobInfo">Job info for complete</param>
+        /// <param name="requestCancellationOnFailure">Cancel other jobs with same group id if this job failed.</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        public Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
     }
 }

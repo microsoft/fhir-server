@@ -17,16 +17,16 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
-using Microsoft.Health.TaskManagement;
+using Microsoft.Health.JobManagement;
 using NSubstitute;
 using Xunit;
-using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
+using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
     public class CancelImportRequestHandlerTests
     {
-        private const long TaskId = 12345;
+        private const long JobId = 12345;
 
         private readonly IQueueClient _queueClient = Substitute.For<IQueueClient>();
         private readonly IMediator _mediator;
@@ -52,10 +52,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Theory]
-        [InlineData(TaskStatus.Completed)]
-        [InlineData(TaskStatus.Cancelled)]
-        [InlineData(TaskStatus.Failed)]
-        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(TaskStatus taskStatus)
+        [InlineData(JobStatus.Completed)]
+        [InlineData(JobStatus.Cancelled)]
+        [InlineData(JobStatus.Failed)]
+        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(JobStatus taskStatus)
         {
             OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Conflict));
 
@@ -63,48 +63,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Theory]
-        [InlineData(TaskStatus.Created)]
-        [InlineData(TaskStatus.Running)]
-        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(TaskStatus taskStatus)
+        [InlineData(JobStatus.Created)]
+        [InlineData(JobStatus.Running)]
+        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportJobThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(JobStatus jobStatus)
         {
-            TaskInfo taskInfo = await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Accepted);
+            JobInfo jobInfo = await SetupAndExecuteCancelImportAsync(jobStatus, HttpStatusCode.Accepted);
 
-            await _queueClient.Received(1).CancelTaskByGroupIdAsync((byte)Core.Features.Operations.QueueType.Import, taskInfo.GroupId, _cancellationToken);
+            await _queueClient.Received(1).CancelJobByGroupIdAsync((byte)Core.Features.Operations.QueueType.Import, jobInfo.GroupId, _cancellationToken);
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenCancelingWithNotExistTask_ThenNotFoundShouldBeReturned()
+        public async Task GivenAFhirMediator_WhenCancelingWithNotExistJob_ThenNotFoundShouldBeReturned()
         {
-            _queueClient.CancelTaskByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), _cancellationToken).Returns<Task>(_ => throw new TaskNotExistException("Task not exist."));
-            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelImportAsync(TaskId, _cancellationToken));
+            _queueClient.CancelJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), _cancellationToken).Returns<Task>(_ => throw new JobNotExistException("Task not exist."));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelImportAsync(JobId, _cancellationToken));
         }
 
-        private async Task<TaskInfo> SetupAndExecuteCancelImportAsync(TaskStatus taskStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
+        private async Task<JobInfo> SetupAndExecuteCancelImportAsync(JobStatus jobStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
         {
-            TaskInfo taskInfo = SetupBulkImportTask(taskStatus, isCanceled);
+            JobInfo jobInfo = SetupBulkImportJob(jobStatus, isCanceled);
 
-            CancelImportResponse response = await _mediator.CancelImportAsync(TaskId, _cancellationToken);
+            CancelImportResponse response = await _mediator.CancelImportAsync(JobId, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(expectedStatusCode, response.StatusCode);
 
-            return taskInfo;
+            return jobInfo;
         }
 
-        private TaskInfo SetupBulkImportTask(TaskStatus taskStatus, bool isCanceled)
+        private JobInfo SetupBulkImportJob(JobStatus jobStatus, bool isCanceled)
         {
-            var taskInfo = new TaskInfo
+            var jobInfo = new JobInfo
             {
-                Id = TaskId,
-                GroupId = TaskId,
-                Status = taskStatus,
+                Id = JobId,
+                GroupId = JobId,
+                Status = jobStatus,
                 Definition = string.Empty,
                 CancelRequested = isCanceled,
             };
 
-            _queueClient.GetTaskByIdAsync(Arg.Any<byte>(), TaskId, Arg.Any<bool>(), _cancellationToken).Returns(taskInfo);
+            _queueClient.GetJobByIdAsync(Arg.Any<byte>(), JobId, Arg.Any<bool>(), _cancellationToken).Returns(jobInfo);
 
-            return taskInfo;
+            return jobInfo;
         }
     }
 }

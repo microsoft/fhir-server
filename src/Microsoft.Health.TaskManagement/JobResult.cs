@@ -5,16 +5,24 @@
 
 namespace Microsoft.Health.JobManagement
 {
-    public static class Constants
+    /// <summary>
+    /// Job result enums
+    /// </summary>
+    public enum JobResult
     {
-        public const int DefaultPollingFrequencyInSeconds = 10;
+        /// <summary>
+        /// Job successfully completed
+        /// </summary>
+        Success,
 
-        public const short DefaultMaxRunningJobCount = 1;
+        /// <summary>
+        /// Job completed with failed result.
+        /// </summary>
+        Fail,
 
-        public const short DefaultMaxRetryCount = 3;
-
-        public const int DefaultJobHeartbeatTimeoutThresholdInSeconds = 120;
-
-        public const int DefaultJobHeartbeatIntervalInSeconds = 10;
+        /// <summary>
+        /// Job completed with canceled result.
+        /// </summary>
+        Canceled,
     }
 }

@@ -9,14 +9,14 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
     public class CancelImportRequest : IRequest<CancelImportResponse>
     {
-        public CancelImportRequest(long taskId)
+        public CancelImportRequest(long jobId)
         {
-            TaskId = taskId;
+            JobId = jobId;
         }
 
         /// <summary>
-        /// Import orchestrator task id
+        /// Import orchestrator job id
         /// </summary>
-        public long TaskId { get; }
+        public long JobId { get; }
     }
 }

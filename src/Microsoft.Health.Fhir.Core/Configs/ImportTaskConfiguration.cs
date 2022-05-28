@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Controls how many data processing task would run at the same time.
         /// </summary>
-        public int MaxRunningProcessingTaskCount { get; set; } = DefaultMaxRunningProcessingTaskCount;
+        public int MaxRunningProcessingJobCount { get; set; } = DefaultMaxRunningProcessingTaskCount;
 
         /// <summary>
         /// Long running operation timeout

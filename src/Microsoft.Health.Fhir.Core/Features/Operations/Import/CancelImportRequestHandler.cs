@@ -13,7 +13,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Import;
-using Microsoft.Health.TaskManagement;
+using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -43,19 +43,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            TaskInfo taskInfo = await _queueClient.GetTaskByIdAsync((byte)QueueType.Import, request.TaskId, false, cancellationToken);
+            JobInfo jobInfo = await _queueClient.GetJobByIdAsync((byte)QueueType.Import, request.JobId, false, cancellationToken);
 
-            if (taskInfo == null)
+            if (jobInfo == null)
             {
-                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
+                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
             }
 
-            if (taskInfo.Status == TaskManagement.TaskStatus.Completed || taskInfo.Status == TaskManagement.TaskStatus.Cancelled || taskInfo.Status == TaskManagement.TaskStatus.Failed)
+            if (jobInfo.Status == JobManagement.JobStatus.Completed || jobInfo.Status == JobManagement.JobStatus.Cancelled || jobInfo.Status == JobManagement.JobStatus.Failed)
             {
                 throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
             }
 
-            await _queueClient.CancelTaskByGroupIdAsync((byte)QueueType.Import, taskInfo.GroupId, cancellationToken);
+            await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Import, jobInfo.GroupId, cancellationToken);
             return new CancelImportResponse(HttpStatusCode.Accepted);
         }
     }

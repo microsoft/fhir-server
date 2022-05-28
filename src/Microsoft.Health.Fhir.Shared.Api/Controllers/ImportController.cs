@@ -141,18 +141,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ImportResult bulkImportActionResult;
             if (getBulkImportResult.StatusCode == HttpStatusCode.OK)
             {
-                bulkImportActionResult = ImportResult.Ok(getBulkImportResult.TaskResult);
+                bulkImportActionResult = ImportResult.Ok(getBulkImportResult.JobResult);
                 bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
             }
             else
             {
-                if (getBulkImportResult.TaskResult == null)
+                if (getBulkImportResult.JobResult == null)
                 {
                     bulkImportActionResult = ImportResult.Accepted();
                 }
                 else
                 {
-                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.TaskResult);
+                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.JobResult);
                     bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
                 }
             }

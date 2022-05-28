@@ -18,20 +18,18 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Microsoft.Health.TaskManagement;
-using Microsoft.IO;
 using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorTaskDataStoreOperation, IImportTaskDataStore
+    public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorJobDataStoreOperation
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerFhirModel _model;
-        private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
@@ -54,8 +52,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _importTaskConfiguration = operationsConfig.Value.Import;
             _schemaInformation = schemaInformation;
             _logger = logger;
-
-            _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalUniqueIndexesForImport { get; private set; }
@@ -164,7 +160,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 _logger.LogInformation(ex, "BulkCopyDataAsync failed.");
 
-                throw new RetriableTaskException(ex.Message, ex);
+                throw new RetriableJobException(ex.Message, ex);
             }
         }
 
@@ -198,7 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "BulkMergeResourceAsync failed.");
-                throw new RetriableTaskException(ex.Message, ex);
+                throw new RetriableJobException(ex.Message, ex);
             }
         }
 
@@ -221,7 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogInformation(ex, "CleanBatchResourceAsync failed.");
                 if (ex.IsRetryable())
                 {
-                    throw new RetriableTaskException(ex.Message, ex);
+                    throw new RetriableJobException(ex.Message, ex);
                 }
 
                 throw;
@@ -266,7 +262,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogInformation(ex, "PreprocessAsync failed.");
                 if (ex.IsRetryable())
                 {
-                    throw new RetriableTaskException(ex.Message, ex);
+                    throw new RetriableJobException(ex.Message, ex);
                 }
 
                 throw;
@@ -322,40 +318,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _logger.LogInformation(ex, "PostprocessAsync failed.");
                 if (ex.IsRetryable())
                 {
-                    throw new RetriableTaskException(ex.Message, ex);
+                    throw new RetriableJobException(ex.Message, ex);
                 }
 
                 throw;
-            }
-        }
-
-        public async Task<IEnumerable<string>> GetImportProcessingTaskResultAsync(string queueId, string taskId, CancellationToken cancellationToken)
-        {
-            List<string> result = new List<string>();
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                try
-                {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
-
-                    VLatest.GetImportProcessingTaskResult.PopulateCommand(sqlCommandWrapper, queueId, taskId);
-                    var sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                    while (await sqlDataReader.ReadAsync(cancellationToken))
-                    {
-                        string processingResult = sqlDataReader.GetString(0);
-                        result.Add(processingResult);
-                    }
-
-                    return result;
-                }
-                catch (SqlException sqlEx)
-                {
-                    _logger.LogInformation(sqlEx, "Failed to read import processing task result.");
-
-                    throw;
-                }
             }
         }
 

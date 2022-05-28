@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Microsoft.Health.TaskManagement;
 using NSubstitute;
 using Xunit;
 using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;

@@ -3,20 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using MediatR;
+using System;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Import
+namespace Microsoft.Health.JobManagement.UnitTests
 {
-    public class GetImportRequest : IRequest<GetImportResponse>
+    public class TestJobFactory : IJobFactory
     {
-        public GetImportRequest(long jobId)
+        private Func<JobInfo, IJob> _factoryFunc;
+
+        public TestJobFactory(Func<JobInfo, IJob> factoryFunc)
         {
-            JobId = jobId;
+            _factoryFunc = factoryFunc;
         }
 
-        /// <summary>
-        /// Import task id
-        /// </summary>
-        public long JobId { get; }
+        public IJob Create(JobInfo jobInfo)
+        {
+            return _factoryFunc(jobInfo);
+        }
     }
 }

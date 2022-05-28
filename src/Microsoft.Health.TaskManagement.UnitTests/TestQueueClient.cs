@@ -9,11 +9,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.TaskManagement.UnitTests
+namespace Microsoft.Health.JobManagement.UnitTests
 {
     public class TestQueueClient : IQueueClient
     {
-        private List<TaskInfo> taskInfos = new List<TaskInfo>();
+        private List<JobInfo> jobInfos = new List<JobInfo>();
         private long largestId = 1;
 
         public Action DequeueFaultAction { get; set; }
@@ -22,126 +22,126 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
         public Action CompleteFaultAction { get; set; }
 
-        public Func<TestQueueClient, long, TaskInfo> GetTaskByIdFunc { get; set; }
+        public Func<TestQueueClient, long, JobInfo> GetJobByIdFunc { get; set; }
 
-        public List<TaskInfo> TaskInfos
+        public List<JobInfo> JobInfos
         {
-            get { return taskInfos; }
+            get { return jobInfos; }
         }
 
-        public Task CancelTaskByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
+        public Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
         {
-            foreach (TaskInfo taskInfo in taskInfos.Where(t => t.GroupId == groupId))
+            foreach (JobInfo jobInfo in jobInfos.Where(t => t.GroupId == groupId))
             {
-                if (taskInfo.Status == TaskStatus.Created)
+                if (jobInfo.Status == JobStatus.Created)
                 {
-                    taskInfo.Status = TaskStatus.Cancelled;
+                    jobInfo.Status = JobStatus.Cancelled;
                 }
 
-                if (taskInfo.Status == TaskStatus.Running)
+                if (jobInfo.Status == JobStatus.Running)
                 {
-                    taskInfo.CancelRequested = true;
+                    jobInfo.CancelRequested = true;
                 }
             }
 
             return Task.CompletedTask;
         }
 
-        public Task CancelTaskByIdAsync(byte queueType, long taskId, CancellationToken cancellationToken)
+        public Task CancelJobByIdAsync(byte queueType, long jobId, CancellationToken cancellationToken)
         {
-            foreach (TaskInfo taskInfo in taskInfos.Where(t => t.Id == taskId))
+            foreach (JobInfo jobInfo in jobInfos.Where(t => t.Id == jobId))
             {
-                if (taskInfo.Status == TaskStatus.Created)
+                if (jobInfo.Status == JobStatus.Created)
                 {
-                    taskInfo.Status = TaskStatus.Cancelled;
+                    jobInfo.Status = JobStatus.Cancelled;
                 }
 
-                if (taskInfo.Status == TaskStatus.Running)
+                if (jobInfo.Status == JobStatus.Running)
                 {
-                    taskInfo.CancelRequested = true;
+                    jobInfo.CancelRequested = true;
                 }
             }
 
             return Task.CompletedTask;
         }
 
-        public async Task CompleteTaskAsync(TaskInfo taskInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
+        public async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
         {
             CompleteFaultAction?.Invoke();
 
-            TaskInfo taskInfoStore = taskInfos.FirstOrDefault(t => t.Id == taskInfo.Id);
-            taskInfoStore.Status = taskInfo.Status;
-            taskInfoStore.Result = taskInfo.Result;
+            JobInfo jobInfoStore = jobInfos.FirstOrDefault(t => t.Id == jobInfo.Id);
+            jobInfoStore.Status = jobInfo.Status;
+            jobInfoStore.Result = jobInfo.Result;
 
-            if (requestCancellationOnFailure && taskInfo.Status == TaskStatus.Failed)
+            if (requestCancellationOnFailure && jobInfo.Status == JobStatus.Failed)
             {
-                await CancelTaskByGroupIdAsync(taskInfo.QueueType, taskInfo.GroupId, cancellationToken);
+                await CancelJobByGroupIdAsync(jobInfo.QueueType, jobInfo.GroupId, cancellationToken);
             }
         }
 
-        public Task<TaskInfo> DequeueAsync(byte queueType, byte startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        public Task<JobInfo> DequeueAsync(byte queueType, byte startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
         {
             DequeueFaultAction?.Invoke();
 
-            TaskInfo task = taskInfos.FirstOrDefault(t => t.Status == TaskStatus.Created || (t.Status == TaskStatus.Running && (DateTime.Now - t.HeartbeatDateTime) > TimeSpan.FromSeconds(heartbeatTimeoutSec)));
-            if (task != null)
+            JobInfo job = jobInfos.FirstOrDefault(t => t.Status == JobStatus.Created || (t.Status == JobStatus.Running && (DateTime.Now - t.HeartbeatDateTime) > TimeSpan.FromSeconds(heartbeatTimeoutSec)));
+            if (job != null)
             {
-                task.Status = TaskStatus.Running;
-                task.HeartbeatDateTime = DateTime.Now;
+                job.Status = JobStatus.Running;
+                job.HeartbeatDateTime = DateTime.Now;
             }
 
-            return Task.FromResult(task);
+            return Task.FromResult(job);
         }
 
-        public Task<IEnumerable<TaskInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
+        public Task<IEnumerable<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
         {
-            List<TaskInfo> result = new List<TaskInfo>();
+            List<JobInfo> result = new List<JobInfo>();
 
             long gId = groupId ?? largestId++;
             foreach (string definition in definitions)
             {
-                if (taskInfos.Any(t => t.Definition.Equals(definition)))
+                if (jobInfos.Any(t => t.Definition.Equals(definition)))
                 {
-                    result.Add(taskInfos.First(t => t.Definition.Equals(definition)));
+                    result.Add(jobInfos.First(t => t.Definition.Equals(definition)));
                     continue;
                 }
 
-                result.Add(new TaskInfo()
+                result.Add(new JobInfo()
                 {
                     Definition = definition,
                     Id = largestId,
                     GroupId = gId,
-                    Status = TaskStatus.Created,
+                    Status = JobStatus.Created,
                     HeartbeatDateTime = DateTime.Now,
                 });
                 largestId++;
             }
 
-            taskInfos.AddRange(result);
-            return Task.FromResult<IEnumerable<TaskInfo>>(result);
+            jobInfos.AddRange(result);
+            return Task.FromResult<IEnumerable<JobInfo>>(result);
         }
 
-        public Task<IEnumerable<TaskInfo>> GetTaskByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
+        public Task<IEnumerable<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
         {
-            IEnumerable<TaskInfo> result = taskInfos.Where(t => t.GroupId == groupId);
-            return Task.FromResult<IEnumerable<TaskInfo>>(result);
+            IEnumerable<JobInfo> result = jobInfos.Where(t => t.GroupId == groupId);
+            return Task.FromResult<IEnumerable<JobInfo>>(result);
         }
 
-        public Task<TaskInfo> GetTaskByIdAsync(byte queueType, long taskId, bool returnDefinition, CancellationToken cancellationToken)
+        public Task<JobInfo> GetJobByIdAsync(byte queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken)
         {
-            if (GetTaskByIdFunc != null)
+            if (GetJobByIdFunc != null)
             {
-                return Task.FromResult(GetTaskByIdFunc(this, taskId));
+                return Task.FromResult(GetJobByIdFunc(this, jobId));
             }
 
-            TaskInfo result = taskInfos.FirstOrDefault(t => t.Id == taskId);
+            JobInfo result = jobInfos.FirstOrDefault(t => t.Id == jobId);
             return Task.FromResult(result);
         }
 
-        public Task<IEnumerable<TaskInfo>> GetTaskByIdsAsync(byte queueType, long[] taskIds, bool returnDefinition, CancellationToken cancellationToken)
+        public Task<IEnumerable<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
         {
-            IEnumerable<TaskInfo> result = taskInfos.Where(t => taskIds.Contains(t.Id));
-            return Task.FromResult<IEnumerable<TaskInfo>>(result);
+            IEnumerable<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id));
+            return Task.FromResult<IEnumerable<JobInfo>>(result);
         }
 
         public bool IsInitialized()
@@ -149,20 +149,20 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             return true;
         }
 
-        public Task<TaskInfo> KeepAliveTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
+        public Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             HeartbeatFaultAction?.Invoke();
 
-            TaskInfo task = taskInfos.FirstOrDefault(t => t.Id == taskInfo.Id);
-            if (task == null)
+            JobInfo job = jobInfos.FirstOrDefault(t => t.Id == jobInfo.Id);
+            if (job == null)
             {
-                throw new TaskNotExistException("not exist");
+                throw new JobNotExistException("not exist");
             }
 
-            task.HeartbeatDateTime = DateTime.Now;
-            task.Result = taskInfo.Result;
+            job.HeartbeatDateTime = DateTime.Now;
+            job.Result = jobInfo.Result;
 
-            return Task.FromResult(task);
+            return Task.FromResult(job);
         }
     }
 }

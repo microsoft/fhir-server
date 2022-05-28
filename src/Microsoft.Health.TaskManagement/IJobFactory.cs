@@ -5,16 +5,16 @@
 
 namespace Microsoft.Health.JobManagement
 {
-    public static class Constants
+    /// <summary>
+    /// Interface for factory to create job from job information
+    /// </summary>
+    public interface IJobFactory
     {
-        public const int DefaultPollingFrequencyInSeconds = 10;
-
-        public const short DefaultMaxRunningJobCount = 1;
-
-        public const short DefaultMaxRetryCount = 3;
-
-        public const int DefaultJobHeartbeatTimeoutThresholdInSeconds = 120;
-
-        public const int DefaultJobHeartbeatIntervalInSeconds = 10;
+        /// <summary>
+        /// Create new job from JobInfo
+        /// </summary>
+        /// <param name="jobInfo">Job information payload.</param>
+        /// <returns>Job for execution.</returns>
+        IJob Create(JobInfo jobInfo);
     }
 }

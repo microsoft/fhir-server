@@ -3,20 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using MediatR;
-
-namespace Microsoft.Health.Fhir.Core.Messages.Import
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class GetImportRequest : IRequest<GetImportResponse>
+    /// <summary>
+    /// Import orchestrator job progress enums.
+    /// </summary>
+    public enum ImportOrchestratorJobProgress
     {
-        public GetImportRequest(long jobId)
-        {
-            JobId = jobId;
-        }
-
-        /// <summary>
-        /// Import task id
-        /// </summary>
-        public long JobId { get; }
+        Initialized,
+        InputResourcesValidated,
+        PreprocessCompleted,
+        SubJobRecordsGenerated,
+        SubJobsCompleted,
+        PostprocessCompleted,
     }
 }

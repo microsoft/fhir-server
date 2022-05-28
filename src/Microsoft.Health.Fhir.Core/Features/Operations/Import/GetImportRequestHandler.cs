@@ -14,9 +14,9 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Import;
-using Microsoft.Health.TaskManagement;
+using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
-using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
+using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -43,58 +43,58 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            TaskInfo taskInfo = await _queueClient.GetTaskByIdAsync((byte)QueueType.Import, request.TaskId, false, cancellationToken);
-            if (taskInfo == null || taskInfo.Status == TaskStatus.Archived)
+            JobInfo jobInfo = await _queueClient.GetJobByIdAsync((byte)QueueType.Import, request.JobId, false, cancellationToken);
+            if (jobInfo == null || jobInfo.Status == JobStatus.Archived)
             {
-                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
+                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
             }
 
-            if (taskInfo.Status == TaskStatus.Created)
+            if (jobInfo.Status == JobStatus.Created)
             {
                 return new GetImportResponse(HttpStatusCode.Accepted);
             }
-            else if (taskInfo.Status == TaskStatus.Running)
+            else if (jobInfo.Status == JobStatus.Running)
             {
-                if (string.IsNullOrEmpty(taskInfo.Result))
+                if (string.IsNullOrEmpty(jobInfo.Result))
                 {
                     return new GetImportResponse(HttpStatusCode.Accepted);
                 }
 
-                ImportOrchestratorTaskResult orchestratorTaskresult = JsonConvert.DeserializeObject<ImportOrchestratorTaskResult>(taskInfo.Result);
+                ImportOrchestratorJobResult orchestratorJobResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(jobInfo.Result);
 
                 (List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)
-                    = await GetProcessingResultAsync(taskInfo, cancellationToken);
+                    = await GetProcessingResultAsync(jobInfo, cancellationToken);
 
-                ImportTaskResult result = new ImportTaskResult()
+                ImportJobResult result = new ImportJobResult()
                 {
-                    Request = orchestratorTaskresult.Request,
-                    TransactionTime = orchestratorTaskresult.TransactionTime,
+                    Request = orchestratorJobResult.Request,
+                    TransactionTime = orchestratorJobResult.TransactionTime,
                     Output = completedOperationOutcome,
                     Error = failedOperationOutcome,
                 };
 
                 return new GetImportResponse(HttpStatusCode.Accepted, result);
             }
-            else if (taskInfo.Status == TaskStatus.Completed)
+            else if (jobInfo.Status == JobStatus.Completed)
             {
-                ImportOrchestratorTaskResult orchestratorTaskresult = JsonConvert.DeserializeObject<ImportOrchestratorTaskResult>(taskInfo.Result);
+                ImportOrchestratorJobResult orchestratorJobResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(jobInfo.Result);
 
                 (List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)
-                    = await GetProcessingResultAsync(taskInfo, cancellationToken);
+                    = await GetProcessingResultAsync(jobInfo, cancellationToken);
 
-                ImportTaskResult result = new ImportTaskResult()
+                ImportJobResult result = new ImportJobResult()
                 {
-                    Request = orchestratorTaskresult.Request,
-                    TransactionTime = orchestratorTaskresult.TransactionTime,
+                    Request = orchestratorJobResult.Request,
+                    TransactionTime = orchestratorJobResult.TransactionTime,
                     Output = completedOperationOutcome,
                     Error = failedOperationOutcome,
                 };
 
                 return new GetImportResponse(HttpStatusCode.OK, result);
             }
-            else if (taskInfo.Status == TaskStatus.Failed)
+            else if (jobInfo.Status == JobStatus.Failed)
             {
-                ImportOrchestratorTaskErrorResult errorResult = JsonConvert.DeserializeObject<ImportOrchestratorTaskErrorResult>(taskInfo.Result);
+                ImportOrchestratorJobErrorResult errorResult = JsonConvert.DeserializeObject<ImportOrchestratorJobErrorResult>(jobInfo.Result);
 
                 string failureReason = errorResult.ErrorMessage;
                 HttpStatusCode failureStatusCode = errorResult.HttpStatusCode;
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new OperationFailedException(
                     string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), failureStatusCode);
             }
-            else if (taskInfo.Status == TaskStatus.Cancelled)
+            else if (jobInfo.Status == JobStatus.Cancelled)
             {
                 throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
             }
@@ -112,28 +112,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<(List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)> GetProcessingResultAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
+        private async Task<(List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)> GetProcessingResultAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
-            IEnumerable<TaskInfo> tasks = await _queueClient.GetTaskByGroupIdAsync((byte)QueueType.Import, taskInfo.GroupId, false, cancellationToken);
+            IEnumerable<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Import, jobInfo.GroupId, false, cancellationToken);
             List<ImportOperationOutcome> completedOperationOutcome = new List<ImportOperationOutcome>();
             List<ImportFailedOperationOutcome> failedOperationOutcome = new List<ImportFailedOperationOutcome>();
-            foreach (var task in tasks)
+            foreach (var job in jobs)
             {
-                if (task.Status != TaskStatus.Completed || string.IsNullOrEmpty(task.Result))
+                if (job.Status != JobStatus.Completed || string.IsNullOrEmpty(job.Result))
                 {
                     continue;
                 }
 
-                ImportProcessingTaskResult procesingTaskResult = JsonConvert.DeserializeObject<ImportProcessingTaskResult>(task.Result);
-                if (string.IsNullOrEmpty(procesingTaskResult.ResourceLocation))
+                ImportProcessingJobResult procesingJobResult = JsonConvert.DeserializeObject<ImportProcessingJobResult>(job.Result);
+                if (string.IsNullOrEmpty(procesingJobResult.ResourceLocation))
                 {
                     continue;
                 }
 
-                completedOperationOutcome.Add(new ImportOperationOutcome() { Type = procesingTaskResult.ResourceType, Count = procesingTaskResult.SucceedCount, InputUrl = new Uri(procesingTaskResult.ResourceLocation) });
-                if (procesingTaskResult.FailedCount > 0)
+                completedOperationOutcome.Add(new ImportOperationOutcome() { Type = procesingJobResult.ResourceType, Count = procesingJobResult.SucceedCount, InputUrl = new Uri(procesingJobResult.ResourceLocation) });
+                if (procesingJobResult.FailedCount > 0)
                 {
-                    failedOperationOutcome.Add(new ImportFailedOperationOutcome() { Type = procesingTaskResult.ResourceType, Count = procesingTaskResult.FailedCount, InputUrl = new Uri(procesingTaskResult.ResourceLocation), Url = procesingTaskResult.ErrorLogLocation });
+                    failedOperationOutcome.Add(new ImportFailedOperationOutcome() { Type = procesingJobResult.ResourceType, Count = procesingJobResult.FailedCount, InputUrl = new Uri(procesingJobResult.ResourceLocation), Url = procesingJobResult.ErrorLogLocation });
                 }
             }
 

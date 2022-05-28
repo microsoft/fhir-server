@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.TaskManagement;
+using Microsoft.Health.JobManagement;
 using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogWarning("Failed to upload import error log.", ex);
-                throw new RetriableTaskException(ex.Message, ex);
+                throw new RetriableJobException(ex.Message, ex);
             }
         }
     }
