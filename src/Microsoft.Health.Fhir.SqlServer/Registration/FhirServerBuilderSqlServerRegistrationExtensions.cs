@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using EnsureThat;
+using MediatR.Pipeline;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -217,6 +218,11 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
                 .AsImplementedInterfaces();
+
+            services.Add(typeof(SqlExceptionActionProcessor<,>))
+                .Transient()
+                .AsSelf()
+                .AsService(typeof(IRequestExceptionAction<,>));
 
             return fhirServerBuilder;
         }
