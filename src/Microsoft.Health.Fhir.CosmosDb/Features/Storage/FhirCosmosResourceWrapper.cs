@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [JsonProperty(KnownDocumentProperties.IsSystem)]
         public bool IsSystem { get; } = false;
 
-        [JsonProperty("version")]
+        [JsonProperty(KnownResourceWrapperProperties.Version)]
         public override string Version
         {
             get => GetETagOrVersion();

@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Globalization;
+////using System.Globalization;
 using EnsureThat;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -73,8 +73,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             // formatted as 2018-01-01T00:00:00.9999999+00:00. Because Cosmos DB only supports range index
             // with string or number data type, the comparison does not work correctly in some cases.
             // Output the date time using 'o' to make sure the fraction is always generated.
-            AddProperty(SearchValueConstants.DateTimeStartName, dateTime.Start.ToString("o", CultureInfo.InvariantCulture));
-            AddProperty(SearchValueConstants.DateTimeEndName, dateTime.End.ToString("o", CultureInfo.InvariantCulture));
+            AddProperty(SearchValueConstants.DateTimeStartName, dateTime.Start.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
+            AddProperty(SearchValueConstants.DateTimeEndName, dateTime.End.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
         }
 
         void ISearchValueVisitor.Visit(NumberSearchValue number)
