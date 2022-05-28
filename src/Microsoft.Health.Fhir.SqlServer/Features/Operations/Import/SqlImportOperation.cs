@@ -282,16 +282,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     List<(string tableName, string indexName, bool pageCompression)> indexesNeedRebuild = new List<(string tableName, string indexName, bool pageCompression)>();
 
+                    if (_importTaskConfiguration.DisableOptionalIndexesForImport)
+                    {
+                        indexesNeedRebuild.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
+                    }
 
-                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
-                {
-                    indexesNeedRebuild.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
-                }
-
-                if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
-                {
-                    indexesNeedRebuild.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
-                }
+                    if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                    {
+                        indexesNeedRebuild.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
+                    }
 
                     List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
                     HashSet<string> runningRebuildTables = new HashSet<string>();
@@ -309,11 +308,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             runningTasks.Remove(completedTask);
                         }
 
-                    (string tableName, string indexName, bool pageCompression) nextIndex = indexesNeedRebuild.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
-                    indexesNeedRebuild.Remove(nextIndex);
-                    runningRebuildTables.Add(nextIndex.tableName);
-                    runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, nextIndex.pageCompression, cancellationToken));
-                }
+                        (string tableName, string indexName, bool pageCompression) nextIndex = indexesNeedRebuild.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
+                        indexesNeedRebuild.Remove(nextIndex);
+                        runningRebuildTables.Add(nextIndex.tableName);
+                        runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, nextIndex.pageCompression, cancellationToken));
+                    }
 
                     await Task.WhenAll(runningTasks.ToArray());
                 }
@@ -367,8 +366,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
-                    VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
 
                 return (tableName, indexName);
             }
