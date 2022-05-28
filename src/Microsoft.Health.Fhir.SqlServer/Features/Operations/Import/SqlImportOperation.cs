@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (_schemaInformation.Current >= SchemaVersionConstants.RenamedIndexForResourceTable)
             {
-                ////list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId));
+                // Do nothing. This is the easiest fix until we remove this code completely.
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyForResourceTable)
             {
