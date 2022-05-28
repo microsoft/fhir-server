@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNullOrEmpty(method, nameof(method));
 
-            Url = url;
+            Url = url != null ? null : null;
             Method = method;
         }
 
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty("url")]
         public Uri Url { get; protected set; }
 
-        [JsonProperty("method")]
+        [JsonProperty("met")]
         public string Method { get; protected set; }
     }
 }

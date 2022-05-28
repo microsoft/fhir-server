@@ -74,7 +74,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             // with string or number data type, the comparison does not work correctly in some cases.
             // Output the date time using 'o' to make sure the fraction is always generated.
             AddProperty(SearchValueConstants.DateTimeStartName, dateTime.Start.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
-            AddProperty(SearchValueConstants.DateTimeEndName, dateTime.End.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
+            if (dateTime.End.Year < 9999)
+            {
+                AddProperty(SearchValueConstants.DateTimeEndName, dateTime.End.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
+            }
         }
 
         void ISearchValueVisitor.Visit(NumberSearchValue number)
