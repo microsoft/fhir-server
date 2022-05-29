@@ -4,10 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
+////using System.Collections.Generic;
+////using System.Globalization;
+////using System.Linq;
+////using System.Text;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -59,10 +59,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             switch (_prefix)
             {
                 case SearchValueConstants.SortLowValueFieldName:
-                    AddProperty(_prefix, dateTime.Start.ToString("o", CultureInfo.InvariantCulture));
+                    AddProperty(_prefix, dateTime.Start.ToString("yyyy-MM-ddTHH:mm:ss"));
                     break;
                 case SearchValueConstants.SortHighValueFieldName:
-                    AddProperty(_prefix, dateTime.End.ToString("o", CultureInfo.InvariantCulture));
+                    if (dateTime.End.Year < 9999)
+                    {
+                        AddProperty(_prefix, dateTime.End.ToString("yyyy-MM-ddTHH:mm:ss"));
+                    }
+
                     break;
                 default:
                     throw new NotSupportedException();
