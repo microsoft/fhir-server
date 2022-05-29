@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             byte queueType = (byte)TestQueueType.GivenNewJobs_WhenEnqueueJobs_ThenCreatedJobsShouldBeReturned;
 
             SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            string[] definitions = new string[] { "job1", "job1" };
+            string[] definitions = new string[] { "job1", "job2" };
             IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, definitions, null, false, false, CancellationToken.None);
 
             Assert.Equal(2, jobInfos.Count());
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             jobInfo2.Result = "Completed";
             await sqlQueueClient.CompleteJobAsync(jobInfo2, false, CancellationToken.None);
             jobInfo = await sqlQueueClient.GetJobByIdAsync(queueType, jobInfo2.Id, false, CancellationToken.None);
-            Assert.Equal(JobStatus.Completed, jobInfo.Status);
+            Assert.Equal(JobStatus.Cancelled, jobInfo.Status);
             Assert.Equal(jobInfo2.Result, jobInfo.Result);
         }
 
