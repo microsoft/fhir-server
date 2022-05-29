@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceId = resourceId;
             Version = versionId;
             ResourceTypeName = resourceTypeName;
-            RawResource = null;
+            RawResource = new RawResource("{}", FhirResourceFormat.Json, false);
             Request = request;
             IsDeleted = deleted;
             LastModified = lastModified;
