@@ -128,8 +128,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
                         AddProperty(SearchValueConstants.StringName, key.ToString());
                     }
                 }
-
-                AddProperty(SearchValueConstants.StringName, key.ToString());
+                else
+                {
+                    AddProperty(SearchValueConstants.StringName, key.ToString());
+                }
             }
 
             AddProperty(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
@@ -157,8 +159,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
                     AddProperty(SearchValueConstants.UriName, key.ToString());
                 }
             }
-
-            AddProperty(SearchValueConstants.UriName, key.ToString());
+            else
+            {
+                AddProperty(SearchValueConstants.UriName, key.ToString());
+            }
         }
 
         private void CreateEntry()

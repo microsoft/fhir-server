@@ -122,8 +122,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
                     AddProperty(_prefix, key.ToString());
                 }
             }
-
-            AddProperty(_prefix, key.ToString());
+            else
+            {
+                AddProperty(_prefix, key.ToString());
+            }
         }
 
         private void CreateEntry()
