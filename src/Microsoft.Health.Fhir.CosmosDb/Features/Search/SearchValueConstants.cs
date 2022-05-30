@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string HighQuantityName = "hq";
 
-        public const string SystemName = "s";
+        public const string SystemName = "sy";
 
         public const string CodeName = "c";
 

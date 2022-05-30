@@ -97,7 +97,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         void ISearchValueVisitor.Visit(QuantitySearchValue quantity)
         {
-            AddPropertyIfNotNull(SearchValueConstants.SystemName, quantity.System);
+            ////AddPropertyIfNotNull(SearchValueConstants.SystemName, quantity.System);
+            AddPropertyIfNotNullWithIntMap(SearchValueConstants.SystemName, quantity.System);
             AddPropertyIfNotNull(SearchValueConstants.CodeName, quantity.Code);
 
             if (quantity.Low == quantity.High)
@@ -121,39 +122,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             if (!IsCompositeComponent)
             {
                 ////AddProperty(SearchValueConstants.StringName, s.String);
-                AppPropertyWithIntMap(SearchValueConstants.StringName, s.String);
+                AddPropertyWithIntMap(SearchValueConstants.StringName, s.String);
             }
 
             ////AddProperty(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
-            AppPropertyWithIntMap(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
-        }
-
-        private void AppPropertyWithIntMap(string name, string str)
-        {
-            if (!_stringToInt.TryGetValue(str, out var key))
-            {
-                lock (_stringToInt)
-                {
-                    key = _stringToInt.IsEmpty ? 1 : _stringToInt.Values.Max() + 1;
-                    _stringToInt.TryAdd(str, key);
-                    AddProperty(name, key.ToString());
-                }
-            }
-            else
-            {
-                AddProperty(name, key.ToString());
-            }
+            AddPropertyWithIntMap(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
         }
 
         void ISearchValueVisitor.Visit(TokenSearchValue token)
         {
-            AddPropertyIfNotNull(SearchValueConstants.SystemName, token.System);
+            ////AddPropertyIfNotNull(SearchValueConstants.SystemName, token.System);
+            AddPropertyIfNotNullWithIntMap(SearchValueConstants.SystemName, token.System);
             AddPropertyIfNotNull(SearchValueConstants.CodeName, token.Code);
 
             if (!IsCompositeComponent)
             {
                 // Since text is case-insensitive search, it will always be normalized.
-                AddPropertyIfNotNull(SearchValueConstants.NormalizedTextName, token.Text?.ToUpperInvariant());
+                ////AddPropertyIfNotNull(SearchValueConstants.NormalizedTextName, token.Text?.ToUpperInvariant());
+                AddPropertyIfNotNullWithIntMap(SearchValueConstants.NormalizedTextName, token.Text?.ToUpperInvariant());
             }
         }
 
@@ -204,6 +190,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             if (value != null)
             {
                 AddProperty(name, value);
+            }
+        }
+
+        private void AddPropertyWithIntMap(string name, string str)
+        {
+            if (!_stringToInt.TryGetValue(str, out var key))
+            {
+                lock (_stringToInt)
+                {
+                    key = _stringToInt.IsEmpty ? 1 : _stringToInt.Values.Max() + 1;
+                    _stringToInt.TryAdd(str, key);
+                    AddProperty(name, key.ToString());
+                }
+            }
+            else
+            {
+                AddProperty(name, key.ToString());
+            }
+        }
+
+        private void AddPropertyIfNotNullWithIntMap(string name, string value)
+        {
+            if (value != null)
+            {
+                AddPropertyWithIntMap(name, value);
             }
         }
     }
