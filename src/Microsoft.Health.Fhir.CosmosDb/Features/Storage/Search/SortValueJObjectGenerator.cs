@@ -7,7 +7,7 @@ using System;
 using System.Collections.Concurrent;
 ////using System.Collections.Generic;
 ////using System.Globalization;
-using System.Linq;
+////using System.Linq;
 ////using System.Text;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -114,18 +114,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         public void Visit(UriSearchValue uri)
         {
-            if (!UriToInt.TryGetValue(uri.Uri, out var key))
-            {
-                lock (UriToInt)
-                {
-                    key = UriToInt.IsEmpty ? 1 : UriToInt.Values.Max() + 1;
-                    AddProperty(_prefix, key.ToString());
-                }
-            }
-            else
-            {
-                AddProperty(_prefix, key.ToString());
-            }
+            AddProperty(_prefix, uri.Uri);
+            ////if (!UriToInt.TryGetValue(uri.Uri, out var key))
+            ////{
+            ////    lock (UriToInt)
+            ////    {
+            ////        key = UriToInt.IsEmpty ? 1 : UriToInt.Values.Max() + 1;
+            ////        AddProperty(_prefix, key.ToString());
+            ////    }
+            ////}
+            ////else
+            ////{
+            ////    AddProperty(_prefix, key.ToString());
+            ////}
         }
 
         private void CreateEntry()

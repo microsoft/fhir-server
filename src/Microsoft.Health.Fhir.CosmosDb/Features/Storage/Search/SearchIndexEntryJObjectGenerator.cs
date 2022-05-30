@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Concurrent;
+////using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+////using System.Linq;
 ////using System.Globalization;
 using EnsureThat;
 using Microsoft.Health.Core.Extensions;
@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
     {
         private readonly List<JObject> _generatedObjects = new();
 
-        private static ConcurrentDictionary<string, int> _stringToInt = new ConcurrentDictionary<string, int>();
+        ////private static ConcurrentDictionary<string, int> _stringToInt = new ConcurrentDictionary<string, int>();
 
         private SearchIndexEntry Entry { get; set; }
 
@@ -120,18 +120,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         {
             if (!IsCompositeComponent)
             {
-                if (!_stringToInt.TryGetValue(s.String, out var key))
-                {
-                    lock (_stringToInt)
-                    {
-                        key = _stringToInt.IsEmpty ? 1 : _stringToInt.Values.Max() + 1;
-                        AddProperty(SearchValueConstants.StringName, key.ToString());
-                    }
-                }
-                else
-                {
-                    AddProperty(SearchValueConstants.StringName, key.ToString());
-                }
+                AddProperty(SearchValueConstants.StringName, s.String);
+                ////if (!_stringToInt.TryGetValue(s.String, out var key))
+                ////{
+                ////    lock (_stringToInt)
+                ////    {
+                ////        key = _stringToInt.IsEmpty ? 1 : _stringToInt.Values.Max() + 1;
+                ////        AddProperty(SearchValueConstants.StringName, key.ToString());
+                ////    }
+                ////}
+                ////else
+                ////{
+                ////    AddProperty(SearchValueConstants.StringName, key.ToString());
+                ////}
             }
 
             AddProperty(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
@@ -151,18 +152,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         void ISearchValueVisitor.Visit(UriSearchValue uri)
         {
-            if (!SortValueJObjectGenerator.UriToInt.TryGetValue(uri.Uri, out var key))
-            {
-                lock (SortValueJObjectGenerator.UriToInt)
-                {
-                    key = SortValueJObjectGenerator.UriToInt.IsEmpty ? 1 : SortValueJObjectGenerator.UriToInt.Values.Max() + 1;
-                    AddProperty(SearchValueConstants.UriName, key.ToString());
-                }
-            }
-            else
-            {
-                AddProperty(SearchValueConstants.UriName, key.ToString());
-            }
+            AddProperty(SearchValueConstants.UriName, uri.Uri);
+            ////if (!SortValueJObjectGenerator.UriToInt.TryGetValue(uri.Uri, out var key))
+            ////{
+            ////    lock (SortValueJObjectGenerator.UriToInt)
+            ////    {
+            ////        key = SortValueJObjectGenerator.UriToInt.IsEmpty ? 1 : SortValueJObjectGenerator.UriToInt.Values.Max() + 1;
+            ////        AddProperty(SearchValueConstants.UriName, key.ToString());
+            ////    }
+            ////}
+            ////else
+            ////{
+            ////    AddProperty(SearchValueConstants.UriName, key.ToString());
+            ////}
         }
 
         private void CreateEntry()
