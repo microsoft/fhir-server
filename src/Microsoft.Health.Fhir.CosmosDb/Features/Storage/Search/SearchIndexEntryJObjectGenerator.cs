@@ -9,6 +9,7 @@ using System.Linq;
 ////using System.Globalization;
 using EnsureThat;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -113,7 +114,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         void ISearchValueVisitor.Visit(ReferenceSearchValue reference)
         {
             AddPropertyIfNotNull(SearchValueConstants.ReferenceBaseUriName, reference.BaseUri?.ToString());
-            AddPropertyIfNotNull(SearchValueConstants.ReferenceResourceTypeName, reference.ResourceType?.ToString());
+            ////AddPropertyIfNotNull(SearchValueConstants.ReferenceResourceTypeName, reference.ResourceType?.ToString());
+            if (reference.ResourceType != null)
+            {
+                AddPropertyIfNotNull(SearchValueConstants.ReferenceResourceTypeName, ResourceKey.NameToId(reference.ResourceType));
+            }
+
             AddProperty(SearchValueConstants.ReferenceResourceIdName, reference.ResourceId);
         }
 

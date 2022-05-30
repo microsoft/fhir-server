@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public static string NameToId(string name)
         {
-            return _nameToId[name];
+            return _nameToId.TryGetValue(name, out var id) ? id : name;
         }
     }
 }
