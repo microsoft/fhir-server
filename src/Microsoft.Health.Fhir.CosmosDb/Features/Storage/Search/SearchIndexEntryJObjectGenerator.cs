@@ -121,21 +121,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             if (!IsCompositeComponent)
             {
                 ////AddProperty(SearchValueConstants.StringName, s.String);
-                if (!_stringToInt.TryGetValue(s.String, out var key))
-                {
-                    lock (_stringToInt)
-                    {
-                        key = _stringToInt.IsEmpty ? 1 : _stringToInt.Values.Max() + 1;
-                        AddProperty(SearchValueConstants.StringName, key.ToString());
-                    }
-                }
-                else
-                {
-                    AddProperty(SearchValueConstants.StringName, key.ToString());
-                }
+                AppPropertyWithIntMap(SearchValueConstants.StringName, s.String);
             }
 
-            AddProperty(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
+            ////AddProperty(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
+            AppPropertyWithIntMap(SearchValueConstants.NormalizedStringName, s.String.ToUpperInvariant());
+        }
+
+        private void AppPropertyWithIntMap(string name, string str)
+        {
+            if (!_stringToInt.TryGetValue(str, out var key))
+            {
+                lock (_stringToInt)
+                {
+                    key = _stringToInt.IsEmpty ? 1 : _stringToInt.Values.Max() + 1;
+                    _stringToInt.TryAdd(str, key);
+                    AddProperty(name, key.ToString());
+                }
+            }
+            else
+            {
+                AddProperty(name, key.ToString());
+            }
         }
 
         void ISearchValueVisitor.Visit(TokenSearchValue token)
