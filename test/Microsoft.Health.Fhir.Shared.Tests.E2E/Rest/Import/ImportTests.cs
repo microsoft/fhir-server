@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Success.ToString(), notification.Status);
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Success.ToString(), notification.Status);
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);
@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Success.ToString(), notification.Status);
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Success.ToString(), notification.Status);
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(0, notification.SucceedCount);
                 Assert.Equal(resourceCount, notification.FailedCount);
@@ -324,7 +324,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Success.ToString(), notification.Status);
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);
@@ -380,7 +380,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Success.ToString(), notification.Status);
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(1, notification.FailedCount);
@@ -425,12 +425,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 Assert.Equal(2, notificationList.Count);
 
                 var notification1 = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Success.ToString(), notification1.Status);
+                Assert.Equal(JobStatus.Completed.ToString(), notification1.Status);
                 Assert.Equal(1, notification1.SucceedCount);
                 Assert.Equal(1, notification1.FailedCount);
 
                 var notification2 = notificationList[1] as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Success.ToString(), notification1.Status);
+                Assert.Equal(JobStatus.Completed.ToString(), notification1.Status);
                 Assert.Equal(0, notification2.SucceedCount);
                 Assert.Equal(2, notification2.FailedCount);
             }
@@ -512,7 +512,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Fail.ToString(), notification.Status);
+                Assert.Equal(JobStatus.Failed.ToString(), notification.Status);
                 Assert.Null(notification.DataSize);
                 Assert.Null(notification.SucceedCount);
                 Assert.Null(notification.FailedCount);
@@ -562,7 +562,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobResult.Fail.ToString(), notification.Status);
+                Assert.Equal(JobStatus.Failed.ToString(), notification.Status);
                 Assert.Null(notification.DataSize);
                 Assert.Equal(0, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);

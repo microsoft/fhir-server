@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             _ = mediator.Received().Publish(
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
-                    notification.Status == JobResult.Fail.ToString() &&
+                    notification.Status == JobStatus.Failed.ToString() &&
                     notification.CreatedTime == importOrchestratorInputData.CreateTime &&
                     notification.DataSize == null &&
                     notification.SucceedCount == 0 &&
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             _ = mediator.Received().Publish(
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
-                    notification.Status == JobResult.Fail.ToString() &&
+                    notification.Status == JobStatus.Failed.ToString() &&
                     notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
                     notification.DataSize == null &&
                     notification.SucceedCount == 0 &&
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             _ = mediator.Received().Publish(
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
-                    notification.Status == JobResult.Fail.ToString() &&
+                    notification.Status == JobStatus.Failed.ToString() &&
                     notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
                     notification.DataSize == null &&
                     notification.SucceedCount == 0 &&
@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             _ = mediator.Received().Publish(
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
-                    notification.Status == JobResult.Fail.ToString() &&
+                    notification.Status == JobStatus.Failed.ToString() &&
                     notification.CreatedTime == importOrchestratorInputData.CreateTime &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
@@ -602,7 +602,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             _ = mediator.Received().Publish(
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id.Equals(orchestratorJobInfo.Id.ToString()) &&
-                    notification.Status == JobResult.Success.ToString() &&
+                    notification.Status == JobStatus.Completed.ToString() &&
                     notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
                     notification.SucceedCount == inputFileCount &&
                     notification.FailedCount == inputFileCount),

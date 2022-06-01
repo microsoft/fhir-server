@@ -205,7 +205,7 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (JobNotExistException notExistEx)
                 {
-                    _logger.LogError(notExistEx, "Job {jobId} not exist or runid not match.", jobInfo.Id);
+                    _logger.LogError(notExistEx, "Job {jobId} not exist or {runid} not match.", jobInfo.Id, jobInfo.Version);
                     shouldCancel = true;
                 }
 

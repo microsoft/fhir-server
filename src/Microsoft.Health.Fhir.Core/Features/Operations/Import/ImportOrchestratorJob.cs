@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 await CancelProcessingJobsAsync();
-                await SendImportMetricsNotification(JobResult.Canceled);
+                await SendImportMetricsNotification(JobStatus.Cancelled);
             }
             catch (OperationCanceledException canceledEx)
             {
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 await CancelProcessingJobsAsync();
-                await SendImportMetricsNotification(JobResult.Canceled);
+                await SendImportMetricsNotification(JobStatus.Cancelled);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = integrationDataStoreEx.Message,
                 };
 
-                await SendImportMetricsNotification(JobResult.Fail);
+                await SendImportMetricsNotification(JobStatus.Failed);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = eTagEx.Message,
                 };
 
-                await SendImportMetricsNotification(JobResult.Fail);
+                await SendImportMetricsNotification(JobStatus.Failed);
             }
             catch (ImportProcessingException processingEx)
             {
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 await CancelProcessingJobsAsync();
-                await SendImportMetricsNotification(JobResult.Fail);
+                await SendImportMetricsNotification(JobStatus.Failed);
             }
             catch (RetriableJobException ex)
             {
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 await CancelProcessingJobsAsync();
-                await SendImportMetricsNotification(JobResult.Fail);
+                await SendImportMetricsNotification(JobStatus.Failed);
             }
 
             // Post-process operation cannot be cancelled.
@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new JobExecutionException(errorResult.ErrorMessage, errorResult);
             }
 
-            await SendImportMetricsNotification(JobResult.Success);
+            await SendImportMetricsNotification(JobStatus.Completed);
             return JsonConvert.SerializeObject(_orchestratorJobResult);
         }
 
@@ -269,11 +269,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task SendImportMetricsNotification(JobResult jobResult)
+        private async Task SendImportMetricsNotification(JobStatus jobStatus)
         {
             ImportJobMetricsNotification importJobMetricsNotification = new ImportJobMetricsNotification(
                 _jobInfo.Id.ToString(),
-                jobResult.ToString(),
+                jobStatus.ToString(),
                 _orchestratorInputData.CreateTime,
                 Clock.UtcNow,
                 _orchestratorJobResult.TotalSizeInBytes,

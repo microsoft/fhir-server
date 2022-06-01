@@ -44,12 +44,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, groupId, null);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
+                VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, groupId, null);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -67,12 +66,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, null, jobId);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
+                VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, null, jobId);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -90,23 +88,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Status == JobStatus.Failed, jobInfo.Data ?? 0, jobInfo.Result, requestCancellationOnFailure);
-                    try
-                    {
-                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
-                        {
-                            throw new JobNotExistException(sqlEx.Message);
-                        }
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                        throw;
+                VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Status == JobStatus.Failed, jobInfo.Data ?? 0, jobInfo.Result, requestCancellationOnFailure);
+                try
+                {
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (SqlException sqlEx)
+                {
+                    if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
+                    {
+                        throw new JobNotExistException(sqlEx.Message);
                     }
+
+                    throw;
                 }
             }
             catch (Exception ex)
@@ -121,24 +118,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<JobInfo> DequeueAsync(byte queueType, byte startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        public async Task<JobInfo> DequeueAsync(byte queueType, byte? startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
         {
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
+                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, queueType, startPartitionId, worker, heartbeatTimeoutSec);
+                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
+                if (jobInfo != null)
                 {
-                    VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, queueType, startPartitionId, worker, heartbeatTimeoutSec);
-                    SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                    JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
-                    if (jobInfo != null)
-                    {
-                        jobInfo.QueueType = queueType;
-                    }
-
-                    return jobInfo;
+                    jobInfo.QueueType = queueType;
                 }
+
+                return jobInfo;
             }
             catch (Exception ex)
             {
@@ -156,25 +152,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
+                VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, queueType, definitions.Select(d => new StringListRow(d)), groupId, forceOneActiveJobGroup, isCompleted);
+                try
                 {
-                    VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, queueType, definitions.Select(d => new StringListRow(d)), groupId, forceOneActiveJobGroup, isCompleted);
-                    try
-                    {
-                        SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                    using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                        return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
-                    }
-                    catch (SqlException sqlEx)
+                    return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
+                }
+                catch (SqlException sqlEx)
+                {
+                    if (sqlEx.State == 127)
                     {
-                        if (sqlEx.State == 127)
-                        {
-                            throw new JobConflictException(sqlEx.Message);
-                        }
-
-                        throw;
+                        throw new JobConflictException(sqlEx.Message);
                     }
+
+                    throw;
                 }
             }
             catch (Exception ex)
@@ -193,14 +188,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, null, null, groupId, returnDefinition);
-                    SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                    return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
-                }
+                VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, null, null, groupId, returnDefinition);
+                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -218,14 +212,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, jobId, null, null, returnDefinition);
-                    SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                    return await sqlDataReader.ReadJobInfoAsync(cancellationToken);
-                }
+                VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, jobId, null, null, returnDefinition);
+                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                return await sqlDataReader.ReadJobInfoAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -243,14 +236,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, null, jobIds.Select(i => new BigintListRow(i)), null, returnDefinition);
-                    SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                    return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
-                }
+                VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, null, jobIds.Select(i => new BigintListRow(i)), null, returnDefinition);
+                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -271,25 +263,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
+            try
             {
-                try
-                {
-                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-                    await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
+                await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                    return await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken);
-                }
-                catch (SqlException sqlEx)
+                return await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken);
+            }
+            catch (SqlException sqlEx)
+            {
+                if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
                 {
-                    if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
-                    {
-                        throw new JobNotExistException(sqlEx.Message);
-                    }
-
-                    throw;
+                    throw new JobNotExistException(sqlEx.Message);
                 }
+
+                throw;
             }
         }
     }
