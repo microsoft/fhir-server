@@ -5,11 +5,9 @@
 
 using System;
 using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
+using Azure.Identity;
+using Azure.Storage.Blobs;
 using EnsureThat;
-using Microsoft.Azure.Storage.Auth;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -18,32 +16,28 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
-    public class AzureAccessTokenClientInitializer : IExportClientInitializer<CloudBlobClient>
+    public class AzureAccessTokenClientInitializer : IExportClientInitializer<BlobServiceClient>
     {
-        private readonly IAccessTokenProvider _accessTokenProvider;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger<AzureAccessTokenClientInitializer> _logger;
 
         public AzureAccessTokenClientInitializer(
-            IAccessTokenProvider accessTokenProvider,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             ILogger<AzureAccessTokenClientInitializer> logger)
         {
-            EnsureArg.IsNotNull(accessTokenProvider, nameof(accessTokenProvider));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _accessTokenProvider = accessTokenProvider;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _logger = logger;
         }
 
-        public async Task<CloudBlobClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
+        public BlobServiceClient GetAuthorizedClient()
         {
-            return await GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+            return GetAuthorizedClient(_exportJobConfiguration);
         }
 
-        public async Task<CloudBlobClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        public BlobServiceClient GetAuthorizedClient(ExportJobConfiguration exportJobConfiguration)
         {
             // Get storage uri from config
             if (string.IsNullOrWhiteSpace(exportJobConfiguration.StorageAccountUri))
@@ -56,10 +50,9 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 throw new ExportClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
 
-            string accessToken = null;
             try
             {
-                accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(storageAccountUri, cancellationToken);
+                return new BlobServiceClient(storageAccountUri, new DefaultAzureCredential());
             }
             catch (AccessTokenProviderException atp)
             {
@@ -67,11 +60,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
                 throw new ExportClientInitializerException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
             }
-
-            using var tokenCredential = new TokenCredential(accessToken);
-
-            var storageCredentials = new StorageCredentials(tokenCredential);
-            return new CloudBlobClient(storageAccountUri, storageCredentials);
         }
     }
 }
