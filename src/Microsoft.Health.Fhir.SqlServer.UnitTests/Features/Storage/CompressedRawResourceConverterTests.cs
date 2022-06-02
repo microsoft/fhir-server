@@ -5,7 +5,6 @@
 
 using System.IO;
 using System.IO.Compression;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Xunit;
 
@@ -14,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
     public class CompressedRawResourceConverterTests
     {
         [Fact]
-        public async Task ResourceWithCurrentEncoding_WhenDecoded_ProducesCorrectResult()
+        public void ResourceWithCurrentEncoding_WhenDecoded_ProducesCorrectResult()
         {
             string data = "Hello 😊";
 
@@ -23,12 +22,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             converter.WriteCompressedRawResource(stream, data);
 
             stream.Seek(0, 0);
-            string actual = await converter.ReadCompressedRawResource(stream);
+            string actual = converter.ReadCompressedRawResource(stream);
             Assert.Equal(data, actual);
         }
 
         [Fact]
-        public async Task ResourceWithLegacyEncoding_WhenDecoded_ProducesCorrectResult()
+        public void ResourceWithLegacyEncoding_WhenDecoded_ProducesCorrectResult()
         {
             string data = "Hello 😊";
 
@@ -41,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             writer.Flush();
 
             stream.Seek(0, 0);
-            string actual = await converter.ReadCompressedRawResource(stream);
+            string actual = converter.ReadCompressedRawResource(stream);
             Assert.Equal(data, actual);
         }
     }

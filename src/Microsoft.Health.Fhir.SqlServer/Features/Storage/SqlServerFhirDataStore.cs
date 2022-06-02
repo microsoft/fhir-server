@@ -456,7 +456,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         if (string.IsNullOrEmpty(rawResource))
