@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.RestartCount)]
         public uint RestartCount { get; set; }
-        
+
         internal ExportJobRecord Clone()
         {
             return (ExportJobRecord)MemberwiseClone();
