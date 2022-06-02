@@ -49,7 +49,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
             string searchParameterHash = null)
             : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims, searchParameterHash)
-            ////: base(resourceId, versionId, ResourceKey.NameToId(resourceTypeName), rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims, searchParameterHash)
         {
             IsHistory = history;
 

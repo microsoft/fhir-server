@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         private readonly List<JObject> _generatedObjects = new();
 
         private static ConcurrentDictionary<string, int> _stringToInt = new ConcurrentDictionary<string, int>();
+        private static ConcurrentDictionary<string, int> _parameterToInt = new ConcurrentDictionary<string, int>();
 
         private SearchIndexEntry Entry { get; set; }
 
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             AddProperty(SearchValueConstants.DateTimeStartName, dateTime.Start.ToString("yyyyMMddHHmmss"));
             if (dateTime.End.Year < 9999)
             {
-                AddProperty(SearchValueConstants.DateTimeEndName, dateTime.End.ToString("yyyyMMddHHmmss"));
+                AddProperty(SearchValueConstants.DateTimeEndName, dateTime.Start == dateTime.End ? string.Empty : dateTime.End.ToString("yyyyMMddHHmmss"));
             }
         }
 
@@ -106,9 +107,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             {
                 AddProperty(SearchValueConstants.QuantityName, quantity.Low);
             }
-
-            AddProperty(SearchValueConstants.LowQuantityName, quantity.Low);
-            AddProperty(SearchValueConstants.HighQuantityName, quantity.High);
+            else
+            {
+                AddProperty(SearchValueConstants.LowQuantityName, quantity.Low);
+                AddProperty(SearchValueConstants.HighQuantityName, quantity.High);
+            }
         }
 
         void ISearchValueVisitor.Visit(ReferenceSearchValue reference)
@@ -168,9 +171,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         private void CreateEntry()
         {
+            if (!_parameterToInt.TryGetValue(Entry.SearchParameter.Code, out var key))
+            {
+                lock (_parameterToInt)
+                {
+                    key = _parameterToInt.IsEmpty ? 1 : _parameterToInt.Values.Max() + 1;
+                    _parameterToInt.TryAdd(Entry.SearchParameter.Code, key);
+                }
+            }
+
             CurrentEntry = new JObject
             {
-                new JProperty(SearchValueConstants.ParamName, Entry.SearchParameter.Code),
+                new JProperty(SearchValueConstants.ParamName, key),
             };
 
             _generatedObjects.Add(CurrentEntry);
