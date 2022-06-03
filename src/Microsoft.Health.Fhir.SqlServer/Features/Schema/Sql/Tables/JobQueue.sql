@@ -26,6 +26,7 @@ CREATE TABLE dbo.JobQueue
     ,CancelRequested     bit           NOT NULL CONSTRAINT DF_JobQueue_CancelRequested DEFAULT 0
 
      CONSTRAINT PKC_JobQueue_QueueType_PartitionId_JobId PRIMARY KEY CLUSTERED (QueueType, PartitionId, JobId) ON TinyintPartitionScheme(QueueType)
+    ,CONSTRAINT U_JobQueue_QueueType_JobId UNIQUE (QueueType, JobId)
 )
 GO
 CREATE INDEX IX_QueueType_PartitionId_Status_Priority ON dbo.JobQueue (PartitionId, Status, Priority) ON TinyintPartitionScheme(QueueType) -- dequeue
