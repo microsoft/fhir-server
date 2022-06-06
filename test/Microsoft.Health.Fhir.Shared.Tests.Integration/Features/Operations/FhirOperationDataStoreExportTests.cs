@@ -132,18 +132,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             Assert.Equal(expectedNumberOfJobsReturned, jobs.Count);
         }
 
-#pragma warning disable SA1107 // Code should not contain multiple statements on one line
         [Theory]
         ////TODO: Revise below when per instance max is introduced.
-        ////[InlineData(1, 0)]
-        [InlineData(2, 1)]
-        ////[InlineData(3, 2)]
+        [InlineData(1, 1)]
+        [InlineData(2, 2)]
+        [InlineData(3, 2)]
         public async Task GivenNumberOfRunningExportJobs_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
             await CreateRunningExportJob();
-            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Canceled; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1"); });
-            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Completed; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2"); });
-            await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Failed; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3"); });
+            await InsertNewExportJobRecordAsync(jr =>
+            {
+                jr.Status = OperationStatus.Canceled;
+                jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1");
+            });
+            await InsertNewExportJobRecordAsync(jr =>
+            {
+                jr.Status = OperationStatus.Completed;
+                jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2");
+            });
+            await InsertNewExportJobRecordAsync(jr =>
+            {
+                jr.Status = OperationStatus.Failed;
+                jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3");
+            });
             ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(jr => jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4")); // Queued
             ExportJobRecord jobRecord2 = await InsertNewExportJobRecordAsync(jr => jr.RequestUri = new Uri(jr.RequestUri.ToString() + "5")); // Queued
 
@@ -190,10 +201,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         {
             ExportJobRecord[] jobRecords = new[]
             {
-                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1"); }),
-                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2"); }),
-                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3"); }),
-                await InsertNewExportJobRecordAsync(jr => { jr.Status = OperationStatus.Queued; jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4"); }),
+                await InsertNewExportJobRecordAsync(jr =>
+                {
+                    jr.Status = OperationStatus.Queued;
+                    jr.RequestUri = new Uri(jr.RequestUri.ToString() + "1");
+                }),
+                await InsertNewExportJobRecordAsync(jr =>
+                {
+                    jr.Status = OperationStatus.Queued;
+                    jr.RequestUri = new Uri(jr.RequestUri.ToString() + "2");
+                }),
+                await InsertNewExportJobRecordAsync(jr =>
+                {
+                    jr.Status = OperationStatus.Queued;
+                    jr.RequestUri = new Uri(jr.RequestUri.ToString() + "3");
+                }),
+                await InsertNewExportJobRecordAsync(jr =>
+                {
+                    jr.Status = OperationStatus.Queued;
+                    jr.RequestUri = new Uri(jr.RequestUri.ToString() + "4");
+                }),
             };
 
             var completionSource = new TaskCompletionSource<bool>();
@@ -218,10 +245,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             {
                 await completionSource.Task;
 
-                return await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 2);
+                return await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
             }
         }
-#pragma warning restore SA1107 // Code should not contain multiple statements on one line
 
         [Fact]
         public async Task GivenARunningExportJob_WhenUpdatingTheExportJob_ThenTheExportJobShouldBeUpdated()
