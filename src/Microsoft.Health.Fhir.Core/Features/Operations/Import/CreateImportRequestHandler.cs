@@ -79,15 +79,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 ProcessingTaskMaxRetryCount = _importTaskConfiguration.MaxRetryCount,
                 TaskId = taskId,
                 TaskCreateTime = Clock.UtcNow,
+                StoreProgressInSubTask = _importTaskConfiguration.StoreProcessingResultInSubTasks,
             };
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 TaskTypeId = ImportOrchestratorTask.ImportOrchestratorTaskId,
-                MaxRetryCount = _importTaskConfiguration.MaxRetryCount,
+                MaxRetryCount = -1, // Infinit retry for orchestrator task
                 QueueId = _taskHostingConfiguration.QueueId,
                 InputData = JsonConvert.SerializeObject(inputData),
+                ParentTaskId = taskId,
             };
 
             try

@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
             ICollection<string> taskIds = new List<string>();
 
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
@@ -388,7 +388,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();

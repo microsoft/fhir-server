@@ -146,7 +146,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
-                bulkImportActionResult = ImportResult.Accepted();
+                if (getBulkImportResult.TaskResult == null)
+                {
+                    bulkImportActionResult = ImportResult.Accepted();
+                }
+                else
+                {
+                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.TaskResult);
+                    bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
+                }
             }
 
             return bulkImportActionResult;

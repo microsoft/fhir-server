@@ -86,6 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             ImportProcessingTaskResult result = new ImportProcessingTaskResult();
             result.ResourceType = _inputData.ResourceType;
+            result.ResourceLocation = _inputData.ResourceLocation;
 
             try
             {

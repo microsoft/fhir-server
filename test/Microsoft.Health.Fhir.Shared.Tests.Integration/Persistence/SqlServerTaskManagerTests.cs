@@ -9,7 +9,9 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.TaskManagement;
 using NSubstitute;
 using Xunit;
@@ -21,10 +23,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private const short SqlServerTaskManagerTestsTypeId = 100;
         private SqlServerFhirStorageTestsFixture _fixture;
+        private SchemaInformation _schemaInformation;
 
         public SqlServerTaskManagerTests(SqlServerFhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
+            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
         }
 
         [Fact]
@@ -32,6 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             string queueId = Guid.NewGuid().ToString();
             string taskId = Guid.NewGuid().ToString();
+            string parentTaskId = Guid.NewGuid().ToString();
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
@@ -40,9 +46,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 QueueId = queueId,
                 TaskTypeId = SqlServerTaskManagerTestsTypeId,
                 InputData = inputData,
+                ParentTaskId = parentTaskId,
             };
 
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             taskInfo = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             Assert.Equal(queueId, taskInfo.QueueId);
@@ -56,6 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(0, taskInfo.RetryCount);
             Assert.Null(taskInfo.Context);
             Assert.Null(taskInfo.Result);
+            Assert.Equal(parentTaskId, taskInfo.ParentTaskId);
 
             taskInfo = await sqlServerTaskManager.GetTaskAsync(taskId, CancellationToken.None);
             Assert.Equal(queueId, taskInfo.QueueId);
@@ -69,6 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(0, taskInfo.RetryCount);
             Assert.Null(taskInfo.Context);
             Assert.Null(taskInfo.Result);
+            Assert.Equal(parentTaskId, taskInfo.ParentTaskId);
         }
 
         [Fact]
@@ -90,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
 
             TaskInfo taskInfo1 = new TaskInfo()
             {
@@ -127,7 +136,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             taskInfo = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             await Assert.ThrowsAsync<TaskConflictException>(async () => await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None));
@@ -148,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             TaskInfo canceledTask = await sqlServerTaskManager.CancelTaskAsync(taskId, CancellationToken.None);
@@ -170,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, true, CancellationToken.None);
 
             taskInfo = new TaskInfo()
@@ -199,7 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, _schemaInformation, NullLogger<SqlServerTaskManager>.Instance);
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, true, CancellationToken.None);
             _ = await sqlServerTaskManager.CancelTaskAsync(taskInfo.TaskId, CancellationToken.None);
 

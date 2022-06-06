@@ -32,5 +32,7 @@ namespace Microsoft.Health.TaskManagement
         public string Context { get; set; }
 
         public string Result { get; set; }
+
+        public string ParentTaskId { get; set; }
     }
 }
