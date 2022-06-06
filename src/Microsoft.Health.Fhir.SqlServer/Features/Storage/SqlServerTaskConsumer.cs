@@ -92,7 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
                 return sqlDataReader.ReadTaskInfo();
-                if (!await sqlDataReader.ReadAsync(cancellationToken))
             }
         }
 
