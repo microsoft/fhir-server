@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Client;
@@ -299,6 +300,60 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // explicitly check hour and offset
             Assert.Equal(expectedDTO.Hour, receivedDTO.Hour);
             Assert.Equal(expectedDTO.Offset, receivedDTO.Offset);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatchDocument_WhenContainsDate_ThenShouldParseWithoutTimeAndOffset()
+        {
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+
+            string adJson = "{\"resourceType\":\"ActivityDefinition\",\"status\":\"active\"}";
+            var poco = parser.
+                Parse<Resource>(adJson).
+                ToTypedElement().
+                ToResourceElement().
+                ToPoco<ActivityDefinition>();
+
+            FhirResponse<ActivityDefinition> response = await _client.CreateAsync(poco);
+
+            string dateString = "2022-05-02";
+            var patchRequest = new Parameters().AddAddPatchParameter("ActivityDefinition", "approvalDate", new Date(dateString));
+            using FhirResponse<ActivityDefinition> patchResponse = await _client.FhirPatchAsync(response.Resource, patchRequest);
+            ActivityDefinition ad = patchResponse.Resource;
+
+            Assert.Equal(new Date(dateString), ad.ApprovalDateElement);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatchDocumentWithDate_WhenPassingDateTime_ThenExceptionShouldBeThrown()
+        {
+            // FHIR Date type can NOT contain any time information, with or without offset
+            // Ensure that a RequestNotValidException is thrown if time is included, so that model does not enter invalid state
+
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+
+            string adJson = "{\"resourceType\":\"ActivityDefinition\",\"status\":\"active\"}";
+            var poco = parser.
+                Parse<Resource>(adJson).
+                ToTypedElement().
+                ToResourceElement().
+                ToPoco<ActivityDefinition>();
+
+            FhirResponse<ActivityDefinition> response = await _client.CreateAsync(poco);
+
+            string dateTimeString = "2022-05-02T14:00:00";
+            var patchRequest = new Parameters().AddAddPatchParameter("ActivityDefinition", "approvalDate", new FhirDateTime(dateTimeString));
+
+            // DateTime without offset
+            await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
+
+            string dateTimeOffsetString = "2022-05-02T14:00:00+02:00";
+            patchRequest = new Parameters().AddAddPatchParameter("ActivityDefinition", "approvalDate", new FhirDateTime(dateTimeOffsetString));
+
+            // DateTime with offset
+            await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
         }
     }
 }
