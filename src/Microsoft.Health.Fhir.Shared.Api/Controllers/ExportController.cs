@@ -276,9 +276,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 CheckContainerNameAndConfigLocationForAnonymizedExport(containerName, anonymizationConfigLocation);
                 if (!string.IsNullOrWhiteSpace(anonymizationConfigCollectionReference))
                 {
+                    CheckReferenceAndETagParameterConflictForAnonymizedExport(anonymizationConfigCollectionReference, anonymizationConfigFileETag);
                     CheckConfigCollectionReferenceIsValid(anonymizationConfigCollectionReference);
                     CheckIfConfigCollectionReferencIsConfigured(anonymizationConfigCollectionReference);
-                    CheckReferenceAndETagParameterConflictForAnonymizedExport(anonymizationConfigCollectionReference, anonymizationConfigFileETag);
                 }
             }
         }

@@ -22,7 +22,6 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Utilities;
@@ -43,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class AnonymizedExportUsingAcrTests : IClassFixture<ExportTestFixture>
     {
-        private const string TestRepositoryName = "anonymizationconfigs";
+        private const string TestRepositoryName = "testanonymizationconfigs";
         private const string TestConfigName = "testconfigname.json";
         private const string TestRepositoryTag = "e2etest";
 
@@ -100,12 +99,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
         }
 
         [SkippableFact]
@@ -158,12 +151,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             Assert.Equal(2, dataFromExport.Count());
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
         }
 
         [SkippableTheory]
@@ -192,12 +179,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var responseContent = await response.Content.ReadAsStringAsync();
             Assert.Contains($"Image Not Found.", responseContent);
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
         }
 
         [SkippableFact]
@@ -220,12 +201,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Failed to parse configuration file", responseContent);
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
         }
 
         [SkippableFact]
@@ -249,12 +224,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Anonymization configuration 'not-exist.json' not found.", responseContent);
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
         }
 
         [SkippableFact]
@@ -279,12 +248,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Anonymization configuration is too large", responseContent);
-
-            // Only check metric for local tests
-            if (_isUsingInProcTestServer)
-            {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-            }
         }
 
         private async Task<HttpResponseMessage> WaitForCompleteAsync(Uri contentLocation)
