@@ -266,8 +266,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         switch (e.Number)
                         {
-                            case SqlErrorCodes.TimeoutExpired:
-                                throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
                             case SqlErrorCodes.Conflict:
                                 // someone else beat us to it, re-read and try comparing again - Compared resource was updated
                                 continue;
@@ -629,6 +627,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Transaction supported added in listedCapability
                 builder.AddGlobalInteraction(SystemRestfulInteraction.Transaction);
             }
+
+            builder.AddGlobalInteraction(SystemRestfulInteraction.Collection);
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
