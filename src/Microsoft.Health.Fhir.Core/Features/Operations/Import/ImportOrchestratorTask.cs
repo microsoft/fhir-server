@@ -618,7 +618,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "failed to cancel task {TaskId}", taskInfo.TaskId);
+                    _logger.LogWarning(ex, "failed to cancel task {TaskId}", taskId);
                 }
             }
 
