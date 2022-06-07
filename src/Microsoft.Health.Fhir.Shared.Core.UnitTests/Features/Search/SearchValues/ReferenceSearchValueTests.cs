@@ -6,10 +6,13 @@
 using System;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 {
+    [Trait(Traits.Category, Categories.Search)]
     public class ReferenceSearchValueTests
     {
         private const string ParamNameResourceType = "resourceType";

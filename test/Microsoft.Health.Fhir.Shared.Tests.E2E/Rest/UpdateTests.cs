@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -205,18 +207,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResource_WhenUpdatingAnExistingResourceWithNoDataChange_ThenServerShouldNotCreateAVersionAndSendOk()
         {
             // Create new resource
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
+            var tag = Guid.NewGuid().ToString();
             resourceToCreate.Meta = new Meta
             {
                 VersionId = Guid.NewGuid().ToString(),
                 LastUpdated = DateTimeOffset.UtcNow.AddMilliseconds(-1),
+                Profile = new List<string>() { "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization" },
+                Tag = new List<Coding>() { new Coding(string.Empty, tag), new Coding(string.Empty, "TestCode1") },
+                Security = new List<Coding>() { new Coding("http://hl7.org/fhir/v3/ActCode", "EMP", "employee information sensitivity") },
             };
+
             Observation createdResource = await _client.CreateAsync(resourceToCreate);
 
             // Try to update the resource with no data change
@@ -226,23 +232,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateUpdateResponse(createdResource, updateResponse, true, HttpStatusCode.OK);
 
             // Try to update the resource with some changes in versionId and lastUpdated
+            // Check no new version is created. versionId and lastUpdated remains same
+            updateResponse.Resource.Meta.VersionId = Guid.NewGuid().ToString();
+            updateResponse.Resource.Meta.LastUpdated = DateTimeOffset.UtcNow.AddMilliseconds(-1);
+            using FhirResponse<Observation> updateResponseAfterVersionIdAndLastUpdatedTimeChanged = await _client.UpdateAsync(updateResponse.Resource, null);
+            ValidateUpdateResponse(createdResource, updateResponseAfterVersionIdAndLastUpdatedTimeChanged, true, HttpStatusCode.OK);
+
+            // Try to update the resource with some content change
+            // Check new version is created. versionId and lastUpdated are updated
+            UpdateObservation(updateResponse.Resource);
+            using FhirResponse<Observation> updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged = await _client.UpdateAsync(updateResponse.Resource, null);
+            ValidateUpdateResponse(updateResponseAfterVersionIdAndLastUpdatedTimeChanged, updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged, false, HttpStatusCode.OK);
+            Assert.Contains(ContentUpdated, updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged.Resource.Text.Div);
+
+            // Try to update the resource with some changes in meta.Profile/Tag/Security
+            // Check new version is created. versionId and lastUpdated are updated
             updateResponse.Resource.Meta = new Meta
             {
                 VersionId = Guid.NewGuid().ToString(),
                 LastUpdated = DateTimeOffset.UtcNow.AddMilliseconds(-1),
+                Profile = new List<string>() { "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient" },
+                Tag = new List<Coding>() { new Coding(string.Empty, tag), new Coding(string.Empty, "TestCode2") },
+                Security = new List<Coding>() { new Coding("http://hl7.org/fhir/v3/ActCode", "EMP", "employee information sensitivity test") },
             };
-            using FhirResponse<Observation> updateResponseAfterVersionIdAndLastUpdatedTimeChanged = await _client.UpdateAsync(updateResponse.Resource, null);
-
-            // Check no new version is created. versionId and lastUpdated remains same
-            ValidateUpdateResponse(createdResource, updateResponseAfterVersionIdAndLastUpdatedTimeChanged, true, HttpStatusCode.OK);
-
-            // Try to update the resource with some content change
-            UpdateObservation(updateResponse.Resource);
-            using FhirResponse<Observation> updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged = await _client.UpdateAsync(updateResponse.Resource, null);
-
-            // Check new version is created. versionId and lastUpdated are updated
-            ValidateUpdateResponse(updateResponseAfterVersionIdAndLastUpdatedTimeChanged, updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged, false, HttpStatusCode.OK);
-            Assert.Contains(ContentUpdated, updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged.Resource.Text.Div);
+            using FhirResponse<Observation> updateResponseAfterMetaUpdated = await _client.UpdateAsync(updateResponse.Resource, null);
+            ValidateUpdateResponse(updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged, updateResponseAfterMetaUpdated, false, HttpStatusCode.OK);
+            Assert.Contains(updateResponseAfterMetaUpdated.Resource.Meta.Tag, t => t.Code == "TestCode2");
         }
 
         private static void ValidateUpdateResponse(Observation oldResource, FhirResponse<Observation> newResponse, bool same, HttpStatusCode expectedStatusCode)
@@ -269,11 +284,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private static void UpdateObservation(Observation observationResource)
         {
-            observationResource.Text = new Narrative
-            {
-                Status = Narrative.NarrativeStatus.Generated,
-                Div = $"<div>{ContentUpdated}</div>",
-            };
+                observationResource.Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div>{ContentUpdated}</div>",
+                };
+            }
         }
     }
-}

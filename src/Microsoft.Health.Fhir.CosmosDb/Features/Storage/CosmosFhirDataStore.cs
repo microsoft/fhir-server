@@ -572,7 +572,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private static string RemoveVersionIdAndLastUpdatedFromMeta(FhirCosmosResourceWrapper resourceWrapper)
         {
-            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{resourceWrapper.Version}\"", string.Empty, StringComparison.Ordinal);
+            var versionToReplace = resourceWrapper.RawResource.IsMetaSet ? resourceWrapper.Version : "1";
+            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{versionToReplace}\"", string.Empty, StringComparison.Ordinal);
             return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
         }
 

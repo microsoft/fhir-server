@@ -64,25 +64,27 @@ namespace Microsoft.Health.TaskManagement
                     runningTasks.RemoveAll(t => t.IsCompleted);
                 }
 
-                IReadOnlyCollection<TaskInfo> nextTasks = null;
-                try
+                TaskInfo nextTask = null;
+                if (_consumer.EnsureInitializedAsync())
                 {
-                    nextTasks = await _consumer.GetNextMessagesAsync((short)(MaxRunningTaskCount - runningTasks.Count), TaskHeartbeatTimeoutThresholdInSeconds, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to pull new tasks.");
-                }
-
-                if (nextTasks != null && nextTasks.Count > 0)
-                {
-                    foreach (TaskInfo taskInfo in nextTasks)
+                    try
                     {
-                        runningTasks.Add(ExecuteTaskAsync(taskInfo, cancellationToken));
+                        nextTask = await _consumer.GetNextMessagesAsync(TaskHeartbeatTimeoutThresholdInSeconds, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to pull new tasks.");
                     }
                 }
 
-                await intervalDelayTask;
+                if (nextTask != null)
+                {
+                    runningTasks.Add(ExecuteTaskAsync(nextTask, cancellationToken));
+                }
+                else
+                {
+                    await intervalDelayTask;
+                }
             }
 
             try

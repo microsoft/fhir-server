@@ -18,6 +18,8 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -28,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     /// <summary>
     /// Test class for SearchOptionsFactory.Create
     /// </summary>
+    [Trait(Traits.Category, Categories.Search)]
     public partial class SearchOptionsFactoryTests
     {
         private const string DefaultResourceType = "Patient";
@@ -318,6 +321,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
+        [Trait(Traits.Category, Categories.CompartmentSearch)]
         [InlineData(ResourceType.Patient, CompartmentType.Patient, "123")]
         [InlineData(ResourceType.Appointment, CompartmentType.Device, "abc")]
         [InlineData(ResourceType.Patient, CompartmentType.Encounter, "aaa")]
@@ -341,6 +345,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
+        [Trait(Traits.Category, Categories.CompartmentSearch)]
         [InlineData(CompartmentType.Patient, "123")]
         [InlineData(CompartmentType.Device, "abc")]
         [InlineData(CompartmentType.Encounter, "aaa")]

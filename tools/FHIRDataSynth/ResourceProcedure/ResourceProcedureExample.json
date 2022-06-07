@@ -1,0 +1,25 @@
+{
+  "resourceType": "Procedure",
+  "id": "a9455d46-a567-2acd-c3b5-b198e584b3f9",
+  "status": "completed",
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "430193006",
+        "display": "Medication Reconciliation (procedure)"
+      }
+    ],
+    "text": "Medication Reconciliation (procedure)"
+  },
+  "subject": {
+    "reference": "Patient/cda540eb-0a69-4425-1a78-55f87b6f9382"
+  },
+  "encounter": {
+    "reference": "Encounter/f8a67c81-b3a6-3c8e-458a-0e1b2de42c1d"
+  },
+  "performedPeriod": {
+    "start": "2011-09-27T14:33:53+00:00",
+    "end": "2011-09-27T14:48:53+00:00"
+  }
+}

@@ -22,6 +22,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.Transaction)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
     public class TransactionTests : IClassFixture<HttpIntegrationTestFixture>
@@ -334,6 +335,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
             ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
+
+            patient.Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>Content Updated</div>",
+            };
 
             FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle);
 

@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
@@ -369,6 +369,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         using (rawResourceStream)
                         {
                             rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        }
+
+                        _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(resourceTypeId)}: {resourceTypeId}; decompressed length: {rawResource.Length}");
+
+                        if (string.IsNullOrEmpty(rawResource))
+                        {
+                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
                         }
 
                         // See if this resource is a continuation token candidate and increase the count

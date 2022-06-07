@@ -1,0 +1,35 @@
+{
+  "resourceType": "Device",
+  "id": "dfabc084-920d-cc15-2410-4da7532bed27",
+  "udiCarrier": [
+    {
+      "deviceIdentifier": "18114475467277",
+      "carrierHRF": "(01)18114475467277(11)200219(17)450305(10)408817(21)34542604187509075"
+    }
+  ],
+  "status": "active",
+  "distinctIdentifier": "18114475467277",
+  "manufactureDate": "2020-02-19T10:27:11+00:00",
+  "expirationDate": "2045-03-05T10:27:11+00:00",
+  "lotNumber": "408817",
+  "serialNumber": "34542604187509075",
+  "deviceName": [
+    {
+      "name": "Mechanical ventilator (physical object)",
+      "type": "user-friendly-name"
+    }
+  ],
+  "type": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "449071006",
+        "display": "Mechanical ventilator (physical object)"
+      }
+    ],
+    "text": "Mechanical ventilator (physical object)"
+  },
+  "patient": {
+    "reference": "Patient/2c23d44f-6b9e-424e-bc3f-bde422c5a0ac"
+  }
+}

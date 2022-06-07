@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using EnsureThat;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.TaskManagement.UnitTests
@@ -52,25 +51,23 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             return Task.FromResult<TaskInfo>(task);
         }
 
-        public Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(short count, int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
+        public Task<TaskInfo> GetNextMessagesAsync(int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
         {
             _faultInjectionAction?.Invoke(nameof(GetNextMessagesAsync));
-            Ensure.Comparable.IsGt<short>(count, 0, nameof(count));
 
-            IReadOnlyCollection<TaskInfo> tasksInQueue = _taskInfos.Values
-                                                                .Where(t => t.Status != TaskStatus.Completed)
-                                                                .Where(t => t.Status != TaskStatus.Running || DateTime.Now - t.HeartbeatDateTime > TimeSpan.FromSeconds(taskHeartbeatTimeoutThresholdInSeconds))
-                                                                .OrderBy(t => t.HeartbeatDateTime)
-                                                                .Take(count)
-                                                                .ToList();
+            TaskInfo task = _taskInfos.Values.FirstOrDefault(
+                t => (t.Status != TaskStatus.Completed &&
+                     (t.Status != TaskStatus.Running ||
+                        DateTime.Now - t.HeartbeatDateTime > TimeSpan.FromSeconds(taskHeartbeatTimeoutThresholdInSeconds))));
 
-            foreach (TaskInfo taskInfo in tasksInQueue)
+            if (task != null)
             {
-                taskInfo.Status = TaskStatus.Running;
-                taskInfo.RunId = Guid.NewGuid().ToString();
+                task.Status = TaskStatus.Running;
+                task.RunId = Guid.NewGuid().ToString();
+                task.HeartbeatDateTime = DateTime.Now;
             }
 
-            return Task.FromResult<IReadOnlyCollection<TaskInfo>>(tasksInQueue);
+            return Task.FromResult<TaskInfo>(task);
         }
 
         public Task<TaskInfo> KeepAliveAsync(string taskId, string runId, CancellationToken cancellationToken)
@@ -99,18 +96,23 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             }
 
             taskInfo.Result = JsonConvert.SerializeObject(result);
-            taskInfo.RetryCount += 1;
 
-            if (taskInfo.RetryCount > taskInfo.MaxRetryCount)
+            if (taskInfo.RetryCount >= taskInfo.MaxRetryCount)
             {
                 taskInfo.Status = TaskStatus.Completed;
             }
             else
             {
+                taskInfo.RetryCount += 1;
                 taskInfo.Status = TaskStatus.Queued;
             }
 
             return Task.FromResult<TaskInfo>(taskInfo);
+        }
+
+        bool ITaskConsumer.EnsureInitializedAsync()
+        {
+            return true;
         }
     }
 }

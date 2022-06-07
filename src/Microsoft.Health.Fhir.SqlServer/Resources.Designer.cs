@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The exection timeout expired from SQL Server..
+        ///   Looks up a localized string similar to The execution timeout expired from SQL Server..
         /// </summary>
         internal static string ExecutionTimeoutExpired {
             get {
@@ -115,11 +115,29 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid resource type &apos;{0}&apos;..
+        /// </summary>
+        internal static string InvalidResourceTypeValue {
+            get {
+                return ResourceManager.GetString("InvalidResourceTypeValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only &apos;_type&apos; and &apos;_lastUpdated&apos; can be used together as sorting parameters (and in that order)..
         /// </summary>
         internal static string OnlyTypeAndLastUpdatedSupportedForCompoundSort {
             get {
                 return ResourceManager.GetString("OnlyTypeAndLastUpdatedSupportedForCompoundSort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource with type {0} and ID {1} is not available..
+        /// </summary>
+        internal static string ResourceNotAvailable {
+            get {
+                return ResourceManager.GetString("ResourceNotAvailable", resourceCulture);
             }
         }
         
