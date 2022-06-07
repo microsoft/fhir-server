@@ -70,6 +70,7 @@ namespace Microsoft.Health.Fhir.Azure
                 else
                 {
                     var blobDownloadToOptions = new BlobDownloadToOptions();
+                    blobDownloadToOptions.Conditions = new BlobRequestConditions();
                     blobDownloadToOptions.Conditions.IfMatch = new ETag(eTag);
                     try
                     {
