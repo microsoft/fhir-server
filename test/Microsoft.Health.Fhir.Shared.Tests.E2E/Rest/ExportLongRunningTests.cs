@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
-            string testContainer = $"test-{Guid.NewGuid()}";
+            string testContainer = "test-container";
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_container={testContainer}");

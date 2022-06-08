@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             var clone = jobRecord.Clone();
             clone.Id = string.Empty;
-            clone.QueuedTime = DateTime.Parse("1900-01-01");
+            clone.QueuedTime = DateTimeOffset.UtcNow;
             var def = JsonConvert.SerializeObject(clone, _jsonSerializerSettings);
             VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, new[] { new StringListRow(def) }, null, false, clone.Status == OperationStatus.Completed);
             using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
