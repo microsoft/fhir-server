@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAValidAcrReference_WithInvalidConfigName_WhenFetchAnonymizedConfig_ExceptionShouldBeThrown()
         {
             var registry = GetTestContainerRegistryInfo();
