@@ -478,8 +478,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
         {
-            string exportJobRecordStr = JsonConvert.SerializeObject(_exportJobRecord);
-            return await _anonymizerFactory.Value.CreateAnonymizerAsync(exportJobRecordStr, cancellationToken);
+            return await _anonymizerFactory.Value.CreateAnonymizerAsync(_exportJobRecord, cancellationToken);
         }
 
         private async Task RunExportCompartmentSearch(

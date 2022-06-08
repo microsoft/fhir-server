@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
-using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -25,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class ExportAnonymizerTests
     {
-        private static string exportJobRecord = JsonConvert.SerializeObject(CreateDummyExportJobRecord());
+        private static ExportJobRecord exportJobRecord = CreateDummyExportJobRecord();
 
         [Fact]
         public async Task GivenRedactAnonymizationConfig_WhenAnonymizeResource_ThenPropertiesShouldBeRedacted()
@@ -180,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private async Task<IAnonymizer> CreateAnonymizerFromConfigContent(string configuration)
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<ExportJobRecord>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);

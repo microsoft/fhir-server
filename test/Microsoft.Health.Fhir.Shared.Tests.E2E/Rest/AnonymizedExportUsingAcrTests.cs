@@ -406,6 +406,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             var v2Manifest = new V2Manifest(schemaV2, mediatypeV2Manifest, new Descriptor(mediatypeV1Manifest, originalConfigBytes.Length, originalConfigDigest), layers);
             await acrClient.Manifests.CreateAsync(repository, tag, v2Manifest);
+            acrClient.Dispose();
         }
 
         internal class ContainerRegistryInfo

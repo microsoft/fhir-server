@@ -27,7 +27,6 @@ using Microsoft.Health.Fhir.TemplateManagement.Client;
 using Microsoft.Health.Fhir.TemplateManagement.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Utilities;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Azure
 {
@@ -66,10 +65,8 @@ namespace Microsoft.Health.Fhir.Azure
             });
         }
 
-        public async Task FetchAsync(string location, Stream targetStream, CancellationToken cancellationToken)
+        public async Task FetchAsync(ExportJobRecord exportJobRecord, Stream targetStream, CancellationToken cancellationToken)
         {
-            ExportJobRecord exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(location);
-
             EnsureArg.IsNotNullOrEmpty(exportJobRecord.AnonymizationConfigurationLocation, nameof(exportJobRecord.AnonymizationConfigurationLocation));
             EnsureArg.IsNotNull(targetStream, nameof(targetStream));
 

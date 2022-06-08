@@ -12,7 +12,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
@@ -42,13 +41,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 	]
 }";
 
-        private static string exportJobRecord = JsonConvert.SerializeObject(CreateDummyExportJobRecord());
+        private static ExportJobRecord exportJobRecord = CreateDummyExportJobRecord();
 
         [Fact]
         public async Task GivenAValidAnonymizationConfiguration_WhenCreatingAnonymizer_AnonymizerShouldBeCreated()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<ExportJobRecord>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
@@ -68,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         public async Task GivenAnInvalidAnonymizationConfiguration_WhenCreatingAnonymizer_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<ExportJobRecord>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
@@ -86,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         public async Task GivenNoAnonymizationConfiguration_WhenCreatingAnonymizer_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<ExportJobRecord>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     throw new FileNotFoundException();

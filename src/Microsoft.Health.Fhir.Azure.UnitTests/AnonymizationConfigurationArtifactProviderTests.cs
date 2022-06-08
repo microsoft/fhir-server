@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Utilities;
 using Microsoft.Rest;
-using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
@@ -45,8 +44,6 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
         {""path"": ""nodesByType('Human').name"", ""method"": ""redact""}
     ]
 }";
-
-        private const string LocalIntegrationStoreConnectionString = "UseDevelopmentStorage=true";
 
         public AnonymizationConfigurationArtifactProviderTests()
         {
@@ -81,10 +78,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
                 rollingFileSizeInMB: 1,
                 anonymizationConfigurationCollectionReference: $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}",
                 anonymizationConfigurationLocation: TestConfigName);
-            var location = JsonConvert.SerializeObject(jobRecord);
             using (Stream stream = new MemoryStream())
             {
-                await _provider.FetchAsync(location, stream, CancellationToken.None);
+                await _provider.FetchAsync(jobRecord, stream, CancellationToken.None);
                 stream.Position = 0;
                 using (StreamReader reader = new StreamReader(stream))
                 {
@@ -113,10 +109,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
                 rollingFileSizeInMB: 1,
                 anonymizationConfigurationCollectionReference: $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}",
                 anonymizationConfigurationLocation: "InvalidConfigName");
-            var location = JsonConvert.SerializeObject(jobRecord);
             using (Stream stream = new MemoryStream())
             {
-                await Assert.ThrowsAsync<FileNotFoundException>(() => _provider.FetchAsync(location, stream, CancellationToken.None));
+                await Assert.ThrowsAsync<FileNotFoundException>(() => _provider.FetchAsync(jobRecord, stream, CancellationToken.None));
             }
         }
 
@@ -151,6 +146,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             };
             var v2Manifest = new V2Manifest(schemaV2, mediatypeV2Manifest, new Descriptor(mediatypeV1Manifest, originalConfigBytes.Length, originalConfigDigest), layers);
             await acrClient.Manifests.CreateAsync(repository, tag, v2Manifest);
+            acrClient.Dispose();
         }
 
         private static string ComputeDigest(Stream s)
