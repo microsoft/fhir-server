@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
+            Till = new PartialDateTime(Clock.UtcNow);
 
             if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {
@@ -120,6 +121,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Since)]
         public PartialDateTime Since { get; private set; }
+
+        [JsonProperty(JobRecordProperties.Till)]
+        public PartialDateTime Till { get; private set; }
 
         [JsonProperty(JobRecordProperties.GroupId)]
         public string GroupId { get; private set; }

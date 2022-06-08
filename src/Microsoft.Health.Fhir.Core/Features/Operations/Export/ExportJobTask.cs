@@ -153,10 +153,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // The intial list of query parameters will not have a continutation token. We will add that later if we get one back
                 // from the search result.
+                // As Till is a new property QueuedTime is being used as a backup incase Till doesn't exist.
+                var tillTime = _exportJobRecord.Till != null ? _exportJobRecord.Till : new PartialDateTime(_exportJobRecord.QueuedTime);
                 var queryParametersList = new List<Tuple<string, string>>()
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
-                    Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
+                    Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
                 };
 
                 if (_exportJobRecord.Since != null)

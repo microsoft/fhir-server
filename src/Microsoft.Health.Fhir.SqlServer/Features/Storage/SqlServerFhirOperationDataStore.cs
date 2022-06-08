@@ -57,9 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             var clone = jobRecord.Clone();
             clone.Id = string.Empty;
-
-            // The queued time in the job record will not be the queued time in the database. The database will use its own clock to get a more precise time.
-            // The time is not being overwritten at this point because setting it to a static value prevents similar jobs from being queued in the future.
+            clone.QueuedTime = DateTime.Parse("1900-01-01");
             var def = JsonConvert.SerializeObject(clone, _jsonSerializerSettings);
             VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, new[] { new StringListRow(def) }, null, false, clone.Status == OperationStatus.Completed);
             using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
