@@ -12,6 +12,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -300,6 +301,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
+                SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
+
                 sqlCommandWrapper.CommandText = stringBuilder.ToString();
 
                 LogSqlCommand(sqlCommandWrapper);
@@ -368,7 +371,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
