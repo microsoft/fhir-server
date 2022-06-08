@@ -94,7 +94,7 @@ steps:
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 3m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
     env:
