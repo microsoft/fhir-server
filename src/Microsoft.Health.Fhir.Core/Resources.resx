@@ -586,8 +586,8 @@
     <value>There is already an import job running.</value>
   </data>
   <data name="ImportJobNotFound" xml:space="preserve">
-    <value>The requested import task "{0}" was not found.</value>
-    <comment>{0} is the import task id.</comment>
+    <value>The requested import job "{0}" was not found.</value>
+    <comment>{0} is the import job id.</comment>
   </data>
   <data name="ImportOperationCompleted" xml:space="preserve">
     <value>Import operation has already completed</value>
