@@ -92,9 +92,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             {
                 AddProperty(SearchValueConstants.NumberName, number.Low);
             }
-
-            AddProperty(SearchValueConstants.LowNumberName, number.Low);
-            AddProperty(SearchValueConstants.HighNumberName, number.High);
+            else
+            {
+                AddProperty(SearchValueConstants.LowNumberName, number.Low);
+                AddProperty(SearchValueConstants.HighNumberName, number.High);
+            }
         }
 
         void ISearchValueVisitor.Visit(QuantitySearchValue quantity)

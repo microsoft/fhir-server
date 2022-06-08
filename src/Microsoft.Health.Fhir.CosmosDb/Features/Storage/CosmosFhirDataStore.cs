@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             _logger.LogDebug("Upserting {resourceType}/{resourceId}, ETag: \"{tag}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
+            cosmosWrapper.ResourceId = string.Empty;
             if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
                 // Optimistically try to create this as a new resource
