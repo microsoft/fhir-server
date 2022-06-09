@@ -196,6 +196,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains("format", ex.Message);
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnObservationWithLargePrecisionValue_WhenPostingToHttp_ThenTheServerShouldRespondSuccessfully()
+        {
+            Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Value = new Hl7.Fhir.Model.Quantity(10.91968939701716M, "ml");
+
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
         [Theory]
         [MemberData(nameof(AllXssStrings))]
         [Trait(Traits.Priority, Priority.One)]

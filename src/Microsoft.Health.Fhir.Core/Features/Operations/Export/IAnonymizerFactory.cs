@@ -5,11 +5,12 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public interface IAnonymizerFactory
     {
-        public Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, CancellationToken cancellationToken);
+        public Task<IAnonymizer> CreateAnonymizerAsync(ExportJobRecord exportJobRecord, CancellationToken cancellationToken);
     }
 }
