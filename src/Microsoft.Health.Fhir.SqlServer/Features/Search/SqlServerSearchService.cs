@@ -378,6 +378,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(resourceTypeId)}: {resourceTypeId}; decompressed length: {rawResource.Length}");
 
+                        if (string.IsNullOrEmpty(rawResource))
+                        {
+                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                        }
+
                         // See if this resource is a continuation token candidate and increase the count
                         if (isMatch)
                         {

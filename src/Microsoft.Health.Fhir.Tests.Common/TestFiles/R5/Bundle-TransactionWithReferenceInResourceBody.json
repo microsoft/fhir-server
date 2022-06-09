@@ -126,12 +126,12 @@
                 },
                 "participant": [
                     {
-                        "individual": {
+                        "actor": {
                             "reference": "urn:uuid:fe9fc075-28d1-4f82-9068-40072cb6ee9b"
                         }
                     }
                 ],
-                "period": {
+                "actualPeriod": {
                     "start": "1995-01-28T09:04:56-08:00",
                     "end": "1995-01-28T09:19:56-08:00"
                 },

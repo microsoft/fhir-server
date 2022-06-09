@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Threading;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,13 +87,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
-            var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
+            SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
-            var schemaManagerDataStore = new SchemaManagerDataStore(SqlConnectionBuilder, config, NullLogger<SchemaManagerDataStore>.Instance);
-            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, SqlConnectionBuilder, schemaManagerDataStore);
-            _schemaInitializer = new SchemaInitializer(config, schemaManagerDataStore, _schemaUpgradeRunner, SchemaInformation, SqlConnectionBuilder, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
+
+            var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
+            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => GetSqlConnection(TestConnectionString));
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnection, sqlRetryLogicBaseProvider, config);
+            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
+            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
+
+            Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => _schemaUpgradeRunner;
+            Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
+            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProviderFunc = p => sqlConnectionStringProvider;
+            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => sqlConnectionWrapperFactory;
+
+            var collection = new ServiceCollection();
+            collection.AddScoped(sqlConnectionStringProviderFunc);
+            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
+            collection.AddScoped(schemaUpgradeRunnerFactory);
+            collection.AddScoped(schemaManagerDataStoreFactory);
+            var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
+            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, config, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 
@@ -170,7 +187,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CompressedRawResourceConverter(),
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
-                ModelInfoProvider.Instance);
+                ModelInfoProvider.Instance,
+                _fhirRequestContextAccessor);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
@@ -250,6 +268,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
         }
 
+        protected async Task<SqlConnection> GetSqlConnection(string connectionString)
+        {
+            var connectionBuilder = new SqlConnectionStringBuilder(connectionString);
+            var result = new SqlConnection(connectionBuilder.ToString());
+            await result.OpenAsync();
+            return result;
+        }
+
         object IServiceProvider.GetService(Type serviceType)
         {
             if (serviceType == typeof(IFhirDataStore))
@@ -263,6 +289,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             if (serviceType == typeof(IFhirStorageTestHelper))
+            {
+                return _testHelper;
+            }
+
+            if (serviceType == typeof(ISqlServerFhirStorageTestHelper))
             {
                 return _testHelper;
             }

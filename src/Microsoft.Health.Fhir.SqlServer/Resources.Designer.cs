@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The exection timeout expired from SQL Server..
+        ///   Looks up a localized string similar to The execution timeout expired from SQL Server..
         /// </summary>
         internal static string ExecutionTimeoutExpired {
             get {
@@ -129,6 +129,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string OnlyTypeAndLastUpdatedSupportedForCompoundSort {
             get {
                 return ResourceManager.GetString("OnlyTypeAndLastUpdatedSupportedForCompoundSort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource with type {0} and ID {1} is not available..
+        /// </summary>
+        internal static string ResourceNotAvailable {
+            get {
+                return ResourceManager.GetString("ResourceNotAvailable", resourceCulture);
             }
         }
         

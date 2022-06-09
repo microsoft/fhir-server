@@ -8,6 +8,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportProcessingTaskResult
     {
         /// <summary>
+        /// Input File location
+        /// </summary>
+        public string ResourceLocation { get; set; }
+
+        /// <summary>
         /// FHIR resource type
         /// </summary>
         public string ResourceType { get; set; }

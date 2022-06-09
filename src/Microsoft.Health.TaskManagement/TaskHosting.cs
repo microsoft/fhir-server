@@ -65,21 +65,26 @@ namespace Microsoft.Health.TaskManagement
                 }
 
                 TaskInfo nextTask = null;
-                try
+                if (_consumer.EnsureInitializedAsync())
                 {
-                    nextTask = await _consumer.GetNextMessagesAsync(TaskHeartbeatTimeoutThresholdInSeconds, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to pull new tasks.");
+                    try
+                    {
+                        nextTask = await _consumer.GetNextMessagesAsync(TaskHeartbeatTimeoutThresholdInSeconds, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to pull new tasks.");
+                    }
                 }
 
                 if (nextTask != null)
                 {
                     runningTasks.Add(ExecuteTaskAsync(nextTask, cancellationToken));
                 }
-
-                await intervalDelayTask;
+                else
+                {
+                    await intervalDelayTask;
+                }
             }
 
             try
