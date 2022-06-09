@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static readonly bool UseStringJsonParser = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParser"]);
         private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
+        private static readonly int SleepBetweenCalls = int.Parse(ConfigurationManager.AppSettings["SleepBetweenCalls"]);
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -198,7 +199,11 @@ namespace Microsoft.Health.Fhir.Importer
                 Interlocked.Increment(ref epCalls);
                 try
                 {
-                    Thread.Sleep(40);
+                    if (SleepBetweenCalls > 0)
+                    {
+                        Thread.Sleep(SleepBetweenCalls);
+                    }
+
                     var response = HttpClient.PutAsync(uri, content).Result;
                     switch (response.StatusCode)
                     {
