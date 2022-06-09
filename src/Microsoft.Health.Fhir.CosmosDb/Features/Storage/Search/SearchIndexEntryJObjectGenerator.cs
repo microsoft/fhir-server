@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             AddProperty(SearchValueConstants.DateTimeStartName, dateTime.Start.ToString("yyyyMMddHHmmss"));
             if (dateTime.End.Year < 9999)
             {
-                AddProperty(SearchValueConstants.DateTimeEndName, dateTime.End.ToString("yyyyMMddHHmmss"));
+                AddProperty(SearchValueConstants.DateTimeEndName, dateTime.Start == dateTime.End ? string.Empty : dateTime.End.ToString("yyyyMMddHHmmss"));
             }
         }
 
@@ -91,9 +91,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             {
                 AddProperty(SearchValueConstants.NumberName, number.Low);
             }
-
-            AddProperty(SearchValueConstants.LowNumberName, number.Low);
-            AddProperty(SearchValueConstants.HighNumberName, number.High);
+            else
+            {
+                AddProperty(SearchValueConstants.LowNumberName, number.Low);
+                AddProperty(SearchValueConstants.HighNumberName, number.High);
+            }
         }
 
         void ISearchValueVisitor.Visit(QuantitySearchValue quantity)
@@ -106,9 +108,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             {
                 AddProperty(SearchValueConstants.QuantityName, quantity.Low);
             }
-
-            AddProperty(SearchValueConstants.LowQuantityName, quantity.Low);
-            AddProperty(SearchValueConstants.HighQuantityName, quantity.High);
+            else
+            {
+                AddProperty(SearchValueConstants.LowQuantityName, quantity.Low);
+                AddProperty(SearchValueConstants.HighQuantityName, quantity.High);
+            }
         }
 
         void ISearchValueVisitor.Visit(ReferenceSearchValue reference)
