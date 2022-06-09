@@ -29,6 +29,16 @@
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Features\Security\roles.schema.json" />
+    <None Remove="Data\R4B\BaseCapabilities.json" />
+    <EmbeddedResource Include="Data\R4B\BaseCapabilities.json" />
+    <None Remove="Data\R4B\compartment.json" />
+    <EmbeddedResource Include="Data\R4B\compartment.json" />
+    <None Remove="Data\R4B\resourcepath-codesystem-mappings.json" />
+    <EmbeddedResource Include="Data\R4B\resourcepath-codesystem-mappings.json" />
+    <None Remove="Data\R4B\search-parameters.json" />
+    <EmbeddedResource Include="Data\R4B\search-parameters.json" />
+    <None Remove="Data\R4B\unsupported-search-parameters.json" />
+    <EmbeddedResource Include="Data\R4B\unsupported-search-parameters.json" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AngleSharp" />

@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>Microsoft.Health.Fhir.Client</RootNamespace>
+    <DefineConstants>R4;R4B</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Ensure.That" />
+    <PackageReference Include="Hl7.Fhir.R4B" />
+    <PackageReference Include="Microsoft.Health.Client" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
+  </ItemGroup>
+  <Import Project="..\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems" Label="Shared" />
+</Project>
