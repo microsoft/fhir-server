@@ -10,9 +10,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using EnsureThat;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -37,15 +38,14 @@ namespace Microsoft.Health.Fhir.Azure
 
         private readonly MemoryCache _cache;
         private readonly ILogger<AnonymizationConfigurationArtifactProvider> _logger;
+        private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
+        private readonly ExportJobConfiguration _exportJobConfiguration;
         private IOciArtifactProvider _anonymizationConfigurationCollectionProvider;
-        private IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
         private IContainerRegistryTokenProvider _containerRegistryTokenProvider;
-
-        private ExportJobConfiguration _exportJobConfiguration;
-        private CloudBlobClient _blobClient;
+        private BlobServiceClient _blobClient;
 
         public AnonymizationConfigurationArtifactProvider(
-            IExportClientInitializer<CloudBlobClient> exportClientInitializer,
+            IExportClientInitializer<BlobServiceClient> exportClientInitializer,
             IContainerRegistryTokenProvider containerRegistryTokenProvider,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             ILogger<AnonymizationConfigurationArtifactProvider> logger)
@@ -155,35 +155,35 @@ namespace Microsoft.Health.Fhir.Azure
         {
             eTag = AddDoubleQuotesIfMissing(eTag);
 
-            CloudBlobClient blobClient = await ConnectAsync(cancellationToken);
-            CloudBlobContainer container = blobClient.GetContainerReference(AnonymizationContainer);
+            BlobServiceClient blobClient = Connect();
+            BlobContainerClient container = blobClient.GetBlobContainerClient(AnonymizationContainer);
             if (!await container.ExistsAsync(cancellationToken))
             {
                 throw new FileNotFoundException(message: Resources.AnonymizationContainerNotFound);
             }
 
-            CloudBlob blob = container.GetBlobReference(configName);
+            BlobClient blob = container.GetBlobClient(configName);
             if (await blob.ExistsAsync(cancellationToken))
             {
-                if (CheckConfigurationIsTooLarge(blob.Properties.Length))
+                if (CheckConfigurationIsTooLarge(blob.GetProperties(cancellationToken: cancellationToken).Value.ContentLength))
                 {
                     throw new AnonymizationConfigurationFetchException(Resources.AnonymizationConfigurationTooLarge);
                 }
 
                 if (string.IsNullOrEmpty(eTag))
                 {
-                    await blob.DownloadToStreamAsync(targetStream, cancellationToken);
+                    await blob.DownloadToAsync(targetStream, cancellationToken);
                 }
                 else
                 {
-                    AccessCondition condition = AccessCondition.GenerateIfMatchCondition(eTag);
-                    var blobRequestOptions = new BlobRequestOptions();
-                    var operationContext = new OperationContext();
+                    var blobDownloadToOptions = new BlobDownloadToOptions();
+                    blobDownloadToOptions.Conditions = new BlobRequestConditions();
+                    blobDownloadToOptions.Conditions.IfMatch = new ETag(eTag);
                     try
                     {
-                        await blob.DownloadToStreamAsync(targetStream, accessCondition: condition, blobRequestOptions, operationContext, cancellationToken);
+                        await blob.DownloadToAsync(targetStream, blobDownloadToOptions, cancellationToken);
                     }
-                    catch (StorageException ex)
+                    catch (RequestFailedException ex)
                     {
                         throw new AnonymizationConfigurationFetchException(ex.Message, ex);
                     }
@@ -205,11 +205,11 @@ namespace Microsoft.Health.Fhir.Azure
             return $"\"{eTag}\"";
         }
 
-        private async Task<CloudBlobClient> ConnectAsync(CancellationToken cancellationToken)
+        private BlobServiceClient Connect()
         {
             if (_blobClient == null)
             {
-                _blobClient = await _exportClientInitializer.GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+                _blobClient = _exportClientInitializer.GetAuthorizedClient(_exportJobConfiguration);
             }
 
             return _blobClient;

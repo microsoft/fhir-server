@@ -6,7 +6,7 @@
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.Storage.Blob;
+using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 {
     public class AzureExportDestinationClientTests
     {
-        private IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
+        private IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
         private ILogger<AzureExportDestinationClient> _logger;
 
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 
         public AzureExportDestinationClientTests()
         {
-            _exportClientInitializer = Substitute.For<IExportClientInitializer<CloudBlobClient>>();
+            _exportClientInitializer = Substitute.For<IExportClientInitializer<BlobServiceClient>>();
             _logger = Substitute.For<ILogger<AzureExportDestinationClient>>();
 
             _exportJobConfiguration = new ExportJobConfiguration();
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             string message = "Can't initialize client";
             HttpStatusCode statusCode = HttpStatusCode.BadRequest;
 
-            _exportClientInitializer.GetAuthorizedClientAsync(Arg.Any<ExportJobConfiguration>(), Arg.Any<CancellationToken>()).Returns<CloudBlobClient>(x => throw new ExportClientInitializerException(message, statusCode));
+            _exportClientInitializer.GetAuthorizedClient(Arg.Any<ExportJobConfiguration>()).Returns<BlobServiceClient>(x => throw new ExportClientInitializerException(message, statusCode));
 
             var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() => _exportDestinationClient.ConnectAsync(CancellationToken.None));
 

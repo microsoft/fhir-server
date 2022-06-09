@@ -128,5 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TargetResourceTypes = "targetResourceTypes";
 
         public const string CreatedChild = "createdChild";
+
+        public const string RestartCount = "restartCount";
     }
 }
