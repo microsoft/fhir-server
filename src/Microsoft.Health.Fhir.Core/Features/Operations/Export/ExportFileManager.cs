@@ -5,8 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -26,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping;
         private readonly uint _approxMaxFileSizeInBytes;
         private bool _isInitialized = false;
+        private Dictionary<string, bool> _resourceCommited = new Dictionary<string, bool>();
 
         public ExportFileManager(ExportJobRecord exportJobRecord, IExportDestinationClient exportDestinationClient)
         {
@@ -38,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
         }
 
-        private async Task Initialize(CancellationToken cancellationToken)
+        private void Initialize()
         {
             // Each resource type can have multiple files. We need to keep track of the latest file.
             foreach (KeyValuePair<string, List<ExportFileInfo>> output in _exportJobRecord.Output)
@@ -55,41 +54,68 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 _resourceTypeToFileInfoMapping.Add(output.Key, latestFile);
-
-                // If there are entries in ExportJobRecord Output before FileManager gets initialized,
-                // it means we are "restarting" an export job. We have to make sure that each file
-                // has been opened on the ExportDestinationClient.
-                await _exportDestinationClient.OpenFileAsync(latestFile.FileUri, cancellationToken);
+                _resourceCommited.Add(output.Key, true);
             }
 
             _isInitialized = true;
         }
 
-        public async Task WriteToFile(string resourceType, string partId, byte[] data, CancellationToken cancellationToken)
+        public void WriteToFile(string resourceType, string data)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
             if (!_isInitialized)
             {
-                await Initialize(cancellationToken);
+                Initialize();
             }
 
-            ExportFileInfo fileInfo = await GetFile(resourceType, cancellationToken);
+            ExportFileInfo fileInfo = GetFile(resourceType);
 
-            // We need to create a new file if the current file has exceeded a certain limit.
-            // File size limits are valid only for schema versions starting from 2.
-            if (_exportJobRecord.SchemaVersion > 1 &&
-                _approxMaxFileSizeInBytes > 0 &&
-                fileInfo.CommittedBytes >= _approxMaxFileSizeInBytes)
+            if (_resourceCommited.TryGetValue(resourceType, out var isCommited) && isCommited)
             {
-                fileInfo = await CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1, cancellationToken);
+                fileInfo = CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1);
             }
 
-            await _exportDestinationClient.WriteFilePartAsync(fileInfo.FileUri, partId, data, cancellationToken);
+            _exportDestinationClient.WriteFilePart(fileInfo.FileUri.OriginalString, data);
             fileInfo.IncrementCount(data.Length);
         }
 
-        private async Task<ExportFileInfo> GetFile(string resourceType, CancellationToken cancellationToken)
+        public void CommitFullFiles(long cutoffSize)
+        {
+            // Goes through files and commits any that are at or past the cutoff size in bytes
+            // This should be called during compartment searches, the normall commit won't be called until a page of Patients is done
+            // This will cut down on the number of files created (hopefully)
+
+            foreach (var resourceType in _resourceTypeToFileInfoMapping.Keys)
+            {
+                var fileInfo = _resourceTypeToFileInfoMapping[resourceType];
+                if (!_resourceCommited[resourceType] && fileInfo.CommittedBytes > cutoffSize)
+                {
+                    var blobUri = _exportDestinationClient.CommitFile(fileInfo.FileUri.OriginalString);
+                    _resourceTypeToFileInfoMapping[resourceType].FileUri = blobUri;
+                    _resourceCommited[resourceType] = true;
+                }
+            }
+        }
+
+        public void CommitFiles()
+        {
+            var blobUris = _exportDestinationClient.Commit();
+
+            foreach (var resourceType in _resourceTypeToFileInfoMapping.Keys)
+            {
+                // While processing the data we use the filename as a placeholder for the final uri as the file isn't created until the data is commited.
+                var fileName = _resourceTypeToFileInfoMapping[resourceType].FileUri.OriginalString;
+                if (blobUris.ContainsKey(fileName))
+                {
+                    _resourceTypeToFileInfoMapping[resourceType].FileUri = blobUris[fileName];
+                }
+
+                _resourceCommited[resourceType] = true;
+            }
+        }
+
+        private ExportFileInfo GetFile(string resourceType)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
@@ -97,13 +123,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 // If it is not present in the mapping, we have to create the first file for this resource type.
                 // Hence file sequence will always be 1 in this case.
-                exportFileInfo = await CreateNewFileAndUpdateMappings(resourceType, fileSequence: 1, cancellationToken);
+                exportFileInfo = CreateNewFileAndUpdateMappings(resourceType, fileSequence: 1);
             }
 
             return exportFileInfo;
         }
 
-        private async Task<ExportFileInfo> CreateNewFileAndUpdateMappings(string resourceType, int fileSequence, CancellationToken cancellationToken)
+        private ExportFileInfo CreateNewFileAndUpdateMappings(string resourceType, int fileSequence)
         {
             string fileName;
             if (_exportJobRecord.SchemaVersion == 1)
@@ -123,9 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             fileName = fileName.Replace(ExportFormatTags.Id, _exportJobRecord.Id, StringComparison.OrdinalIgnoreCase);
             fileName = fileName.Replace(ExportFormatTags.ResourceName, resourceType, StringComparison.OrdinalIgnoreCase);
 
-            Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
-
-            var newFile = new ExportFileInfo(resourceType, fileUri, sequence: fileSequence);
+            var newFile = new ExportFileInfo(resourceType, new Uri(fileName, UriKind.Relative), sequence: fileSequence);
 
             // Since we created a new file the ExportJobRecord Output also needs to be updated.
             if (_exportJobRecord.Output.TryGetValue(resourceType, out List<ExportFileInfo> fileList))
@@ -141,10 +165,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (_resourceTypeToFileInfoMapping.ContainsKey(resourceType))
             {
                 _resourceTypeToFileInfoMapping[resourceType] = newFile;
+                _resourceCommited[resourceType] = false;
             }
             else
             {
                 _resourceTypeToFileInfoMapping.Add(resourceType, newFile);
+                _resourceCommited.Add(resourceType, false);
             }
 
             return newFile;
