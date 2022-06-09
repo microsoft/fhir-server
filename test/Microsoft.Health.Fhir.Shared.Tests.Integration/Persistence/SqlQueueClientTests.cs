@@ -140,15 +140,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             byte queueType = (byte)TestQueueType.GivenJobKeepPutHeartbeat_WhenDequeue_ThenJobShouldNotBeReturened;
 
             SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1" }, null, false, false, CancellationToken.None);
+            IEnumerable<JobInfo> jobs = await sqlQueueClient.EnqueueAsync(queueType, new string[] { $"job1-{queueType}" }, null, false, false, CancellationToken.None);
+            Assert.Single(jobs);
 
             JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 1, CancellationToken.None);
             jobInfo1.QueueType = queueType;
-            await Task.Delay(TimeSpan.FromSeconds(2));
+            Assert.Equal(jobInfo1.Id, jobs.First().Id);
+            await Task.Delay(TimeSpan.FromSeconds(5));
             JobInfo jobInfo2 = await sqlQueueClient.KeepAliveJobAsync(jobInfo1, CancellationToken.None);
             Assert.Equal(jobInfo1.Id, jobInfo2.Id);
             Assert.Equal(jobInfo1.Version, jobInfo2.Version);
-            Assert.Null(await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 1, CancellationToken.None));
+            Assert.Null(await sqlQueueClient.DequeueAsync(queueType, 0, "test-worker", 4, CancellationToken.None));
         }
 
         [Fact]
