@@ -454,6 +454,18 @@
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInPounds.json" />
+    <None Remove="DefinitionFiles\R4B\SearchParameters.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4B\SearchParameters.json" />
+    <None Remove="DefinitionFiles\R4B\SearchParametersWithInvalidBase.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4B\SearchParametersWithInvalidBase.json" />
+    <None Remove="DefinitionFiles\R4B\SearchParametersWithInvalidDefinitions.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4B\SearchParametersWithInvalidDefinitions.json" />
+    <None Remove="DefinitionFiles\R4B\SearchParametersWithInvalidEntries.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4B\SearchParametersWithInvalidEntries.json" />
+    <None Remove="DefinitionFiles\R4B\SearchParametersWithInvalidType.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4B\SearchParametersWithInvalidType.json" />
+    <None Remove="DefinitionFiles\R4B\SearchParametersWithNullEntry.json" />
+    <EmbeddedResource Include="DefinitionFiles\R4B\SearchParametersWithNullEntry.json" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />

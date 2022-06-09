@@ -1,0 +1,39 @@
+{
+    "profiles": {
+        "Default": {
+            "commandName": "Project",
+            "environmentVariables": {
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "DataStore": "CosmosDb",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        },
+        "CosmosDb": {
+            "commandName": "Project",
+            "environmentVariables": {
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "DataStore": "CosmosDb",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        },
+        "SqlServer": {
+            "commandName": "Project",
+            "environmentVariables": {
+                "SqlServer:Initialize": "true",
+                "SqlServer:AllowDatabaseCreation": "true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true;TrustServerCertificate=true",
+                "DataStore": "SqlServer",
+                "TaskHosting:Enabled": "true",
+                "TaskHosting:MaxRunningTaskCount": "2",
+                "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer:Operations:Import:Enabled": "true",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        }
+    }
+}

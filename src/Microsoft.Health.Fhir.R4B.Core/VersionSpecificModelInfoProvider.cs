@@ -3,13 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Models
+using Microsoft.Health.Fhir.Core.Models;
+
+namespace Microsoft.Health.Fhir.Core
 {
-    public enum FhirSpecification
+    /// <summary>
+    /// Provides access to R4 FHIR Models and Resources
+    /// </summary>
+    public partial class VersionSpecificModelInfoProvider
     {
-        Stu3,
-        R4,
-        R4B,
-        R5,
+        public FhirSpecification Version => FhirSpecification.R4B;
     }
 }

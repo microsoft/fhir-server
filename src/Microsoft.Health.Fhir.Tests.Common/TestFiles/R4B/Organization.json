@@ -1,0 +1,32 @@
+﻿{
+  "resourceType": "Organization",
+  "id": "msft",
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/organization-alias",
+      "valueString": "Microsoft"
+    }
+  ],
+  "name": "Microsoft Corporation",
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "(+1) 555-555-5555"
+    },
+    {
+      "system": "fax",
+      "value": "(+1) 555-555-5551"
+    }
+  ],
+  "address": [
+    {
+      "line": [
+        "1 Microsoft Way"
+      ],
+      "city": "Redmond",
+      "state": "WA",
+      "postalCode": "98052",
+      "country": "USA"
+    }
+  ]
+}

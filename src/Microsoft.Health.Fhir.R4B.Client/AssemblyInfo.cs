@@ -3,13 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Models
-{
-    public enum FhirSpecification
-    {
-        Stu3,
-        R4,
-        R4B,
-        R5,
-    }
-}
+using System.Resources;
+
+[assembly: NeutralResourcesLanguage("en-us")]

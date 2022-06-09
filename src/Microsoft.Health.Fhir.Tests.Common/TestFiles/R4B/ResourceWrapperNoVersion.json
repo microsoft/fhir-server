@@ -1,0 +1,17 @@
+﻿{
+    "_etag": "\"00002804-0000-0000-0000-59f272c60000\"",
+    "lastModified": "2017-10-26T16:41:58.513865-07:00",
+    "rawResource": {
+        "data": "{\"resourceType\":\"Observation\",\"id\":\"e8f04fce-700c-41bf-95e5-86d05ffbdf80\",\"text\":{\"status\":\"generated\"},\"status\":\"final\",\"category\":[{\"coding\":[{\"system\":\"http://hl7.org/fhir/observation-category\",\"code\":\"vital-signs\",\"display\":\"Vital Signs\"}]}],\"code\":{\"coding\":[{\"system\":\"http://loinc.org\",\"code\":\"29463-7\",\"display\":\"Body Weight\"},{\"system\":\"http://loinc.org\",\"code\":\"3141-9\",\"display\":\"Body weight Measured\"},{\"system\":\"http://snomed.info/sct\",\"code\":\"27113001\",\"display\":\"Body weight\"},{\"system\":\"http://acme.org/devices/clinical-codes\",\"code\":\"body-weight\",\"display\":\"Body Weight\"},{\"system\":\"http://healthvault.com/vocabularies/vital-statistics\",\"code\":\"Wgt\",\"display\":\"Body Weight\"}]},\"subject\":{\"reference\":\"Patient/example\"},\"context\":{\"reference\":\"Encounter/example\"},\"effectiveDateTime\":\"2016-03-28\",\"valueQuantity\":{\"value\":67,\"unit\":\"kg\",\"system\":\"http://unitsofmeasure.org\",\"code\":\"kg\"}}",
+        "format": "Json"
+    },
+    "isDeleted": false,
+    "id": "e8f04fce-700c-41bf-95e5-86d05ffbdf80",
+    "resourceId": "e8f04fce-700c-41bf-95e5-86d05ffbdf80",
+    "resourceTypeName": "Observation",
+    "isHistory": false,
+    "_rid": "w1VAAJjOpQAGAAAAAAAAAA==",
+    "_self": "dbs/w1VAAA==/colls/w1VAAJjOpQA=/docs/w1VAAJjOpQAGAAAAAAAAAA==/",
+    "_attachments": "attachments/",
+    "_ts": 1509061318
+}

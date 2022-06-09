@@ -1,0 +1,299 @@
+[
+  {
+    "code": "_id",
+    "type": "Token",
+    "value": {
+      "system": null,
+      "code": "example",
+      "text": null,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "authenticator",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "Organization",
+      "resourceId": "f001",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "author",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "Practitioner",
+      "resourceId": "xcda1",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "category",
+    "type": "Token",
+    "value": {
+      "system": "http://ihe.net/xds/connectathon/classCodes",
+      "code": "History and Physical",
+      "text": "History and Physical",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "contenttype",
+    "type": "Token",
+    "value": {
+      "system": null,
+      "code": "application/hl7-v3+xml",
+      "text": null,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "custodian",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "Organization",
+      "resourceId": "f001",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "date",
+    "type": "Date",
+    "value": {
+      "start": "2005-12-23T22:43:41+00:00",
+      "end": "2005-12-23T22:43:41+00:00",
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
+    }
+  },
+  {
+    "code": "description",
+    "type": "String",
+    "value": {
+      "string": "Physical",
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
+    }
+  },
+  {
+    "code": "encounter",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "Encounter",
+      "resourceId": "xcda",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "event",
+    "type": "Token",
+    "value": {
+      "system": "http://ihe.net/xds/connectathon/eventCodes",
+      "code": "T-D8200",
+      "text": "Arm",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "facility",
+    "type": "Token",
+    "value": {
+      "system": "http://www.ihe.net/xds/connectathon/healthcareFacilityTypeCodes",
+      "code": "Outpatient",
+      "text": "Outpatient",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "format",
+    "type": "Token",
+    "value": {
+      "system": "urn:oid:1.3.6.1.4.1.19376.1.2.3",
+      "code": "urn:ihe:pcc:handp:2008",
+      "text": "History and Physical Specification",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "identifier",
+    "type": "Token",
+    "value": {
+      "system": "urn:ietf:rfc:3986",
+      "code": "urn:oid:1.3.6.1.4.1.21367.2005.3.7",
+      "text": null,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "identifier",
+    "type": "Token",
+    "value": {
+      "system": "urn:ietf:rfc:3986",
+      "code": "urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234",
+      "text": null,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "language",
+    "type": "Token",
+    "value": {
+      "system": null,
+      "code": "en-US",
+      "text": null,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "location",
+    "type": "Uri",
+    "value": {
+      "uri": "http://example.org/xds/mhd/Binary/07a6483f-732b-461e-86b6-edb665c45510",
+      "version": null,
+      "fragment": null,
+      "isCanonical": false,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "patient",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "Patient",
+      "resourceId": "xcda",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "period",
+    "type": "Date",
+    "value": {
+      "start": "2004-12-22T21:00:00+00:00",
+      "end": "2004-12-22T21:01:00.9999999+00:00",
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
+    }
+  },
+  {
+    "code": "related",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "Patient",
+      "resourceId": "xcda",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "relatesto",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "DocumentReference",
+      "resourceId": "example-transforms",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "relation",
+    "type": "Token",
+    "value": {
+      "system": "http://hl7.org/fhir/document-relationship-type",
+      "code": "transforms",
+      "text": null,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "relationship",
+    "type": "Composite",
+    "value": {
+      "components": [
+        [
+          {
+            "kind": "InternalOrExternal",
+            "baseUri": null,
+            "resourceType": "DocumentReference",
+            "resourceId": "example-transforms",
+            "isValidAsCompositeComponent": true
+          }
+        ],
+        [
+          {
+            "system": "http://hl7.org/fhir/document-relationship-type",
+            "code": "transforms",
+            "text": null,
+            "isValidAsCompositeComponent": true
+          }
+        ]
+      ],
+      "isValidAsCompositeComponent": false
+    }
+  },
+  {
+    "code": "security-label",
+    "type": "Token",
+    "value": {
+      "system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality",
+      "code": "V",
+      "text": "very restricted",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "setting",
+    "type": "Token",
+    "value": {
+      "system": "http://www.ihe.net/xds/connectathon/practiceSettingCodes",
+      "code": "General Medicine",
+      "text": "General Medicine",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "status",
+    "type": "Token",
+    "value": {
+      "system": "http://hl7.org/fhir/document-reference-status",
+      "code": "current",
+      "text": null,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "subject",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "Patient",
+      "resourceId": "xcda",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "code": "type",
+    "type": "Token",
+    "value": {
+      "system": "http://loinc.org",
+      "code": "34108-1",
+      "text": "Outpatient Note",
+      "isValidAsCompositeComponent": true
+    }
+  }
+]
