@@ -159,6 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         [MemberData(nameof(ExportUriForSameJobs))]
         [Theory]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // Only run on Cosmos until the Till parameter is supported, until then it is not possible to create duplicate jobs in SQL.
         public async Task GivenThereIsAMatchingJob_WhenCreatingAnExportJob_ThenExistingJobShouldBeReturned(Uri requestUri, PartialDateTime since)
         {
             var request = new CreateExportRequest(requestUri, ExportJobType.All, since: since, containerName: "test");
@@ -207,6 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // Only run on Cosmos until the Till parameter is supported, until then it is not possible to create duplicate jobs in SQL.
         public async Task GivenThereIsAMatchingJob_WhenRequestorClaimsInDifferentOrder_ThenExistingJobShouldBeReturned()
         {
             var claim1 = KeyValuePair.Create("oid", "user1");
