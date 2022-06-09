@@ -63,6 +63,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
                 containerResponse.Resource.IndexingPolicy.ExcludedPaths.Clear();
                 containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.RawResource}/*", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.IsHistory}", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.IsDeleted}", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.SearchParameterHash}", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.ResourceId}", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.ResourceTypeName}", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.Version}", });
                 containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/\"_etag\"/?", });
 
                 // Setting the DefaultTTL to -1 means that by default all documents in the collection will live forever
