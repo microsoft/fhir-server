@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -10,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using NSubstitute;
 using Xunit;
 
@@ -39,11 +41,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 	]
 }";
 
+        private static ExportJobRecord exportJobRecord = CreateDummyExportJobRecord();
+
         [Fact]
         public async Task GivenAValidAnonymizationConfiguration_WhenCreatingAnonymizer_AnonymizerShouldBeCreated()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<ExportJobRecord>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
@@ -54,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            IAnonymizer anonymizer = await factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None);
+            IAnonymizer anonymizer = await factory.CreateAnonymizerAsync(exportJobRecord, CancellationToken.None);
 
             Assert.NotNull(anonymizer);
         }
@@ -63,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         public async Task GivenAnInvalidAnonymizationConfiguration_WhenCreatingAnonymizer_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<ExportJobRecord>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
@@ -74,14 +78,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            _ = await Assert.ThrowsAsync<FailedToParseAnonymizationConfigurationException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
+            _ = await Assert.ThrowsAsync<FailedToParseAnonymizationConfigurationException>(() => factory.CreateAnonymizerAsync(exportJobRecord, CancellationToken.None));
         }
 
         [Fact]
         public async Task GivenNoAnonymizationConfiguration_WhenCreatingAnonymizer_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<ExportJobRecord>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     throw new FileNotFoundException();
@@ -90,7 +94,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            _ = await Assert.ThrowsAsync<AnonymizationConfigurationNotFoundException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
+            _ = await Assert.ThrowsAsync<AnonymizationConfigurationNotFoundException>(() => factory.CreateAnonymizerAsync(exportJobRecord, CancellationToken.None));
+        }
+
+        private static ExportJobRecord CreateDummyExportJobRecord()
+        {
+            return new ExportJobRecord(
+                new Uri("http://localhost/dummy/"),
+                ExportJobType.Patient,
+                ExportFormatTags.ResourceName,
+                resourceType: null,
+                filters: null,
+                hash: "123",
+                rollingFileSizeInMB: 64,
+                anonymizationConfigurationLocation: "dummy",
+                requestorClaims: null)
+            {
+                Status = OperationStatus.Queued,
+            };
         }
     }
 }

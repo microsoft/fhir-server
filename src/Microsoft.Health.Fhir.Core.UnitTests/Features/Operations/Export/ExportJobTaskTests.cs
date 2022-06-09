@@ -1441,7 +1441,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     capturedSearch = true;
                     return new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive("anonymized-resource")));
                 });
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
+            factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
             var inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
             var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScope());
@@ -1466,7 +1466,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw (Exception)Activator.CreateInstance(exceptionType, expectedErrorMessage));
+            factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw (Exception)Activator.CreateInstance(exceptionType, expectedErrorMessage));
 
             var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
 
@@ -1502,7 +1502,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizer anonymizer = Substitute.For<IAnonymizer>();
             anonymizer.Anonymize(Arg.Any<ResourceElement>()).Returns<ResourceElement>(_ => throw new InvalidOperationException());
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => Task.FromResult(anonymizer));
+            factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => Task.FromResult(anonymizer));
 
             var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
 

@@ -26,8 +26,8 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
+    <HealthcareSharedPackageVersion>6.1.59</HealthcareSharedPackageVersion>
     <AspNetPackageVersion>6.0.0</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>6.1.58</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.0.0</Hl7FhirVersion>
   </PropertyGroup>
   <Choose>
