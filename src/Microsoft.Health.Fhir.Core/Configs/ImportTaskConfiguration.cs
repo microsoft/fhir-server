@@ -46,6 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public short MaxRetryCount { get; set; } = DefaultMaxRetryCount;
 
         /// <summary>
+        /// Store detail processing result in sub tasks to support large number files import
+        /// </summary>
+        public bool StoreProcessingResultInSubTasks { get; set; }
+
+        /// <summary>
         /// Long running operation timeout
         /// </summary>
         public int SqlLongRunningOperationTimeoutInSec { get; set; } = DefaultSqlLongRunningOperationTimeoutInSec;

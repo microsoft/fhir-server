@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportUsingAcrTests.cs" Link="Rest\AnonymizedExportUsingAcrTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportTests.cs" Link="Rest\AnonymizedExportTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\ConvertDataTests.cs" Link="Rest\ConvertDataTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\CustomConvertDataTests.cs" Link="Rest\CustomConvertDataTests.cs" />
@@ -26,7 +27,7 @@
     <PackageReference Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
     <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
