@@ -130,7 +130,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                         _logger.LogError(ex, "Failed to write export file");
                         throw new DestinationConnectionException(ex.Message, (HttpStatusCode)ex.Status);
                     }
-                await stream.DisposeAsync();
                 }
             }
 

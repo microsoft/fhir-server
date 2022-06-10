@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Azure
             BlobClient blob = container.GetBlobClient(configName);
             if (await blob.ExistsAsync(cancellationToken))
             {
-                if (CheckConfigurationIsTooLarge(blob.GetProperties(cancellationToken: cancellationToken).Value.ContentLength))
+                if (CheckConfigurationIsTooLarge(size: blob.GetPropertiesAsync(cancellationToken: cancellationToken).GetAwaiter().GetResult().Value.ContentLength))
                 {
                     throw new AnonymizationConfigurationFetchException(Resources.AnonymizationConfigurationTooLarge);
                 }
