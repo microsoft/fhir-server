@@ -2,24 +2,24 @@
 * This stored procedure acquires list of available export jobs.
 *
 * @constructor
-* @param {string} maximumNumberOfConcurrentJobsAllowedInString - The maximum number of concurrent jobs allowed in string.
+* @param {string} numberOfJobs - The number of jobs to fetch in string.
 * @param {string} jobHeartbeatTimeoutThresholdInSecondsInString - The number of seconds allowed before the job is considered to be stale in string.
 */
 
-function acquireExportJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHeartbeatTimeoutThresholdInSecondsInString) {
+function acquireExportJobs(numberOfJobs, jobHeartbeatTimeoutThresholdInSecondsInString) {
     const collection = getContext().getCollection();
     const collectionLink = collection.getSelfLink();
     const response = getContext().getResponse();
 
     // Validate input
-    if (!maximumNumberOfConcurrentJobsAllowedInString) {
-        throwArgumentValidationError(`The required parameter 'maximumNumberOfConcurrentJobsAllowedInString' is not specified.`);
+    if (!numberOfJobs) {
+        throwArgumentValidationError(`The required parameter 'numberOfJobs' is not specified.`);
     }
 
-    let maximumNumberOfConcurrentJobsAllowed = parseInt(maximumNumberOfConcurrentJobsAllowedInString);
+    let numberOfJobsToAcquire = parseInt(numberOfJobs);
 
-    if (maximumNumberOfConcurrentJobsAllowed <= 0) {
-        throwArgumentValidationError(`The specified maximumNumberOfConcurrentJobsAllowedInString with value '${maximumNumberOfConcurrentJobsAllowedInString}' is invalid.`);
+    if (numberOfJobsToAcquire <= 0) {
+        throwArgumentValidationError(`The specified numberOfJobs with value '${numberOfJobs}' is invalid.`);
     }
 
     if (!jobHeartbeatTimeoutThresholdInSecondsInString) {
@@ -35,38 +35,9 @@ function acquireExportJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHear
     // Calculate the expiration time in seconds where the job is considered to be stale.
     let expirationTime = new Date().setMilliseconds(0) / 1000 - jobHeartbeatTimeoutThresholdInSeconds;
 
-    tryQueryRunningJobs();
+    tryQueryAvailableJobs(numberOfJobsToAcquire);
 
-    function tryQueryRunningJobs() {
-        // Find list of active running jobs.
-        let query = {
-            query: `SELECT VALUE COUNT(1) FROM ROOT r WHERE r.jobRecord.status = 'Running' AND r._ts > ${expirationTime}`
-        };
-
-        let isQueryAccepted = collection.queryDocuments(
-            collectionLink,
-            query,
-            {},
-            function (err, resources) {
-                if (err) {
-                    throw err;
-                }
-
-                let numberOfRunningJobs = resources[0];
-
-                // Based on list of running jobs, query for list of available jobs.
-                tryQueryAvailableJobs(numberOfRunningJobs);
-            });
-
-        if (!isQueryAccepted) {
-            // We ran out of time.
-            throwTooManyRequestsError();
-        }
-    }
-
-    function tryQueryAvailableJobs(numberOfRunningJobs, continuation) {
-        let limit = maximumNumberOfConcurrentJobsAllowed - numberOfRunningJobs;
-
+    function tryQueryAvailableJobs(limit, continuation) {
         if (limit < 0) {
             limit = 0;
         }
@@ -93,7 +64,7 @@ function acquireExportJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHear
                     tryAcquire(documents, 0);
                 } else if (responseOptions.continuation) {
                     // The query came back with empty result but has continuation token, follow the token.
-                    tryQueryAvailableJobs(numberOfRunningJobs, responseOptions.continuation);
+                    tryQueryAvailableJobs(limit, responseOptions.continuation);
                 } else {
                     // We don't have any documents so we are done.
                     response.setBody([]);

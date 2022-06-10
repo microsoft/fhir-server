@@ -59,12 +59,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         runningTasks.RemoveAll(task => task.IsCompleted);
 
                         // Get list of available jobs.
-                        if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
+                        if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance)
                         {
                             using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                             {
+                                ushort numberOfJobsToAcquire = (ushort)(_exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance - runningTasks.Count);
                                 IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
-                                    _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
+                                    numberOfJobsToAcquire,
                                     _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
                                     cancellationToken);
 

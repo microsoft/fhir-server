@@ -170,24 +170,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort numberOfExportJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt32(jobHeartbeatTimeoutThreshold.TotalSeconds);
-            VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, null, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
             var acquiredJobs = new List<ExportJobOutcome>();
-            using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            while (acquiredJobs.Count < numberOfExportJobsToAcquire)
             {
-                var id = reader.GetInt64(VLatest.JobQueue.JobId);
-                var def = reader.GetString(VLatest.JobQueue.Definition);
-                var version = reader.GetInt64(VLatest.JobQueue.Version);
-                var status = reader.GetByte(VLatest.JobQueue.Status);
-                var result = reader.IsDBNull(VLatest.JobQueue.Result) ? null : reader.GetString(VLatest.JobQueue.Result);
-                var createDate = reader.GetDateTime(VLatest.JobQueue.CreateDate);
-                var rawJobRecord = result ?? def;
-                acquiredJobs.Add(CreateExportJobOutcome(id, rawJobRecord, version, status, createDate));
+                var startCount = acquiredJobs.Count;
+                using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+                var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt32(jobHeartbeatTimeoutThreshold.TotalSeconds);
+                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, null, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
+                using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var id = reader.GetInt64(VLatest.JobQueue.JobId);
+                    var def = reader.GetString(VLatest.JobQueue.Definition);
+                    var version = reader.GetInt64(VLatest.JobQueue.Version);
+                    var status = reader.GetByte(VLatest.JobQueue.Status);
+                    var result = reader.IsDBNull(VLatest.JobQueue.Result) ? null : reader.GetString(VLatest.JobQueue.Result);
+                    var createDate = reader.GetDateTime(VLatest.JobQueue.CreateDate);
+                    var rawJobRecord = result ?? def;
+                    acquiredJobs.Add(CreateExportJobOutcome(id, rawJobRecord, version, status, createDate));
+                }
+
+                // if no more jobs were found
+                if (startCount == acquiredJobs.Count)
+                {
+                    break;
+                }
             }
 
             return acquiredJobs;

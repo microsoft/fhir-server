@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
             Justification = "Set from an environment variable.")]
         public string StorageAccountUri { get; set; } = string.Empty;
 
-        public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
+        public ushort MaximumNumberOfConcurrentJobsAllowedPerInstance { get; set; } = 1;
 
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);
 
