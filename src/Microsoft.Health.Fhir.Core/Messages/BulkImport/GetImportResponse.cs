@@ -11,14 +11,14 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
     public class GetImportResponse
     {
         public GetImportResponse(HttpStatusCode statusCode)
-            : this(statusCode, taskResult: null)
+            : this(statusCode, jobResult: null)
         {
         }
 
-        public GetImportResponse(HttpStatusCode statusCode, ImportTaskResult taskResult)
+        public GetImportResponse(HttpStatusCode statusCode, ImportJobResult jobResult)
         {
             StatusCode = statusCode;
-            TaskResult = taskResult;
+            JobResult = jobResult;
         }
 
         /// <summary>
@@ -29,6 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// <summary>
         /// Response result
         /// </summary>
-        public ImportTaskResult TaskResult { get; }
+        public ImportJobResult JobResult { get; }
     }
 }
