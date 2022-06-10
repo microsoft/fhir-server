@@ -238,8 +238,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             // Only 2 jobs should have been acquired in total.
             Assert.Equal(2, tasks.Sum(task => task.Result.Count));
 
-            // Only 1 of the tasks should be fulfilled.
-            Assert.Equal(2, tasks[0].Result.Count ^ tasks[1].Result.Count);
+            // Both of the results should be fullilled since we requested 1 job twice and we can run jobs in parallel.
+            // This checks that the results are the same.
+            Assert.Equal(0, tasks[0].Result.Count ^ tasks[1].Result.Count);
 
             async Task<IReadOnlyCollection<ExportJobOutcome>> WaitAndAcquireExportJobsAsync()
             {
