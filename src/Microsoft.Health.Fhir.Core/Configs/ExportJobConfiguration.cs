@@ -48,6 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public uint NumberOfPagesPerCommit { get; set; } = 10;
 
         /// <summary>
+        /// Cache size limit for de-id export. Size of each cache entry are calculated by byte counts.
+        /// </summary>
+        public long CacheSizeLimit { get; set; } = 10_000_000;
+
+        /// <summary>
         /// Formats for export jobs.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a configuration class")]

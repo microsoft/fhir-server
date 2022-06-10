@@ -376,4 +376,15 @@
   <data name="InvalidBundleEntryRequestUrl" xml:space="preserve">
     <value>Bundle.entry.request.url is required.</value>
   </data>
+  <data name="AnonymizationConfigCollectionNotConfigured" xml:space="preserve">
+    <value>The configuration collection reference '{0}' is not configured.</value>
+    <comment>{0} is the configuration collection reference</comment>
+  </data>
+  <data name="AnonymizationParameterConflict" xml:space="preserve">
+    <value>The parameters '_anonymizationConfigEtag' and '_anonymizationConfigCollectionReference' cannot be given in the same request. Please only specify one of them.</value>
+  </data>
+  <data name="InvalidAnonymizationConfigCollectionReference" xml:space="preserve">
+    <value>The configuration collection reference '{0}' is invalid.</value>
+    <comment>{0} is the configuration collection reference</comment>
+  </data>
 </root>
