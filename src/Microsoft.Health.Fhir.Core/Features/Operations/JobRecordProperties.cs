@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string CreatedChild = "createdChild";
 
         public const string Till = "till";
-      
+
         public const string RestartCount = "restartCount";
     }
 }
