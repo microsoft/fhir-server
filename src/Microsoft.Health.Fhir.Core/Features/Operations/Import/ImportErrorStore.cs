@@ -8,6 +8,8 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.JobManagement;
 using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
@@ -17,14 +19,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private Uri _fileUri;
         private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
+        private ILogger<ImportErrorStore> _logger;
 
-        public ImportErrorStore(IIntegrationDataStoreClient integrationDataStoreClient, Uri fileUri)
+        public ImportErrorStore(IIntegrationDataStoreClient integrationDataStoreClient, Uri fileUri, ILogger<ImportErrorStore> logger)
         {
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(fileUri, nameof(fileUri));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _integrationDataStoreClient = integrationDataStoreClient;
             _fileUri = fileUri;
+            _logger = logger;
 
             _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -43,20 +48,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 return;
             }
 
-            using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
-            using StreamWriter writer = new StreamWriter(stream);
-
-            foreach (string error in importErrors)
+            try
             {
-                await writer.WriteLineAsync(error);
+                using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
+                using StreamWriter writer = new StreamWriter(stream);
+
+                foreach (string error in importErrors)
+                {
+                    await writer.WriteLineAsync(error);
+                }
+
+                await writer.FlushAsync();
+                stream.Position = 0;
+
+                string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+                await _integrationDataStoreClient.UploadBlockAsync(_fileUri, stream, blockId, cancellationToken);
+                await _integrationDataStoreClient.AppendCommitAsync(_fileUri, new string[] { blockId }, cancellationToken);
             }
-
-            await writer.FlushAsync();
-            stream.Position = 0;
-
-            string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-            await _integrationDataStoreClient.UploadBlockAsync(_fileUri, stream, blockId, cancellationToken);
-            await _integrationDataStoreClient.AppendCommitAsync(_fileUri, new string[] { blockId }, cancellationToken);
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Failed to upload import error log.", ex);
+                throw new RetriableJobException(ex.Message, ex);
+            }
         }
     }
 }

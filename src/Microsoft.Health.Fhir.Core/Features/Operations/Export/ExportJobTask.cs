@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -148,7 +149,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // If it is null, then we know we are processing a new job.
                 if (_exportJobRecord.Progress == null)
                 {
+                    _exportJobRecord.StartTime = Clock.UtcNow;
                     _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
+                }
+                else
+                {
+                    _exportJobRecord.RestartCount++;
                 }
 
                 // The intial list of query parameters will not have a continutation token. We will add that later if we get one back
@@ -303,7 +309,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (progress.CurrentFilter != null)
             {
-                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, "filter", cancellationToken);
+                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
             }
 
             if (_exportJobRecord.Filters != null && _exportJobRecord.Filters.Any(filter => !progress.CompletedFilters.Contains(filter)))
@@ -316,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)))
                     {
                         progress.SetFilter(filter);
-                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, "filter", cancellationToken);
+                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
                     }
                 }
             }
@@ -355,7 +361,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, anonymizer, string.Empty, cancellationToken);
+                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
             }
         }
 
@@ -365,17 +371,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> queryParametersList,
             List<Tuple<string, string>> sharedQueryParametersList,
             IAnonymizer anonymizer,
-            string batchIdPrefix,
             CancellationToken cancellationToken)
         {
-            var index = _exportJobRecord.Filters.IndexOf(exportJobProgress.CurrentFilter);
             List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
             foreach (var param in exportJobProgress.CurrentFilter.Parameters)
             {
                 filterQueryParametersList.Add(param);
             }
 
-            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, batchIdPrefix + index + "-", cancellationToken);
+            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
 
             exportJobProgress.MarkFilterFinished();
             await UpdateJobRecordAsync(cancellationToken);
@@ -388,12 +392,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> queryParametersList,
             List<Tuple<string, string>> sharedQueryParametersList,
             IAnonymizer anonymizer,
-            string batchIdPrefix,
             CancellationToken cancellationToken)
         {
-            // Current batch will be used to organize a set of search results into a group so that they can be committed together.
-            string currentBatchId = batchIdPrefix + progress.Page.ToString("d6");
-
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
             // 2. There is no continuation token but the page is 0, which means it's the initial export.
@@ -411,7 +411,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             searchResult = await searchService.Value.SearchAsync(
                                 resourceType: resourceType,
                                 queryParametersList,
-                                cancellationToken);
+                                cancellationToken,
+                                true);
                         }
 
                         break;
@@ -442,7 +443,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             progress.NewSubSearch(result.Resource.ResourceId);
                         }
 
-                        await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, anonymizer, cancellationToken, currentBatchId + ":" + resultIndex.ToString("d6"));
+                        await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, anonymizer, cancellationToken);
                         resultIndex++;
 
                         progress.ClearSubSearch();
@@ -454,7 +455,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
+                    ProcessSearchResults(searchResult.Results, anonymizer);
                 }
 
                 if (searchResult.ContinuationToken == null)
@@ -464,24 +465,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 await ProcessProgressChange(
-                    exportJobConfiguration,
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
-                    forceCommit: _exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group,
+                    false,
                     cancellationToken);
-                currentBatchId = batchIdPrefix + progress.Page.ToString("d6");
             }
 
             // Commit one last time for any pending changes.
-            await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
+            _fileManager.CommitFiles();
         }
 
         private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
         {
-            string configurationWithEtag = $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
-
-            return await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationWithEtag, cancellationToken);
+            return await _anonymizerFactory.Value.CreateAnonymizerAsync(_exportJobRecord, cancellationToken);
         }
 
         private async Task RunExportCompartmentSearch(
@@ -489,8 +486,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobProgress progress,
             List<Tuple<string, string>> sharedQueryParametersList,
             IAnonymizer anonymizer,
-            CancellationToken cancellationToken,
-            string batchIdPrefix = "")
+            CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(progress, nameof(progress));
@@ -514,7 +510,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (progress.CurrentFilter != null)
             {
-                await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, anonymizer, batchIdPrefix + "-filter", cancellationToken);
+                await ProcessFilterForCompartment(progress, queryParametersList, anonymizer, cancellationToken);
             }
 
             if (_exportJobRecord.Filters != null)
@@ -526,7 +522,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase))
                     {
                         progress.SetFilter(filter);
-                        await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, anonymizer, batchIdPrefix + "-filter", cancellationToken);
+                        await ProcessFilterForCompartment(progress, queryParametersList, anonymizer, cancellationToken);
                     }
                 }
             }
@@ -553,40 +549,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await SearchCompartmentWithFilter(exportJobConfiguration, progress, null, queryParametersList, anonymizer, batchIdPrefix, cancellationToken);
+                await SearchCompartmentWithFilter(progress, null, queryParametersList, anonymizer, cancellationToken);
             }
         }
 
         private async Task ProcessFilterForCompartment(
-            ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress exportJobProgress,
             List<Tuple<string, string>> queryParametersList,
             IAnonymizer anonymizer,
-            string batchIdPrefix,
             CancellationToken cancellationToken)
         {
-            var index = _exportJobRecord.Filters.IndexOf(exportJobProgress.CurrentFilter);
             List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
             foreach (var param in exportJobProgress.CurrentFilter.Parameters)
             {
                 filterQueryParametersList.Add(param);
             }
 
-            await SearchCompartmentWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, anonymizer, batchIdPrefix + index, cancellationToken);
+            await SearchCompartmentWithFilter(exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, anonymizer, cancellationToken);
         }
 
         private async Task SearchCompartmentWithFilter(
-            ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
             string resourceType,
             List<Tuple<string, string>> queryParametersList,
             IAnonymizer anonymizer,
-            string batchIdPrefix,
             CancellationToken cancellationToken)
         {
-            // Current batch will be used to organize a set of search results into a group so that they can be committed together.
-            string currentBatchId = batchIdPrefix + "-" + progress.Page.ToString("d6");
-
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
             // 2. There is no continuation token but the page is 0, which means it's the initial export.
@@ -602,10 +590,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         compartmentId: progress.TriggeringResourceId,
                         resourceType: resourceType,
                         queryParametersList,
-                        cancellationToken);
+                        cancellationToken,
+                        true);
                 }
 
-                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
+                ProcessSearchResults(searchResult.Results, anonymizer);
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -613,26 +602,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
-                await ProcessProgressChange(exportJobConfiguration, progress, queryParametersList, searchResult.ContinuationToken, false, cancellationToken);
-                currentBatchId = batchIdPrefix + '-' + progress.Page.ToString("d6");
+                await ProcessProgressChange(progress, queryParametersList, searchResult.ContinuationToken, true, cancellationToken);
             }
 
             // Commit one last time for any pending changes.
-            await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
+            _fileManager.CommitFullFiles(_exportJobConfiguration.RollingFileSizeInMB * 1024 * 1024);
 
             progress.MarkFilterFinished();
-            await UpdateJobRecordAsync(cancellationToken);
         }
 
-        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, IAnonymizer anonymizer, CancellationToken cancellationToken)
+        private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
-                ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
+                var data = result.Resource.RawResource.Data;
 
                 if (anonymizer != null)
                 {
+                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
                     try
                     {
                         element = anonymizer.Anonymize(element);
@@ -641,21 +629,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     {
                         throw new FailedToAnonymizeResourceException(ex.Message, ex);
                     }
+
+                    // Serialize into NDJson and write to the file.
+                    data = _resourceToByteArraySerializer.StringSerialize(element);
+                }
+                else if (!resourceWrapper.RawResource.IsMetaSet)
+                {
+                    // For older records in Cosmos the metadata isn't included in the raw resource
+                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
+                    data = _resourceToByteArraySerializer.StringSerialize(element);
                 }
 
-                // Serialize into NDJson and write to the file.
-                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(element);
-
-                await _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, partId, bytesToWrite, cancellationToken);
+                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
             }
         }
 
         private async Task ProcessProgressChange(
-            ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
             List<Tuple<string, string>> queryParametersList,
             string continuationToken,
-            bool forceCommit,
+            bool onlyCommitFull,
             CancellationToken cancellationToken)
         {
             // Update the continuation token in local cache and queryParams.
@@ -677,10 +670,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
             }
 
-            if (progress.Page % _exportJobRecord.NumberOfPagesPerCommit == 0 || forceCommit)
+            // Commit the changes.
+            if (onlyCommitFull)
             {
-                // Commit the changes.
-                await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
+                _fileManager.CommitFullFiles(_exportJobConfiguration.RollingFileSizeInMB * 1024 * 1024);
+            }
+            else
+            {
+                _fileManager.CommitFiles();
 
                 // Update the job record.
                 await UpdateJobRecordAsync(cancellationToken);
@@ -724,7 +721,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 return await searchService.Value.SearchAsync(
                                resourceType: KnownResourceTypes.Patient,
                                queryParametersList,
-                               cancellationToken);
+                               cancellationToken,
+                               true);
             }
         }
     }

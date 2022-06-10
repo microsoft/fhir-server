@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Azure.Storage.Blobs;
 using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Azure
                 .Transient()
                 .AsService<IExportDestinationClient>();
 
-            fhirServerBuilder.Services.Add<ExportDestinationArtifactProvider>()
+            fhirServerBuilder.Services.Add<AnonymizationConfigurationArtifactProvider>()
                 .Transient()
                 .AsService<IArtifactProvider>();
 
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 fhirServerBuilder.Services.Add<AzureAccessTokenClientInitializer>()
                     .Transient()
-                    .AsService<IExportClientInitializer<CloudBlobClient>>();
+                    .AsService<IExportClientInitializer<BlobServiceClient>>();
 
                 fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
                     .Transient()
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 fhirServerBuilder.Services.Add<AzureConnectionStringClientInitializer>()
                     .Transient()
-                    .AsService<IExportClientInitializer<CloudBlobClient>>();
+                    .AsService<IExportClientInitializer<BlobServiceClient>>();
             }
 
             return fhirServerBuilder;

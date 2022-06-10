@@ -34,10 +34,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return response;
         }
 
-        public static async Task<GetImportResponse> GetImportStatusAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
+        public static async Task<GetImportResponse> GetImportStatusAsync(this IMediator mediator, long jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
             var request = new GetImportRequest(jobId);
 
@@ -45,10 +44,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return response;
         }
 
-        public static async Task<CancelImportResponse> CancelImportAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
+        public static async Task<CancelImportResponse> CancelImportAsync(this IMediator mediator, long jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
             var request = new CancelImportRequest(jobId);
 
