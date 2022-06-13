@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         FhirSpecification Version { get; }
 
-        Version SupportedVersion { get; }
+        VersionInfo SupportedVersion { get; }
 
         IStructureDefinitionSummaryProvider StructureDefinitionSummaryProvider { get; }
 

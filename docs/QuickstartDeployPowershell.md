@@ -31,9 +31,10 @@ To run the code in this article in Azure Cloud Shell:
 
 Pick a name for the resource group that will contain the provisioned resources and create it:
 
+(Note: this name must be globally unique to avoid DNS collision with other App Service deployments. For testing purposes, try prepending a descriptive name like `FhirService` with your intials and the date, e.g. `abMay1`)
 ```azurepowershell-interactive
-$fhirServiceName = "MyFhirService"
-$rg = New-AzResourceGroup -Name $fhirServiceName -Location westus2
+$fhirServiceName = "abMay1FhirService"
+$rg = New-AzResourceGroup -Name $fhirServiceName -Location westus
 ```
 
 ## Deploy the FHIR server template
@@ -43,8 +44,19 @@ The Microsoft FHIR Server for Azure [GitHub Repository](https://github.com/Micro
 Deploy using CosmosDB as the data store with the following command:
 
 ```azurepowershell-interactive
-New-AzResourceGroupDeployment -TemplateUri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
+New-AzResourceGroupDeployment -TemplateUri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
+
+\
+Alternatively, to deploy using SQL Server as the data store: 
+
+```azurecli-interactive
+$sqlAdminPassword = ConvertTo-SecureString "mySecretPassword123" -AsPlainText -Force
+New-AzResourceGroupDeployment -TemplateUri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName -solutionType FhirServerSqlServer -sqlSchemaAutomaticUpdatesEnabled auto -sqlAdminPassword $sqlAdminPassword
+```
+
+(Note: ensure that your SQL admin password meets the minimum [policy requirements](https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity) to avoid deployment errors)
+
 
 ## Verify FHIR server is running
 

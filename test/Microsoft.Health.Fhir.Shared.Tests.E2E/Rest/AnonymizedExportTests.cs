@@ -288,7 +288,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("invalid-etag' is invalid.", responseContent);
+            Assert.Contains("The condition specified using HTTP conditional header(s) is not met.", responseContent);
 
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("Configuration not found on the destination storage.", responseContent);
+            Assert.Contains("Anonymization configuration 'not-exist.json' not found.", responseContent);
 
             // Only check metric for local tests
             if (_isUsingInProcTestServer)

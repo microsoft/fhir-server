@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Acqui
     {
         public async Task<StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosExportJobRecordWrapper>>> ExecuteAsync(
             Scripts client,
-            ushort maximumNumberOfConcurrentJobsAllowed,
+            ushort numberOfJobsToAcquire,
             ushort jobHeartbeatTimeoutThresholdInSeconds,
             CancellationToken cancellationToken)
         {
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Acqui
                 client,
                 CosmosDbExportConstants.ExportJobPartitionKey,
                 cancellationToken,
-                maximumNumberOfConcurrentJobsAllowed,
+                numberOfJobsToAcquire,
                 jobHeartbeatTimeoutThresholdInSeconds);
         }
     }

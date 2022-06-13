@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -60,53 +59,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 throw new UnauthorizedFhirActionException();
             }
 
-            IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = _claimsExtractor.Extract()?
-                .OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
-
-            // Compute the hash of the job.
-            var hashObject = new
-            {
-                request.RequestUri,
-                RequestorClaims = requestorClaims,
-            };
-
-            string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
+            var requestorClaims = _claimsExtractor.Extract()?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 
             string storageAccountConnectionHash = string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection) ?
                 string.Empty :
                 StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
 
-            // Check to see if a matching job exists or not. If a matching job exists, we will return that instead.
-            // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
-            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByHashAsync(hash, cancellationToken);
-
             var filters = ParseFilter(request.Filters);
 
             ExportJobFormatConfiguration formatConfiguration = ParseFormat(request.FormatName, request.ContainerName != null);
 
-            if (outcome == null)
-            {
-                var jobRecord = new ExportJobRecord(
-                    request.RequestUri,
-                    request.RequestType,
-                    formatConfiguration.Format,
-                    request.ResourceType,
-                    filters,
-                    hash,
-                    _exportJobConfiguration.RollingFileSizeInMB,
-                    requestorClaims,
-                    request.Since,
-                    request.GroupId,
-                    storageAccountConnectionHash,
-                    _exportJobConfiguration.StorageAccountUri,
-                    request.AnonymizationConfigurationLocation,
-                    request.AnonymizationConfigurationFileETag,
-                    _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
-                    _exportJobConfiguration.NumberOfPagesPerCommit,
-                    request.ContainerName);
+            var jobRecord = new ExportJobRecord(
+                request.RequestUri,
+                request.RequestType,
+                formatConfiguration.Format,
+                request.ResourceType,
+                filters,
+                "N/A",
+                _exportJobConfiguration.RollingFileSizeInMB,
+                requestorClaims,
+                request.Since,
+                request.GroupId,
+                storageAccountConnectionHash,
+                _exportJobConfiguration.StorageAccountUri,
+                request.AnonymizationConfigurationCollectionReference,
+                request.AnonymizationConfigurationLocation,
+                request.AnonymizationConfigurationFileETag,
+                _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                _exportJobConfiguration.NumberOfPagesPerCommit,
+                request.ContainerName);
 
-                outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
-            }
+            var outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
             return new CreateExportResponse(outcome.JobRecord.Id);
         }

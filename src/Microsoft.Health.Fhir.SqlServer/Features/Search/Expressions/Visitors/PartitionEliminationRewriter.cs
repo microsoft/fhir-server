@@ -45,28 +45,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             _resourceTypeSearchParameter = searchParameterDefinitionManagerResolver.Invoke().GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
         }
 
-        private SearchParameterExpression AllTypesExpression
+        private SearchParameterExpression GetAllTypesExpression()
         {
-            get
+            if (_allTypesExpression != null)
             {
-                if (_allTypesExpression != null)
-                {
-                    return _allTypesExpression;
-                }
-
-                var typeExpressions = new Expression[_model.ResourceTypeIdRange.highestId - _model.ResourceTypeIdRange.lowestId + 1];
-
-                for (short i = 0, typeId = _model.ResourceTypeIdRange.lowestId; typeId <= _model.ResourceTypeIdRange.highestId; typeId++, i++)
-                {
-                    typeExpressions[i] = Expression.StringEquals(FieldName.TokenCode, null, _model.GetResourceTypeName(typeId), false);
-                }
-
-                _allTypesExpression = Expression.SearchParameter(
-                    _resourceTypeSearchParameter,
-                    Expression.Or(typeExpressions));
-
                 return _allTypesExpression;
             }
+
+            string[] resourceTypes = new string[_model.ResourceTypeIdRange.highestId - _model.ResourceTypeIdRange.lowestId + 1];
+            for (short i = 0, typeId = _model.ResourceTypeIdRange.lowestId; typeId <= _model.ResourceTypeIdRange.highestId; typeId++, i++)
+            {
+                resourceTypes[i] = _model.GetResourceTypeName(typeId);
+            }
+
+            _allTypesExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, resourceTypes));
+
+            return _allTypesExpression;
         }
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
@@ -108,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 var updatedResourceTableExpressions = new List<SearchParameterExpressionBase>(expression.ResourceTableExpressions.Count + 1);
                 updatedResourceTableExpressions.AddRange(expression.ResourceTableExpressions);
-                updatedResourceTableExpressions.Add(AllTypesExpression);
+                updatedResourceTableExpressions.Add(GetAllTypesExpression());
 
                 return new SqlRootExpression(expression.SearchParamTableExpressions, updatedResourceTableExpressions);
             }

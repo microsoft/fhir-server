@@ -143,9 +143,6 @@
                         "param": [ "encounter" ]
                     },
                     {
-                        "code": "CatalogEntry"
-                    },
-                    {
                         "code": "ChargeItem",
                         "param": [ "context" ]
                     },

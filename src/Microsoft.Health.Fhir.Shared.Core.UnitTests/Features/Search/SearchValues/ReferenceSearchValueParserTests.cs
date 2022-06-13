@@ -8,11 +8,14 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 {
+    [Trait(Traits.Category, Categories.Search)]
     public class ReferenceSearchValueParserTests
     {
         private const string ParamNameS = "s";

@@ -20,7 +20,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
-using Microsoft.Health.TaskManagement;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
@@ -76,10 +76,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (_fixture.IsUsingInProcTestServer)
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             request.Mode = ImportConstants.InitialLoadMode;
             request.Force = true;
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ImportAsync(request.ToParameters(), CancellationToken.None));
-            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
@@ -146,10 +146,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (_fixture.IsUsingInProcTestServer)
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);
@@ -221,10 +221,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (_fixture.IsUsingInProcTestServer)
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);
@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
-            ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(await response.Content.ReadAsStringAsync());
+            ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.Single(result.Error);
             Assert.NotEmpty(result.Error.First().Url);
 
@@ -272,10 +272,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (_fixture.IsUsingInProcTestServer)
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(0, notification.SucceedCount);
                 Assert.Equal(resourceCount, notification.FailedCount);
@@ -321,10 +321,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (_fixture.IsUsingInProcTestServer)
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count * 2;
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(0, notification.FailedCount);
@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
-            ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(await response.Content.ReadAsStringAsync());
+            ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
             Assert.Equal(1, result.Error.Count);
             Assert.NotEmpty(result.Request);
@@ -377,10 +377,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (_fixture.IsUsingInProcTestServer)
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);
                 Assert.Equal(resourceCount, notification.SucceedCount);
                 Assert.Equal(1, notification.FailedCount);
@@ -421,16 +421,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Only check metric for local tests
             if (_fixture.IsUsingInProcTestServer)
             {
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Equal(2, notificationList.Count);
 
-                var notification1 = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Success.ToString(), notification1.Status);
+                var notification1 = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification1.Status);
                 Assert.Equal(1, notification1.SucceedCount);
                 Assert.Equal(1, notification1.FailedCount);
 
-                var notification2 = notificationList[1] as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Success.ToString(), notification1.Status);
+                var notification2 = notificationList[1] as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification1.Status);
                 Assert.Equal(0, notification2.SucceedCount);
                 Assert.Equal(2, notification2.FailedCount);
             }
@@ -462,8 +462,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var respone = await _client.CancelImport(checkLocation);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.CheckImportAsync(checkLocation));
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             // wait task completed
             while (respone.StatusCode != HttpStatusCode.Conflict)
@@ -472,16 +470,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 await Task.Delay(TimeSpan.FromSeconds(3));
             }
 
-            // Only check metric for local tests
-            if (_fixture.IsUsingInProcTestServer)
-            {
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Single(notificationList);
-                Assert.Equal(TaskResult.Canceled.ToString(), notification.Status);
-                Assert.Null(notification.SucceedCount);
-                Assert.Null(notification.FailedCount);
-            }
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.CheckImportAsync(checkLocation));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
         [Fact(Skip = "long running tests for invalid url")]
@@ -519,10 +509,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Only check metric for local tests
             if (_fixture.IsUsingInProcTestServer)
             {
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Fail.ToString(), notification.Status);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Failed.ToString(), notification.Status);
                 Assert.Null(notification.DataSize);
                 Assert.Null(notification.SucceedCount);
                 Assert.Null(notification.FailedCount);
@@ -569,13 +559,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Only check metric for local tests
             if (_fixture.IsUsingInProcTestServer)
             {
-                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportTaskMetricsNotification;
-                Assert.Equal(TaskResult.Fail.ToString(), notification.Status);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Failed.ToString(), notification.Status);
                 Assert.Null(notification.DataSize);
-                Assert.Null(notification.SucceedCount);
-                Assert.Null(notification.FailedCount);
+                Assert.Equal(0, notification.SucceedCount);
+                Assert.Equal(0, notification.FailedCount);
             }
         }
 
@@ -619,7 +609,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
-            ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(await response.Content.ReadAsStringAsync());
+            ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
             if (errorCount != null)
             {

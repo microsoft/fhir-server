@@ -117,8 +117,11 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="AnonymizationConfigurationCollectionTooLarge" xml:space="preserve">
+    <value>Anonymization configuration collection is too large &gt; 100MB.</value>
+  </data>
   <data name="AnonymizationConfigurationNotFound" xml:space="preserve">
-    <value>Configuration not found on the destination storage. {0}</value>
+    <value>Anonymization configuration '{0}' not found. </value>
   </data>
   <data name="AnonymizationConfigurationTooLarge" xml:space="preserve">
     <value>Anonymization configuration is too large &gt; 1MB.</value>

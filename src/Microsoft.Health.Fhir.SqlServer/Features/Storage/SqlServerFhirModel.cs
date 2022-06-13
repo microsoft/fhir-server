@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel : IRequireInitializationOnFirstRequest, ISqlServerFhirModel
+    public sealed class SqlServerFhirModel : ISqlServerFhirModel
     {
         private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -463,7 +463,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void ThrowIfCurrentSchemaVersionIsNull()
         {
-            if (_schemaInformation.Current == null)
+            // While applying the full schema, CurrentVersion is set as 0 in InstanceSchema table
+            if (_schemaInformation.Current == null || _schemaInformation.Current == 0)
             {
                 throw new InvalidOperationException(Resources.SchemaVersionShouldNotBeNull);
             }

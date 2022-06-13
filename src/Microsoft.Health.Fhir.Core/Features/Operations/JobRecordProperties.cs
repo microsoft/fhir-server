@@ -91,6 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string SearchParams = "searchParams";
 
+        public const string AnonymizationConfigurationCollectionReference = "anonymizationConfigurationCollectionReference";
+
         public const string AnonymizationConfigurationLocation = "anonymizationConfigurationLocation";
 
         public const string AnonymizationConfigurationFileETag = "anonymizationConfigurationFileHash";
@@ -126,5 +128,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TargetResourceTypes = "targetResourceTypes";
 
         public const string CreatedChild = "createdChild";
+
+        public const string Till = "till";
+
+        public const string RestartCount = "restartCount";
     }
 }

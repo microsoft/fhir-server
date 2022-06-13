@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             services.Add<MetricHandler>()
                 .Singleton()
-                .AsService<INotificationHandler<ImportTaskMetricsNotification>>();
+                .AsService<INotificationHandler<ImportJobMetricsNotification>>();
         }
     }
 }

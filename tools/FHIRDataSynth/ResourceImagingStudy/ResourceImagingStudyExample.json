@@ -1,0 +1,50 @@
+{
+  "resourceType": "ImagingStudy",
+  "id": "cefccea2-155d-8b68-b78c-1dd6c1a693a2",
+  "identifier": [
+    {
+      "use": "official",
+      "system": "urn:ietf:rfc:3986",
+      "value": "urn:oid:1.2.840.99999999.70390221.26468686945"
+    }
+  ],
+  "status": "available",
+  "subject": {
+    "reference": "Patient/3907abd0-d13a-2447-a69c-c60182d5ecd9"
+  },
+  "encounter": {
+    "reference": "Encounter/4e4ffd90-2926-6b5a-8224-66082f2f97bf"
+  },
+  "started": "1969-02-28T15:35:13+00:00",
+  "numberOfSeries": 1,
+  "numberOfInstances": 1,
+  "series": [
+    {
+      "uid": "1.2.840.99999999.1.40802282.26468686945",
+      "number": 1,
+      "modality": {
+        "system": "http://dicom.nema.org/medical/dicom/current/output/chtml/part16/sect_CID_29.html",
+        "code": "DX",
+        "display": "Digital Radiography"
+      },
+      "numberOfInstances": 1,
+      "bodySite": {
+        "system": "http://snomed.info/sct",
+        "code": "40983000",
+        "display": "Arm"
+      },
+      "started": "1969-02-28T15:35:13+00:00",
+      "instance": [
+        {
+          "uid": "1.2.840.99999999.1.1.86647196.1472840396872",
+          "sopClass": {
+            "system": "urn:ietf:rfc:3986",
+            "code": "1.2.840.10008.5.1.4.1.1.1.1"
+          },
+          "number": 1,
+          "title": "Image of arm"
+        }
+      ]
+    }
+  ]
+}

@@ -84,6 +84,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("2001-01-10", patient.BirthDate);
         }
 
+        [Fact]
+        public async Task GivenAFhirConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
+        {
+            var convertDataRequestHandler = GetRequestHandler();
+            var response = await convertDataRequestHandler.Handle(GetSampleFhirRequest(), default);
+
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
+            var patient = parser.Parse<Patient>(response.Resource);
+
+            Assert.NotEmpty(patient.Id);
+            Assert.Single(patient.Extension);
+        }
+
         private ConvertDataRequestHandler GetRequestHandler()
         {
             var convertDataConfig = new ConvertDataConfiguration
@@ -127,6 +145,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         private static ConvertDataRequest GetSampleJsonRequest()
         {
             return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient");
+        }
+
+        private static ConvertDataRequest GetSampleFhirRequest()
+        {
+            return new ConvertDataRequest(Samples.SampleFhirStu3Message, DataType.Fhir, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Fhir), "Patient");
         }
 
         private static string GetDefaultTemplateImageReferenceByDataType(DataType dataType)

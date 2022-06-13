@@ -1,0 +1,68 @@
+{
+  "resourceType": "Encounter",
+  "id": "bc97ae0b-d99d-3952-4560-0f246b7ee546",
+  "status": "finished",
+  "class": {
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+    "code": "AMB"
+  },
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "185345009",
+          "display": "Encounter for symptom"
+        }
+      ],
+      "text": "Encounter for symptom"
+    }
+  ],
+  "subject": {
+    "reference": "Patient/262741b0-50fe-114c-103f-be34d5cd3e37",
+    "display": "Ms. Wilda367 Price929"
+  },
+  "participant": [
+    {
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+              "code": "PPRF",
+              "display": "primary performer"
+            }
+          ],
+          "text": "primary performer"
+        }
+      ],
+      "period": {
+        "start": "1922-05-27T14:39:56+00:00",
+        "end": "1922-05-27T14:54:56+00:00"
+      },
+      "individual": {
+        "reference": "Practitioner/7a940c0c-3301-3bf9-915f-323084439934",
+        "display": "Dr. Damaris45 Borer986"
+      }
+    }
+  ],
+  "period": {
+    "start": "1922-05-27T14:39:56+00:00",
+    "end": "1922-05-27T14:54:56+00:00"
+  },
+  "reasonCode": [
+    {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "233678006",
+          "display": "Childhood asthma"
+        }
+      ]
+    }
+  ],
+  "serviceProvider": {
+    "reference": "Organization/d692e283-0833-3201-8e55-4f868a9c0736",
+    "display": "HALLMARK HEALTH SYSTEM"
+  }
+}

@@ -521,29 +521,29 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Import operation has already completed.
+        ///   Looks up a localized string similar to There is already an import job running..
         /// </summary>
-        internal static string ImportOperationCompleted {
+        internal static string ImportJobIsRunning {
             get {
-                return ResourceManager.GetString("ImportOperationCompleted", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to There is already an import task running..
-        /// </summary>
-        internal static string ImportTaskIsRunning {
-            get {
-                return ResourceManager.GetString("ImportTaskIsRunning", resourceCulture);
+                return ResourceManager.GetString("ImportJobIsRunning", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Looks up a localized string similar to The requested import task &quot;{0}&quot; was not found..
         /// </summary>
-        internal static string ImportTaskNotFound {
+        internal static string ImportJobNotFound {
             get {
-                return ResourceManager.GetString("ImportTaskNotFound", resourceCulture);
+                return ResourceManager.GetString("ImportJobNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Import operation has already completed.
+        /// </summary>
+        internal static string ImportOperationCompleted {
+            get {
+                return ResourceManager.GetString("ImportOperationCompleted", resourceCulture);
             }
         }
         

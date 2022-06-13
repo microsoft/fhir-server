@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
             Justification = "Set from an environment variable.")]
         public string StorageAccountUri { get; set; } = string.Empty;
 
-        public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
+        public ushort MaximumNumberOfConcurrentJobsAllowedPerInstance { get; set; } = 1;
 
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);
 
@@ -46,6 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Number of pages to be iterated before committing the export progress.
         /// </summary>
         public uint NumberOfPagesPerCommit { get; set; } = 10;
+
+        /// <summary>
+        /// Cache size limit for de-id export. Size of each cache entry are calculated by byte counts.
+        /// </summary>
+        public long CacheSizeLimit { get; set; } = 10_000_000;
 
         /// <summary>
         /// Formats for export jobs.
