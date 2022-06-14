@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public void GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, async version =>
+            Parallel.ForEach(versions, new ParallelOptions() { MaxDegreeOfParallelism = 4 }, async version =>
             {
                 if (version >= SchemaVersionConstants.Min && version <= SchemaVersionConstants.Max)
                 {
