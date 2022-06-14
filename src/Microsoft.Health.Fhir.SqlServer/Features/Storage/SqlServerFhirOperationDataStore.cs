@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
                 var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt32(jobHeartbeatTimeoutThreshold.TotalSeconds);
-                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, null, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
+                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, Environment.MachineName, jobHeartbeatTimeoutThresholdInSeconds);
                 using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
                 while (await reader.ReadAsync(cancellationToken))
                 {
