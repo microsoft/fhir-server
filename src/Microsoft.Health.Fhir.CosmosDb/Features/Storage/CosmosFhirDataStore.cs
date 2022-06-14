@@ -600,7 +600,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (CosmosException ex)
             {
-                _logger.LogWarning("Failed to obtain provisioned RU throughput. Error: {MEssage}", ex.Message);
+                _logger.LogWarning("Failed to obtain provisioned RU throughput. Error: {Message}", ex.Message);
                 return null;
             }
         }
