@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task ExecuteSqlCmd(string sql)
         {
-            using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
             using SqlCommand command = new SqlCommand(sql, connection);
             await connection.OpenAsync(CancellationToken.None);
             SqlConnection.ClearAllPools();
