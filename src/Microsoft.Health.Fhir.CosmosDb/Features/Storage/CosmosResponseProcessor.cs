@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     }
                     else
                     {
-                        _logger.LogWarning("Unable to parse request charge header: {request change}", existingHeaderValue);
+                        _logger.LogWarning("Unable to parse request charge header: {Request change}", existingHeaderValue);
                     }
                 }
 

@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                                 foreach (ExportJobOutcome job in jobs)
                                 {
-                                    _logger.LogTrace("Picked up job: {jobId}.", job.JobRecord.Id);
+                                    _logger.LogTrace("Picked up job: {JobId}.", job.JobRecord.Id);
 
                                     runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
                                 }

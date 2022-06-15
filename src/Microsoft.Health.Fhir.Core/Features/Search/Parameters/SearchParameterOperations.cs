@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
-                _logger.LogTrace("Adding the search parameter '{url}'", searchParameterWrapper.Url);
+                _logger.LogTrace("Adding the search parameter '{Url}'", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
 
                 await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url }, cancellationToken);
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // First we delete the status metadata from the data store as this fuction depends on the
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
-                _logger.LogTrace("Deleting the search parameter '{url}'", searchParameterUrl);
+                _logger.LogTrace("Deleting the search parameter '{Url}'", searchParameterUrl);
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
             }
@@ -183,11 +183,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // As any part of the SearchParameter may have been changed, including the URL
                 // the most reliable method of updating the SearchParameter is to delete the previous
                 // data and insert the updated version
-                _logger.LogTrace("Deleting the search parameter '{url}' (update step 1/2)", prevSearchParamUrl);
+                _logger.LogTrace("Deleting the search parameter '{Url}' (update step 1/2)", prevSearchParamUrl);
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
 
-                _logger.LogTrace("Adding the search parameter '{url}' (update step 2/2)", searchParameterWrapper.Url);
+                _logger.LogTrace("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
                 await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url }, cancellationToken);
             }
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (searchParamResource == null)
                 {
                     _logger.LogInformation(
-                        "Updated SearchParameter status found for SearchParameter: {0}, but did not find any SearchParameter resources when querying for this url.",
+                        "Updated SearchParameter status found for SearchParameter: {Url}, but did not find any SearchParameter resources when querying for this url.",
                         searchParam.Uri);
                     continue;
                 }
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 if (result.Results.Count() > 1)
                 {
-                    _logger.LogWarning("More than one SearchParameter found with url {0}. This may cause unpredictable behavior.", url);
+                    _logger.LogWarning("More than one SearchParameter found with url {Url}. This may cause unpredictable behavior.", url);
                 }
 
                 // There should be only one SearchParameter per url

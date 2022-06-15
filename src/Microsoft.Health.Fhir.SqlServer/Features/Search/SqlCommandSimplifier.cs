@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         if ((operatorChar == '>' && value > targetValue)
                             || (operatorChar == '<' && value < targetValue)
                             || (value == targetValue
-                                && !fieldToParameterComparisons[field][index].Item2.Value.Contains("=", StringComparison.OrdinalIgnoreCase)))
+                                && !fieldToParameterComparisons[field][index].Item2.Value.Contains('=', StringComparison.OrdinalIgnoreCase)))
                         {
                             targetValue = value;
                             targetIndex = index;

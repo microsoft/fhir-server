@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
             catch (RequestFailedException se)
             {
-                _logger.LogWarning(se, se.Message);
+                _logger.LogWarning(se, "{Error}", se.Message);
 
                 throw new DestinationConnectionException(se.Message, (HttpStatusCode)se.Status);
             }

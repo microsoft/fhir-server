@@ -1,7 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
-  </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Features\Storage\StoredProcedures\AcquireExportJobs\acquireExportJobs.js" />
     <EmbeddedResource Include="Features\Storage\StoredProcedures\AcquireReindexJobs\acquireReindexJobs.js" />

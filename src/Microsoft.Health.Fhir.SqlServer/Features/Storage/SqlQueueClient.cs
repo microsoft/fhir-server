@@ -118,14 +118,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<JobInfo> DequeueAsync(byte queueType, byte? startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
         {
             try
             {
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, queueType, startPartitionId, worker, heartbeatTimeoutSec);
+                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, queueType, worker, heartbeatTimeoutSec);
                 using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                 JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);

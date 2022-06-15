@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
     <AssemblyName>Fhir.Exporter</AssemblyName>
     <RootNamespace>Microsoft.Health.Fhir.Exporter</RootNamespace>
     <ServerGarbageCollection>true</ServerGarbageCollection>
