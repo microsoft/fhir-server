@@ -27,7 +27,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
-                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver);
+                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(@"definitions.json.zip"), options.Value.CacheDurationInSeconds), profilesResolver);
+
+                if (!string.IsNullOrEmpty(options.Value.ExternalTerminologyServer))
+                {
+                    var settings = new FhirClientSettings
+                    {
+                        Timeout = 300000,
+                        PreferredFormat = ResourceFormat.Json,
+                        VerifyFhirVersion = true,
+                        PreferredReturn = Prefer.ReturnRepresentation,
+                    };
+
+                    if (!string.IsNullOrEmpty(options.Value.ApiKey))
+                    {
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                        var handler = new AuthorizationMessageHandler();
+#pragma warning restore CA2000 // Dispose objects before losing scope
+                        string encodedKey = Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes("apikey" + ":" + options.Value.ApiKey));
+                        handler.Authorization = new AuthenticationHeaderValue("Basic", encodedKey);
+                        _client = new FhirClient(options.Value.ExternalTerminologyServer, settings, handler);
+                    }
+                    else
+                    {
+                        _client = new FhirClient(options.Value.ExternalTerminologyServer, settings);
+                    }
+
+                    _ts = new FallbackTerminologyService(new LocalTerminologyService(_resolver.AsAsync(), new ValueSetExpanderSettings() { ValueSetSource = _resolver }), new ExternalTerminologyService(_client));
+                }
             }
             catch (Exception)
             {
