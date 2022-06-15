@@ -52,11 +52,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <summary>
         /// Acquires export jobs.
         /// </summary>
-        /// <param name="maximumNumberOfConcurrentJobsAllowed">The maximum number of concurrent jobs allowed.</param>
+        /// <param name="numberOfJobsToAcquire">The number of jobs to acquire.</param>
         /// <param name="jobHeartbeatTimeoutThreshold">The job heartbeat timeout threshold.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A list of acquired export job.</returns>
-        Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
+        Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort numberOfJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
 
         /// <summary>
         /// Updates an existing reindex job record in the data store.

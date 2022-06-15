@@ -52,7 +52,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("[{\"op\":\"replace\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]")]
         [InlineData("[{\"op\":\"coo\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]")]
         [InlineData("[{\"op\":\"replace\",\"path\":\"\",\"value\":\"\"}]")]
-        [InlineData("[{\"op\":\"replace\",\"path\":\"/gender\"}]")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingIncorrectJsonPropertyPatch_ThenServerShouldBadRequest(string patch)
         {

@@ -220,6 +220,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[ReindexResource]"),
                 ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[CreateTask]"),
+                ("Procedure", "[dbo].[CreateTask_2]"),
                 ("Procedure", "[dbo].[GetNextTask]"),
                 ("Procedure", "[dbo].[GetNextTask_2]"),
                 ("Procedure", "[dbo].[ResetTask]"),

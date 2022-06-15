@@ -42,5 +42,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V30 = 30,
         V31 = 31,
         V32 = 32,
+        V33 = 33,
+        V34 = 34,
+        V35 = 35,
+        V36 = 36,
     }
 }

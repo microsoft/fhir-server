@@ -13,27 +13,45 @@
 --         * index table name
 --     @indexName
 --         * index name
-CREATE PROCEDURE [dbo].[RebuildIndex]
+--     @pageCompression
+--         * index page compression
+
+GO
+CREATE PROCEDURE dbo.RebuildIndex
     @tableName nvarchar(128),
-    @indexName nvarchar(128)
+    @indexName nvarchar(128),
+    @pageCompression bit = 0
+WITH EXECUTE AS 'dbo'
 AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-DECLARE @IsExecuted AS INT;
-SET @IsExecuted = 0;
-BEGIN TRANSACTION;
-IF EXISTS (SELECT *
-           FROM   [sys].[indexes]
-           WHERE  name = @indexName
-                  AND object_id = OBJECT_ID(@tableName)
-                  AND is_disabled = 1)
-    BEGIN
-        DECLARE @Sql AS NVARCHAR (MAX);
-        SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild';
-        EXECUTE sp_executesql @Sql;
-        SET @IsExecuted = 1;
-    END
-COMMIT TRANSACTION;
-RETURN @IsExecuted;
+DECLARE @errorTxt as varchar(1000)
+       ,@sql as nvarchar (1000)
+       ,@isDisabled as bit
+       ,@isExecuted as int
+
+IF object_id(@tableName) IS NULL
+BEGIN
+    SET @errorTxt = @tableName +' does not exist or you don''t have permissions.'
+    RAISERROR(@errorTxt, 18, 127)
+END
+
+SET @isDisabled = (SELECT is_disabled FROM sys.indexes WHERE object_id = object_id(@tableName) AND name = @indexName)
+IF @isDisabled IS NULL
+BEGIN
+    SET @errorTxt = @indexName +' does not exist or you don''t have permissions.'
+    RAISERROR(@errorTxt, 18, 127)
+END
+
+IF @isDisabled = 1
+BEGIN
+	IF @pageCompression = 0 
+	BEGIN
+		SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild'
+	END
+	ELSE 
+	BEGIN
+		SET @sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild WITH (DATA_COMPRESSION = PAGE)'
+	END
+
+	EXECUTE sp_executesql @sql
+END
 GO

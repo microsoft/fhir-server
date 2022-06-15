@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public MetricHandler MetricHandler
         {
-            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ImportTaskMetricsNotification>>());
+            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ImportJobMetricsNotification>>());
         }
 
         public CloudStorageAccount CloudStorageAccount { get; private set; }

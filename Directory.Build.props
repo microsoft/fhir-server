@@ -10,7 +10,7 @@
     <!-- allow pre-release dependencies -->
     <NoWarn>$(NoWarn);NU5104</NoWarn>
     <DebugType>Portable</DebugType>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>latest</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
@@ -24,12 +24,12 @@
   </PropertyGroup>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
-    <AspNetPackageVersion>5.0.17</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>6.1.44</HealthcareSharedPackageVersion>
+    <TargetFramework>net6.0</TargetFramework>
+    <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
+    <HealthcareSharedPackageVersion>6.1.59</HealthcareSharedPackageVersion>
+    <AspNetPackageVersion>6.0.0</AspNetPackageVersion>
     <Hl7FhirVersion>4.0.0</Hl7FhirVersion>
   </PropertyGroup>
-
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test'))">
       <PropertyGroup>
@@ -55,15 +55,4 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.435" PrivateAssets="All" />
   </ItemGroup>
-
-  <Choose>
-    <When Condition="$(MSBuildProjectName)!='SmartLauncher' and $(MSBuildProjectName)!='FhirAnalyzer'  AND !$(MSBuildProjectName.Contains('Test'))">
-      <ItemGroup>
-        <ProjectReference Include="..\..\tools\FhirAnalyzer\FhirAnalyzer.csproj">
-          <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-          <OutputItemType>Analyzer</OutputItemType>
-        </ProjectReference>
-      </ItemGroup>
-    </When>
-  </Choose>
 </Project>

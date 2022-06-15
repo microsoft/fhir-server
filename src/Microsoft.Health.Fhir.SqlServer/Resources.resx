@@ -156,7 +156,7 @@
     <value>A SQL exception occurred when fetching resource changes from SQL database. Error number is {0}.</value>
   </data>
   <data name="ExecutionTimeoutExpired" xml:space="preserve">
-    <value>The exection timeout expired from SQL Server.</value>
+    <value>The execution timeout expired from SQL Server.</value>
   </data>
   <data name="GetRecordsAsyncOperationIsCanceled" xml:space="preserve">
     <value>The operation to get resource changes has been canceled.</value>

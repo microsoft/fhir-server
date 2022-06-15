@@ -51,7 +51,10 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 Code = Enum.Parse<OperationOutcome.IssueType>(issue.Code),
                 Details = details,
                 Diagnostics = issue.Diagnostics,
+#pragma warning disable CS0618 // Type or member is obsolete
                 Location = issue.Location,
+#pragma warning restore CS0618 // Type or member is obsolete
+                Expression = issue.Expression,
             };
         }
 

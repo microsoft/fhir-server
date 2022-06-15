@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
+            string anonymizationConfigurationCollectionReference = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null,
             uint maximumNumberOfResourcesPerQuery = 100,
@@ -56,7 +57,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
             RollingFileSizeInMB = rollingFileSizeInMB;
+            RestartCount = 0;
 
+            AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
 
@@ -66,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
+            Till = new PartialDateTime(Clock.UtcNow);
 
             if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {
@@ -121,6 +125,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Since)]
         public PartialDateTime Since { get; private set; }
 
+        [JsonProperty(JobRecordProperties.Till)]
+        public PartialDateTime Till { get; private set; }
+
         [JsonProperty(JobRecordProperties.GroupId)]
         public string GroupId { get; private set; }
 
@@ -146,11 +153,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.AnonymizationConfigurationLocation)]
         public string AnonymizationConfigurationLocation { get; private set; }
 
+        [JsonProperty(JobRecordProperties.AnonymizationConfigurationCollectionReference)]
+        public string AnonymizationConfigurationCollectionReference { get; private set; }
+
         [JsonProperty(JobRecordProperties.AnonymizationConfigurationFileETag)]
         public string AnonymizationConfigurationFileETag { get; private set; }
 
         [JsonProperty(JobRecordProperties.RollingFileSizeInMB)]
         public uint RollingFileSizeInMB { get; private set; }
+
+        [JsonProperty(JobRecordProperties.RestartCount)]
+        public uint RestartCount { get; set; }
 
         internal ExportJobRecord Clone()
         {

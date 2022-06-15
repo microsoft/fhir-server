@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(notification, nameof(notification));
 
             // If it is a snapshot upgrade, then we need to run initialization for all schema versions up to the current version.
+            // When schema is run via tool, then the notification will be sent out from SqlSchemaManager.cs and if schema is initialized
+            // by the fhir-server itself on startup then the notification will be sent out from SchemaInitializer.cs
             await _sqlServerFhirModel.Initialize(notification.Version, notification.IsFullSchemaSnapshot, cancellationToken);
         }
     }

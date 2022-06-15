@@ -17,10 +17,8 @@ CREATE TABLE dbo.EventLog
     ,Rows          bigint               NULL
     ,Milliseconds  int                  NULL
     ,EventText     nvarchar(3500)       NULL
-    ,ParentEventId bigint               NULL
     ,SPID          smallint             NOT NULL
     ,HostName      varchar(64)          NOT NULL
-    ,TraceId       uniqueidentifier     NULL
 
      CONSTRAINT PKC_EventLog_EventDate_EventId_PartitionId PRIMARY KEY CLUSTERED (EventDate, EventId, PartitionId) ON EventLogPartitionScheme(PartitionId)
   ) 
