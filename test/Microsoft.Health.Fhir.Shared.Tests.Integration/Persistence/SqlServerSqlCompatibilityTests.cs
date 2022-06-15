@@ -32,44 +32,40 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
             var insertedElements = new List<string>();
 
-            FhirStorageTestsFixture fhirStorageTestsFixture = null;
-            try
+            for (int i = SchemaVersionConstants.Min; i <= SchemaVersionConstants.Max; i++)
             {
-                for (int i = SchemaVersionConstants.Min; i <= SchemaVersionConstants.Max; i++)
+                FhirStorageTestsFixture fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
+                try
                 {
-                    try
+                    await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
+
+                    Mediator mediator = fhirStorageTestsFixture.Mediator;
+
+                    foreach (string id in insertedElements)
                     {
-                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
-                        await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
-
-                        Mediator mediator = fhirStorageTestsFixture.Mediator;
-
-                        foreach (string id in insertedElements)
-                        {
-                            // verify that we can read entries from previous versions
-                            var readResult = (await mediator.GetResourceAsync(new ResourceKey("Observation", id))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
-                            Assert.Equal(id, readResult.Id);
-                        }
-
-                        // add a new entry
-
-                        var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                        var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
-                        var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
-
-                        Assert.NotNull(result);
-                        Assert.Equal(deserialized.Id, result.Id);
-                        insertedElements.Add(result.Id);
+                        // verify that we can read entries from previous versions
+                        var readResult = (await mediator.GetResourceAsync(new ResourceKey("Observation", id))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+                        Assert.Equal(id, readResult.Id);
                     }
-                    catch (Exception e)
-                    {
-                        throw new InvalidOperationException($"Failure using schema version {i}", e);
-                    }
+
+                    // add a new entry
+
+                    var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                    var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+                    var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+
+                    Assert.NotNull(result);
+                    Assert.Equal(deserialized.Id, result.Id);
+                    insertedElements.Add(result.Id);
                 }
-            }
-            finally
-            {
-                await fhirStorageTestsFixture?.DisposeAsync();
+                catch (Exception e)
+                {
+                    throw new InvalidOperationException($"Failure using schema version {i}", e);
+                }
+                finally
+                {
+                    await fhirStorageTestsFixture?.DisposeAsync();
+                }
             }
         }
 
@@ -81,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public void GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, new ParallelOptions() { MaxDegreeOfParallelism = 4 }, async version =>
+            Parallel.ForEach(versions, new ParallelOptions() { MaxDegreeOfParallelism = 2 }, async version =>
             {
                 if (version >= SchemaVersionConstants.Min && version <= SchemaVersionConstants.Max)
                 {
