@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                           CREATE DATABASE {databaseName};
                         END";
                 await command.ExecuteNonQueryAsync(cancellationToken);
+                await connection.CloseAsync();
             });
 
             // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
@@ -102,7 +103,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
             using SqlCommand command = new SqlCommand(sql, connection);
             await connection.OpenAsync(CancellationToken.None);
-            SqlConnection.ClearAllPools();
             await command.ExecuteNonQueryAsync(CancellationToken.None);
             await connection.CloseAsync();
         }
@@ -113,8 +113,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
-                SqlConnection.ClearAllPools();
-
                 await using SqlCommand command = connection.CreateCommand();
                 command.CommandTimeout = 600;
                 command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
