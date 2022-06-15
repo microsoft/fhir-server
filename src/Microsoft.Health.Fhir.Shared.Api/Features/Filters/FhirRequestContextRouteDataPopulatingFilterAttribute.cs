@@ -77,9 +77,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             case Hl7.Fhir.Model.Bundle.BundleType.Transaction:
                                 fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
                                 break;
-                            case Hl7.Fhir.Model.Bundle.BundleType.Collection:
-                                fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
-                                break;
                         }
                     }
                 }

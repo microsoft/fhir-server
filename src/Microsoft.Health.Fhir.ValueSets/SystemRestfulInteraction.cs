@@ -9,8 +9,6 @@ namespace Microsoft.Health.Fhir.ValueSets
     {
         public const string Batch = "batch";
 
-        public const string Collection = "collection";
-
         public const string HistorySystem = "history-system";
 
         public const string SearchSystem = "search-system";

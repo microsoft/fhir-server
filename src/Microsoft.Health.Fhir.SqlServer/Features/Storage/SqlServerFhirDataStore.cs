@@ -627,8 +627,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Transaction supported added in listedCapability
                 builder.AddGlobalInteraction(SystemRestfulInteraction.Transaction);
             }
-
-            builder.AddGlobalInteraction(SystemRestfulInteraction.Collection);
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
