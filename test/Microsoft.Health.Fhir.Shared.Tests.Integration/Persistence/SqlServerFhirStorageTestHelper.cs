@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
 
             var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
-            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => GetSqlConnection(testConnectionString));
+            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(testConnectionString)));
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = testConnectionString };
@@ -260,11 +260,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return new SchemaInitializer(serviceProvider, config, schemaInformation, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
         }
 
-        protected async Task<SqlConnection> GetSqlConnection(string connectionString)
+        protected SqlConnection GetSqlConnection(string connectionString)
         {
             var connectionBuilder = new SqlConnectionStringBuilder(connectionString);
             var result = new SqlConnection(connectionBuilder.ToString());
-            await result.OpenAsync();
             return result;
         }
     }
