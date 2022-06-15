@@ -229,6 +229,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 }
             }
+
             await connection.CloseAsync();
         }
 
