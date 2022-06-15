@@ -40,8 +40,6 @@ namespace Microsoft.Health.JobManagement
 
         public int JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        public byte StartPartitionId { get; set; }
-
         public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationToken)
         {
             using CancellationTokenSource keepAliveCancellationToken = new CancellationTokenSource();
@@ -72,7 +70,7 @@ namespace Microsoft.Health.JobManagement
                 {
                     try
                     {
-                        nextJob = await _queueClient.DequeueAsync(queueType, StartPartitionId, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationToken);
+                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationToken);
                     }
                     catch (Exception ex)
                     {

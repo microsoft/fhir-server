@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -50,7 +49,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 using (IScoped<JobHosting> jobHosting = _jobHostingFactory())
                 {
                     JobHosting jobHostingValue = jobHosting.Value;
-                    jobHostingValue.StartPartitionId = (byte)RandomNumberGenerator.GetInt32(0, 16);
                     if (_hostingConfiguration != null)
                     {
                         jobHostingValue.PollingFrequencyInSeconds = _hostingConfiguration.PollingFrequencyInSeconds ?? jobHostingValue.PollingFrequencyInSeconds;
