@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                         diagnostics: issue.Diagnostics,
                         detailsText: issue.Details?.Text,
                         detailsCodes: issue.Details?.Coding != null ? new CodableConceptInfo(issue.Details.Coding.Select(x => new Coding(x.System, x.Code, x.Display))) : null,
-                        location: issue.Location.ToArray()))
+                        expression: issue.Expression.ToArray()))
                 .ToArray();
 
             return outcomeIssues;
