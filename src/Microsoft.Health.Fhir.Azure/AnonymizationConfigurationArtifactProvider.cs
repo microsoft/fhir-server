@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Azure
                     using (var str = new MemoryStream(acrImage.Blobs[i].Content))
                     {
                         var blobsDict = StreamUtility.DecompressFromTarGz(str);
-                        if (!blobsDict.Keys.Contains(configName))
+                        if (!blobsDict.ContainsKey(configName))
                         {
                             continue;
                         }
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Azure
 
                             using (var config = new MemoryStream(blobsDict[configName]))
                             {
-                                config.CopyTo(targetStream);
+                                await config.CopyToAsync(targetStream, cancellationToken);
                                 break;
                             }
                         }
@@ -165,7 +165,9 @@ namespace Microsoft.Health.Fhir.Azure
             BlobClient blob = container.GetBlobClient(configName);
             if (await blob.ExistsAsync(cancellationToken))
             {
-                if (CheckConfigurationIsTooLarge(blob.GetProperties(cancellationToken: cancellationToken).Value.ContentLength))
+                var blobProperties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken);
+
+                if (CheckConfigurationIsTooLarge(size: blobProperties.Value.ContentLength))
                 {
                     throw new AnonymizationConfigurationFetchException(Resources.AnonymizationConfigurationTooLarge);
                 }

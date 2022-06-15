@@ -263,15 +263,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
                         catch (SearchParameterNotSupportedException ex)
                         {
-                            _logger.LogWarning(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
                         }
                         catch (InvalidDefinitionException ex)
                         {
-                            _logger.LogWarning(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                            _logger.LogError(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
                         }
                     }
                 }

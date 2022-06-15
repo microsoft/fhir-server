@@ -123,7 +123,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     writer.Formatting = Formatting.Indented;
                 }
 
+                // I'll be happy to call async method here, but it crashes internally on call to XmlReader which doesn't implement
+                // async version of certain methods.
+#pragma warning disable CA1849 // Call async methods when in an async method
                 _fhirXmlSerializer.Serialize(resourceObject, writer, context.HttpContext.GetSummaryTypeOrDefault(), elements: hasElements ? additionalElements.ToArray() : null);
+#pragma warning restore CA1849 // Call async methods when in an async method
             }
 
             return Task.CompletedTask;

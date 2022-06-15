@@ -86,26 +86,26 @@ namespace FHIRDataSynth
                 using (StreamWriter stream = new StreamWriter(resourceBlobsInfoPath))
                 {
                     int groupDirNumber = 1;
-                    stream.Write("#,Group Dir");
+                    await stream.WriteAsync("#,Group Dir");
                     foreach (string resourceName in resourceNames)
                     {
-                        stream.Write($",{Path.GetFileNameWithoutExtension(resourceName)}");
+                        await stream.WriteAsync($",{Path.GetFileNameWithoutExtension(resourceName)}");
                         resourceTotalContantLenghts[resourceName] = 0;
                     }
 
-                    stream.WriteLine();
+                    await stream.WriteLineAsync();
                     foreach (string blobGroupDirName in blobGroupDirNames)
                     {
-                        stream.Write($"{groupDirNumber++},{blobGroupDirName}");
+                        await stream.WriteAsync($"{groupDirNumber++},{blobGroupDirName}");
                         foreach (string resourceName in resourceNames)
                         {
                             long blobContentLength;
                             blobContentLenghts.TryGetValue(blobGroupDirName + resourceName, out blobContentLength);
-                            stream.Write($",{blobContentLength}");
+                            await stream.WriteAsync($",{blobContentLength}");
                             resourceTotalContantLenghts[resourceName] = blobContentLength + resourceTotalContantLenghts[resourceName];
                         }
 
-                        stream.WriteLine();
+                        await stream.WriteLineAsync();
                     }
 
                     long total = 0;
@@ -114,21 +114,21 @@ namespace FHIRDataSynth
                         total += resourceTotalContantLenghts[resourceName];
                     }
 
-                    stream.Write($"TOTAL,{total}");
+                    await stream.WriteAsync($"TOTAL,{total}");
                     foreach (string resourceName in resourceNames)
                     {
-                        stream.Write($",{resourceTotalContantLenghts[resourceName]}");
+                        await stream.WriteAsync($",{resourceTotalContantLenghts[resourceName]}");
                     }
 
-                    stream.WriteLine();
+                    await stream.WriteLineAsync();
                 }
 
                 using (StreamWriter stream = new StreamWriter(resourceBlobsInfoTotalsPath))
                 {
-                    stream.WriteLine(CalculatorTargetRatios.ResourcesTotalSizeHeader);
+                    await stream.WriteLineAsync(CalculatorTargetRatios.ResourcesTotalSizeHeader);
                     foreach (string resourceName in resourceNames)
                     {
-                        stream.WriteLine($"{Path.GetFileNameWithoutExtension(resourceName)},{resourceTotalContantLenghts[resourceName]}");
+                        await stream.WriteLineAsync($"{Path.GetFileNameWithoutExtension(resourceName)},{resourceTotalContantLenghts[resourceName]}");
                     }
                 }
             }

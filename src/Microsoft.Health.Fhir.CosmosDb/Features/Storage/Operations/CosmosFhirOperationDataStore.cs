@@ -380,7 +380,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
                 }
 
-                _logger.LogError(dce, "Failed to get reindex job by id: {jobId}.", jobId);
+                _logger.LogError(dce, "Failed to get reindex job by id: {JobId}.", jobId);
                 throw;
             }
         }
