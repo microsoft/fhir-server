@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError("Failed to fetch Anonymization configuration file: {configLocation}", exportJobRecord.AnonymizationConfigurationLocation);
+                    _logger.LogError("Failed to fetch Anonymization configuration file: {ConfigLocation}", exportJobRecord.AnonymizationConfigurationLocation);
                     throw new AnonymizationConfigurationFetchException(ex.Message, ex);
                 }
 
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError("Failed to parse configuration file: {message}", ex.Message);
+                        _logger.LogError("Failed to parse configuration file: {Message}", ex.Message);
                         throw new FailedToParseAnonymizationConfigurationException(ex.Message, ex);
                     }
                 }

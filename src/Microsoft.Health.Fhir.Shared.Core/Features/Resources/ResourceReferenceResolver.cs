@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 }
                 else
                 {
-                    if (reference.Reference.Contains("?", StringComparison.Ordinal))
+                    if (reference.Reference.Contains('?', StringComparison.Ordinal))
                     {
                         string[] queries = reference.Reference.Split("?");
                         string resourceType = queries[0];

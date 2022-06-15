@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (TaskCanceledException taskCanceledEx)
             {
-                _logger.LogInformation(taskCanceledEx, "Import job canceled. {0}", taskCanceledEx.Message);
+                _logger.LogInformation(taskCanceledEx, "Import job canceled. {Message}", taskCanceledEx.Message);
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogInformation(canceledEx, "Import job canceled. {0}", canceledEx.Message);
+                _logger.LogInformation(canceledEx, "Import job canceled. {Message}", canceledEx.Message);
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -387,7 +387,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "failed to cancel job {0}", _jobInfo.GroupId);
+                _logger.LogWarning(ex, "failed to cancel job {GroupId}", _jobInfo.GroupId);
             }
 
             await WaitRunningJobCompleteOrCancelledAsync();
@@ -408,7 +408,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "failed to get jobs by groupId {0}", _jobInfo.GroupId);
+                    _logger.LogWarning(ex, "failed to get jobs by groupId {GroupId}", _jobInfo.GroupId);
                     throw new RetriableJobException(ex.Message, ex);
                 }
 

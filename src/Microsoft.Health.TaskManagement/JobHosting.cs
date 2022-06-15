@@ -132,14 +132,14 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (RetriableJobException ex)
                 {
-                    _logger.LogError(ex, "Job {jobId} failed with retriable exception.", jobInfo.Id);
+                    _logger.LogError(ex, "Job {JobId} failed with retriable exception.", jobInfo.Id);
 
                     // Not complete the job for retriable exception.
                     return;
                 }
                 catch (JobExecutionException ex)
                 {
-                    _logger.LogError(ex, "Job {jobId} failed.", jobInfo.Id);
+                    _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
                     jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
                     jobInfo.Status = JobStatus.Failed;
 
@@ -149,14 +149,14 @@ namespace Microsoft.Health.JobManagement
                     }
                     catch (Exception completeEx)
                     {
-                        _logger.LogError(completeEx, "Job {jobId} failed to complete.", jobInfo.Id);
+                        _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
                     }
 
                     return;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Job {jobId} failed.", jobInfo.Id);
+                    _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
 
                     object error = new { message = ex.Message };
                     jobInfo.Result = JsonConvert.SerializeObject(error);
@@ -168,7 +168,7 @@ namespace Microsoft.Health.JobManagement
                     }
                     catch (Exception completeEx)
                     {
-                        _logger.LogError(completeEx, "Job {jobId} failed to complete.", jobInfo.Id);
+                        _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
                     }
 
                     return;
@@ -178,11 +178,11 @@ namespace Microsoft.Health.JobManagement
                 {
                     jobInfo.Status = JobStatus.Completed;
                     await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
-                    _logger.LogInformation("Job {jobId} completed.", jobInfo.Id);
+                    _logger.LogInformation("Job {JobId} completed.", jobInfo.Id);
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Job {jobId} failed to complete.", jobInfo.Id);
+                    _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
                 }
             }
             finally
@@ -203,7 +203,7 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (JobNotExistException notExistEx)
                 {
-                    _logger.LogError(notExistEx, "Job {jobId} not exist or {runid} not match.", jobInfo.Id, jobInfo.Version);
+                    _logger.LogError(notExistEx, "Job {JobId} not exist or {RunId} not match.", jobInfo.Id, jobInfo.Version);
                     shouldCancel = true;
                 }
 
@@ -214,7 +214,7 @@ namespace Microsoft.Health.JobManagement
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to keep alive on job {jobId}", jobInfo.Id);
+                _logger.LogError(ex, "Failed to keep alive on job {JobId}", jobInfo.Id);
             }
         }
 
@@ -235,7 +235,7 @@ namespace Microsoft.Health.JobManagement
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to keep alive on job {jobId}", jobId);
+                        _logger.LogError(ex, "Failed to keep alive on job {JobId}", jobId);
                     }
                 }
 

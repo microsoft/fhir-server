@@ -12,7 +12,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -124,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (string uri in searchParameterUris)
             {
-                _logger.LogTrace("Setting the search parameter status of '{uri}' to '{newStatus}'", uri, status.ToString());
+                _logger.LogTrace("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
                 SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
                 updated.Add(paramInfo);
@@ -229,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
             catch (Exception ex)
             {
-                _logger.LogWarning("Unable to resolve search parameter {0}. Exception: {1}", parameterInfo?.Code, ex);
+                _logger.LogWarning("Unable to resolve search parameter {Code}. Exception: {Exception}", parameterInfo?.Code, ex);
                 return (false, false);
             }
         }
