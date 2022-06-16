@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
             var insertedElements = new List<string>();
 
-            for (int i = SchemaVersionConstants.Min; i <= SchemaVersionConstants.Max; i++)
+            for (int i = SchemaVersionConstants.Max - 5; i <= SchemaVersionConstants.Max; i++)
             {
                 FhirStorageTestsFixture fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
                 try
