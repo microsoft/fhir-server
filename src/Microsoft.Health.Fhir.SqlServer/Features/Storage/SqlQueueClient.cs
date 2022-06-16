@@ -118,6 +118,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public async Task<IReadOnlyCollection<JobInfo>> DequeueJobsAsync(byte queueType, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        {
+            var dequeuedJobs = new List<JobInfo>();
+
+            while (dequeuedJobs.Count < numberOfJobsToDequeue)
+            {
+                var jobInfo = await DequeueAsync(queueType, 0, worker, heartbeatTimeoutSec, cancellationToken);
+
+                if (jobInfo != null)
+                {
+                    dequeuedJobs.Add(jobInfo);
+                }
+                else
+                {
+                    // No more jobs in queue
+                    break;
+                }
+            }
+
+            return dequeuedJobs;
+        }
+
         public async Task<JobInfo> DequeueAsync(byte queueType, byte? startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
         {
             try
@@ -166,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (sqlEx.State == 127)
                     {
-                        throw new JobConflictException(sqlEx.Message);
+                        throw new JobManagement.JobConflictException(sqlEx.Message);
                     }
 
                     throw;

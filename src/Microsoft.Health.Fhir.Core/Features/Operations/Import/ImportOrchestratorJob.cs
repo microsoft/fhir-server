@@ -25,8 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportOrchestratorJob : IJob
     {
-        public const short ImportOrchestratorTypeId = 2;
-
         private const int DefaultPollingFrequencyInSeconds = 3;
         private const long DefaultResourceSizePerByte = 64;
 

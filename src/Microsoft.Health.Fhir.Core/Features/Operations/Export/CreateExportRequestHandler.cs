@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobConfiguration.RollingFileSizeInMB,
                 requestorClaims,
                 request.Since,
+                request.Till,
                 request.GroupId,
                 storageAccountConnectionHash,
                 _exportJobConfiguration.StorageAccountUri,

@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint rollingFileSizeInMB,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
+            PartialDateTime till = null,
             string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
-            Till = new PartialDateTime(Clock.UtcNow);
+            Till = till ?? new PartialDateTime(Clock.UtcNow);
 
             if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {

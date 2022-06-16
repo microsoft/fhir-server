@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 KnownQueryParameterNames.OutputFormat,
                 KnownQueryParameterNames.Since,
+                KnownQueryParameterNames.Till,
                 KnownQueryParameterNames.Type,
                 KnownQueryParameterNames.Container,
                 KnownQueryParameterNames.Format,

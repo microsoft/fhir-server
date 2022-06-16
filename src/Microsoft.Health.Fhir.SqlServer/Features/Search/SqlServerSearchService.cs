@@ -472,6 +472,110 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
+        /// Searches for resources by their type and surrogate id
+        /// </summary>
+        /// <param name="resourceType">The resource type to search</param>
+        /// <param name="startId">The lower bound for surrogate ids to find</param>
+        /// <param name="endId">The upper bound for surrogate ids to find</param>
+        /// <param name="windowStartId">The lower bound for the window of time to consider for historical records</param>
+        /// <param name="windowEndId">The upper bound for the window of time to consider for historical records</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>All resources with surrogate ids greater than or equal to startId and less than endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
+        public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken)
+        {
+            var resourceTypeId = _model.GetResourceTypeId(resourceType);
+            try
+            {
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
+                VLatest.GetResourcesByTypeAndSurrogateIdRange.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, windowStartId, windowEndId);
+                try
+                {
+                    using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                    var resources = new List<SearchResultEntry>();
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        PopulateResourceTableColumnsToRead(
+                            reader,
+                            out short _,
+                            out string resourceId,
+                            out int version,
+                            out bool isDeleted,
+                            out long resourceSurrogateId,
+                            out string requestMethod,
+                            out bool isMatch,
+                            out bool isPartialEntry,
+                            out bool isRawResourceMetaSet,
+                            out string searchParameterHash,
+                            out Stream rawResourceStream);
+
+                        string rawResource;
+                        using (rawResourceStream)
+                        {
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        }
+
+                        if (string.IsNullOrEmpty(rawResource))
+                        {
+                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                        }
+
+                        resources.Add(new SearchResultEntry(
+                            new ResourceWrapper(
+                                resourceId,
+                                version.ToString(CultureInfo.InvariantCulture),
+                                resourceType,
+                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                new ResourceRequest(requestMethod),
+                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                                isDeleted,
+                                null,
+                                null,
+                                null,
+                                searchParameterHash),
+                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+                    }
+
+                    return new SearchResult(resources, null, null, new List<Tuple<string, string>>());
+                }
+                catch (SqlException)
+                {
+                    throw;
+                }
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
+        public async Task<IReadOnlyList<Tuple<long, long>>> GetSurrogateIdRange(string resourceType, long startId, long endId, int unitSize, int numberOfRanges, CancellationToken cancellationToken)
+        {
+            var resourceTypeId = _model.GetResourceTypeId(resourceType);
+            try
+            {
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
+                VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, unitSize, numberOfRanges);
+
+                using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                var ranges = new List<Tuple<long, long>(numberOfRanges);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+
+                }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
+        /// <summary>
         /// If no sorting fields are specified, sets the sorting fields to the primary key. (This is either ResourceSurrogateId or ResourceTypeId, ResourceSurrogateId).
         /// If sorting only by ResourceTypeId, adds in ResourceSurrogateId as the second sort column.
         /// If sorting by ResourceSurrogateId and using partitioned tables and searching over a single type, sets the sort to ResourceTypeId, ResourceSurrogateId

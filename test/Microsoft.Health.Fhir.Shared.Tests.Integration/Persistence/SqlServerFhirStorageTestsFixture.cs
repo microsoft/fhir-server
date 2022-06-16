@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -189,7 +190,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor);
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+            // the test queue client may not be enough for these tests. will need to look back into this.
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, new TestQueueClient(), NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");

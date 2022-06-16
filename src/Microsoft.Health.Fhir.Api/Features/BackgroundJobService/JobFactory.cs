@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             Func<JobInfo, IJob>[] taskFactoryFuncs =
-                new Func<JobInfo, IJob>[] { CreateProcessingTask, CreateOrchestratorTask };
+                new Func<JobInfo, IJob>[] { CreateImportProcessingTask, CreateImportOrchestratorTask };
 
             foreach (Func<JobInfo, IJob> factoryFunc in taskFactoryFuncs)
             {
@@ -88,10 +88,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             throw new NotSupportedException($"Unknown task definition. ID: {jobInfo?.Id ?? -1}");
         }
 
-        private IJob CreateOrchestratorTask(JobInfo taskInfo)
+        private IJob CreateImportOrchestratorTask(JobInfo taskInfo)
         {
             ImportOrchestratorJobInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorJobInputData>(taskInfo.Definition);
-            if (inputData.TypeId == ImportOrchestratorJob.ImportOrchestratorTypeId)
+            if (inputData.TypeId == (int)JobType.ImportOrchestrator)
             {
                 ImportOrchestratorJobResult currentResult = string.IsNullOrEmpty(taskInfo.Result) ? new ImportOrchestratorJobResult() : JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(taskInfo.Result);
 
@@ -113,10 +113,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             }
         }
 
-        private IJob CreateProcessingTask(JobInfo taskInfo)
+        private IJob CreateImportProcessingTask(JobInfo taskInfo)
         {
             ImportProcessingJobInputData inputData = JsonConvert.DeserializeObject<ImportProcessingJobInputData>(taskInfo.Definition);
-            if (inputData.TypeId == ImportProcessingJob.ImportProcessingJobTypeId)
+            if (inputData.TypeId == (int)JobType.ImportProcessing)
             {
                 ImportProcessingJobResult currentResult = string.IsNullOrEmpty(taskInfo.Result) ? new ImportProcessingJobResult() : JsonConvert.DeserializeObject<ImportProcessingJobResult>(taskInfo.Result);
                 return new ImportProcessingJob(
@@ -132,6 +132,16 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             {
                 return null;
             }
+        }
+
+        private IJob CreateExportOrchestratorJob(JobInfo jobInfo)
+        {
+
+        }
+
+        private IJob CreateExportProcesingJob(JobInfo jobInfo)
+        {
+
         }
     }
 }

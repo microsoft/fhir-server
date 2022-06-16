@@ -20,7 +20,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportProcessingJob : IJob
     {
-        public const short ImportProcessingJobTypeId = 1;
         public const string CancelledErrorMessage = "Data processing job is canceled.";
 
         private ImportProcessingJobInputData _inputData;
