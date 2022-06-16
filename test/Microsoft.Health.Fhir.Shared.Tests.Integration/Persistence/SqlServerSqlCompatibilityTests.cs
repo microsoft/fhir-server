@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
             Parallel.ForEach(versions, new ParallelOptions() { MaxDegreeOfParallelism = 2 }, async version =>
             {
-                if (version >= SchemaVersionConstants.Max-5 && version <= SchemaVersionConstants.Max)
+                if (version >= SchemaVersionConstants.Max - 5 && version <= SchemaVersionConstants.Max)
                 {
                     string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
