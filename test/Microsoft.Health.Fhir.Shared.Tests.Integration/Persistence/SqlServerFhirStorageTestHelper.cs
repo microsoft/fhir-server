@@ -78,6 +78,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                           CREATE DATABASE {databaseName};
                         END";
                 await command.ExecuteNonQueryAsync(cancellationToken);
+
+                await connection.CloseAsync();
             });
 
             // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
@@ -89,6 +91,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await using SqlCommand sqlCommand = connection.CreateCommand();
                 sqlCommand.CommandText = "SELECT 1";
                 await sqlCommand.ExecuteScalarAsync(cancellationToken);
+
+                await connection.CloseAsync();
             });
 
             await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
@@ -101,6 +105,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using var command = new SqlCommand(sql, connection);
             await command.Connection.OpenAsync(CancellationToken.None);
             await command.ExecuteNonQueryAsync(CancellationToken.None);
+
+            await connection.CloseAsync();
         }
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
@@ -115,6 +121,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 command.CommandTimeout = 600;
                 command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
                 await command.ExecuteNonQueryAsync(cancellationToken);
+
+                await connection.CloseAsync();
             });
         }
 
@@ -125,6 +133,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             command.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Export);
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
+
+            await connection.CloseAsync();
         }
 
         public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
@@ -135,6 +145,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             command.Parameters.AddWithValue("@id", id);
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
+
+            await connection.CloseAsync();
         }
 
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
@@ -147,6 +159,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await command.ExecuteNonQueryAsync(cancellationToken);
 
             _sqlServerFhirModel.RemoveSearchParamIdToUriMapping(uri);
+
+            await connection.CloseAsync();
         }
 
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
@@ -156,6 +170,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
+
+            await connection.CloseAsync();
         }
 
         public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
@@ -168,6 +184,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await command.Connection.OpenAsync(cancellationToken);
             await command.ExecuteNonQueryAsync(cancellationToken);
+
+            await connection.CloseAsync();
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
@@ -220,6 +238,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 }
             }
+
+            await connection.CloseAsync();
         }
 
         private SchemaInitializer CreateSchemaInitializer(string testConnectionString, int maxSupportedSchemaVersion)
