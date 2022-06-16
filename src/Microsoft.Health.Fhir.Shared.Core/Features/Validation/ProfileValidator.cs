@@ -5,10 +5,14 @@
 
 using System;
 using System.Linq;
+using System.Net.Http.Headers;
+using System.Text;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Hl7.Fhir.Specification.Source;
+using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -16,9 +20,11 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public class ProfileValidator : IProfileValidator
+    public sealed class ProfileValidator : IProfileValidator, IDisposable
     {
         private readonly IResourceResolver _resolver;
+        private readonly BaseFhirClient _client;
+        private readonly FallbackTerminologyService _ts = null;
 
         public ProfileValidator(IProvideProfilesForValidation profilesResolver, IOptions<ValidateOperationConfiguration> options)
         {
@@ -27,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
-                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(@"definitions.json.zip"), options.Value.CacheDurationInSeconds), profilesResolver);
+                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver);
 
                 if (!string.IsNullOrEmpty(options.Value.ExternalTerminologyServer))
                 {
@@ -71,6 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 GenerateSnapshot = true,
                 Trace = false,
                 ResolveExternalReferences = false,
+                TerminologyService = _ts,
             };
 
             var validator = new Validator(ctx);
@@ -99,10 +106,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                         diagnostics: issue.Diagnostics,
                         detailsText: issue.Details?.Text,
                         detailsCodes: issue.Details?.Coding != null ? new CodableConceptInfo(issue.Details.Coding.Select(x => new Coding(x.System, x.Code, x.Display))) : null,
-                        expression: issue.Expression.ToArray()))
+                        expression: issue.Location.ToArray()))
                 .ToArray();
 
             return outcomeIssues;
+        }
+
+#pragma warning disable CA1063 // Implement IDisposable Correctly
+        public void Dispose()
+#pragma warning restore CA1063 // Implement IDisposable Correctly
+        {
+            if (_client != null)
+            {
+                _client.Dispose();
+            }
+
+            GC.SuppressFinalize(this);
         }
     }
 }

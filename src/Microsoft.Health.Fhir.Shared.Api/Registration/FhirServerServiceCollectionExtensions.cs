@@ -75,6 +75,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.ConvertData));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.IntegrationDataStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Import));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Validate));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Throttling));
