@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             if (_securityConfiguration.Enabled)
             {
-                _securityConfiguration.AddAuthenticaionLibrary(services, _securityConfiguration);
+                _securityConfiguration.AddAuthenticationLibrary(services, _securityConfiguration);
 
                 services.AddControllers(mvcOptions =>
                 {

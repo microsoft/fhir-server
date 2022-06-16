@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Web
             Core.Registration.IFhirServerBuilder fhirServerBuilder =
                 services.AddFhirServer(
                     Configuration,
-                    fhirServerConfiguration => fhirServerConfiguration.Security.AddAuthenticaionLibrary = AddAuthenticationLibrary)
+                    fhirServerConfiguration => fhirServerConfiguration.Security.AddAuthenticationLibrary = AddAuthenticationLibrary)
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
