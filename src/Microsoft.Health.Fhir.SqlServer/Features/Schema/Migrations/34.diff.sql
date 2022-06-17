@@ -19,7 +19,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.DisableIndex
     @tableName nvarchar(128),
     @indexName nvarchar(128)
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 DECLARE @errorTxt as varchar(1000)
        ,@sql as nvarchar (1000)
@@ -68,7 +68,7 @@ CREATE OR ALTER PROCEDURE dbo.RebuildIndex
     @tableName nvarchar(128),
     @indexName nvarchar(128),
     @pageCompression bit = 0
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 DECLARE @errorTxt as varchar(1000)
        ,@sql as nvarchar (1000)
