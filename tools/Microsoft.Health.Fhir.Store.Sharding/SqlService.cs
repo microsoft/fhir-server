@@ -10,7 +10,6 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
-using Microsoft.Health.Fhir.Store.Shards;
 using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.Sharding
@@ -18,7 +17,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
     /// <summary>
     /// Handles all communication between the API and SQL Server.
     /// </summary>
-    internal partial class SqlService
+    public partial class SqlService
     {
         internal SqlService(string centralConnectionString)
         {
@@ -209,7 +208,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             ParallelForEachShard(shardIds, action, cancel);
         }
 
-        internal void PutChangeSetHeartBeat(ChangeSetId changeSetId, DateTime? explicitDate)
+        internal void PutChangeSetHeartBeat(TransactionId changeSetId, DateTime? explicitDate)
         {
             using (var connection = GetConnection((ShardId?)null))
             {

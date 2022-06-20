@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 using System.Data.SqlClient;
 
-namespace Microsoft.Health.Fhir.Store.Shards
+namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public static class Utilities
     {

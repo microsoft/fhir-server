@@ -7,9 +7,9 @@ using System;
 
 namespace Microsoft.Health.Fhir.Store.Sharding
 {
-    public struct ChangeSetId : IEquatable<ChangeSetId>, IComparable<ChangeSetId>
+    public struct TransactionId : IEquatable<TransactionId>, IComparable<TransactionId>
     {
-        public ChangeSetId(long id)
+        public TransactionId(long id)
             : this()
         {
             Id = id;
@@ -17,44 +17,44 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 
         public long Id { get; private set; }
 
-        public static bool operator ==(ChangeSetId a, ChangeSetId b)
+        public static bool operator ==(TransactionId a, TransactionId b)
         {
             return a.Id == b.Id;
         }
 
-        public static bool operator !=(ChangeSetId a, ChangeSetId b)
+        public static bool operator !=(TransactionId a, TransactionId b)
         {
             return a.Id != b.Id;
         }
 
-        public static bool operator >(ChangeSetId a, ChangeSetId b)
+        public static bool operator >(TransactionId a, TransactionId b)
         {
             return a.Id > b.Id;
         }
 
-        public static bool operator >=(ChangeSetId a, ChangeSetId b)
+        public static bool operator >=(TransactionId a, TransactionId b)
         {
             return a.Id >= b.Id;
         }
 
-        public static bool operator <(ChangeSetId a, ChangeSetId b)
+        public static bool operator <(TransactionId a, TransactionId b)
         {
             return a.Id < b.Id;
         }
 
-        public static bool operator <=(ChangeSetId a, ChangeSetId b)
+        public static bool operator <=(TransactionId a, TransactionId b)
         {
             return a.Id <= b.Id;
         }
 
-        public bool Equals(ChangeSetId other)
+        public bool Equals(TransactionId other)
         {
             return Id == other.Id;
         }
 
         public override bool Equals(object obj)
         {
-            return obj is ChangeSetId && Equals((ChangeSetId)obj);
+            return obj is TransactionId && Equals((TransactionId)obj);
         }
 
         public override int GetHashCode()
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             return Id.GetHashCode();
         }
 
-        public int CompareTo(ChangeSetId other)
+        public int CompareTo(TransactionId other)
         {
             return Id.CompareTo(other.Id);
         }

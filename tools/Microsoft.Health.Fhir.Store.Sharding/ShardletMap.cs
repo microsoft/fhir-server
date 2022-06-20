@@ -11,7 +11,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Threading;
 
-namespace Microsoft.Health.Fhir.Store.Shards
+namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class ShardletMap
     {

@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 using System;
 
-namespace Microsoft.Health.Fhir.Store.Shards
+namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class Shard
     {
