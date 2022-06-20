@@ -1,20 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <RootNamespace>Microsoft.Health.Fhir.IndexRebuilder</RootNamespace>
-    <AssemblyName>Fhir.IndexRebuilder</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.SqlUtils\Microsoft.Health.Fhir.Store.SqlUtils.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Store.Shards\Microsoft.Health.Fhir.Store.Shards.csproj" />
   </ItemGroup>
 
 </Project>

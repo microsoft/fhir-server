@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 using System;
 
-namespace Microsoft.Health.Fhir.Store.Copy
+namespace Microsoft.Health.Fhir.Store.Utils
 {
-    internal static class ExceptionExtention
+    public static class ExceptionExtention
     {
-        internal static bool IsRetryable(this Exception e)
+        public const int RetryWaitMillisecond = 1000;
+
+        public static bool IsRetryable(this Exception e)
         {
             var str = e.ToString().ToLowerInvariant();
             return HasNetworkErrorPattern(str)
