@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNull(request, nameof(request));
 
             // Truncating to "Major.Minor" version to follow format specified in the spec.
-            var truncatedVersion = _provider.SupportedVersion.ToString(2);
+            var truncatedVersion = _provider.SupportedVersion.Version.ToString(2);
 
             var supportedVersions = new List<string> { truncatedVersion };
             var defaultVersion = truncatedVersion;

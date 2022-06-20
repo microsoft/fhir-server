@@ -111,9 +111,6 @@
                         ]
                     },
                     {
-                        "code": "CatalogEntry"
-                    },
-                    {
                         "code": "ChargeItem",
                         "param": [ "subject" ]
                     },
@@ -711,9 +708,6 @@
                     },
                     {
                         "code": "CareTeam"
-                    },
-                    {
-                        "code": "CatalogEntry"
                     },
                     {
                         "code": "ChargeItem",

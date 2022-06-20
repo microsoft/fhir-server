@@ -11,7 +11,6 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Api.Features.Audit;
@@ -29,7 +28,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -152,6 +150,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case AzureContainerRegistryTokenException azureContainerRegistryTokenException:
                         operationOutcomeResult.StatusCode = azureContainerRegistryTokenException.StatusCode;
                         break;
+                    case ResourceSqlException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
+                    case ResourceSqlTruncateException _:
                     case ConvertDataFailedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
@@ -225,11 +227,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = CreateOperationOutcomeResult(formatException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
                 context.ExceptionHandled = true;
             }
-            else if (context.Exception is SqlException sqlException && sqlException.Number == SqlErrorCodes.TimeoutExpired)
-            {
-                context.Result = CreateOperationOutcomeResult(sqlException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
-                context.ExceptionHandled = true;
-            }
             else if (context.Exception.InnerException != null)
             {
                 Exception outerException = context.Exception;
@@ -260,7 +257,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 HttpStatusCode? statusCode = (context.Result as OperationOutcomeResult)?.StatusCode;
                 if (statusCode != null && statusCode >= HttpStatusCode.InternalServerError)
                 {
-                    _logger.LogError(context.Exception, "{statusCode} error returned", statusCode);
+                    _logger.LogError(context.Exception, "{StatusCode} error returned", statusCode);
                 }
             }
         }

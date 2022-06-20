@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -29,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -53,20 +55,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly ExportJobConfiguration _exportConfig;
+        private readonly ConvertDataConfiguration _convertConfig;
+        private readonly ArtifactStoreConfiguration _artifactStoreConfig;
         private readonly FeatureConfiguration _features;
-        private readonly ILogger<ExportController> _logger;
 
         public ExportController(
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
             IOptions<FeatureConfiguration> features,
             ILogger<ExportController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(artifactStoreConfig, nameof(artifactStoreConfig));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
             EnsureArg.IsNotNull(features?.Value, nameof(features));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -75,8 +80,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
             _exportConfig = operationsConfig.Value.Export;
+            _convertConfig = operationsConfig.Value.ConvertData;
+            _artifactStoreConfig = artifactStoreConfig.Value;
             _features = features.Value;
-            _logger = logger;
         }
 
         [HttpGet]
@@ -89,11 +95,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
         {
             CheckIfExportIsEnabled();
-            ValidateForAnonymizedExport(containerName, anonymizationConfigLocation, anonymizationConfigFileETag);
+            ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             return await SendExportRequest(
                 exportType: ExportJobType.All,
@@ -102,6 +109,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 resourceType: resourceType,
                 containerName: containerName,
                 formatName: formatName,
+                anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
@@ -116,12 +124,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag,
             string typeParameter)
         {
             CheckIfExportIsEnabled();
-            ValidateForAnonymizedExport(containerName, anonymizationConfigLocation, anonymizationConfigFileETag);
+            ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
@@ -136,6 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 resourceType: resourceType,
                 containerName: containerName,
                 formatName: formatName,
+                anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
@@ -150,13 +160,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag,
             string typeParameter,
             string idParameter)
         {
             CheckIfExportIsEnabled();
-            ValidateForAnonymizedExport(containerName, anonymizationConfigLocation, anonymizationConfigFileETag);
+            ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(idParameter))
@@ -172,6 +183,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 groupId: idParameter,
                 containerName: containerName,
                 formatName: formatName,
+                anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
@@ -220,6 +232,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string groupId = null,
             string containerName = null,
             string formatName = null,
+            string anonymizationConfigCollectionReference = null,
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)
         {
@@ -232,6 +245,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 groupId,
                 containerName,
                 formatName,
+                anonymizationConfigCollectionReference,
                 anonymizationConfigLocation,
                 anonymizationConfigFileETag,
                 HttpContext.RequestAborted);
@@ -249,9 +263,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void ValidateForAnonymizedExport(string containerName, string anonymizationConfigLocation, string anonymizationConfigFileETag)
+        private void ValidateForAnonymizedExport(string containerName, string anonymizationConfigCollectionReference, string anonymizationConfigLocation, string anonymizationConfigFileETag)
         {
-            if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation) || !string.IsNullOrWhiteSpace(anonymizationConfigFileETag))
+            if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation) || !string.IsNullOrWhiteSpace(anonymizationConfigFileETag) || !string.IsNullOrWhiteSpace(anonymizationConfigCollectionReference))
             {
                 // Check if anonymizedExport is enabled
                 if (!_features.SupportsAnonymizedExport)
@@ -260,6 +274,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
 
                 CheckContainerNameAndConfigLocationForAnonymizedExport(containerName, anonymizationConfigLocation);
+                if (!string.IsNullOrWhiteSpace(anonymizationConfigCollectionReference))
+                {
+                    CheckReferenceAndETagParameterConflictForAnonymizedExport(anonymizationConfigCollectionReference, anonymizationConfigFileETag);
+                    CheckConfigCollectionReferenceIsValid(anonymizationConfigCollectionReference);
+                    CheckIfConfigCollectionReferencIsConfigured(anonymizationConfigCollectionReference);
+                }
             }
         }
 
@@ -273,6 +293,41 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (string.IsNullOrWhiteSpace(containerName))
             {
                 throw new RequestNotValidException(Resources.ContainerIsRequiredForAnonymizedExport);
+            }
+        }
+
+        private static void CheckConfigCollectionReferenceIsValid(string anonymizationConfigCollectionReference)
+        {
+            if (!ImageInfo.IsValidImageReference(anonymizationConfigCollectionReference))
+            {
+                throw new RequestNotValidException(string.Format(Resources.InvalidAnonymizationConfigCollectionReference, anonymizationConfigCollectionReference));
+            }
+        }
+
+        private static void CheckReferenceAndETagParameterConflictForAnonymizedExport(string anonymizationConfigCollectionReference, string eTag)
+        {
+            if (!string.IsNullOrEmpty(anonymizationConfigCollectionReference) && !string.IsNullOrEmpty(eTag))
+            {
+                throw new RequestNotValidException(Resources.AnonymizationParameterConflict);
+            }
+        }
+
+        private void CheckIfConfigCollectionReferencIsConfigured(string anonymizationConfigCollectionReference)
+        {
+            var ociImage = ImageInfo.CreateFromImageReference(anonymizationConfigCollectionReference);
+
+            // For compatibility purpose.
+            // Return if registryServer has been configured in previous ConvertDataConfiguration.
+            if (_convertConfig.ContainerRegistryServers.Any(server =>
+                string.Equals(server, ociImage.Registry, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            if (!_artifactStoreConfig.OciArtifacts.Any(ociArtifact =>
+                    ociArtifact.ContainsOciImage(ociImage.Registry, ociImage.ImageName, ociImage.Digest)))
+            {
+                throw new RequestNotValidException(string.Format(Resources.AnonymizationConfigCollectionNotConfigured, anonymizationConfigCollectionReference));
             }
         }
     }

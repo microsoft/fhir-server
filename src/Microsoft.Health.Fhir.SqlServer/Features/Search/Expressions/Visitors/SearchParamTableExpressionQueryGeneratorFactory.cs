@@ -186,5 +186,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             return GetSearchParamTableExpressionQueryGenerator(expression.Parameter);
         }
+
+        public SearchParamTableExpressionQueryGenerator VisitIn<T>(InExpression<T> expression, object context)
+        {
+            return InQueryGenerator.Instance;
+        }
     }
 }

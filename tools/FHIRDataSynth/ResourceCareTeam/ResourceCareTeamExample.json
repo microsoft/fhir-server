@@ -1,0 +1,88 @@
+{
+  "resourceType": "CareTeam",
+  "id": "a8e4a4dd-9340-fcec-61ca-58a87ed129f8",
+  "status": "active",
+  "subject": {
+    "reference": "Patient/262741b0-50fe-114c-103f-be34d5cd3e37"
+  },
+  "encounter": {
+    "reference": "Encounter/bc97ae0b-d99d-3952-4560-0f246b7ee546"
+  },
+  "period": {
+    "start": "1922-05-27T14:39:56+00:00"
+  },
+  "participant": [
+    {
+      "role": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "116154003",
+              "display": "Patient"
+            }
+          ],
+          "text": "Patient"
+        }
+      ],
+      "member": {
+        "reference": "Patient/262741b0-50fe-114c-103f-be34d5cd3e37",
+        "display": "Ms. Wilda367 Price929"
+      }
+    },
+    {
+      "role": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "223366009",
+              "display": "Healthcare professional (occupation)"
+            }
+          ],
+          "text": "Healthcare professional (occupation)"
+        }
+      ],
+      "member": {
+        "reference": "Practitioner/7a940c0c-3301-3bf9-915f-323084439934",
+        "display": "Dr. Damaris45 Borer986"
+      }
+    },
+    {
+      "role": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "224891009",
+              "display": "Healthcare services (qualifier value)"
+            }
+          ],
+          "text": "Healthcare services (qualifier value)"
+        }
+      ],
+      "member": {
+        "reference": "Organization/d692e283-0833-3201-8e55-4f868a9c0736",
+        "display": "HALLMARK HEALTH SYSTEM"
+      }
+    }
+  ],
+  "reasonCode": [
+    {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "233678006",
+          "display": "Childhood asthma"
+        }
+      ],
+      "text": "Childhood asthma"
+    }
+  ],
+  "managingOrganization": [
+    {
+      "reference": "Organization/d692e283-0833-3201-8e55-4f868a9c0736",
+      "display": "HALLMARK HEALTH SYSTEM"
+    }
+  ]
+}

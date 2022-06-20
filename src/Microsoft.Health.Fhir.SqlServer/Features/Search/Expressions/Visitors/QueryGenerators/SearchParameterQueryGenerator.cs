@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
@@ -88,7 +89,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitMultiary(MultiaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            if (expression.MultiaryOperation == MultiaryOperator.Or)
+            bool isOrMultinaryOperator = expression.MultiaryOperation == MultiaryOperator.Or;
+
+            if (isOrMultinaryOperator)
             {
                 context.StringBuilder.Append('(');
             }
@@ -96,9 +99,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder.AppendDelimited(
                 sb => sb.AppendLine().Append(expression.MultiaryOperation == MultiaryOperator.And ? "AND " : "OR "),
                 expression.Expressions,
-                (sb, childExpr) => childExpr.AcceptVisitor(this, context));
+                (sb, childExpr) =>
+                {
+                    if (isOrMultinaryOperator)
+                    {
+                        context.StringBuilder.Append('(');
+                    }
 
-            if (expression.MultiaryOperation == MultiaryOperator.Or)
+                    childExpr.AcceptVisitor(this, context);
+
+                    if (isOrMultinaryOperator)
+                    {
+                        context.StringBuilder.Append(')');
+                    }
+                });
+
+            if (isOrMultinaryOperator)
             {
                 context.StringBuilder.Append(')');
             }
@@ -247,6 +263,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 context.StringBuilder.Append(" COLLATE ").Append(expression.IgnoreCase ? DefaultCaseInsensitiveCollation : DefaultCaseSensitiveCollation);
             }
+
+            return context;
+        }
+
+        protected static SearchParameterQueryGeneratorContext VisitSimpleIn<T>(SearchParameterQueryGeneratorContext context, Column column, IReadOnlyList<T> values)
+        {
+            context.StringBuilder.Append(column, context.TableAlias);
+            context.StringBuilder.Append(" IN (");
+
+            for (int index = 0; index < values.Count; index++)
+            {
+                T item = values[index];
+
+                context.StringBuilder.Append(context.Parameters.AddParameter(column, item, true));
+
+                if (index < values.Count - 1)
+                {
+                    context.StringBuilder.Append(",");
+                }
+            }
+
+            context.StringBuilder.AppendLine(")");
 
             return context;
         }

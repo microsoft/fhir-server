@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
-            _logger.LogDebug("Upserting {resourceType}/{resourceId}, ETag: \"{tag}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
+            _logger.LogDebug("Upserting {ResourceType}/{ResourceId}, ETag: \"{Tag}\", AllowCreate: {AllowCreate}, KeepHistory: {KeepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
             if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     await new RawResourceElement(cosmosWrapper).SerializeToStreamAsUtf8Json(memoryStream);
                     memoryStream.Position = 0;
                     using var reader = new StreamReader(memoryStream, Encoding.UTF8);
-                    cosmosWrapper.RawResource = new RawResource(reader.ReadToEnd(), FhirResourceFormat.Json, isMetaSet: true);
+                    cosmosWrapper.RawResource = new RawResource(await reader.ReadToEndAsync(), FhirResourceFormat.Json, isMetaSet: true);
                 }
 
                 if (keepHistory)
@@ -327,7 +327,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogDebug("Obliterating {resourceType}/{id}. Keep current version: {keepCurrentVersion}", key.ResourceType, key.Id, keepCurrentVersion);
+                _logger.LogDebug("Obliterating {ResourceType}/{Id}. Keep current version: {KeepCurrentVersion}", key.ResourceType, key.Id, keepCurrentVersion);
 
                 StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         ct),
                     cancellationToken);
 
-                _logger.LogDebug("Hard-deleted {count} documents, which consumed {RU} RUs. The list of hard-deleted documents: {resources}.", response.Resource.Count, response.RequestCharge, string.Join(", ", response.Resource));
+                _logger.LogDebug("Hard-deleted {Count} documents, which consumed {RU} RUs. The list of hard-deleted documents: {Resources}.", response.Resource.Count, response.RequestCharge, string.Join(", ", response.Resource));
             }
             catch (CosmosException exception)
             {
@@ -372,7 +372,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogDebug("Replacing {resourceType}/{id}, ETag: \"{tag}\"", resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, weakETag.VersionId);
+                _logger.LogDebug("Replacing {ResourceType}/{Id}, ETag: \"{Tag}\"", resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, weakETag.VersionId);
 
                 FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _replaceSingleResource.Execute(
@@ -468,7 +468,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (executingWithMaxParallelism)
             {
-                _logger.LogInformation("Executing {maxConcurrency} parallel queries across physical partitions", feedOptions.MaxConcurrency);
+                _logger.LogInformation("Executing {MaxConcurrency} parallel queries across physical partitions", feedOptions.MaxConcurrency);
             }
 
             var maxCount = executingWithMaxParallelism
@@ -508,7 +508,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         // TODO: analyze the current result count to determine if is is too few
                         // and possibly start a new query to fill in more results
 
-                        _logger.LogInformation("Returning results with fewer than desired total, {count} out of {totalDesired}.", results.Count, totalDesiredCount);
+                        _logger.LogInformation("Returning results with fewer than desired total, {Count} out of {TotalDesired}.", results.Count, totalDesiredCount);
                         return (results, prevPage.ContinuationToken);
                     }
                     else
@@ -572,7 +572,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private static string RemoveVersionIdAndLastUpdatedFromMeta(FhirCosmosResourceWrapper resourceWrapper)
         {
-            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{resourceWrapper.Version}\"", string.Empty, StringComparison.Ordinal);
+            var versionToReplace = resourceWrapper.RawResource.IsMetaSet ? resourceWrapper.Version : "1";
+            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{versionToReplace}\"", string.Empty, StringComparison.Ordinal);
             return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
         }
 
@@ -599,7 +600,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (CosmosException ex)
             {
-                _logger.LogWarning("Failed to obtain provisioned RU throughput. Error: {0}", ex.Message);
+                _logger.LogWarning("Failed to obtain provisioned RU throughput. Error: {Message}", ex.Message);
                 return null;
             }
         }

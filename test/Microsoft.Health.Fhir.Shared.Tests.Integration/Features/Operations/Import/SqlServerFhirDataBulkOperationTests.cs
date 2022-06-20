@@ -17,12 +17,16 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 using NSubstitute;
 using Xunit;
+using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import
 {
@@ -30,6 +34,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     {
         private SqlServerFhirStorageTestsFixture _fixture;
         private SqlImportOperation _sqlServerFhirDataBulkOperation;
+        private SchemaInformation _schemaInformation;
+        private static string _rawResourceTestValue = "{\"resourceType\": \"Parameters\",\"parameter\": []}";
 
         public SqlServerFhirDataBulkOperationTests(
             SqlServerFhirStorageTestsFixture fixture)
@@ -38,7 +44,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
-            _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
+            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
         }
 
         [Fact]
@@ -236,46 +244,37 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenUnclusteredIndexes_WhenRebuildIndexes_ThenOnlyDisabledIndexShouldBeBuilt()
+        public async Task GivenUnclusteredIndexes_WhenRebuildDisableIndexes_ThenIndexShouldBeChanged()
         {
-            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.IndexesList().Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            List<(Table table, Index index, bool pageCompression)> indexeRecords = new List<(Table table, Index index, bool pageCompression)>();
+            indexeRecords.AddRange(_sqlServerFhirDataBulkOperation.IndexesList());
+            indexeRecords.AddRange(_sqlServerFhirDataBulkOperation.UniqueIndexesList());
+            (string tableName, string indexName, bool pageCompression)[] indexes = indexeRecords.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)).ToArray();
             foreach (var index in indexes)
             {
+                string compressionBefore = await GetIndexCompression(index.indexName, index.tableName);
+                bool isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.False(isDisabled);
                 await DisableIndex(index.tableName, index.indexName);
-                bool isDisabled = await GetIndexDisableStatus(index.indexName);
-                Assert.True(isDisabled);
-
-                bool isExecuted = await RebuildIndex(index.tableName, index.indexName);
-                isDisabled = await GetIndexDisableStatus(index.indexName);
-                Assert.False(isDisabled);
-                Assert.True(isExecuted);
-
-                isExecuted = await RebuildIndex(index.tableName, index.indexName);
-                isDisabled = await GetIndexDisableStatus(index.indexName);
-                Assert.False(isDisabled);
-                Assert.False(isExecuted);
-            }
-        }
-
-        [Fact]
-        public async Task GivenUnclusteredIndexes_WhenDisableIndexes_ThenOnlyBuiltIndexShouldBeDisabled()
-        {
-            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.IndexesList().Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
-            foreach (var index in indexes)
-            {
-                await RebuildIndex(index.tableName, index.indexName);
-                bool isDisabled = await GetIndexDisableStatus(index.indexName);
-                Assert.False(isDisabled);
-
-                bool isExecuted = await DisableIndex(index.tableName, index.indexName);
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.True(isDisabled);
-                Assert.True(isExecuted);
 
-                isExecuted = await DisableIndex(index.tableName, index.indexName);
+                // Can disable twice
+                await DisableIndex(index.tableName, index.indexName);
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.True(isDisabled);
-                Assert.False(isExecuted);
+
+                await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
+                isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.False(isDisabled);
+
+                // Can rebuild twice
+                await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
+                isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.False(isDisabled);
+
+                string compressionAfter = await GetIndexCompression(index.indexName, index.tableName);
+                Assert.Equal($"{index.indexName}_{compressionBefore}", $"{index.indexName}_{compressionAfter}");
             }
         }
 
@@ -287,7 +286,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     resourceId,
                     "0",
                     "Dummy",
-                    new RawResource("Test", Fhir.Core.Models.FhirResourceFormat.Json, true),
+                    new RawResource(_rawResourceTestValue, Fhir.Core.Models.FhirResourceFormat.Json, true),
                     new ResourceRequest("PUT"),
                     DateTimeOffset.UtcNow,
                     false,
@@ -305,7 +304,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using (SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
-            using (SqlCommandWrapper command = connection.CreateSqlCommand())
+            using (SqlCommandWrapper command = connection.CreateRetrySqlCommand())
             {
                 command.CommandText = $"select is_disabled from sys.indexes where name = '{indexName}'";
 
@@ -313,20 +312,31 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             }
         }
 
-        private async Task<bool> RebuildIndex(string tableName, string indexName)
+        private async Task<string> GetIndexCompression(string indexName, string tableName)
+        {
+            string query = @$"SELECT TOP 1 [p].[data_compression_desc] AS [Compression]
+                            FROM[sys].[partitions] AS[p]
+                            INNER JOIN sys.tables AS[t] ON[t].[object_id] = [p].[object_id]
+                            INNER JOIN sys.indexes AS[i] ON[i].[object_id] = [p].[object_id] AND[i].[index_id] = [p].[index_id]
+                            WHERE[p].[index_id] > 1 and [i].[name] = '{indexName}' and [t].[name] = '{tableName.Replace("dbo.", string.Empty)}'";
+            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
+            using (SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
+            using (SqlCommandWrapper command = connection.CreateRetrySqlCommand())
+            {
+                command.CommandText = query;
+
+                return (string)(await command.ExecuteScalarAsync(CancellationToken.None));
+            }
+        }
+
+        private async Task RebuildIndex(string tableName, string indexName, bool pageCompression)
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
-                var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Int);
-                returnParameter.Direction = ParameterDirection.ReturnValue;
-
+                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
-                bool isExecuted = Convert.ToBoolean(returnParameter.Value);
-
-                return isExecuted;
             }
         }
 
@@ -334,7 +344,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 VLatest.DisableIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
                 var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Int);
@@ -366,7 +376,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
             using SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
-            using SqlCommandWrapper command = connection.CreateSqlCommand();
+            using SqlCommandWrapper command = connection.CreateRetrySqlCommand();
             command.CommandText = $"select count(*) from {tableName} where ResourceSurrogateId >= {startSurrogateId} and ResourceSurrogateId < {endSurrogateId}";
 
             return (int)(await command.ExecuteScalarAsync(CancellationToken.None));

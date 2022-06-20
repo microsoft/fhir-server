@@ -13,7 +13,6 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Newtonsoft.Json;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
@@ -50,12 +49,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         /// Reference implementation: https://github.com/aspnet/Mvc/blob/dev/src/Microsoft.AspNetCore.Mvc.Formatters.Json/JsonInputFormatter.cs
         /// Parsing from a stream: https://github.com/ewoutkramer/fhir-net-api/blob/master/src/Hl7.Fhir.Support/Utility/SerializationUtil.cs#L134
         /// </remarks>
-        public override Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context, Encoding encoding)
+        public override async Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context, Encoding encoding)
         {
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(encoding, nameof(encoding));
 
-            context.HttpContext.AllowSynchronousIO();
             var request = context.HttpContext.Request;
 
             using (var streamReader = context.ReaderFactory(request.Body, encoding))
@@ -71,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 try
                 {
-                    model = _parser.Parse<Resource>(jsonReader);
+                    model = await _parser.ParseAsync<Resource>(jsonReader);
                 }
                 catch (Exception ex)
                 {
@@ -85,12 +83,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 // https://github.com/aspnet/Mvc/blob/ce66e953045d3c3c52bd6c2bd9d5385fb52eccdc/src/Microsoft.AspNetCore.Mvc.Formatters.Json/JsonInputFormatter.cs#L221
                 if (model == null && delayedException == null && !context.TreatEmptyInputAsDefaultValue)
                 {
-                    return Task.FromResult(InputFormatterResult.NoValue());
+                    return await InputFormatterResult.NoValueAsync();
                 }
 
                 if (model != null)
                 {
-                    return Task.FromResult(InputFormatterResult.Success(model));
+                    return await InputFormatterResult.SuccessAsync(model);
                 }
 
                 if (delayedException != null)
@@ -99,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, delayedException.Message));
                 }
 
-                return Task.FromResult(InputFormatterResult.Failure());
+                return await InputFormatterResult.FailureAsync();
             }
         }
     }

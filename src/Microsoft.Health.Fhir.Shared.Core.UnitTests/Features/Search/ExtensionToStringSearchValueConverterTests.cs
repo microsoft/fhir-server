@@ -9,6 +9,8 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
 
@@ -18,6 +20,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public sealed class ExtensionToStringSearchValueConverterTests : FhirInstanceToSearchValueConverterTests<Extension>
     {
+        [Trait(Traits.Category, Categories.Search)]
         protected override async Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync()
         {
             FhirTypedElementToSearchValueConverterManager fhirTypedElementToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();

@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public class SearchParameterFixtureData
     {
-        // this type is immutable and is safe to reuse
+        // This type is immutable and is safe to reuse.
         private static FhirTypedElementToSearchValueConverterManager _fhirTypedElementToSearchValueConverterManager;
 
         private SearchParameterDefinitionManager _searchDefinitionManager;

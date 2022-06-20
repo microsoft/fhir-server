@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     outcome.JobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
 
-                    _logger.LogInformation($"Attempting to cancel export job {request.JobId}");
+                    _logger.LogInformation("Attempting to cancel export job {JobId}", request.JobId);
                     await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
 
                     return new CancelExportResponse(HttpStatusCode.Accepted);
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unable to cancel export job {jobId}", request.JobId);
+                _logger.LogError(ex, "Unable to cancel export job {JobId}", request.JobId);
                 throw;
             }
 

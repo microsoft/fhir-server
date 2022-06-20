@@ -12,6 +12,8 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
@@ -19,6 +21,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait(Traits.Category, Categories.Search)]
     public sealed class ExtensionToReferenceSearchValueConverterTests
     {
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;

@@ -1,0 +1,113 @@
+{
+    "resourceType": "Specimen",
+    "id": "101",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div><p>Resource &quot;101&quot; </p></div><p><b>identifier</b>: id: 23234352356</p><p><b>accessionIdentifier</b>: id: X352356</p><p><b>status</b>: available</p><p><b>type</b>: Venous blood specimen <span> (<a>SNOMED CT</a>#122555007)</span></p><p><b>subject</b>: <a>Patient/example: Peter Patient</a> &quot;Peter CHALMERS&quot;</p><p><b>receivedTime</b>: 2011-03-04T07:03:00Z</p><p><b>request</b>: <a>ServiceRequest/example</a></p><blockquote><p><b>collection</b></p><p><b>collector</b>: <a>Practitioner/example</a> &quot;Adam CAREFUL&quot;</p><p><b>collected</b>: 2011-05-30T06:15:00Z</p><p><b>quantity</b>: 6 mL</p><p><b>method</b>: Line, Venous <span> (<a>specimenCollectionMethod</a>#LNV)</span></p></blockquote><h3>Containers</h3><table><tr><td>-</td><td><b>Identifier</b></td><td><b>Description</b></td><td><b>Type</b></td><td><b>Capacity</b></td><td><b>SpecimenQuantity</b></td><td><b>Additive[x]</b></td></tr><tr><td>*</td><td>id: 48736-15394-75465</td><td>Green Gel tube</td><td>Vacutainer <span> ()</span></td><td>10 mL</td><td>6 mL</td><td><a> </a><blockquote><div><p>Resource &quot;hep&quot; </p></div><p><b>instance</b>: false</p></blockquote></td></tr></table><p><b>note</b>: Specimen is grossly lipemic</p></div>"
+    },
+    "contained": [
+        {
+            "resourceType": "Substance",
+            "id": "hep",
+            "instance": false,
+            "code": {
+                "concept": {
+                    "coding": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/v3-EntityCode",
+                            "code": "HEPL"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "identifier": [
+        {
+            "system": "http://ehr.acme.org/identifiers/collections",
+            "value": "23234352356"
+        }
+    ],
+    "accessionIdentifier": {
+        "system": "http://lab.acme.org/specimens/2011",
+        "value": "X352356"
+    },
+    "status": "available",
+    "type": {
+        "coding": [
+            {
+                "system": "http://snomed.info/sct",
+                "code": "122555007",
+                "display": "Venous blood specimen"
+            }
+        ]
+    },
+    "subject": {
+        "reference": "Patient/example",
+        "display": "Peter Patient"
+    },
+    "receivedTime": "2011-03-04T07:03:00Z",
+    "request": [
+        {
+            "reference": "ServiceRequest/example"
+        }
+    ],
+    "collection": {
+        "collector": {
+            "reference": "Practitioner/example"
+        },
+        "collectedDateTime": "2011-05-30T06:15:00Z",
+        "quantity": {
+            "value": 6,
+            "unit": "mL"
+        },
+        "method": {
+            "coding": [
+                {
+                    "system": "http://terminology.hl7.org/CodeSystem/v2-0488",
+                    "code": "LNV"
+                }
+            ]
+        },
+        "bodySite": {
+            "concept": {
+                "coding": [
+                    {
+                        "system": "http://snomed.info/sct",
+                        "code": "49852007",
+                        "display": "Structure of median cubital vein (body structure)"
+                    }
+                ]
+            }
+        }
+    },
+    "container": [
+        {
+            "identifier": [
+                {
+                    "value": "48736-15394-75465"
+                }
+            ],
+            "description": "Green Gel tube",
+            "type": {
+                "text": "Vacutainer"
+            },
+            "capacity": {
+                "value": 10,
+                "unit": "mL"
+            },
+            "specimenQuantity": {
+                "value": 6,
+                "unit": "mL"
+            },
+            "additiveReference": {
+                "reference": "#hep"
+            }
+        }
+    ],
+    "note": [
+        {
+            "text": "Specimen is grossly lipemic"
+        }
+    ]
+}

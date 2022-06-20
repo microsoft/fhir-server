@@ -1,0 +1,58 @@
+{
+    "BlendProfiles": [
+        {
+            "BlendName": "profile1",
+            "BlendRatios": {
+                "AllergyIntolerance": 1,
+                "CarePlan": 1,
+                "CareTeam": 1,
+                "Claim": 1,
+                "Condition": 1,
+                "Device": 1,
+                "DiagnosticReport": 1,
+                "Encounter": 1,
+                "ExplanationOfBenefit": 1,
+                "ImagingStudy": 1,
+                "Immunization": 1,
+                "MedicationAdministration": 2,
+                "MedicationRequest": 2,
+                "Observation": 2,
+                "Organization": 2,
+                "Patient": 2,
+                "Practitioner": 2,
+                "Procedure": 2,
+                "SupplyDelivery": 2,
+                "Communication": 2,
+                "DocumentReference": 2,
+                "StructureDefinition": 2
+            }
+        },
+        {
+            "BlendName": "profile2",
+            "BlendRatios": {
+                "AllergyIntolerance": 4,
+                "CarePlan": 4,
+                "CareTeam": 4,
+                "Claim": 4,
+                "Condition": 4,
+                "Device": 4,
+                "DiagnosticReport": 4,
+                "Encounter": 4,
+                "ExplanationOfBenefit": 4,
+                "ImagingStudy": 4,
+                "Immunization": 4,
+                "MedicationAdministration": 2,
+                "MedicationRequest": 2,
+                "Observation": 2,
+                "Organization": 2,
+                "Patient": 2,
+                "Practitioner": 2,
+                "Procedure": 2,
+                "SupplyDelivery": 2,
+                "Communication": 2,
+                "DocumentReference": 2,
+                "StructureDefinition": 2
+            }
+        }
+    ]
+}

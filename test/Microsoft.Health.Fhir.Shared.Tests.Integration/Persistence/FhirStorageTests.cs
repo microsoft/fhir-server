@@ -14,6 +14,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core;
@@ -735,7 +736,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAValidResource_WhenUpdatingAResourceWithSameDataImmaterialKeepHistoryValue_ServerShouldNotCreateANewVersionAndReturnOk(bool keepHistory)
         {
             // Upserting a resource twice with no data change
@@ -750,8 +750,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Assert.Equal(createResult.Wrapper.ResourceId, upsertResult.Wrapper.ResourceId);
             Assert.Equal(createResult.Wrapper.Version, upsertResult.Wrapper.Version);
-            Assert.Equal(createResource.LastUpdated, updatedeResource.LastUpdated);
-            Assert.Equal(createResult.Wrapper.LastModified, upsertResult.Wrapper.LastModified);
+
+            // With current "o" format for date we only store upto 3 digits for millisconds
+            // CreateResult.LastUpdated has date as 2008-10-31T17:04:32:3210000
+            // upsertResult.lastUpdated will return what is stored in DB 2008-10-31T17:04:32:321 mismatching the milliseconds value
+            // Hence comparing milliseconds separately. s Format Specifier 2008-10-31T17:04:32
+            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updatedeResource.LastUpdated.Value.ToString("s"));
+            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updatedeResource.LastUpdated.Value.Millisecond);
+            Assert.Equal(createResult.Wrapper.LastModified.ToString("s"), createResult.Wrapper.LastModified.ToString("s"));
+            Assert.Equal(createResult.Wrapper.LastModified.Millisecond, createResult.Wrapper.LastModified.Millisecond);
         }
 
         [Fact]
@@ -900,6 +907,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()
+        {
+            var wrapper = CreateObservationResourceWrapper("obsId1", true);
+            await Assert.ThrowsAsync<ServiceUnavailableException>(() => _fixture.DataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None));
+        }
+
         private static void VerifyReindexedResource(ResourceWrapper original, ResourceWrapper replaceResult)
         {
             Assert.Equal(original.ResourceId, replaceResult.ResourceId);
@@ -1013,14 +1028,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private ResourceWrapper CreateObservationResourceWrapper(string observationId)
+        private ResourceWrapper CreateObservationResourceWrapper(string observationId, bool setRawResourceNull = false)
         {
             Observation observationResource = Samples.GetDefaultObservation().ToPoco<Observation>();
             observationResource.Id = observationId;
             observationResource.VersionId = "1";
 
             var resourceElement = observationResource.ToResourceElement();
-            var rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            RawResource rawResource;
+
+            if (setRawResourceNull)
+            {
+                var rawSubstitute = Substitute.For<RawResource>();
+                rawResource = rawSubstitute;
+            }
+            else
+            {
+                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
+            }
+
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = _searchIndexer.Extract(resourceElement);
@@ -1033,7 +1059,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private ResourceWrapper UpdatePatientResourceWrapper(Patient patientResource)
         {
             var resourceElement = patientResource.ToResourceElement();
-            var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = _searchIndexer.Extract(resourceElement);

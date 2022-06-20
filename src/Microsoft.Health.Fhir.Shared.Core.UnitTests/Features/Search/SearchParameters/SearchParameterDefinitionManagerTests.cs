@@ -23,6 +23,8 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
@@ -30,6 +32,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterDefinitionManagerTests : IAsyncLifetime
     {
         private static readonly string ResourceId = "http://hl7.org/fhir/SearchParameter/Resource-id";

@@ -26,19 +26,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     internal static class SearchParameterDefinitionBuilder
     {
-        private static readonly ISet<Uri> _knownBrokenR5 = new HashSet<Uri>
+        private static readonly ISet<Uri> _missingExpressionsInR5 = new HashSet<Uri>
         {
-            new Uri("http://hl7.org/fhir/SearchParameter/EvidenceVariable-topic"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/Medication-form"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost-concept"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-url"), // expression is null or empty.
-            new Uri("http://hl7.org/fhir/SearchParameter/TestScript-scope-artifact-phase"), // referencing non existing search param.
-            new Uri("http://hl7.org/fhir/SearchParameter/TestScript-scope-artifact-conformance"), // referencing non existing search param.
+            new("http://hl7.org/fhir/SearchParameter/EvidenceVariable-topic"),
+            new("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"),
+            new("http://hl7.org/fhir/SearchParameter/Medication-form"),
+            new("http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost"),
+            new("http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost-concept"),
+            new("http://hl7.org/fhir/SearchParameter/Subscription-payload"),
+            new("http://hl7.org/fhir/SearchParameter/Subscription-type"),
+            new("http://hl7.org/fhir/SearchParameter/Subscription-url"),
+            new("http://hl7.org/fhir/SearchParameter/TestScript-scope-artifact-conformance"),
+            new("http://hl7.org/fhir/SearchParameter/TestScript-scope-artifact-phase"),
         };
 
         internal static void Build(
@@ -75,6 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return (resourceType == KnownResourceTypes.DomainResource && searchParameterName == "_text") ||
                    (resourceType == KnownResourceTypes.Resource && searchParameterName == "_content") ||
                    (resourceType == KnownResourceTypes.Resource && searchParameterName == "_query") ||
+                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_list") ||
                    ShouldExcludeEntryStu3(resourceType, searchParameterName, modelInfoProvider);
         }
 
@@ -142,6 +142,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 try
                 {
                     SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter, uriDictionary);
+
+                    if (searchParameterInfo.Code == "_profile" && searchParameterInfo.Type == SearchParamType.Reference)
+                    {
+                        // _profile can't be handled as a reference since it points to an external permalink
+                        searchParameterInfo.Type = SearchParamType.Uri;
+                    }
+
                     uriDictionary.Add(searchParameter.Url, searchParameterInfo);
                 }
                 catch (FormatException)
@@ -175,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // If this is a composite search parameter, then make sure components are defined.
                 if (string.Equals(searchParameter.Type, SearchParamType.Composite.GetLiteral(), StringComparison.OrdinalIgnoreCase))
                 {
-                    if (modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(searchParameter.Url)))
+                    if (modelInfoProvider.Version == FhirSpecification.R5 && _missingExpressionsInR5.Contains(new Uri(searchParameter.Url)))
                     {
                         continue;
                     }
@@ -243,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     // Make sure the expression is not empty unless they are known to have empty expression.
                     // These are special search parameters that searches across all properties and needs to be handled specially.
                     if (ShouldExcludeEntry(baseResourceType, searchParameter.Name, modelInfoProvider)
-                    || (modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(searchParameter.Url))))
+                    || (modelInfoProvider.Version == FhirSpecification.R5 && _missingExpressionsInR5.Contains(new Uri(searchParameter.Url))))
                     {
                         continue;
                     }

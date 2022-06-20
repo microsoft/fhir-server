@@ -1,6 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
     <IsPackable>true</IsPackable>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
@@ -54,6 +53,7 @@
     <None Remove="TestFiles\Normative\Medication.json" />
     <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameter-Patient-foo.json" />
+    <None Remove="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <None Remove="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
     <None Remove="TestFiles\Normative\SearchParameterInvalidBase.json" />
@@ -62,6 +62,7 @@
     <None Remove="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <None Remove="TestFiles\Normative\SearchParameterMissingType.json" />
     <None Remove="TestFiles\Normative\SearchParameterUnsupportedType.json" />
+    <None Remove="TestFiles\Normative\Specimen.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-careplan.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
@@ -265,6 +266,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidType.json" />
@@ -273,6 +275,7 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingBase.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Specimen.json" />
     <EmbeddedResource Include="TestFiles\R4\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
@@ -299,6 +302,7 @@
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithBloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithLongEyeColor.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithEyeColor.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidDecimalSpecification.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.xml" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithNoCode.json" />
@@ -363,6 +367,7 @@
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R5\Organization.json" />
+    <EmbeddedResource Include="TestFiles\R5\Specimen.json" />
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
@@ -453,7 +458,7 @@
     <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="NSubstitute" Version="4.3.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />

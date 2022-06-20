@@ -25,7 +25,7 @@
             "use": "in",
             "min": 1,
             "max": "1",
-            "documentation": "The format of input data. Supported formats - `Hl7v2`, `Ccda` and `Json`.",
+            "documentation": "The format of input data. Supported formats - `Hl7v2`, `Ccda`, `Json` and `Fhir`.",
             "type": "string"
         },
         {
@@ -33,7 +33,7 @@
             "use": "in",
             "min": 1,
             "max": "1",
-            "documentation": "Reference to a template collection which can be the default templates, or an image on Azure Container Registry that the FHIR server can access. Supported values - `microsofthealth/fhirconverter:default` or `microsofthealth/hl7v2templates:default` for input data type `Hl7v2`, `microsofthealth/ccdatemplates:default` for input data type `Ccda`, `microsofthealth/jsontemplates:default` for input data type `Json`, `<RegistryServer>/<imageName>@<imageDigest>`, `<RegistryServer>/<imageName>:<imageTag>`.",
+            "documentation": "Reference to a template collection which can be the default templates, or an image on Azure Container Registry that the FHIR server can access. Supported values - `microsofthealth/fhirconverter:default` or `microsofthealth/hl7v2templates:default` for input data type `Hl7v2`, `microsofthealth/ccdatemplates:default` for input data type `Ccda`, `microsofthealth/jsontemplates:default` for input data type `Json`, `microsofthealth/stu3tor4templates:default` for input data type `Fhir` with stu3 version, `<RegistryServer>/<imageName>@<imageDigest>`, `<RegistryServer>/<imageName>:<imageTag>`.",
             "type": "string"
         },
         {
@@ -41,7 +41,7 @@
             "use": "in",
             "min": 1,
             "max": "1",
-            "documentation": "The root template to use while transforming the data. Supported default values - `ADT_A01`, `OML_O21`, `ORU_R01`, `VXU_V04` for input data type `Hl7v2`, `CCD`, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` for input data type `Ccda`, `ExamplePatient`, `Stu3ChargeItem` for data type `Json`.",
+            "documentation": "The root template to use while transforming the data. Supported default values - `ADT_A01`, `OML_O21`, `ORU_R01`, `VXU_V04` for input data type `Hl7v2`, `CCD`, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` for input data type `Ccda`, `ExamplePatient`, `Stu3ChargeItem` for data type `Json`, and use resource name as root template for `Fhir`",
             "type": "string"
         }
     ]

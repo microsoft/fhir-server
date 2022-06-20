@@ -159,13 +159,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         [MemberData(nameof(ExportUriForSameJobs))]
         [Theory]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // Only run on Cosmos until the Till parameter is supported, until then it is not possible to create duplicate jobs in SQL.
         public async Task GivenThereIsAMatchingJob_WhenCreatingAnExportJob_ThenExistingJobShouldBeReturned(Uri requestUri, PartialDateTime since)
         {
-            var request = new CreateExportRequest(requestUri, ExportJobType.All, since: since);
+            var request = new CreateExportRequest(requestUri, ExportJobType.All, since: since, containerName: "test");
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
-
-            var newRequest = new CreateExportRequest(requestUri, ExportJobType.All, since: since);
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
@@ -209,6 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // Only run on Cosmos until the Till parameter is supported, until then it is not possible to create duplicate jobs in SQL.
         public async Task GivenThereIsAMatchingJob_WhenRequestorClaimsInDifferentOrder_ThenExistingJobShouldBeReturned()
         {
             var claim1 = KeyValuePair.Create("oid", "user1");
@@ -216,13 +216,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             _claimsExtractor.ExtractImpl = () => new[] { claim1, claim2 };
 
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: "test");
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
             _claimsExtractor.ExtractImpl = () => new[] { claim2, claim1 };
 
-            var newRequest = new CreateExportRequest(RequestUrl, ExportJobType.All);
+            var newRequest = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: "test");
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 

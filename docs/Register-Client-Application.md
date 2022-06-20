@@ -6,7 +6,7 @@ In this guide we are going to cover how to registering a confidential client and
 
 ## Register a confidential client application
 
-You can register a confidential client application following most of the steps in the [managed service tutorial](https://docs.microsoft.com/azure/healthcare-apis/register-confidential-azure-ad-client-app). The only difference is that you grant permissions by using the defined app roles that you created when you registered your [resource application](https://github.com/microsoft/fhir-server/blob/master/docs/Register-Resource-Application.md).
+You can register a confidential client application following most of the steps in the [managed service tutorial](https://docs.microsoft.com/azure/healthcare-apis/register-confidential-azure-ad-client-app). The only difference is that you grant permissions by using the defined app roles that you created when you registered your [resource application](https://github.com/microsoft/fhir-server/blob/main/docs/Register-Resource-Application.md).
 
 1. Select **API permissions** from the portal
 1. Select **Add a permission**

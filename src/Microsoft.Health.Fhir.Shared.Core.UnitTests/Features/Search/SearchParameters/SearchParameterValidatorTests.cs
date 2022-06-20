@@ -15,12 +15,15 @@ using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterValidatorTests
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();

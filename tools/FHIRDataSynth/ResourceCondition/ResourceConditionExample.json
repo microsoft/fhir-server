@@ -1,0 +1,38 @@
+{
+  "resourceType": "Condition",
+  "id": "53bb16f0-d191-fea9-4226-db1bc1bcdd46",
+  "clinicalStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+        "code": "active"
+      }
+    ]
+  },
+  "verificationStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+        "code": "confirmed"
+      }
+    ]
+  },
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "162864005",
+        "display": "Body mass index 30+ - obesity (finding)"
+      }
+    ],
+    "text": "Body mass index 30+ - obesity (finding)"
+  },
+  "subject": {
+    "reference": "Patient/b94f4f93-5270-c8d5-012c-060c5754d157"
+  },
+  "encounter": {
+    "reference": "Encounter/5eb94985-888f-d58c-d8b8-a629b34aee0e"
+  },
+  "onsetDateTime": "2002-06-24T17:01:53+00:00",
+  "recordedDate": "2002-06-24T17:01:53+00:00"
+}

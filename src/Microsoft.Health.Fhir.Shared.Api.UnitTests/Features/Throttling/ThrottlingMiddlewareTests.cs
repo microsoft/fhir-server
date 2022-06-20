@@ -5,12 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Io;
+using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -23,6 +26,9 @@ using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Configs;
 using NSubstitute;
 using Xunit;
+
+// import just the type, as Model namespace collides with System.Threading.Tasks
+using OperationOutcome = Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 {
@@ -231,6 +237,28 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.Equal(429, _httpContext.Response.StatusCode);
             Assert.True(_httpContext.Response.Headers.TryGetValue("Retry-After", out var values));
             Assert.Equal("1", values.ToString());
+        }
+
+        [Fact]
+        public async Task GivenARequest_ThatResultsInRequestRateExceeded_ReturnsValidFhirResource()
+        {
+            var throttlingMiddleware = new ThrottlingMiddleware(
+                context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
+                Options.Create(_throttlingConfiguration),
+                Options.Create(new SecurityConfiguration()),
+                NullLogger<ThrottlingMiddleware>.Instance);
+
+            _httpContext.Response.Body = new MemoryStream();
+            await throttlingMiddleware.Invoke(_httpContext);
+
+            // reset pointer to beginning of buffer, otherwise ReadToEnd will return an empty string
+            _httpContext.Response.Body.Position = 0;
+            var responseBody = new StreamReader(_httpContext.Response.Body).ReadToEnd();
+
+            JsonSerializerOptions options = new JsonSerializerOptions().ForFhir(typeof(OperationOutcome).Assembly);
+            OperationOutcome resourceType = JsonSerializer.Deserialize<OperationOutcome>(responseBody, options);
+
+            Assert.Equal(OperationOutcome.IssueType.Throttled, resourceType.Issue[0].Code);
         }
 
         private List<(Task task, HttpContext httpContext, CancellationTokenSource cancellationTokenSource)> SetupPreexistingRequests(int numberOfConcurrentRequests, string path = "")

@@ -14,7 +14,9 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
@@ -22,6 +24,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait(Traits.Category, Categories.Search)]
     public class SearchConverterForAllSearchTypes : IClassFixture<SearchParameterFixtureData>
     {
         private readonly SearchParameterFixtureData _fixture;

@@ -60,14 +60,18 @@
     "start": "2013-12-10T09:00:00Z",
     "end": "2013-12-10T11:00:00Z",
     "created": "2013-10-10",
-    "comment": "Further expand on the results of the MRI and determine the next actions that may be appropriate.",
+    "note": [
+        {
+            "text": "Further expand on the results of the MRI and determine the next actions that may be appropriate."
+        }
+    ],
     "participant": [
         {
             "actor": {
                 "reference": "Patient/example",
                 "display": "Peter James Chalmers"
             },
-            "required": "required",
+            "required": true,
             "status": "accepted"
         },
         {
@@ -85,7 +89,7 @@
                 "reference": "Practitioner/example",
                 "display": "Dr Adam Careful"
             },
-            "required": "required",
+            "required": true,
             "status": "accepted"
         },
         {
@@ -93,7 +97,7 @@
                 "reference": "Location/1",
                 "display": "South Wing, second floor"
             },
-            "required": "required",
+            "required": true,
             "status": "accepted"
         }
     ]

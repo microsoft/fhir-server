@@ -5,8 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -20,15 +18,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private ExportFileManager _exportFileManager;
         private ExportJobRecord _exportJobRecord;
         private IExportDestinationClient _exportDestinationClient;
-        private CancellationToken _cancellationTokenNone = CancellationToken.None;
         private readonly string _exportJobConfigurationFormat;
 
         public ExportFileManagerTests()
         {
             _exportDestinationClient = Substitute.For<IExportDestinationClient>();
-            _exportDestinationClient
-                .CreateFileAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns<Uri>(callInfo => new Uri("https://localhost/" + callInfo.ArgAt<string>(0)));
 
             _exportJobConfigurationFormat = $"{ExportFormatTags.ResourceName}";
             _exportJobRecord = new ExportJobRecord(
@@ -44,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenMultipleFilesInOrderForResourceTypeInOutput_WhenWriteToFile_ThenWritesToLatestFile()
+        public void GivenMultipleFilesInOrderForResourceTypeInOutput_WhenWriteToFile_ThenWritesToLatestFile()
         {
             string resourceType = "Patient";
             ExportFileInfo file1 = new ExportFileInfo(resourceType, new Uri("https://localhost/Patient-1.ndjson"), sequence: 1);
@@ -53,13 +47,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file1, file2, file3 });
 
-            await _exportFileManager.WriteToFile(resourceType, "partId", new byte[] { 1 }, _cancellationTokenNone);
+            _exportFileManager.WriteToFile(resourceType, "test");
 
-            await _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file3.FileUri), Arg.Is(_cancellationTokenNone));
+            _exportDestinationClient.Received(1).WriteFilePart(Arg.Is("Patient-4.ndjson"), Arg.Any<string>());
         }
 
         [Fact]
-        public async Task GivenMultipleFilesOutOfOrderForResourceTypeInOutput_WhenWriteToFile_ThenWritesToLatestFile()
+        public void GivenMultipleFilesOutOfOrderForResourceTypeInOutput_WhenWriteToFile_ThenWritesToLatestFile()
         {
             string resourceType = "Patient";
             ExportFileInfo file1 = new ExportFileInfo(resourceType, new Uri("https://localhost/Patient-1.ndjson"), sequence: 1);
@@ -68,13 +62,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file2, file3, file1 });
 
-            await _exportFileManager.WriteToFile(resourceType, "partId", new byte[] { 1 }, _cancellationTokenNone);
+            _exportFileManager.WriteToFile(resourceType, "test");
 
-            await _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file3.FileUri), Arg.Is(_cancellationTokenNone));
+            _exportDestinationClient.Received(1).WriteFilePart(Arg.Is("Patient-4.ndjson"), Arg.Any<string>());
         }
 
         [Fact]
-        public async Task GivenMultipleFilesForMultipleResourceTypeInOutput_WhenWriteToFile_ThenWritesToCorrectLatestFile()
+        public void GivenMultipleFilesForMultipleResourceTypeInOutput_WhenWriteToFile_ThenWritesToCorrectLatestFile()
         {
             string resourceType = "Patient";
             ExportFileInfo file1 = new ExportFileInfo(resourceType, new Uri("https://localhost/Patient-1.ndjson"), sequence: 1);
@@ -87,102 +81,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file2, file1 });
             _exportJobRecord.Output.Add(resourceType2, new List<ExportFileInfo>() { file4, file3 });
 
-            await _exportFileManager.WriteToFile(resourceType2, "partId", new byte[] { 1 }, _cancellationTokenNone);
+            _exportFileManager.WriteToFile(resourceType2, "test");
 
-            await _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file4.FileUri), Arg.Is(_cancellationTokenNone));
+            _exportDestinationClient.Received(1).WriteFilePart(Arg.Is("Observation-3.ndjson"), Arg.Any<string>());
         }
 
         [Fact]
-        public async Task GivenNoFilesInOutput_WhenWriteToFile_ThenDoesNotCallOpenFile()
+        public void GivenNoFilesInOutput_WhenWriteToFile_ThenCreatesNewFile()
         {
-            await _exportFileManager.WriteToFile("Patient", "partId", new byte[] { 1 }, _cancellationTokenNone);
+            _exportFileManager.WriteToFile("Patient", "test");
 
-            await _exportDestinationClient.DidNotReceiveWithAnyArgs().OpenFileAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenNoFilesInOutput_WhenWriteToFile_ThenCreatesNewFile()
-        {
-            await _exportFileManager.WriteToFile("Patient", "partId", new byte[] { 1 }, _cancellationTokenNone);
-
-            await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-1.ndjson"), Arg.Is(_cancellationTokenNone));
+            _exportDestinationClient.Received(1).WriteFilePart(Arg.Is("Patient-1.ndjson"), Arg.Any<string>());
             Assert.Single(_exportJobRecord.Output["Patient"]);
         }
 
         [Fact]
-        public async Task GivenDataExceedsFileSizeLimit_WhenWriteToFile_ThenDoesNotCreateNewFileAfterWriting()
-        {
-            byte[] data = new byte[2 * 1024 * 1024];
-            await _exportFileManager.WriteToFile("Patient", "partId", data, _cancellationTokenNone);
-
-            await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-1.ndjson"), Arg.Is(_cancellationTokenNone));
-            await _exportDestinationClient.Received(1).WriteFilePartAsync(Arg.Any<Uri>(), Arg.Is("partId"), Arg.Is(data), Arg.Is(_cancellationTokenNone));
-            await _exportDestinationClient.DidNotReceive().CreateFileAsync(Arg.Is("Patient-2.ndjson"), Arg.Is(_cancellationTokenNone));
-
-            Assert.Single(_exportJobRecord.Output["Patient"]);
-        }
-
-        [Fact]
-        public async Task GivenDataExceedsFileSizeLimit_WhenWriteToFile_ThenCreatesNewFileAfterNextWriteCall()
-        {
-            byte[] data = new byte[2 * 1024 * 1024];
-            byte[] data2 = new byte[1];
-
-            await _exportFileManager.WriteToFile("Patient", "partId", data, _cancellationTokenNone);
-            await _exportFileManager.WriteToFile("Patient", "partId2", data2, _cancellationTokenNone);
-
-            await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-1.ndjson"), Arg.Is(_cancellationTokenNone));
-            await _exportDestinationClient.Received(1).WriteFilePartAsync(Arg.Any<Uri>(), Arg.Is("partId"), Arg.Is(data), Arg.Is(_cancellationTokenNone));
-            await _exportDestinationClient.Received(1).WriteFilePartAsync(Arg.Any<Uri>(), Arg.Is("partId2"), Arg.Is(data2), Arg.Is(_cancellationTokenNone));
-            await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-2.ndjson"), Arg.Is(_cancellationTokenNone));
-
-            Assert.Equal(2, _exportJobRecord.Output["Patient"].Count);
-        }
-
-        [Fact]
-        public async Task GivenExportJobRecordV1_WhenWriteToFile_ThenNewFileDoesNotHaveSequence()
+        public void GivenExportJobRecordV1_WhenWriteToFile_ThenNewFileDoesNotHaveSequence()
         {
             InitializeManagerWithV1ExportJobRecord();
 
-            await _exportFileManager.WriteToFile("Patient", "partId", new byte[] { 1 }, _cancellationTokenNone);
+            _exportFileManager.WriteToFile("Patient", "test");
 
-            await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient.ndjson"), Arg.Is(_cancellationTokenNone));
+            _exportDestinationClient.Received(1).WriteFilePart(Arg.Is("Patient.ndjson"), Arg.Any<string>());
             Assert.Single(_exportJobRecord.Output["Patient"]);
         }
 
         [Fact]
-        public async Task GivenExportJobRecordV1AndNoRollingFilzeSizeLimit_WhenWriteToFile_ThenDataWrittenToOneFile()
+        public void GivenExportJobRecordV1AndNoRollingFilzeSizeLimit_WhenWriteToFile_ThenDataWrittenToOneFile()
         {
             InitializeManagerWithV1ExportJobRecord();
 
-            byte[] data = new byte[2 * 1024 * 1024];
-            await _exportFileManager.WriteToFile("Patient", "partId1", data, _cancellationTokenNone);
-            await _exportFileManager.WriteToFile("Patient", "partId2", data, _cancellationTokenNone);
+            string data = "other test";
+            _exportFileManager.WriteToFile("Patient", data);
+            _exportFileManager.WriteToFile("Patient", data);
 
-            await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient.ndjson"), Arg.Is(_cancellationTokenNone));
-            await _exportDestinationClient.Received(1).WriteFilePartAsync(Arg.Any<Uri>(), Arg.Is("partId1"), Arg.Is(data), Arg.Is(_cancellationTokenNone));
-            await _exportDestinationClient.Received(1).WriteFilePartAsync(Arg.Any<Uri>(), Arg.Is("partId2"), Arg.Is(data), Arg.Is(_cancellationTokenNone));
+            _exportDestinationClient.Received(2).WriteFilePart(Arg.Is("Patient.ndjson"), Arg.Is(data));
             Assert.Single(_exportJobRecord.Output["Patient"]);
-        }
-
-        [Fact]
-        public async Task GivenExportJobRecordV1WithFilesInOutput_WhenWriteToFile_ThenAllFilesAreOpened()
-        {
-            InitializeManagerWithV1ExportJobRecord();
-
-            string resourceType = "Patient";
-            ExportFileInfo file1 = new ExportFileInfo(resourceType, new Uri("https://localhost/Patient.ndjson"), sequence: 0);
-
-            string resourceType2 = "Observation";
-            ExportFileInfo file2 = new ExportFileInfo(resourceType2, new Uri("https://localhost/Observation.ndjson"), sequence: 0);
-
-            _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file1 });
-            _exportJobRecord.Output.Add(resourceType2, new List<ExportFileInfo>() { file2 });
-
-            await _exportFileManager.WriteToFile("Claim", "partId", new byte[] { 1 }, _cancellationTokenNone);
-
-            await _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file1.FileUri), Arg.Is(_cancellationTokenNone));
-            await _exportDestinationClient.Received(1).OpenFileAsync(Arg.Is(file2.FileUri), Arg.Is(_cancellationTokenNone));
         }
 
         private void InitializeManagerWithV1ExportJobRecord()

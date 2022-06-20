@@ -100,9 +100,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
+            var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var sqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, config);
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), new SqlCommandWrapperFactory(), sqlConnectionBuilder);
+            var sqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             schemaInformation.Current = SchemaVersionConstants.Max;

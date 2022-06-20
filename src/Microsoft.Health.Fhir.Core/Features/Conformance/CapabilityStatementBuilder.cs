@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Version = versionString,
             };
 
-            statement.FhirVersion = modelInfoProvider.SupportedVersion.ToString();
+            statement.FhirVersion = modelInfoProvider.SupportedVersion.VersionString;
             statement.Date = ProductVersionInfo.CreationTime.ToString("O");
             return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles);
         }

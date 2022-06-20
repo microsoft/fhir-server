@@ -72,12 +72,30 @@
     },
     "relatesTo": [
         {
-            "code": "transforms",
-            "target": { "reference": "DocumentReference/example-transforms" }
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://hl7.org/fhir/document-relationship-type",
+                        "code": "transforms"
+                    }
+                ]
+            },
+            "target": {
+                "reference": "DocumentReference/example-transforms"
+            }
         },
         {
-            "code": "replaces",
-            "target": { "reference": "DocumentReference/example-replaces" }
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://hl7.org/fhir/document-relationship-type",
+                        "code": "replaces"
+                    }
+                ]
+            },
+            "target": {
+                "reference": "DocumentReference/example-replaces"
+            }
         }
     ],
     "description": "Physical",

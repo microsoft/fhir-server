@@ -5,6 +5,7 @@
 
 using System.Linq;
 using System.Reflection;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -12,6 +13,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -31,11 +33,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            SqlTransactionHandler sqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(Substitute.For<SqlTransactionHandler>(), new SqlCommandWrapperFactory(), Substitute.For<ISqlConnectionBuilder>());
-            var sqlServerTransient = Substitute.For<ISqlServerTransientFaultRetryPolicyFactory>();
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(Substitute.For<SqlTransactionHandler>(), Substitute.For<ISqlConnectionBuilder>(), SqlConfigurableRetryFactory.CreateNoneRetryProvider(), Options.Create(new SqlServerDataStoreConfiguration()));
 
-            _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerTransient, Substitute.For<ISqlServerFhirModel>(), operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
+            _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, Substitute.For<ISqlServerFhirModel>(), operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
         }
 
         [Fact]

@@ -7,8 +7,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
     public static class SchemaVersionConstants
     {
-        public const int Min = (int)SchemaVersion.V4;
-        public const int Max = (int)SchemaVersion.V28;
+        public const int Min = (int)SchemaVersion.V32;
+        public const int Max = (int)SchemaVersion.V36;
         public const int SearchParameterStatusSchemaVersion = (int)SchemaVersion.V6;
         public const int SupportForReferencesWithMissingTypeVersion = (int)SchemaVersion.V7;
         public const int SearchParameterHashSchemaVersion = (int)SchemaVersion.V8;
@@ -22,6 +22,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int AddPrimaryKeyForResourceTable = (int)SchemaVersion.V25;
         public const int RenamedIndexForResourceTable = (int)SchemaVersion.V26;
         public const int PutCreateWithVersionedUpdatePolicyVersion = (int)SchemaVersion.V27;
+        public const int RemoveCountForGexNextTaskStoredProcedure = (int)SchemaVersion.V29;
+        public const int PreventUpdatesFromCreatingVersionWhenNoImpact = (int)SchemaVersion.V30;
+        public const int SupportParentTask = (int)SchemaVersion.V33;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

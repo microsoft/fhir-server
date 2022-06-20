@@ -1,0 +1,8 @@
+/.vs/
+/bin/
+/obj/
+/Properties/
+/FHIRDataSynth.csproj.user
+
+#unignore generated files
+!*.generated.cs

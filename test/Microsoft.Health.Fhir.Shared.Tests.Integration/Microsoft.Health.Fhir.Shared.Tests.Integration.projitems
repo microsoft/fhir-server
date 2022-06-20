@@ -22,7 +22,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\SqlServerFhirDataBulkOperationTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\TestSqlServerTransientFaultRetryPolicyFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageVersioningPolicyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterStatusDataStoreTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSchemaUpgradeTests.cs" />
@@ -38,8 +37,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestsFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSqlCompatibilityTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTaskConsumerTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTaskManagerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlQueueClientTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTransactionScopeTests.cs" />
   </ItemGroup>
 </Project>

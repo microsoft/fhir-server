@@ -39,9 +39,9 @@ The current data store used by Azure API for FHIR is Cosmos DB, the following st
 
 ### Steps
 
-1. To create a test environment for the release, we can leverage the [default-azuredeploy-docker.json](https://github.com/microsoft/fhir-server/blob/master/samples/templates/default-azuredeploy-docker.json) template. 
+1. To create a test environment for the release, we can leverage the [default-azuredeploy-docker.json](https://github.com/microsoft/fhir-server/blob/main/samples/templates/default-azuredeploy-docker.json) template. 
 
-1. Use the [Quickstart guide](https://github.com/microsoft/fhir-server/blob/master/docs/QuickstartDeployCLI.md) if you are unfamiliar with CloudShell and starting with Azure CLI.
+1. Use the [Quickstart guide](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployCLI.md) if you are unfamiliar with CloudShell and starting with Azure CLI.
 
 1. Using Azure CLI create a resource group for the test server:
 
@@ -53,7 +53,7 @@ The current data store used by Azure API for FHIR is Cosmos DB, the following st
 1. Deploy the latest release (the default image) of the FHIR Server:
 
     ```azurecli-interactive
-    az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy-docker.json --parameters serviceName=$servicename
+    az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json --parameters serviceName=$servicename
     ```
 
     Note: We have the ability to pass in the `-imageTag` parameter in the format shown above if we wanted to target a specific release, refer the the [releases page](https://github.com/microsoft/fhir-server/releases). For example `-imageTag build-20200101-1`
@@ -84,9 +84,9 @@ As all the steps above use the CLI, this process could be scripted into a CI env
 
 ## Additional information
 
-- If you use Azure Pipelines for your CI environment there are examples of creating, testing and removing these environments, including authentication in the [/build/](https://github.com/microsoft/fhir-server/tree/master/build) folder.
+- If you use Azure Pipelines for your CI environment there are examples of creating, testing and removing these environments, including authentication in the [/build/](https://github.com/microsoft/fhir-server/tree/main/build) folder.
 
-- [Quickstart guide for PowerShell](https://github.com/microsoft/fhir-server/blob/master/docs/QuickstartDeployPowerShell.md) contains many of the commands with alternate PS syntax.
+- [Quickstart guide for PowerShell](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployPowerShell.md) contains many of the commands with alternate PS syntax.
 
 ## Disclaimer
 
