@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             EnsureArg.IsNotNull(options?.Value, nameof(options));
 
+            // testing 2fa issues with git push
+
             try
             {
                 _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver);
