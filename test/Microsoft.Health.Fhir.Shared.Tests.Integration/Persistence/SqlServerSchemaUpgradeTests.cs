@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     SchemaVersionConstants.Max,
                     forceIncrementalSchemaUpgrade: true);
 
-                var diff = CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                var diff = await CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
                 Assert.True(string.IsNullOrEmpty(diff), diff);
             }
             finally
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return (testHelper, schemaUpgradeRunner);
         }
 
-        private string CompareDatabaseSchemas(string databaseName1, string databaseName2)
+        private async Task<string> CompareDatabaseSchemas(string databaseName1, string databaseName2)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
@@ -295,7 +295,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // if TransactionCheckWithInitialiScript(which has current version as x-1) is not updated with the new x version then x.sql will have a wrong version inserted into SchemaVersion table
             // this will cause an entry like (x-1, started) and (x, completed) at the end of of the transaction in fullsnapshot database (testConnectionString1)
             // If any schema version is in started state then there might be a problem
-            if (SchemaVersionInStartedState(testConnectionString1).Result || SchemaVersionInStartedState(testConnectionString2).Result)
+            if (await SchemaVersionInStartedState(testConnectionString1) || await SchemaVersionInStartedState(testConnectionString2))
             {
                 // if the test hits below statement then there is a possibility that TransactionCheckWithInitialiScript is not updated with the new version
                 unexpectedDifference.AppendLine("Different SchemaVersionInStartedState.Result");

@@ -61,6 +61,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The configuration collection reference &apos;{0}&apos; is not configured..
+        /// </summary>
+        public static string AnonymizationConfigCollectionNotConfigured {
+            get {
+                return ResourceManager.GetString("AnonymizationConfigCollectionNotConfigured", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The parameters &apos;_anonymizationConfigEtag&apos; and &apos;_anonymizationConfigCollectionReference&apos; cannot be given in the same request. Please only specify one of them..
+        /// </summary>
+        public static string AnonymizationParameterConflict {
+            get {
+                return ResourceManager.GetString("AnonymizationParameterConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Back to top.
         /// </summary>
         public static string BackToTop {
@@ -255,6 +273,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InputDataTypeAndDefaultTemplateCollectionInconsistent {
             get {
                 return ResourceManager.GetString("InputDataTypeAndDefaultTemplateCollectionInconsistent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The configuration collection reference &apos;{0}&apos; is invalid..
+        /// </summary>
+        public static string InvalidAnonymizationConfigCollectionReference {
+            get {
+                return ResourceManager.GetString("InvalidAnonymizationConfigCollectionReference", resourceCulture);
             }
         }
         

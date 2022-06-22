@@ -1,6 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
     <IsPackable>true</IsPackable>
     <RootNamespace>Microsoft.Health.Fhir.Tests.E2E</RootNamespace>
     <IncludeContentInPack>false</IncludeContentInPack>
@@ -16,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportUsingAcrTests.cs" Link="Rest\AnonymizedExportUsingAcrTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportTests.cs" Link="Rest\AnonymizedExportTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\ConvertDataTests.cs" Link="Rest\ConvertDataTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\CustomConvertDataTests.cs" Link="Rest\CustomConvertDataTests.cs" />
@@ -34,7 +34,6 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="6.0.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
@@ -75,5 +74,4 @@
       <BuiltProjectOutputGroupOutput Include="$(ProjectRuntimeConfigFilePath)" FinalOutputPath="$(ProjectRuntimeConfigFilePath)" />
     </ItemGroup>
   </Target>
-  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Smart\Microsoft.Health.Fhir.Shared.Tests.Smart.projitems" Label="Shared" />
 </Project>

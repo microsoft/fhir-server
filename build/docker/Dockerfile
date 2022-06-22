@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:5.0.408-alpine3.14 AS build
+FROM mcr.microsoft.com/dotnet/sdk:6.0.300-alpine3.15 AS build
 
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
@@ -59,21 +59,15 @@ COPY ./src/Microsoft.Health.Fhir.Shared.Client/Microsoft.Health.Fhir.Shared.Clie
 
 COPY ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems \
      ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems
-
-COPY ./tools/FhirAnalyzer/FhirAnalyzer.csproj \
-     ./tools/FhirAnalyzer/FhirAnalyzer.csproj
-
-RUN dotnet restore ./tools/FhirAnalyzer/FhirAnalyzer.csproj
 RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj
 
 # now copy over everything else and publish
 
 COPY . .
 
-RUN dotnet build /repo/tools/FhirAnalyzer/FhirAnalyzer.csproj
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}"
 
-FROM mcr.microsoft.com/dotnet/aspnet:5.0.17-alpine3.14 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:6.0.5-alpine3.15 AS runtime
 
 ARG FHIR_VERSION
 

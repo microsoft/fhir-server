@@ -4,20 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Import;
-using Microsoft.Health.TaskManagement;
+using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
@@ -27,28 +26,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// </summary>
     public class CreateImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
     {
-        private readonly ITaskManager _taskManager;
-        private readonly ImportTaskConfiguration _importTaskConfiguration;
-        private readonly TaskHostingConfiguration _taskHostingConfiguration;
+        private readonly IQueueClient _queueClient;
+        private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
         private readonly ILogger<CreateImportRequestHandler> _logger;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
         public CreateImportRequestHandler(
-            ITaskManager taskManager,
-            IOptions<OperationsConfiguration> operationsConfig,
-            IOptions<TaskHostingConfiguration> taskHostingConfiguration,
+            IQueueClient queueClient,
+            ISequenceIdGenerator<long> sequenceIdGenerator,
             ILogger<CreateImportRequestHandler> logger,
             IAuthorizationService<DataActions> authorizationService)
         {
-            EnsureArg.IsNotNull(taskManager, nameof(taskManager));
-            EnsureArg.IsNotNull(operationsConfig.Value, nameof(operationsConfig));
-            EnsureArg.IsNotNull(taskHostingConfiguration.Value, nameof(taskHostingConfiguration));
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _taskManager = taskManager;
-            _importTaskConfiguration = operationsConfig.Value.Import;
-            _taskHostingConfiguration = taskHostingConfiguration.Value;
+            _queueClient = queueClient;
+            _sequenceIdGenerator = sequenceIdGenerator;
             _authorizationService = authorizationService;
             _logger = logger;
         }
@@ -62,47 +57,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            string taskId = Guid.NewGuid().ToString("N");
-
-            // Processing task might be dispatch to different environment with differenet queueid later.
-            string processingTaskQueueId = string.IsNullOrEmpty(_importTaskConfiguration.ProcessingTaskQueueId) ? _taskHostingConfiguration.QueueId : _importTaskConfiguration.ProcessingTaskQueueId;
-            ImportOrchestratorTaskInputData inputData = new ImportOrchestratorTaskInputData()
+            ImportOrchestratorJobInputData inputData = new ImportOrchestratorJobInputData()
             {
+                TypeId = ImportOrchestratorJob.ImportOrchestratorTypeId,
                 RequestUri = request.RequestUri,
                 BaseUri = new Uri(request.RequestUri.GetLeftPart(UriPartial.Authority)),
                 Input = request.Input,
                 InputFormat = request.InputFormat,
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
-                MaxConcurrentProcessingTaskCount = _importTaskConfiguration.MaxRunningProcessingTaskCount,
-                ProcessingTaskQueueId = processingTaskQueueId,
-                ProcessingTaskMaxRetryCount = _importTaskConfiguration.MaxRetryCount,
-                TaskId = taskId,
-                TaskCreateTime = Clock.UtcNow,
-                StoreProgressInSubTask = _importTaskConfiguration.StoreProcessingResultInSubTasks,
+                CreateTime = Clock.UtcNow,
+                StartSequenceId = _sequenceIdGenerator.GetCurrentSequenceId(),
             };
 
-            TaskInfo taskInfo = new TaskInfo()
-            {
-                TaskId = taskId,
-                TaskTypeId = ImportOrchestratorTask.ImportOrchestratorTaskId,
-                MaxRetryCount = -1, // Infinit retry for orchestrator task
-                QueueId = _taskHostingConfiguration.QueueId,
-                InputData = JsonConvert.SerializeObject(inputData),
-                ParentTaskId = taskId,
-            };
+            string definition = JsonConvert.SerializeObject(inputData);
 
             try
             {
-                await _taskManager.CreateTaskAsync(taskInfo, true, cancellationToken);
+                JobInfo jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, true, false, cancellationToken)).First();
+                return new CreateImportResponse(jobInfo.Id.ToString());
             }
-            catch (TaskConflictException)
+            catch (JobManagement.JobConflictException)
             {
-                _logger.LogInformation("Already a running import task.");
-                throw new OperationFailedException(Core.Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
+                _logger.LogInformation("Already a running import job.");
+                throw new OperationFailedException(Core.Resources.ImportJobIsRunning, HttpStatusCode.Conflict);
             }
-
-            return new CreateImportResponse(taskId);
         }
     }
 }

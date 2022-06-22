@@ -63,13 +63,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
         {
-            return Create(null, null, resourceType, queryParameters);
+            return Create(null, null, resourceType, queryParameters, isAsyncOperation);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
-        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
         {
             var searchOptions = new SearchOptions();
 
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // Query parameter with empty value is not supported.
                     unsupportedSearchParameters.Add(query);
                 }
-                else if (string.Compare(query.Item1, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase) == 0)
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase))
                 {
                     if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
                     {
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 searchOptions.MaxItemCountSpecifiedByClient = true;
 
-                if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch && !isAsyncOperation)
                 {
                     searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 

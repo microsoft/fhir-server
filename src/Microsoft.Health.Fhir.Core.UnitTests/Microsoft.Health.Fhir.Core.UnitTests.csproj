@@ -1,10 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
-  </PropertyGroup>
   <ItemGroup>
     <None Remove="TestFiles\ExportJobRecordV1.json" />
     <None Remove="TestFiles\ExportJobRecordV2.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Microsoft.Health.TaskManagement.UnitTests\TestQueueClient.cs" Link="Features\Operations\Import\TestQueueClient.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="TestFiles\ExportJobRecordV1.json" />

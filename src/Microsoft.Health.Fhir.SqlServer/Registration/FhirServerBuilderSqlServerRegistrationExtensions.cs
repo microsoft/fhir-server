@@ -116,17 +116,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerTaskManager>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlServerTaskConsumer>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlServerTaskContextUpdaterFactory>()
+            services.Add<SqlQueueClient>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();

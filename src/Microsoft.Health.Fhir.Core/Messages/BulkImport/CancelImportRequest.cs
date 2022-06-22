@@ -3,23 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
 using MediatR;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
     public class CancelImportRequest : IRequest<CancelImportResponse>
     {
-        public CancelImportRequest(string taskId)
+        public CancelImportRequest(long jobId)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(taskId, nameof(taskId));
-
-            TaskId = taskId;
+            JobId = jobId;
         }
 
         /// <summary>
-        /// Import orchestrator task id
+        /// Import orchestrator job id
         /// </summary>
-        public string TaskId { get; }
+        public long JobId { get; }
     }
 }

@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Configs;
 using Task = System.Threading.Tasks.Task;
 
@@ -36,44 +36,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         Task ConnectAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken, string containerId = null);
 
         /// <summary>
-        /// Creates a new file in the destination.
+        /// Writes part of the file to local data buffer.
         /// </summary>
-        /// <param name="fileName">The file name.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous file creation operation.</returns>
-        Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken);
+        /// <param name="fileName">The name of the file.</param>
+        /// <param name="data">The string to write.</param>
+        void WriteFilePart(string fileName, string data);
 
         /// <summary>
-        /// Writes part of the file.
+        /// Commits all changes to storage.
         /// </summary>
-        /// <param name="fileUri">The URI of the file.</param>
-        /// <param name="partId">The part ID.</param>
-        /// <param name="bytes">The bytes array to write.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous write operation.</returns>
-        Task WriteFilePartAsync(Uri fileUri, string partId, byte[] bytes, CancellationToken cancellationToken);
+        /// <returns> A dictionary of URIs to the files commited, keyed by their file names </returns>
+        IDictionary<string, Uri> Commit();
 
         /// <summary>
-        /// Commits the written parts of the file.
+        /// Commits a single file to storage.
         /// </summary>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
-        Task CommitAsync(CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Commits the written parts of the file to a specified location.  Must be used in tandom with the ConnectAsync that takes an ExportJobConfiguration.
-        /// </summary>
-        /// <param name="exportJobConfiguration">The job configuration to use for this call.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
-        Task CommitAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Opens an existing file from the destination.
-        /// </summary>
-        /// <param name="fileUri">Uri of the file to be opened.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
-        Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken);
+        /// <param name="fileName">The name of the file to commit</param>
+        /// <returns>The URI to the file commited</returns>
+        Uri CommitFile(string fileName);
     }
 }
