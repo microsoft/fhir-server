@@ -163,6 +163,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
+        // SAM TESTS START
+
+        [Fact]
+        public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsValid_ThenAnOkMessageIsReturned()
+        {
+// #if !stu3
+            var fhirSource = Samples.GetJson("Profile-Patient-PassUsCore-Example");
+
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
+
+            Assert.Equal(2, outcome.Issue.Count());
+            Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[0].Code);
+            Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[1].Code);
+
+// #endif
+        }
+
+        [Fact]
+        public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsNotValid_ThenAnErrorShouldBeReturned()
+        {
+// #if !stu3
+            var fhirSource = Samples.GetJson("Profile-Patient-FailUsCore-Example");
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
+            Assert.Equal(3, outcome.Issue.Count());
+            Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[0].Code);
+            Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[1].Code);
+            Assert.Equal(OperationOutcome.IssueType.Informational, outcome.Issue[2].Code);
+
+// #endif
+        }
+
+        // SAM TESTS END
+
         [Fact]
         public async void GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()
         {

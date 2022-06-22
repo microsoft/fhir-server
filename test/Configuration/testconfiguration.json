@@ -8,7 +8,13 @@
         },
         "Operations": {
             "Validate": {
-                "CacheDurationInSeconds": 0
+                "CacheDurationInSeconds": 14400,
+                //"ExternalTerminologyServer": "https://localhost:44349/"
+                "ExternalTerminologyServer": "http://hapi.fhir.org/baseR4"
+                //"ExternalTerminologyServer": "http://tx.fhir.org/r4"
+                //"ExternalTerminologyServer": "https://r4.ontoserver.csiro.au/fhir"
+                //"ExternalTerminologyServer": "https://cts.nlm.nih.gov/fhir",
+                //"ApiKey": "acb7c7ec-e7d1-426d-870f-9e166343fcac"
             }
         }
     }
