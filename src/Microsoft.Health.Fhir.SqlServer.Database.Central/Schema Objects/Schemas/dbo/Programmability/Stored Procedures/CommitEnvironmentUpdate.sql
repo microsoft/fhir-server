@@ -31,7 +31,8 @@ BEGIN CATCH
   IF EXISTS (SELECT * FROM sys.triggers WHERE name = 'ShardsUpdDel' AND parent_id = object_id('Shards'))
     ENABLE TRIGGER ShardsUpdDel ON dbo.Shards
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error'
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
 END CATCH
 GO
 

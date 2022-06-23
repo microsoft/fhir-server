@@ -11,7 +11,7 @@
     <OutputType>Database</OutputType>
     <RootPath>
     </RootPath>
-    <RootNamespace>Microsoft.Health.Fhir.SqlServer.Database</RootNamespace>
+    <RootNamespace>Microsoft.Health.Fhir.SqlServer.Database.Central</RootNamespace>
     <AssemblyName>Microsoft.Health.Fhir.SqlServer.Database.Central</AssemblyName>
     <ModelCollation>1033, CI</ModelCollation>
     <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
@@ -126,9 +126,9 @@
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\BeginEnvironmentUpdate.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\CheckTransactionHeartbeat.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\CommitEnvironmentUpdate.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\CompleteTransaction.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\CompleteTransactionAdvanceVisibility.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\CreateTransaction.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\CommitTransaction.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\CommitTransactionAdvanceVisibility.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\BeginTransaction.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetShardlets.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetShards.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetTransactionById.sql" />

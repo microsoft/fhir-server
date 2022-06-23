@@ -17,23 +17,24 @@ namespace Microsoft.Health.Fhir.Store.Sharding
     /// <summary>
     /// Handles all communication between the API and SQL Server.
     /// </summary>
-    public partial class SqlService
+    public partial class SqlService : SqlUtils.SqlService
     {
-        internal SqlService(string centralConnectionString)
+        public SqlService(string centralConnectionString)
+            : base(centralConnectionString)
         {
-            CentralStoreConnectionString = centralConnectionString;
-            ShardletMap = new ShardletMap(CentralStoreConnectionString, -1);
+            ShardletMap = new ShardletMap(ConnectionString, -1);
+            ShardIds = ShardletMap.Shards.Keys.ToList();
         }
 
-        internal string CentralStoreConnectionString { get; private set; }
-
-        internal ShardletMap ShardletMap { get; private set; }
+        public ShardletMap ShardletMap { get; private set; }
 
         internal int NumberOfShards => ShardletMap.Shards.Count;
 
+        private IList<ShardId> ShardIds { get; }
+
         public SqlConnection GetConnection(ShardId? shardId = null, int connectionTimeoutSec = 600)
         {
-            return GetConnection(shardId == null ? CentralStoreConnectionString : ShardletMap.Shards[shardId.Value].ConnectionString, connectionTimeoutSec);
+            return GetConnection(shardId == null ? ConnectionString : ShardletMap.Shards[shardId.Value].ConnectionString, connectionTimeoutSec);
         }
 
         internal static SqlConnection GetConnection(string connectionString, int connectionTimeoutSec = 600)
@@ -157,31 +158,31 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             return ShardletMap.GetShardsInfo().Item1[shardletId];
         }
 
-        internal IDictionary<ShardId, IList<T>> GetShardedIds<T>(IEnumerable<T> ids, Func<T, long> getId)
-        {
-            var shardedList = new Dictionary<ShardId, IList<T>>();
-            var shardMap = ShardletMap.GetShardsInfo().Item1;
-            foreach (var id in ids)
-            {
-                var shardId = GetShardIdFromLong(getId(id), shardMap);
-                IList<T> list;
-                if (!shardedList.TryGetValue(shardId, out list))
-                {
-                    list = new List<T>();
-                    shardedList.Add(shardId, list);
-                }
+        ////internal IDictionary<ShardId, IList<T>> GetShardedIds<T>(IEnumerable<T> ids, Func<T, long> getId)
+        ////{
+        ////    var shardedList = new Dictionary<ShardId, IList<T>>();
+        ////    var shardMap = ShardletMap.GetShardsInfo().Item1;
+        ////    foreach (var id in ids)
+        ////    {
+        ////        var shardId = GetShardIdFromLong(getId(id), shardMap);
+        ////        IList<T> list;
+        ////        if (!shardedList.TryGetValue(shardId, out list))
+        ////        {
+        ////            list = new List<T>();
+        ////            shardedList.Add(shardId, list);
+        ////        }
 
-                list.Add(id);
-            }
+        ////        list.Add(id);
+        ////    }
 
-            return shardedList;
-        }
+        ////    return shardedList;
+        ////}
 
-        internal static ShardId GetShardIdFromLong(long id, IDictionary<ShardletId, ShardId> shardletToShardMap)
-        {
-            var shardletId = new SmartId(id).ParseShardletId();
-            return shardletToShardMap[shardletId];
-        }
+        ////internal static ShardId GetShardIdFromLong(long id, IDictionary<ShardletId, ShardId> shardletToShardMap)
+        ////{
+        ////    var shardletId = new SmartId(id).ParseShardletId();
+        ////    return shardletToShardMap[shardletId];
+        ////}
 
         internal static void ForEachShard(IList<ShardId> shardIds, Action<ShardId> action)
         {
@@ -197,36 +198,14 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             ForEachShard(shardIds, action);
         }
 
-        internal static void ParallelForEachShard(IList<ShardId> shardIds, Action<ShardId> action, CancelRequest cancel)
+        public static void ParallelForEachShard(IList<ShardId> shardIds, Action<ShardId> action, CancelRequest cancel)
         {
             BatchExtensions.ParallelForEach(shardIds, shardIds.Count, (thread, shardId) => { action(shardId); }, cancel);
         }
 
-        internal void ParallelForEachShard(Action<ShardId> action, int timeoutSec, CancelRequest cancel)
+        public void ParallelForEachShard(Action<ShardId> action, CancelRequest cancel)
         {
-            var shardIds = ShardletMap.GetShardsInfo().Item2.Keys.ToList();
-            ParallelForEachShard(shardIds, action, cancel);
-        }
-
-        internal void PutChangeSetHeartBeat(TransactionId changeSetId, DateTime? explicitDate)
-        {
-            using (var connection = GetConnection((ShardId?)null))
-            {
-                using (var command = new SqlCommand("dbo.PutChangeSetHeartBeat", connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = 60 })
-                {
-                    command.Parameters.AddWithValue("@ChangeSetId", changeSetId.Id);
-                    if (explicitDate.HasValue)
-                    {
-                        command.Parameters.AddWithValue("@Date", explicitDate.Value);
-                    }
-                    else
-                    {
-                        command.Parameters.AddWithValue("@Date", DBNull.Value);
-                    }
-
-                    command.ExecuteNonQuery();
-                }
-            }
+            ParallelForEachShard(ShardIds, action, cancel);
         }
     }
 }

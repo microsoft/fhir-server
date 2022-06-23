@@ -3,7 +3,7 @@ GO
 CREATE TABLE dbo.Shardlets
 (
      Version          int       NOT NULL
-    ,ShardletId       smallint  NOT NULL
+    ,ShardletId       tinyint   NOT NULL
     ,ShardId          tinyint   NOT NULL
     ,ChangeDate       datetime  NOT NULL CONSTRAINT DF_Shardlets_ChangeDate DEFAULT getUTCdate() 
 
@@ -14,7 +14,7 @@ GO
 CREATE TRIGGER dbo.ShardletsIns ON dbo.Shardlets FOR INSERT
 AS
 BEGIN
-  IF (SELECT count(*) FROM dbo.Shardlets WHERE Version = (SELECT max(Version) FROM Shards)) <> 2048
+  IF (SELECT count(*) FROM dbo.Shardlets WHERE Version = (SELECT max(Version) FROM Shards)) <> 256
   BEGIN
     RAISERROR('All shardlets must be assigned', 18, 127)
     ROLLBACK TRANSACTION

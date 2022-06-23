@@ -11,7 +11,7 @@
     <OutputType>Database</OutputType>
     <RootPath>
     </RootPath>
-    <RootNamespace>Microsoft.Health.Fhir.SqlServer.Database</RootNamespace>
+    <RootNamespace>Microsoft.Health.Fhir.SqlServer.Database.Distributed</RootNamespace>
     <AssemblyName>Microsoft.Health.Fhir.SqlServer.Database.Distributed</AssemblyName>
     <ModelCollation>1033, CI</ModelCollation>
     <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
@@ -115,5 +115,18 @@
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\TokenTextList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\TokenTokenCompositeSearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Tables\ShardTransactions.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\CompartmentAssignment.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\DateTimeSearchParam.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\QuantitySearchParam.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\ReferenceSearchParam.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\Resource.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\StringSearchParam.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\TokenQuantityCompositeSearchParam.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\TokenSearchParam.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\TokenStringCompositeSearchParam.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\TokenText.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\TokenTokenCompositeSearchParam.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\MergeResources.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutShardTransaction.sql" />
   </ItemGroup>
 </Project>

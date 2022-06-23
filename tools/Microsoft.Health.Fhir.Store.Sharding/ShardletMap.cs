@@ -61,19 +61,18 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         private string ApplyCentralSecurityToShardConnectionString(string connectionString)
         {
             var builder = new SqlConnectionStringBuilder(connectionString);
-
             if (CentralStoreIntegratedSecurity)
             {
-                builder.IntegratedSecurity = CentralStoreIntegratedSecurity;
+                return $"server={builder.DataSource};database={builder.InitialCatalog};untegrated security=true";
             }
-
-            if (string.IsNullOrEmpty(builder.UserID))
+            else if (string.IsNullOrEmpty(builder.UserID))
             {
-                builder.UserID = CentralStoreUserId;
-                builder.Password = CentralStorePassword;
+                return $"server={builder.DataSource};database={builder.InitialCatalog};user={CentralStoreUserId};pwd={CentralStorePassword}";
             }
-
-            return builder.ToString();
+            else
+            {
+                throw new InvalidOperationException();
+            }
         }
 
         private void Init(int version)
@@ -100,7 +99,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                                 var shardId = new ShardId(reader.GetByte(0));
                                 var connectionString = reader.GetString(1);
                                 connectionString = ApplyCentralSecurityToShardConnectionString(connectionString);
-                                var shardletId = new ShardletId(reader.GetInt16(2));
+                                var shardletId = new ShardletId(reader.GetByte(2));
                                 var versionInt = reader.GetInt32(3);
                                 shardletIds.Add(shardletId);
                                 shardletShards.Add(shardletId, shardId);

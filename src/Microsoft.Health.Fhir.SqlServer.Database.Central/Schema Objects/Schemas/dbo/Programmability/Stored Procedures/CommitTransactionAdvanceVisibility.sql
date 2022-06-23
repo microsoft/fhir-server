@@ -1,6 +1,6 @@
---DROP PROCEDURE CompleteTransactionAdvanceVisibility
+--DROP PROCEDURE CommitTransactionAdvanceVisibility
 GO
-CREATE PROCEDURE dbo.CompleteTransactionAdvanceVisibility @TransactionId bigint
+CREATE PROCEDURE dbo.CommitTransactionAdvanceVisibility @TransactionId bigint
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
@@ -22,6 +22,7 @@ BEGIN TRY
 
   UPDATE dbo.Transactions 
     SET IsVisible = 1
+       ,VisibleDate = getUTCdate()
     WHERE TransactionId = @TransactionId
       AND (@tmpTransactionId IS NULL -- no left
            OR @tmpTransactionId < 0 -- no normal left
@@ -39,14 +40,11 @@ BEGIN TRY
 
     WHILE @Flag = 1 -- if right is completed
     BEGIN
-      IF @TranCount = 0 BEGIN TRANSACTION
-
       UPDATE dbo.Transactions 
         SET IsVisible = 1
+           ,VisibleDate = getUTCdate()
         WHERE TransactionId = @tmpTransactionId
       SET @Rows = @Rows + @@rowcount
-
-      IF @TranCount = 0 COMMIT TRANSACTION
 
       SET @TransactionId = @tmpTransactionId
       
@@ -59,6 +57,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
   IF @TranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error'
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
 END CATCH
 GO

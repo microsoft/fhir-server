@@ -8,12 +8,11 @@ using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.SqlServer.Database;
-using Microsoft.Health.Fhir.Store.SqlUtils;
+using Microsoft.Health.Fhir.Store.Sharding;
 using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.Copy
@@ -27,35 +26,40 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly int UnitSize = int.Parse(ConfigurationManager.AppSettings["UnitSize"]);
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static readonly bool QueueOnly = bool.Parse(ConfigurationManager.AppSettings["QueueOnly"]);
+        private static readonly bool TransactionsOnly = bool.Parse(ConfigurationManager.AppSettings["TransactionsOnly"]);
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
         private static bool stop = false;
-        private static readonly SqlService Target = new SqlService(TargetConnectionString);
-        private static readonly SqlService Source = new SqlService(SourceConnectionString);
-        private static readonly SqlService Queue = new SqlService(QueueConnectionString);
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1306:Field names should begin with lower-case letter", Justification = "Readability")]
+        private static SqlService Target;
+        private static readonly SqlServiceSingleDatabase Source = new SqlServiceSingleDatabase(SourceConnectionString);
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1306:Field names should begin with lower-case letter", Justification = "Readability")]
+        private static SqlService Queue;
 
         public static void Main(string[] args)
         {
             Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
-            Console.WriteLine($"Target=[{Target.ShowConnectionString()}]");
-            Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
+            Console.WriteLine($"Target=[{TargetConnectionString}]");
+            Console.WriteLine($"Queue=[{QueueConnectionString}]");
             var method = args.Length > 0 ? args[0] : "merge";
             if (method == "setupdb")
             {
-                SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
-                SetupDb.Publish(TargetConnectionString, "Fhir.Store.Copy.Database.dacpac");
-                SetupDb.Publish(QueueConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
-                SetupDb.Publish(QueueConnectionString, "Fhir.Store.Copy.Database.dacpac");
+                SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.Central.dacpac");
+                Target = new SqlService(TargetConnectionString);
+                foreach (var shard in Target.ShardletMap.Shards)
+                {
+                    SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.Distributed.dacpac");
+                }
             }
             else
             {
-                Target.RegisterDatabaseLogging();
-                PopulateStoreCopyWorkQueue(UnitSize);
-
-                Copy(method);
+                Target = new SqlService(TargetConnectionString);
+                Queue = new SqlService(QueueConnectionString);
+                PopulateJobQueue(UnitSize);
+                Copy();
             }
         }
 
-        public static void Copy(string method)
+        public static void Copy()
         {
             var tasks = new List<Task>();
             for (var i = 0; i < Threads; i++)
@@ -63,55 +67,54 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 var thread = i;
                 tasks.Add(BatchExtensions.StartTask(() =>
                 {
-                    Copy(thread, method);
+                    Copy(thread);
                 }));
             }
 
             Task.WaitAll(tasks.ToArray());
         }
 
-        private static void Copy(int thread, string method)
+        private static void Copy(int thread)
         {
             Console.WriteLine($"Copy.{thread}: started at {DateTime.UtcNow:s}");
             var sw = Stopwatch.StartNew();
             var resourceTypeId = (short?)0;
             while (resourceTypeId.HasValue && !stop)
             {
-                string minIdOrUrl = null;
-                var partitionId = (byte)0;
-                var unitId = 0;
+                var minId = 0L;
                 var retries = 0;
                 var maxRetries = MaxRetries;
+                var version = 0L;
+                var jobId = 0L;
                 var resourceCount = 0;
-                var useSecondaryStore = thread % 2 == 1;
-retry:
+                var totalCount = 0;
+                var transactionId = new TransactionId(0);
+            retry:
                 try
                 {
-                    Queue.DequeueStoreCopyWorkQueue(PartitionByPartOfResourceId ? thread : null, out resourceTypeId, out partitionId, out unitId, out minIdOrUrl, out var maxId);
-                    if (!QueueOnly && resourceTypeId.HasValue)
+                    resourceTypeId = null;
+                    Queue.DequeueJob(out jobId, out version, out resourceTypeId, out minId, out var maxId);
+                    if (jobId != -1)
                     {
-                        if (method == "bcp")
+                        if (!QueueOnly)
                         {
-                            CopyViaBcp(thread, resourceTypeId.Value, partitionId, unitId, long.Parse(minIdOrUrl), long.Parse(maxId));
-                        }
-                        else
-                        {
-                            if (PartitionByPartOfResourceId)
+                            transactionId = Target.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
+                            if (!TransactionsOnly)
                             {
-                                var sourceContainer = GetContainer(SourceBlobConnectionString, SourceBlobContainerName);
-                                resourceCount = CopyViaSqlPartitionByPartOfResourceId(method == "merge", resourceTypeId.Value, partitionId, unitId, sourceContainer, minIdOrUrl, useSecondaryStore);
+                                (resourceCount, totalCount) = CopyViaSql(thread, resourceTypeId.Value, jobId, minId, maxId, transactionId);
                             }
-                            else
-                            {
-                                CopyViaSql(method == "merge", thread, resourceTypeId.Value, unitId, minIdOrUrl, maxId, SortBySurrogateId);
-                            }
+
+                            Target.PutShardTransaction(transactionId);
+                            Target.CommitTransaction(transactionId);
                         }
+
+                        Queue.CompleteJob(jobId, false, version, resourceCount, totalCount);
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Copy.{method}.{thread}.{resourceTypeId}.{minIdOrUrl}: error={e}");
-                    Target.LogEvent($"Copy.{method}", "Error", $"{thread}.{resourceTypeId}.{minIdOrUrl}", text: e.ToString());
+                    Console.WriteLine($"Copy.{thread}.{resourceTypeId}.{minId}: error={e}");
+                    Queue.LogEvent($"Copy", "Error", $"{thread}.{resourceTypeId}.{minId}", text: e.ToString());
                     retries++;
                     var isRetryable = e.IsRetryable();
                     if (isRetryable)
@@ -126,290 +129,196 @@ retry:
                     }
 
                     stop = true;
-                    if (resourceTypeId.HasValue)
+                    if (transactionId.Id != 0)
                     {
-                        Target.CompleteStoreCopyWorkUnit(partitionId, unitId, true);
+                        Target.CommitTransaction(transactionId, e.ToString());
+                    }
+
+                    if (jobId != -1)
+                    {
+                        Queue.CompleteJob(jobId, true, version);
                     }
 
                     throw;
                 }
-
-                Queue.CompleteStoreCopyWorkUnit(partitionId, unitId, false, PartitionByPartOfResourceId ? resourceCount : null);
             }
 
-            Console.WriteLine($"Copy.{method}.{thread}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"Copy.{thread}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
-        private static void CopyViaSql(bool isMerge, int thread, short resourceTypeId, int unitId, string minId, string maxId, bool convertToLong)
+#pragma warning disable SA1107 // Code should not contain multiple statements on one line
+        private static (int resourceCnt, int totalCnt) CopyViaSql(int thread, short resourceTypeId, long jobId, long minId, long maxId, TransactionId transactionId)
         {
             var sw = Stopwatch.StartNew();
-            var surrIdMap = new Dictionary<long, int>();
-            var count = 0;
-            List<Resource> resources;
             var st = DateTime.UtcNow;
-            var resourcesOrig = Source.GetData(_ => new Resource(_), resourceTypeId, minId, maxId, convertToLong).ToList();
-            if (isMerge) // redefine surr id
-            {
-                var resourcesDedup = new List<Resource>();
+            var shardletSequence = new Dictionary<ShardletId, short>();
+            var surrIdMap = new Dictionary<long, (ShardletId ShardletId, short Sequence)>(); // map from surr id to shardlet resource index
+            var resources = Source.GetData(_ => new Resource(_, false), resourceTypeId, minId, maxId).ToList();
 
-                foreach (var resource in resourcesOrig)
+            foreach (var resource in resources)
+            {
+                var shardletId = ShardletId.GetHashedShardletId(resource.ResourceId);
+                if (!shardletSequence.TryGetValue(shardletId, out var sequence))
                 {
-                    if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
-                    {
-                        count++;
-                        surrIdMap.Add(resource.ResourceSurrogateId, count);
-                        resourcesDedup.Add(resource);
-                    }
+                    shardletSequence.Add(shardletId, 0);
+                }
+                else
+                {
+                    sequence++;
+                    shardletSequence[shardletId] = sequence;
                 }
 
-                resources = resourcesDedup.Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
-            }
-            else
-            {
-                resources = resourcesOrig.ToList();
+                if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
+                {
+                    surrIdMap.Add(resource.ResourceSurrogateId, (shardletId, sequence));
+                }
             }
 
-            var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            resources = resources.Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence;  return _; }).ToList();
+
+            var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
             if (referenceSearchParams.Count == 0)
             {
                 referenceSearchParams = null;
             }
-            else if (isMerge)
+            else
             {
-                referenceSearchParams = referenceSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                referenceSearchParams = referenceSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
             if (tokenSearchParams.Count == 0)
             {
                 tokenSearchParams = null;
             }
-            else if (isMerge)
+            else
             {
-                tokenSearchParams = tokenSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                tokenSearchParams = tokenSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var compartmentAssignments = Source.GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var compartmentAssignments = Source.GetData(_ => new CompartmentAssignment(_, false), resourceTypeId, minId, maxId).ToList();
             if (compartmentAssignments.Count == 0)
             {
                 compartmentAssignments = null;
             }
-            else if (isMerge)
+            else
             {
-                compartmentAssignments = compartmentAssignments.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                compartmentAssignments = compartmentAssignments.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var tokenTexts = Source.GetData(_ => new TokenText(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var tokenTexts = Source.GetData(_ => new TokenText(_, false), resourceTypeId, minId, maxId).ToList();
             if (tokenTexts.Count == 0)
             {
                 tokenTexts = null;
             }
-            else if (isMerge)
+            else
             {
-                tokenTexts = tokenTexts.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                tokenTexts = tokenTexts.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var dateTimeSearchParams = Source.GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var dateTimeSearchParams = Source.GetData(_ => new DateTimeSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
             if (dateTimeSearchParams.Count == 0)
             {
                 dateTimeSearchParams = null;
             }
-            else if (isMerge)
+            else
             {
-                dateTimeSearchParams = dateTimeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                dateTimeSearchParams = dateTimeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var tokenQuantityCompositeSearchParams = Source.GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var tokenQuantityCompositeSearchParams = Source.GetData(_ => new TokenQuantityCompositeSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
             if (tokenQuantityCompositeSearchParams.Count == 0)
             {
                 tokenQuantityCompositeSearchParams = null;
             }
-            else if (isMerge)
+            else
             {
-                tokenQuantityCompositeSearchParams = tokenQuantityCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                tokenQuantityCompositeSearchParams = tokenQuantityCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var quantitySearchParams = Source.GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var quantitySearchParams = Source.GetData(_ => new QuantitySearchParam(_, false), resourceTypeId, minId, maxId).ToList();
             if (quantitySearchParams.Count == 0)
             {
                 quantitySearchParams = null;
             }
-            else if (isMerge)
+            else
             {
-                quantitySearchParams = quantitySearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                quantitySearchParams = quantitySearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var stringSearchParams = Source.GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var stringSearchParams = Source.GetData(_ => new StringSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
             if (stringSearchParams.Count == 0)
             {
                 stringSearchParams = null;
             }
-            else if (isMerge)
+            else
             {
-                stringSearchParams = stringSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                stringSearchParams = stringSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var tokenTokenCompositeSearchParams = Source.GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var tokenTokenCompositeSearchParams = Source.GetData(_ => new TokenTokenCompositeSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
             if (tokenTokenCompositeSearchParams.Count == 0)
             {
                 tokenTokenCompositeSearchParams = null;
             }
-            else if (isMerge)
+            else
             {
-                tokenTokenCompositeSearchParams = tokenTokenCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                tokenTokenCompositeSearchParams = tokenTokenCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
-            var tokenStringCompositeSearchParams = Source.GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId, convertToLong).ToList();
+            var tokenStringCompositeSearchParams = Source.GetData(_ => new TokenStringCompositeSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
             if (tokenStringCompositeSearchParams.Count == 0)
             {
                 tokenStringCompositeSearchParams = null;
             }
-            else if (isMerge)
+            else
             {
-                tokenStringCompositeSearchParams = tokenStringCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.ResourceSurrogateId = surrIdMap[_.ResourceSurrogateId]; return _; }).ToList();
+                tokenStringCompositeSearchParams = tokenStringCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
             }
 
+            var rows = 0;
             if (WritesEnabled)
             {
-                Target.InsertResources(isMerge, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams, SingleTransation);
+                rows = Target.MergeResources(resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
             }
 
-            Console.WriteLine($"Copy.{(isMerge ? "merge" : "insert")}.sort={(SortBySurrogateId ? "SurrogateId" : "ResourceId")}.{thread}.{unitId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"Copy.{thread}.{jobId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+
+            return (resources.Count, rows);
         }
+#pragma warning restore SA1107 // Code should not contain multiple statements on one line
 
-        private static void RunOsCommand(string filename, string arguments, bool redirectOutput)
+        private static void PopulateJobQueue(int unitSize)
         {
-            var processStartInfo = new ProcessStartInfo(filename, arguments)
-            {
-                UseShellExecute = !redirectOutput,
-                RedirectStandardError = redirectOutput, // if redirected then parallel perf drops
-                RedirectStandardOutput = redirectOutput,
-                CreateNoWindow = false, // make everything visible and killable
-            };
-
-            using var process = Process.Start(processStartInfo);
-            if (process == null)
-            {
-                throw new ArgumentException("Process start information wasn't successfully created.");
-            }
-
-            if (redirectOutput)
-            {
-                process.OutputDataReceived += (sender, args) => Console.WriteLine(args.Data);
-                process.BeginOutputReadLine();
-                process.ErrorDataReceived += (sender, args) => Console.WriteLine(args.Data);
-                process.BeginErrorReadLine();
-            }
-
-            process.WaitForExit();
-
-            if (process.ExitCode != 0)
-            {
-                throw new ArgumentException($"Error {process.ExitCode} running {filename}.");
-            }
-        }
-
-        private static void PopulateStoreCopyWorkQueue(int unitSize)
-        {
-            // if target is populated don't do anything
-            if (Queue.StoreCopyWorkQueueIsNotEmpty())
+            if (Queue.JobQueueIsNotEmpty())
             {
                 return;
             }
 
-            var sourceConn = new SqlConnection(Source.ConnectionString);
-            sourceConn.Open();
-            var sql = SortBySurrogateId ?
-                                @"
-SELECT PartUnitId = isnull(convert(int, (row_number() OVER (PARTITION BY ResourceTypeId ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0)
-      ,ResourceTypeId
-      ,ResourceSurrogateId
-  INTO #tmp
-  FROM dbo.Resource
+            var strings = Source.GetCopyUnits(unitSize);
 
-SELECT PartUnitId
-      ,ResourceTypeId
-      ,MinId = min(ResourceSurrogateId)
-      ,MaxId = max(ResourceSurrogateId)
-      ,ResourceCount = count(*)
-  INTO #tmp2
-  FROM #tmp
-  GROUP BY
-       ResourceTypeId
-      ,PartUnitId
-
-SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
-      ,ResourceTypeId
-      ,MinId
-      ,MaxId
-      ,ResourceCount
-  INTO ##StoreCopyWorkQueue
-  FROM (SELECT RandId = newid()
-              ,ResourceTypeId
-              ,MinId
-              ,MaxId
-              ,ResourceCount
-          FROM #tmp2
-       ) A                     
-                                "
-                                :
-                                @"
-SELECT UnitId = convert(int, row_number() OVER (ORDER BY RandId))
-      ,ResourceTypeId
-      ,MinId
-      ,MaxId
-      ,ResourceCount
-  INTO ##StoreCopyWorkQueue
-  FROM (SELECT RandId = newid()
-              ,PartUnitId
-              ,ResourceTypeId
-              ,MinId = min(ResourceId)
-              ,MaxId = max(ResourceId)
-              ,ResourceCount = count(*)
-          FROM (SELECT PartUnitId = isnull(convert(int, (row_number() OVER (PARTITION BY ResourceTypeId ORDER BY ResourceId) - 1) / @UnitSize), 0)
-                      ,ResourceTypeId
-                      ,ResourceId
-                  FROM dbo.Resource
-               ) A
-          GROUP BY
-               ResourceTypeId
-              ,PartUnitId
-       ) A
-                                ";
-            using var sourceCommand = new SqlCommand(sql, sourceConn) { CommandTimeout = 7200 }; // this takes 30 minutes on db with 2B resources
-            sourceCommand.Parameters.AddWithValue("@UnitSize", unitSize);
-            sourceCommand.ExecuteNonQuery();
-
-            var param = $@"/C bcp.exe ##StoreCopyWorkQueue out {Path}\StoreCopyWorkQueue.dat /c {BcpSourceConnStr}";
-            RunOsCommand("cmd.exe ", param, true);
-            Queue.LogEvent("BcpOut", "End", "StoreCopyWorkQueue", text: param);
-
-            sourceConn.Close(); // close connection after bcp
-
-            var queueConn = new SqlConnection(Queue.ConnectionString);
-            queueConn.Open();
-            using var command = new SqlCommand(
+            using var conn = new SqlConnection(Queue.ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand(
                 @"
-SELECT UnitId,ResourceTypeId,MinIdOrUrl,MaxId,ResourceCount INTO ##StoreCopyWorkQueue FROM dbo.StoreCopyWorkQueue WHERE 1 = 2",
-                queueConn)
-            { CommandTimeout = 60 };
-            command.ExecuteNonQuery();
-
-            param = $@"/C bcp.exe ##StoreCopyWorkQueue in {Path}\StoreCopyWorkQueue.dat /c {BcpQueueConnStr}";
-            RunOsCommand("cmd.exe ", param, true);
-            Queue.LogEvent("BcpIn", "End", "StoreCopyWorkQueue", text: param);
-
-            using var insert = new SqlCommand(
-                @"
-INSERT INTO dbo.StoreCopyWorkQueue 
-        (PartitionId,UnitId,ResourceTypeId,MinIdOrUrl,MaxId,ResourceCount) 
-  SELECT UnitId % 16,UnitId,ResourceTypeId,MinIdOrUrl,MaxId,ResourceCount 
-    FROM ##StoreCopyWorkQueue",
-                queueConn)
+TRUNCATE TABLE dbo.JobQueue
+EXECUTE dbo.EnqueueJobs @QueueType = @QueueType, @Definitions = @Strings, @ForceOneActiveJobGroup = 1
+                ",
+                conn)
             { CommandTimeout = 600 };
-            insert.ExecuteNonQuery();
+            cmd.Parameters.AddWithValue("@QueueType", SqlService.QueueType);
+            var stringListParam = new SqlParameter { ParameterName = "@Strings" };
+            stringListParam.AddStringList(strings);
+            cmd.Parameters.Add(stringListParam);
 
-            queueConn.Close();
+            using var reader = cmd.ExecuteReader();
+            var ids = new Dictionary<long, long>();
+            while (reader.Read())
+            {
+                ids.Add(reader.GetInt64(1), reader.GetInt64(0));
+            }
+
+            Console.WriteLine($"Enqueued={ids.Count} jobs.");
         }
     }
 }

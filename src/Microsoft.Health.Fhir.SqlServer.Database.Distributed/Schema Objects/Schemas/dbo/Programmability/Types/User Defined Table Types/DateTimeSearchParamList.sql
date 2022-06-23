@@ -1,7 +1,9 @@
 ﻿CREATE TYPE dbo.DateTimeSearchParamList AS TABLE
 (
     ResourceTypeId smallint NOT NULL,
-    ResourceSurrogateId bigint NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  tinyint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
     SearchParamId smallint NOT NULL,
     StartDateTime datetime2(7) NOT NULL,
     EndDateTime datetime2(7) NOT NULL,

@@ -8,7 +8,7 @@ AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(100) = convert(varchar(100),'S=['+isnull(@ServerName,'NULL')+']')
-       ,@NumberOfShardlets smallint = 2048
+       ,@NumberOfShardlets smallint = 256
        ,@i tinyint
 
 EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Begin'
@@ -36,7 +36,7 @@ BEGIN TRY
     WHILE @i < @ShardCount
     BEGIN
       INSERT INTO dbo.Shards (Version, ShardId, IsActive, SqlServer, SqlDatabase)
-        SELECT 0, @i, 1, @ServerName, db_name()+'_'+format(@i,'00#')+'_v0'
+        SELECT 0, @i, 1, @ServerName, db_name()+'_'+format(@i,'0#')+'_v0'
       SET @i += 1
     END
 
@@ -71,7 +71,8 @@ END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error'
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
 END CATCH
 GO
 -- Quick test code.

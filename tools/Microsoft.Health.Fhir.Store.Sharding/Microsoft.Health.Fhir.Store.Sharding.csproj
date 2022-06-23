@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -9,6 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.SqlUtils\Microsoft.Health.Fhir.Store.SqlUtils.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
   </ItemGroup>

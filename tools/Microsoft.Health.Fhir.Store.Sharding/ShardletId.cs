@@ -9,13 +9,10 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public struct ShardletId : IEquatable<ShardletId>
     {
-        public const short MinValue = 0;
-        public const short MaxReservedValue = 1023;
-        public const short MaxValue = 2047;
-        public const short TestMinValue = 1;
-        public const short TestMaxValue = 64; // it should be >= number of shards in the environment tested
+        public const byte MinValue = byte.MinValue;
+        public const byte MaxValue = byte.MaxValue; // TODO: consider removng generic check logic
 
-        public ShardletId(short id)
+        public ShardletId(byte id)
             : this()
         {
             if (id < MinValue || id > MaxValue)
@@ -26,7 +23,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             Id = id;
         }
 
-        public short Id { get; private set; }
+        public byte Id { get; private set; }
 
         public static bool operator ==(ShardletId a, ShardletId b)
         {
@@ -58,6 +55,27 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         public override string ToString()
         {
             return Id.ToString();
+        }
+
+        public static ShardletId GetHashedShardletId(string value)
+        {
+            if (value == null)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), "Value must be not null.");
+            }
+
+            return new ShardletId((byte)(GetPermanentHashCode(value) & MaxValue));
+        }
+
+        private static int GetPermanentHashCode(string str)
+        {
+            var hashCode = 0;
+            foreach (var c in str) // Don't convert to LINQ. This is 10% faster.
+            {
+                hashCode = unchecked((hashCode * 251) + c);
+            }
+
+            return hashCode;
         }
     }
 }

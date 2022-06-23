@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             ConnectionString = connectionString;
             Version = version;
 
-            Utilities.ParseConnectionString(connectionString, out string server, out string database, out string user, out string pwd);
+            ShardingUtils.ParseConnectionString(connectionString, out string server, out string database, out string user, out string pwd);
             Server = server;
             Database = database;
         }

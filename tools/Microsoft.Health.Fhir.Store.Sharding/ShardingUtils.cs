@@ -6,7 +6,7 @@ using System.Data.SqlClient;
 
 namespace Microsoft.Health.Fhir.Store.Sharding
 {
-    public static class Utilities
+    public static class ShardingUtils
     {
 #pragma warning disable CA1304 // Specify CultureInfo
         public static string GetCanonicalConnectionString(string connectionString)
