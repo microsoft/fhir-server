@@ -1,16 +1,16 @@
 {
   "resourceType": "StructureDefinition",
-  "id": "us-core-birthsex",
+  "id": "us-core-genderIdentity",
   "text": {
     "status": "extensions",
     "div": "<div>PlaceHolder</div>"
   },
-  "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
-  "version": "4.1.0",
-  "name": "USCoreBirthSexExtension",
-  "title": "US Core Birth Sex Extension",
+  "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity",
+  "version": "5.0.1",
+  "name": "USCoreGenderIdentityExtension",
+  "title": "US Core Gender Identity Extension",
   "status": "active",
-  "date": "2019-05-21",
+  "date": "2022-01-22",
   "publisher": "HL7 International - Cross-Group Projects",
   "contact": [
     {
@@ -27,7 +27,7 @@
       ]
     }
   ],
-  "description": "A code classifying the person's sex assigned at birth  as specified by the [Office of the National Coordinator for Health IT (ONC)](https://www.healthit.gov/newsroom/about-onc). This extension aligns with the C-CDA Birth Sex Observation (LOINC 76689-9).",
+  "description": "This extension provides concepts to describe the gender a person identifies as.",
   "jurisdiction": [
     {
       "coding": [
@@ -38,6 +38,7 @@
       ]
     }
   ],
+  "purpose": "Complies with USCDI v2",
   "copyright": "Used by permission of HL7 International, all rights reserved Creative Commons License",
   "fhirVersion": "4.0.1",
   "mapping": [
@@ -53,10 +54,22 @@
     {
       "type": "element",
       "expression": "Patient"
+    },
+    {
+      "type": "element",
+      "expression": "RelatedPerson"
+    },
+    {
+      "type": "element",
+      "expression": "Person"
+    },
+    {
+      "type": "element",
+      "expression": "Practitioner"
     }
   ],
   "type": "Extension",
-  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/patient-genderIdentity",
   "derivation": "constraint",
   "snapshot": {
     "element": [
@@ -64,8 +77,7 @@
         "id": "Extension",
         "path": "Extension",
         "short": "Extension",
-        "definition": "A code classifying the person's sex assigned at birth  as specified by the [Office of the National Coordinator for Health IT (ONC)](https://www.healthit.gov/newsroom/about-onc).",
-        "comment": "The codes required are intended to present birth sex (i.e., the sex recorded on the patient’s birth certificate) and not gender identity or reassigned sex.",
+        "definition": "An Extension",
         "min": 0,
         "max": "1",
         "base": {
@@ -94,17 +106,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
-        "isModifier": false,
-        "mapping": [
-          {
-            "identity": "rim",
-            "map": "player[classCode=PSN|ANM and determinerCode=INSTANCE]/administrativeGender"
-          },
-          {
-            "identity": "iso11179",
-            "map": ".patient.administrativeGenderCode"
-          }
-        ]
+        "isModifier": false
       },
       {
         "id": "Extension.id",
@@ -154,15 +156,10 @@
           "description": "Extensions are always sliced by (at least) url",
           "rules": "open"
         },
-        "short": "Additional content defined by implementations",
-        "definition": "May be used to represent additional information that is not part of the basic definition of the element. To make the use of extensions safe and manageable, there is a strict set of governance  applied to the definition and use of extensions. Though any implementer can define an extension, there is a set of requirements that SHALL be met as part of the definition of the extension.",
-        "comment": "There can be no stigma associated with the use of extensions by any application, project, or standard - regardless of the institution or jurisdiction that uses or defines the extensions.  The use of extensions is what allows the FHIR specification to retain a core level of simplicity for everyone.",
-        "alias": [
-          "extensions",
-          "user content"
-        ],
+        "short": "Extension",
+        "definition": "An Extension",
         "min": 0,
-        "max": "*",
+        "max": "0",
         "base": {
           "path": "Element.extension",
           "min": 0,
@@ -192,13 +189,7 @@
           }
         ],
         "isModifier": false,
-        "isSummary": false,
-        "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          }
-        ]
+        "isSummary": false
       },
       {
         "id": "Extension.url",
@@ -227,7 +218,7 @@
             "code": "http://hl7.org/fhirpath/System.String"
           }
         ],
-        "fixedUri": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
+        "fixedUri": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity",
         "isModifier": false,
         "isSummary": false,
         "mapping": [
@@ -241,7 +232,7 @@
         "id": "Extension.value[x]",
         "path": "Extension.value[x]",
         "short": "Value of extension",
-        "definition": "Value of extension - must be one of a constrained set of the data types (see [Extensibility](http://hl7.org/fhir/R4/extensibility.html) for a list).",
+        "definition": "Value of extension - must be one of a constrained set of the data types (see [Extensibility](http://hl7.org/fhir/extensibility.html) for a list).",
         "min": 1,
         "max": "1",
         "base": {
@@ -251,7 +242,7 @@
         },
         "type": [
           {
-            "code": "code"
+            "code": "CodeableConcept"
           }
         ],
         "constraint": [
@@ -267,9 +258,8 @@
         "isModifier": false,
         "isSummary": false,
         "binding": {
-          "strength": "required",
-          "description": "Code for sex assigned at birth",
-          "valueSet": "http://hl7.org/fhir/us/core/ValueSet/birthsex"
+          "strength": "extensible",
+          "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1021.32"
         },
         "mapping": [
           {
@@ -284,42 +274,19 @@
     "element": [
       {
         "id": "Extension",
-        "path": "Extension",
-        "definition": "A code classifying the person's sex assigned at birth  as specified by the [Office of the National Coordinator for Health IT (ONC)](https://www.healthit.gov/newsroom/about-onc).",
-        "comment": "The codes required are intended to present birth sex (i.e., the sex recorded on the patient’s birth certificate) and not gender identity or reassigned sex.",
-        "min": 0,
-        "max": "1",
-        "isModifier": false,
-        "mapping": [
-          {
-            "identity": "rim",
-            "map": "player[classCode=PSN|ANM and determinerCode=INSTANCE]/administrativeGender"
-          },
-          {
-            "identity": "iso11179",
-            "map": ".patient.administrativeGenderCode"
-          }
-        ]
+        "path": "Extension"
       },
       {
         "id": "Extension.url",
         "path": "Extension.url",
-        "fixedUri": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex"
+        "fixedUri": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity"
       },
       {
         "id": "Extension.value[x]",
         "path": "Extension.value[x]",
-        "min": 1,
-        "max": "1",
-        "type": [
-          {
-            "code": "code"
-          }
-        ],
         "binding": {
-          "strength": "required",
-          "description": "Code for sex assigned at birth",
-          "valueSet": "http://hl7.org/fhir/us/core/ValueSet/birthsex"
+          "strength": "extensible",
+          "valueSet": "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1021.32"
         }
       }
     ]

@@ -46,6 +46,8 @@
     <None Remove="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
     <None Remove="TestFiles\Normative\MoneyWithWrongDecimal.json" />
     <None Remove="TestFiles\Normative\Profile-CarePlan-uscore.json" />
+    <None Remove="TestFiles\Normative\Profile-Patient-PassUsCore-Example.json" />
+    <None Remove="TestFiles\Normative\Profile-Patient-FailUsCore-Example.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
@@ -217,6 +219,8 @@
     <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
     <None Remove="TestFiles\Stu3\ProvenanceHeader.json" />
     <None Remove="TestFiles\Stu3\Sequence.json" />
+    <None Remove="TestFiles\Stu3\Profile-Patient-PassUsCore-Example.json" />
+    <None Remove="TestFiles\Stu3\Profile-Patient-FailUsCore-Example.json" />
     <None Remove="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
     <None Remove="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />
     <None Remove="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />
@@ -320,6 +324,8 @@
     <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-PassUsCore-Example.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-FailUsCore-Example.json" />
     <EmbeddedResource Include="TestFiles\Normative\ProvenanceHeader.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Resource-idfoo.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />

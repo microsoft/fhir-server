@@ -168,28 +168,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsValid_ThenAnOkMessageIsReturned()
         {
-// #if !stu3
+ // #if !R4
             var fhirSource = Samples.GetJson("Profile-Patient-PassUsCore-Example");
 
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 
             Assert.Equal(2, outcome.Issue.Count());
-            Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[1].Code);
+            Assert.Equal(OperationOutcome.IssueType.Informational, outcome.Issue[0].Code);
+            Assert.Equal(OperationOutcome.IssueType.Informational, outcome.Issue[1].Code);
 
-// #endif
+            // #endif
         }
 
         [Fact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsNotValid_ThenAnErrorShouldBeReturned()
         {
-// #if !stu3
+// #if !R4
             var fhirSource = Samples.GetJson("Profile-Patient-FailUsCore-Example");
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
-            Assert.Equal(3, outcome.Issue.Count());
+            Assert.Equal(2, outcome.Issue.Count());
             Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[1].Code);
-            Assert.Equal(OperationOutcome.IssueType.Informational, outcome.Issue[2].Code);
+            Assert.Equal(OperationOutcome.IssueType.Informational, outcome.Issue[1].Code);
 
 // #endif
         }
