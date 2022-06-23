@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
+    [ValidateParametersResourceAttribute]
     public class ReindexController : Controller
     {
         private readonly IMediator _mediator;
