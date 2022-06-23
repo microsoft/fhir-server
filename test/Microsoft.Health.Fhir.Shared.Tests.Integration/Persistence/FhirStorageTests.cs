@@ -14,6 +14,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core;
@@ -906,6 +907,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()
+        {
+            var wrapper = CreateObservationResourceWrapper("obsId1", true);
+            await Assert.ThrowsAsync<ServiceUnavailableException>(() => _fixture.DataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None));
+        }
+
         private static void VerifyReindexedResource(ResourceWrapper original, ResourceWrapper replaceResult)
         {
             Assert.Equal(original.ResourceId, replaceResult.ResourceId);
@@ -1019,14 +1028,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private ResourceWrapper CreateObservationResourceWrapper(string observationId)
+        private ResourceWrapper CreateObservationResourceWrapper(string observationId, bool setRawResourceNull = false)
         {
             Observation observationResource = Samples.GetDefaultObservation().ToPoco<Observation>();
             observationResource.Id = observationId;
             observationResource.VersionId = "1";
 
             var resourceElement = observationResource.ToResourceElement();
-            var rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
+            RawResource rawResource;
+
+            if (setRawResourceNull)
+            {
+                var rawSubstitute = Substitute.For<RawResource>();
+                rawResource = rawSubstitute;
+            }
+            else
+            {
+                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
+            }
+
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = _searchIndexer.Extract(resourceElement);

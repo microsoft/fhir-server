@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     // we do two loop iterations only when we need to queue up the request.
                     lock (_queue)
                     {
-                        _logger.LogInformation($"Requests in flight {_requestsInFlight}, concurrent request limit {_concurrentRequestLimit}.");
+                        _logger.LogInformation("Requests in flight {Flight}, concurrent request limit {Limit}.", _requestsInFlight, _concurrentRequestLimit);
                         if (_requestsInFlight < _concurrentRequestLimit)
                         {
                             canRun = true;
@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         {
             Interlocked.Increment(ref _currentPeriodRejectedCount);
 
-            _logger.LogWarning(Resources.TooManyConcurrentRequests + " Limit is {limit}. Requests in flight {requests}", _concurrentRequestLimit, _requestsInFlight);
+            _logger.LogWarning(Resources.TooManyConcurrentRequests + " Limit is {Limit}. Requests in flight {Requests}", _concurrentRequestLimit, _requestsInFlight);
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             await context.Response.Body.WriteAsync(body);
         }
 
-        private static Memory<byte> CreateThrottledBody(string message) => Encoding.UTF8.GetBytes($@"{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{message}""}}").AsMemory();
+        private static Memory<byte> CreateThrottledBody(string message) => Encoding.UTF8.GetBytes($@"{{""resourceType"":""OperationOutcome"",""issue"":[{{""severity"":""error"",""code"":""throttled"",""diagnostics"":""{message}""}}]}}").AsMemory();
 
         public async ValueTask DisposeAsync()
         {

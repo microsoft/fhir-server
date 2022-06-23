@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             if (_prometheusMetricsConfig.Enabled)
             {
-                _logger.LogInformation("Starting Prometheus Metrics server on port {port} with endpoint {endpoint}", _prometheusMetricsConfig.Port, _prometheusMetricsConfig.Path);
+                _logger.LogInformation("Starting Prometheus Metrics server on port {Port} with endpoint {Endpoint}", _prometheusMetricsConfig.Port, _prometheusMetricsConfig.Path);
                 _metricsServer = new KestrelMetricServer(port: _prometheusMetricsConfig.Port, url: _prometheusMetricsConfig.Path);
 
                 if (_prometheusMetricsConfig.DotnetRuntimeMetrics)

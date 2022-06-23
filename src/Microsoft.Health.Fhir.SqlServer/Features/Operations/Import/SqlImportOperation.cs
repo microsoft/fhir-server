@@ -18,19 +18,18 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Microsoft.IO;
 using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorTaskDataStoreOperation
+    public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorJobDataStoreOperation
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerFhirModel _model;
-        private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
@@ -53,13 +52,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _importTaskConfiguration = operationsConfig.Value.Import;
             _schemaInformation = schemaInformation;
             _logger = logger;
-
-            _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public IReadOnlyList<(Table table, Index index)> OptionalUniqueIndexesForImport { get; private set; }
+        public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalUniqueIndexesForImport { get; private set; }
 
-        public IReadOnlyList<(Table table, Index index)> OptionalIndexesForImport { get; private set; }
+        public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalIndexesForImport { get; private set; }
 
         public static IReadOnlyList<string> SearchParameterTables { get; } =
             new List<string>()
@@ -81,64 +78,64 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.TokenNumberNumberCompositeSearchParam.TableName,
             };
 
-        public IReadOnlyList<(Table table, Index index)> UniqueIndexesList()
+        public IReadOnlyList<(Table table, Index index, bool pageCompression)> UniqueIndexesList()
         {
-            var list = new List<(Table table, Index index)>();
+            var list = new List<(Table table, Index index, bool pageCompression)>();
 
             if (_schemaInformation.Current >= SchemaVersionConstants.RenamedIndexForResourceTable)
             {
-                list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId));
+                // Do nothing. This is the easiest fix until we remove this code completely.
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyForResourceTable)
             {
-                list.Add((V25.Resource, V25.Resource.UQIX_Resource_ResourceSurrogateId));
+                list.Add((V25.Resource, V25.Resource.UQIX_Resource_ResourceSurrogateId, false));
             }
 
-            list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId));
-            list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId));
+            list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId, false));
+            list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId, false));
 
             return list;
         }
 
-        public IReadOnlyList<(Table table, Index index)> IndexesList()
+        public IReadOnlyList<(Table table, Index index, bool pageCompression)> IndexesList()
         {
-            var list = new List<(Table table, Index index)>();
+            var list = new List<(Table table, Index index, bool pageCompression)>();
 
             if (_schemaInformation.Current < SchemaVersionConstants.AddPrimaryKeyForResourceTable)
             {
-                list.Add((V24.Resource, V24.Resource.IX_Resource_ResourceSurrogateId));
+                list.Add((V24.Resource, V24.Resource.IX_Resource_ResourceSurrogateId, false));
             }
 
-            list.Add((VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId));
-            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime));
-            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long));
-            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime));
-            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long));
-            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_HighValue_LowValue));
-            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_LowValue_HighValue));
-            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_SingleValue));
-            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue));
-            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue));
-            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue));
-            list.Add((VLatest.ReferenceSearchParam, VLatest.ReferenceSearchParam.IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion));
-            list.Add((VLatest.ReferenceTokenCompositeSearchParam, VLatest.ReferenceTokenCompositeSearchParam.IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2));
-            list.Add((VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_Text));
-            list.Add((VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_TextWithOverflow));
-            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2));
-            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long));
-            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2));
-            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long));
-            list.Add((VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3));
-            list.Add((VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2));
-            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2));
-            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2));
-            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2));
-            list.Add((VLatest.TokenSearchParam, VLatest.TokenSearchParam.IX_TokenSeachParam_SearchParamId_Code_SystemId));
-            list.Add((VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2));
-            list.Add((VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow));
-            list.Add((VLatest.TokenText, VLatest.TokenText.IX_TokenText_SearchParamId_Text));
-            list.Add((VLatest.TokenTokenCompositeSearchParam, VLatest.TokenTokenCompositeSearchParam.IX_TokenTokenCompositeSearchParam_Code1_Code2));
-            list.Add((VLatest.UriSearchParam, VLatest.UriSearchParam.IX_UriSearchParam_SearchParamId_Uri));
+            list.Add((VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId, true));
+            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime, false));
+            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long, false));
+            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime, false));
+            list.Add((VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long, false));
+            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_HighValue_LowValue, false));
+            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_LowValue_HighValue, false));
+            list.Add((VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_SingleValue, false));
+            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue, false));
+            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue, false));
+            list.Add((VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue, false));
+            list.Add((VLatest.ReferenceSearchParam, VLatest.ReferenceSearchParam.IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion, true));
+            list.Add((VLatest.ReferenceTokenCompositeSearchParam, VLatest.ReferenceTokenCompositeSearchParam.IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2, true));
+            list.Add((VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_Text, true));
+            list.Add((VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_TextWithOverflow, true));
+            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2, true));
+            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long, true));
+            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2, true));
+            list.Add((VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long, true));
+            list.Add((VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3, true));
+            list.Add((VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2, true));
+            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2, true));
+            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2, true));
+            list.Add((VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2, true));
+            list.Add((VLatest.TokenSearchParam, VLatest.TokenSearchParam.IX_TokenSeachParam_SearchParamId_Code_SystemId, true));
+            list.Add((VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2, true));
+            list.Add((VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow, true));
+            list.Add((VLatest.TokenText, VLatest.TokenText.IX_TokenText_SearchParamId_Text, true));
+            list.Add((VLatest.TokenTokenCompositeSearchParam, VLatest.TokenTokenCompositeSearchParam.IX_TokenTokenCompositeSearchParam_Code1_Code2, true));
+            list.Add((VLatest.UriSearchParam, VLatest.UriSearchParam.IX_UriSearchParam_SearchParamId_Uri, true));
 
             // ResourceWriteClaim Table - No unclustered index
 
@@ -147,38 +144,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection, SqlBulkCopyOptions.CheckConstraints | SqlBulkCopyOptions.UseInternalTransaction | SqlBulkCopyOptions.KeepNulls, null))
+            try
             {
-                bulkCopy.DestinationTableName = dataTable.TableName;
-                bulkCopy.BatchSize = dataTable.Rows.Count;
-
-                try
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection, SqlBulkCopyOptions.CheckConstraints | SqlBulkCopyOptions.UseInternalTransaction | SqlBulkCopyOptions.KeepNulls, null))
                 {
+                    bulkCopy.DestinationTableName = dataTable.TableName;
+                    bulkCopy.BatchSize = dataTable.Rows.Count;
+
                     bulkCopy.BulkCopyTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
                     await bulkCopy.WriteToServerAsync(dataTable.CreateDataReader(), cancellationToken);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogInformation(ex, "Failed to bulk copy data.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "BulkCopyDataAsync failed.");
 
-                    throw;
-                }
+                throw new RetriableJobException(ex.Message, ex);
             }
         }
 
         public async Task<IEnumerable<SqlBulkCopyDataWrapper>> BulkMergeResourceAsync(IEnumerable<SqlBulkCopyDataWrapper> resources, CancellationToken cancellationToken)
         {
-            List<long> importedSurrogatedId = new List<long>();
-
-            // Make sure there's no dup in this batch
-            resources = resources.GroupBy(r => (r.ResourceTypeId, r.Resource.ResourceId)).Select(r => r.First());
-            IEnumerable<BulkImportResourceTypeV1Row> inputResources = resources.Select(r => r.BulkImportResource);
-
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            try
             {
-                try
+                List<long> importedSurrogatedId = new List<long>();
+
+                // Make sure there's no dup in this batch
+                resources = resources.GroupBy(r => (r.ResourceTypeId, r.Resource.ResourceId)).Select(r => r.First());
+                IEnumerable<BulkImportResourceTypeV1Row> inputResources = resources.Select(r => r.BulkImportResource);
+
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
                     VLatest.BulkMergeResource.PopulateCommand(sqlCommandWrapper, inputResources);
                     sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
@@ -193,132 +190,152 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     return resources.Where(r => importedSurrogatedId.Contains(r.ResourceSurrogateId));
                 }
-                catch (SqlException sqlEx)
-                {
-                    _logger.LogError(sqlEx, "Failed to merge resources. " + sqlEx.Message);
-
-                    throw;
-                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "BulkMergeResourceAsync failed.");
+                throw new RetriableJobException(ex.Message, ex);
             }
         }
 
         public async Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
         {
-            short resourceTypeId = _model.GetResourceTypeId(resourceType);
-
-            await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
-            await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
-
-            foreach (var tableName in SearchParameterTables.ToArray())
+            try
             {
-                await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
+                short resourceTypeId = _model.GetResourceTypeId(resourceType);
+
+                await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
+                await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
+
+                foreach (var tableName in SearchParameterTables.ToArray())
+                {
+                    await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "CleanBatchResourceAsync failed.");
+                if (ex.IsRetryable())
+                {
+                    throw new RetriableJobException(ex.Message, ex);
+                }
+
+                throw;
             }
         }
 
         public async Task PreprocessAsync(CancellationToken cancellationToken)
         {
-            OptionalIndexesForImport = IndexesList();
-            OptionalUniqueIndexesForImport = UniqueIndexesList();
-
-            // Not disable index by default
-            if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+            try
             {
-                List<(string tableName, string indexName)> indexesNeedDisable = new List<(string tableName, string indexName)>();
+                OptionalIndexesForImport = IndexesList();
+                OptionalUniqueIndexesForImport = UniqueIndexesList();
 
-                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
+                // Not disable index by default
+                if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
                 {
-                    indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                }
+                    List<(string tableName, string indexName)> indexesNeedDisable = new List<(string tableName, string indexName)>();
 
-                if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
-                {
-                    indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                }
-
-                foreach (var index in indexesNeedDisable)
-                {
-                    using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                    using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                    if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                     {
-                        try
+                        indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                    }
+
+                    if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                    {
+                        indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                    }
+
+                    foreach (var index in indexesNeedDisable)
+                    {
+                        using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                        using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                         {
                             VLatest.DisableIndex.PopulateCommand(sqlCommandWrapper, index.tableName, index.indexName);
                             await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                         }
-                        catch (SqlException sqlEx)
-                        {
-                            _logger.LogInformation(sqlEx, "Failed to disable indexes.");
-
-                            throw;
-                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "PreprocessAsync failed.");
+                if (ex.IsRetryable())
+                {
+                    throw new RetriableJobException(ex.Message, ex);
+                }
+
+                throw;
             }
         }
 
         public async Task PostprocessAsync(CancellationToken cancellationToken)
         {
-            // Not rerebuild index by default
-            if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+            try
             {
-                List<(string tableName, string indexName)> indexesNeedRebuild = new List<(string tableName, string indexName)>();
-
-                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
+                // Not rerebuild index by default
+                if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
                 {
-                    indexesNeedRebuild.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                }
+                    List<(string tableName, string indexName, bool pageCompression)> indexesNeedRebuild = new List<(string tableName, string indexName, bool pageCompression)>();
 
-                if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
-                {
-                    indexesNeedRebuild.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                }
-
-                List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
-                HashSet<string> runningRebuildTables = new HashSet<string>();
-
-                // rebuild index operation on same table would be blocked, try to parallel run rebuild operation on different table.
-                while (indexesNeedRebuild.Count > 0)
-                {
-                    // if all remine indexes' table has some running rebuild operation, need to wait until at least one operation completed.
-                    while (indexesNeedRebuild.All(ix => runningRebuildTables.Contains(ix.tableName)) || runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                    if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                     {
-                        Task<(string tableName, string indexName)> completedTask = await Task.WhenAny(runningTasks.ToArray());
-                        (string tableName, string indexName) indexRebuilt = await completedTask;
-
-                        runningRebuildTables.Remove(indexRebuilt.tableName);
-                        runningTasks.Remove(completedTask);
+                        indexesNeedRebuild.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
                     }
 
-                    (string tableName, string indexName) nextIndex = indexesNeedRebuild.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
-                    indexesNeedRebuild.Remove(nextIndex);
-                    runningRebuildTables.Add(nextIndex.tableName);
-                    runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, cancellationToken));
+                    if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                    {
+                        indexesNeedRebuild.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
+                    }
+
+                    List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
+                    HashSet<string> runningRebuildTables = new HashSet<string>();
+
+                    // rebuild index operation on same table would be blocked, try to parallel run rebuild operation on different table.
+                    while (indexesNeedRebuild.Count > 0)
+                    {
+                        // if all remine indexes' table has some running rebuild operation, need to wait until at least one operation completed.
+                        while (indexesNeedRebuild.All(ix => runningRebuildTables.Contains(ix.tableName)) || runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                        {
+                            Task<(string tableName, string indexName)> completedTask = await Task.WhenAny(runningTasks.ToArray());
+                            (string tableName, string indexName) indexRebuilt = await completedTask;
+
+                            runningRebuildTables.Remove(indexRebuilt.tableName);
+                            runningTasks.Remove(completedTask);
+                        }
+
+                        (string tableName, string indexName, bool pageCompression) nextIndex = indexesNeedRebuild.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
+                        indexesNeedRebuild.Remove(nextIndex);
+                        runningRebuildTables.Add(nextIndex.tableName);
+                        runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, nextIndex.pageCompression, cancellationToken));
+                    }
+
+                    await Task.WhenAll(runningTasks.ToArray());
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "PostprocessAsync failed.");
+                if (ex.IsRetryable())
+                {
+                    throw new RetriableJobException(ex.Message, ex);
                 }
 
-                await Task.WhenAll(runningTasks.ToArray());
+                throw;
             }
         }
 
-        private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, CancellationToken cancellationToken)
+        private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, bool pageCompression, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                try
-                {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
+                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
-                    VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
 
-                    return (tableName, indexName);
-                }
-                catch (SqlException sqlEx)
-                {
-                    _logger.LogInformation(sqlEx, "Failed to rebuild indexes.");
-
-                    throw;
-                }
+                return (tableName, indexName);
             }
         }
 
@@ -329,23 +346,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
-                    try
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
+
+                    VLatest.BatchDeleteResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
+                    int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                    if (impactRows < batchSize)
                     {
-                        sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
-
-                        VLatest.BatchDeleteResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
-                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                        if (impactRows < batchSize)
-                        {
-                            return;
-                        }
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        _logger.LogInformation(sqlEx, "Failed batch delete Resource.");
-
-                        throw;
+                        return;
                     }
                 }
             }
@@ -358,23 +366,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
-                    try
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
+
+                    VLatest.BatchDeleteResourceWriteClaims.PopulateCommand(sqlCommandWrapper, beginSequenceId, endSequenceId, batchSize);
+                    int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                    if (impactRows < batchSize)
                     {
-                        sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
-
-                        VLatest.BatchDeleteResourceWriteClaims.PopulateCommand(sqlCommandWrapper, beginSequenceId, endSequenceId, batchSize);
-                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                        if (impactRows < batchSize)
-                        {
-                            return;
-                        }
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        _logger.LogInformation(sqlEx, "Failed batch delete ResourceWriteClaims.");
-
-                        throw;
+                        return;
                     }
                 }
             }
@@ -387,23 +386,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
-                    try
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
+
+                    VLatest.BatchDeleteResourceParams.PopulateCommand(sqlCommandWrapper, tableName, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
+                    int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                    if (impactRows < batchSize)
                     {
-                        sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
-
-                        VLatest.BatchDeleteResourceParams.PopulateCommand(sqlCommandWrapper, tableName, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
-                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                        if (impactRows < batchSize)
-                        {
-                            return;
-                        }
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        _logger.LogInformation(sqlEx, "Failed batch delete ResourceParams.");
-
-                        throw;
+                        return;
                     }
                 }
             }

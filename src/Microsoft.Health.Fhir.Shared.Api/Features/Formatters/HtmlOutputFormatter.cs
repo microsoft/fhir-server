@@ -67,8 +67,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
-            context.HttpContext.AllowSynchronousIO();
-
             var engine = context.HttpContext.RequestServices.GetService<IRazorViewEngine>();
             var tempDataProvider = context.HttpContext.RequestServices.GetService<ITempDataProvider>();
 
@@ -99,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     jsonTextWriter.ArrayPool = _charPool;
                     jsonTextWriter.Formatting = Formatting.Indented;
 
-                    _fhirJsonSerializer.Serialize(resourceInstance, jsonTextWriter, context.HttpContext.GetSummaryTypeOrDefault(), context.HttpContext.GetElementsOrDefault());
+                    await _fhirJsonSerializer.SerializeAsync(resourceInstance, jsonTextWriter, context.HttpContext.GetSummaryTypeOrDefault(), context.HttpContext.GetElementsOrDefault());
                 }
 
                 var viewDictionary = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())

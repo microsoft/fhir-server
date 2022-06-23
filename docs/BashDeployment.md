@@ -7,7 +7,7 @@ This document describes how to deploy the [Microsoft Open Source FHIR Server](ht
 
 ## Azure Active Directory (AAD) Application Registration
 
-Azure Active Directory (AAD) application registrations can be created in the Azure portal, but the repository also contains some [bash helper scripts](https://github.com/Microsoft/fhir-server/tree/master/samples/scripts/bash) to assist with the application registration process on the command line:
+Azure Active Directory (AAD) application registrations can be created in the Azure portal, but the repository also contains some [bash helper scripts](https://github.com/Microsoft/fhir-server/tree/main/samples/scripts/bash) to assist with the application registration process on the command line:
 
 ```bash
 #Make sure you are signed in:
@@ -57,13 +57,13 @@ Use the provided template to deploy the FHIR server:
 az group create --name msftfhirserver --location westus
 
 #Deploy FHIR server
-az group deployment create -g msftfhirserver --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json --parameters serviceName=msftexamplefhir securityAuthenticationAuthority=${authenticationAuthority} securityAuthenticationAudience=${authenticationAudience}
+az deployment group create -g msftfhirserver --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy.json --parameters serviceName=msftexamplefhir securityAuthenticationAuthority=${authenticationAuthority} securityAuthenticationAudience=${authenticationAudience}
 ```
 
 Or deploy without OAuth:
 
 ```bash
-az group deployment create -g msftfhirserver --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json --parameters serviceName=msftexamplefhir
+az deployment group create -g msftfhirserver --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy.json --parameters serviceName=msftexamplefhir
 ```
 
 You can use [Postman to test the FHIR server](https://docs.microsoft.com/azure/healthcare-apis/fhir/access-fhir-postman-tutorial). 

@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             string groupId = null,
             string containerName = null,
             string formatName = null,
+            string anonymizationConfigurationCollectionReference = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null)
         {
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 
             Since = since;
             Filters = filters;
+            AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
             GroupId = groupId;
@@ -49,6 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public PartialDateTime Since { get; }
 
         public string Filters { get; }
+
+        public string AnonymizationConfigurationCollectionReference { get; }
 
         public string AnonymizationConfigurationLocation { get; }
 

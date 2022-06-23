@@ -8,7 +8,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class ImportTaskConfiguration
     {
         private const int DefaultMaxRunningProcessingTaskCount = 5;
-        private const int DefaultMaxRetryCount = 5;
         private const int DefaultSqlImportBatchSizeForCheckpoint = 80000;
         private const int DefaultSqlBatchSizeForImportResourceOperation = 2000;
         private const int DefaultSqlBatchSizeForImportParamsOperation = 10000;
@@ -38,12 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Controls how many data processing task would run at the same time.
         /// </summary>
-        public int MaxRunningProcessingTaskCount { get; set; } = DefaultMaxRunningProcessingTaskCount;
-
-        /// <summary>
-        /// Controls how many data processing task would run at the same time.
-        /// </summary>
-        public short MaxRetryCount { get; set; } = DefaultMaxRetryCount;
+        public int MaxRunningProcessingJobCount { get; set; } = DefaultMaxRunningProcessingTaskCount;
 
         /// <summary>
         /// Long running operation timeout

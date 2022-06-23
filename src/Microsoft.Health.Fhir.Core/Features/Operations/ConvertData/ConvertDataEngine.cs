@@ -109,6 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             _converterMap.Add(DataType.Hl7v2, new Hl7v2Processor(processorSetting));
             _converterMap.Add(DataType.Ccda, new CcdaProcessor(processorSetting));
             _converterMap.Add(DataType.Json, new JsonProcessor(processorSetting));
+            _converterMap.Add(DataType.Fhir, new FhirProcessor(processorSetting));
         }
     }
 }

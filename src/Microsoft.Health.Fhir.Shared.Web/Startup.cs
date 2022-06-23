@@ -12,11 +12,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
+using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
-using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -95,13 +95,13 @@ namespace Microsoft.Health.Fhir.Web
 
         private void AddTaskHostingService(IServiceCollection services)
         {
-            services.Add<TaskHosting>()
+            services.Add<JobHosting>()
                 .Scoped()
                 .AsSelf();
-            services.AddFactory<IScoped<TaskHosting>>();
+            services.AddFactory<IScoped<JobHosting>>();
 
-            services.AddHostedService<TaskHostingBackgroundService>();
-            services.Add<TaskFactory>()
+            services.AddHostedService<HostingBackgroundService>();
+            services.Add<JobFactory>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();

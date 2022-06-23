@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
                 }
 
-                _logger.LogInformation($"{currentIndex} lines loaded.");
+                _logger.LogInformation("{CurrentIndex} lines loaded.", currentIndex);
             }
             finally
             {

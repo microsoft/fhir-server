@@ -17,7 +17,7 @@ CREATE PROCEDURE [dbo].[GetTaskDetails]
 AS
     SET NOCOUNT ON
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result, ParentTaskId
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 GO

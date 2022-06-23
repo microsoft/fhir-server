@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // We have an existing job. We will determine the response based on the status of the export operation.
             GetExportResponse exportResponse;
 
-            if (outcome.JobRecord.Status == OperationStatus.Completed)
+            if (outcome.JobRecord.Status == OperationStatus.Completed || outcome.JobRecord.Status == OperationStatus.Canceled)
             {
                 List<ExportFileInfo> allFiles = new List<ExportFileInfo>();
                 foreach (List<ExportFileInfo> fileList in outcome.JobRecord.Output.Values)

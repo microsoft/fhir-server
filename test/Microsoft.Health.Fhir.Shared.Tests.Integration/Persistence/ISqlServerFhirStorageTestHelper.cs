@@ -27,5 +27,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// <param name="databaseName">The name of the database to delete.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Executes sql command.
+        /// </summary>
+        /// <param name="sql">SQL command text.</param>
+        Task ExecuteSqlCmd(string sql);
     }
 }

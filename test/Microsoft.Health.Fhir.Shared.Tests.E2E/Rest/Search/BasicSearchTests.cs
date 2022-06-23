@@ -616,7 +616,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.ElementsAndSummaryParametersAreIncompatible, KnownQueryParameterNames.Summary, KnownQueryParameterNames.Elements);
 
-            Assert.Equal(expectedErrorMessage, ex.Message);
+            Assert.StartsWith(expectedErrorMessage, ex.Message);
         }
 
         [Fact]
@@ -798,7 +798,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var supportedTotalTypes = new string($"'{TotalType.Accurate}', '{TotalType.None}'").ToLower(CultureInfo.CurrentCulture);
             var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.UnsupportedTotalParameter, totalType, supportedTotalTypes);
 
-            Assert.Equal(expectedErrorMessage, ex.Message);
+            Assert.StartsWith(expectedErrorMessage, ex.Message);
         }
 
         [InlineData("_total", "count")]
@@ -815,7 +815,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var supportedTotalTypes = new string($"'{TotalType.Accurate}', '{TotalType.None}'").ToLower(CultureInfo.CurrentCulture);
             var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.InvalidTotalParameter, val, supportedTotalTypes);
 
-            Assert.Equal(expectedErrorMessage, ex.Message);
+            Assert.StartsWith(expectedErrorMessage, ex.Message);
         }
 
         [Fact]
@@ -1063,7 +1063,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<Observation> createdObservation = await Client.CreateAsync(patient);
                 patients[i] = MaskingNode.ForElements(new ScopedNode(createdObservation.Resource.ToTypedElement()), elements)
                     .ToPoco<Observation>();
-                var subsettedTag = new Coding("http://hl7.org/fhir/v3/ObservationValue", "SUBSETTED");
+
+                var system = ModelInfoProvider.Version == FhirSpecification.Stu3 ? "http://hl7.org/fhir/v3/ObservationValue" : "http://terminology.hl7.org/CodeSystem/v3-ObservationValue";
+                var subsettedTag = new Coding(system, "SUBSETTED");
                 patients[i].Meta.Tag.Add(subsettedTag);
             }
 
