@@ -79,5 +79,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.UnprocessableEntity, ex.StatusCode);
             Assert.Equal(Core.Resources.MemberMatchNoMatchFound, ex.OperationOutcome.Issue.First().Diagnostics);
         }
+
+        [Fact]
+        public async Task NonParametersRequestBody_ResultsInBadRequest()
+        {
+            string body = Samples.GetJson("PatientWithMinimalData");
+            var ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostAsync("Patient/$member-match", body));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
     }
 }
