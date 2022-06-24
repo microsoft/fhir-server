@@ -355,7 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
                 }
                 else if (jobRecord.Status == OperationStatus.Failed)
                 {
-                    var single = _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(600), CancellationToken.None).Result.First();
+                    var single = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(600), CancellationToken.None)).First();
                     single.JobRecord.Status = jobRecord.Status;
                     await _operationDataStore.UpdateExportJobAsync(single.JobRecord, single.ETag, CancellationToken.None);
                 }

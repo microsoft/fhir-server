@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 HttpStatusCode? statusCode = (context.Result as OperationOutcomeResult)?.StatusCode;
                 if (statusCode != null && statusCode >= HttpStatusCode.InternalServerError)
                 {
-                    _logger.LogError(context.Exception, "{statusCode} error returned", statusCode);
+                    _logger.LogError(context.Exception, "{StatusCode} error returned", statusCode);
                 }
             }
         }
