@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 "StructureDefinition-us-core-birthsex", "StructureDefinition-us-core-ethnicity", "StructureDefinition-us-core-patient",
                 "StructureDefinition-us-core-race", "StructureDefinition-us-core-organization", "StructureDefinition-us-core-careplan",
+                "StructureDefinition-us-core-genderIdentity",
             };
             foreach (var name in sd)
             {

@@ -67,6 +67,7 @@
     <None Remove="TestFiles\Normative\Specimen.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-careplan.json" />
+    <None Remove="TestFiles\Normative\StructureDefinition-us-core-genderIdentity.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-organization.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-patient.json" />
@@ -331,6 +332,7 @@
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-careplan.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-genderIdentity.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-patient.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-race.json" />

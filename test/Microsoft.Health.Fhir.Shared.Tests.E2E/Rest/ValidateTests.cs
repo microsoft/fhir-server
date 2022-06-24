@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
-            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.Empty(outcome.Issue.Where(x => (x.Severity == OperationOutcome.IssueSeverity.Error && x.Code != OperationOutcome.IssueType.CodeInvalid && x.Code != OperationOutcome.IssueType.Informational)));
             Parameters parameters = new Parameters();
             if (!string.IsNullOrEmpty(profile))
             {
@@ -55,8 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.Parse<Resource>(Samples.GetJson(filename)) });
 
             outcome = await _client.ValidateAsync(path, parameters.ToJson());
-
-            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.Empty(outcome.Issue.Where(x => (x.Severity == OperationOutcome.IssueSeverity.Error && x.Code != OperationOutcome.IssueType.CodeInvalid && x.Code != OperationOutcome.IssueType.Informational)));
         }
 
         [Theory]
@@ -163,37 +162,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
-        // SAM TESTS START
-
         [Fact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsValid_ThenAnOkMessageIsReturned()
         {
- // #if !R4
             var fhirSource = Samples.GetJson("Profile-Patient-PassUsCore-Example");
 
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 
-            Assert.Equal(2, outcome.Issue.Count());
-            Assert.Equal(OperationOutcome.IssueType.Informational, outcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueType.Informational, outcome.Issue[1].Code);
-
-            // #endif
+            foreach (OperationOutcome.IssueComponent issue in outcome.Issue)
+            {
+                Assert.True(issue.Code == OperationOutcome.IssueType.Informational);
+            }
         }
 
         [Fact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsNotValid_ThenAnErrorShouldBeReturned()
         {
-// #if !R4
             var fhirSource = Samples.GetJson("Profile-Patient-FailUsCore-Example");
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
-            Assert.Equal(2, outcome.Issue.Count());
-            Assert.Equal(OperationOutcome.IssueType.CodeInvalid, outcome.Issue[0].Code);
-            Assert.Equal(OperationOutcome.IssueType.Informational, outcome.Issue[1].Code);
 
-// #endif
+            foreach (OperationOutcome.IssueComponent issue in outcome.Issue)
+            {
+                Assert.True(issue.Code == OperationOutcome.IssueType.Informational || issue.Code == OperationOutcome.IssueType.CodeInvalid);
+            }
         }
-
-        // SAM TESTS END
 
         [Fact]
         public async void GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()
@@ -257,14 +249,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #else
             var supportedProfiles = response.Resource.Profile.Select(x => x.Url.ToString()).OrderBy(x => x).ToList();
 #endif
-            Assert.Equal(
-                new[]
+            var expectedSupportProfiles = new[]
                 {
                     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan",
                     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization",
                     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
-                },
-                supportedProfiles);
+                };
+
+            foreach (var profile in expectedSupportProfiles)
+            {
+                Assert.Contains(profile, supportedProfiles);
+            }
         }
 
         private void CheckOperationOutcomeIssue(
