@@ -32,7 +32,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    [ValidateParametersResourceAttribute]
     public class ReindexController : Controller
     {
         private readonly IMediator _mediator;
@@ -61,6 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.Reindex)]
         [ServiceFilter(typeof(ValidateReindexRequestFilterAttribute))]
+        [ServiceFilter(typeof(ValidateParametersResourceAttribute))]
         [AuditEventType(AuditEventSubType.Reindex)]
         public async Task<IActionResult> CreateReindexJob([FromBody] Parameters inputParams)
         {
