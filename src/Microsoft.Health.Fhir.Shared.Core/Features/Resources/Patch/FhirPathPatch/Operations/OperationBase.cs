@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
@@ -18,8 +17,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
     /// </summary>
     internal abstract class OperationBase
     {
-        private ElementNode _target;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="OperationBase"/> class.
         /// </summary>
@@ -41,25 +38,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         internal static IStructureDefinitionSummaryProvider Provider =>
             ModelInfoProvider.Instance.StructureDefinitionSummaryProvider;
 
-        // Gets the target in the ElementNode tree to execute patch operations.
-        internal ElementNode Target =>
-            _target is null ? _target = ResourceElement.Find(Operation.Path) : _target;
+        internal ElementNode Target { get; set; }
 
         // Gets the value of the patch operation as an ElementNode.
         internal ElementNode ValueElementNode
         {
             get
             {
-                PropertyMapping summary = Operation.Type is PatchOperationType.ADD ?
-                    Target.Definition.GetChildDefinition(Operation.Name) :
-                    Target.Definition as PropertyMapping;
-
-                if (summary != null)
+                PropertyMapping mapping;
+                if (Operation.Type is PatchOperationType.ADD)
                 {
-                    return Operation.Value.GetElementNodeFromPart(summary.Name, summary.PropertyTypeMapping.NativeType);
+                    mapping = Target.Definition.GetChildMapping(Operation.Name);
+                }
+                else
+                {
+                    mapping = Target.Definition as PropertyMapping;
                 }
 
-                throw new InvalidOperationException("Patch target has no definition");
+                return Operation.Value.GetElementNodeFromPart(mapping.Name, mapping);
             }
         }
 

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Xunit;
 
@@ -28,18 +29,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
-
-            Assert.True(patchedPatientResource.Matches(
-                new Patient
+            var patchedPatientResource = new FhirPathPatchBuilder(patientResource, patchParam).Apply() as Patient;
+            var expectedPatientResource = new Patient
+            {
+                Identifier = new List<Identifier>
                 {
-                    Identifier = new List<Identifier>
-                    {
-                        new Identifier { System = "http://example.org", Value = "value 1" },
-                        new Identifier { System = "http://example.org", Value = "value 2" },
-                        new Identifier { System = "http://example.org", Value = "value 3" },
-                    },
-                }));
+                    new Identifier { System = "http://example.org", Value = "value 1" },
+                    new Identifier { System = "http://example.org", Value = "value 2" },
+                    new Identifier { System = "http://example.org", Value = "value 3" },
+                },
+            };
+
+            Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
         }
 
         // Implements test case at:
@@ -57,18 +58,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
-
-            Assert.True(patchedPatientResource.Matches(
-                new Patient
+            var patchedPatientResource = new FhirPathPatchBuilder(patientResource, patchParam).Apply() as Patient;
+            var expectedPatientResource = new Patient
+            {
+                Identifier = new List<Identifier>
                 {
-                    Identifier = new List<Identifier>
-                    {
-                        new Identifier { System = "http://example.org", Value = "value 1" },
-                        new Identifier { System = "http://example.org", Value = "value 3" },
-                        new Identifier { System = "http://example.org", Value = "value 2" },
-                    },
-                }));
+                    new Identifier { System = "http://example.org", Value = "value 1" },
+                    new Identifier { System = "http://example.org", Value = "value 3" },
+                    new Identifier { System = "http://example.org", Value = "value 2" },
+                },
+            };
+
+            Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
         }
 
         // Implements test case at:
@@ -86,18 +87,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
-
-            Assert.True(patchedPatientResource.Matches(
-                new Patient
+            var patchedPatientResource = new FhirPathPatchBuilder(patientResource, patchParam).Apply() as Patient;
+            var expectedPatientResource = new Patient
+            {
+                Identifier = new List<Identifier>
                 {
-                    Identifier = new List<Identifier>
-                    {
-                        new Identifier { System = "http://example.org", Value = "value 3" },
-                        new Identifier { System = "http://example.org", Value = "value 1" },
-                        new Identifier { System = "http://example.org", Value = "value 2" },
-                    },
-                }));
+                    new Identifier { System = "http://example.org", Value = "value 3" },
+                    new Identifier { System = "http://example.org", Value = "value 1" },
+                    new Identifier { System = "http://example.org", Value = "value 2" },
+                },
+            };
+
+            Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
         }
 
         [Fact]
@@ -106,7 +107,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             var patchParam = new Parameters().AddInsertPatchParameter("Patient.nothing", new FhirString("test"), 2);
 
             var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
-            Assert.Throws<InvalidOperationException>(builder.Apply);
+            var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
+            Assert.Equal("No content found at Patient.nothing when processing patch insert operation.", exception.Message);
         }
 
         // Not a defined test case, but the path will not resolve and thus a exception is expected.
@@ -117,9 +119,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new Identifier { System = "http://example.org", Value = "new value" }, 0);
 
             var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
-            Assert.Throws<InvalidOperationException>(builder.Apply);
+            var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
+            Assert.Equal("No content found at Patient.identifier when processing patch insert operation.", exception.Message);
         }
 
+        // Not an official test case, but testing index out of range.
         [Fact]
         public void GivenAFhirPatchInsertRequest_WhenInsertingWithOutOfRangeIndex_ThenInvalidOperationExceptionShouldBeThrown()
         {
@@ -133,9 +137,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             };
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
-            Assert.Throws<InvalidOperationException>(builder.Apply);
+            var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
+            Assert.Equal("Index 2 out of bounds when processing patch insert operation.", exception.Message);
         }
 
+        // Not an official test case, but testing index out of range.
         [Fact]
         public void GivenAFhirPatchInsertRequest_WhenInsertingWithNegativeIndex_ThenInvalidOperationExceptionShouldBeThrown()
         {
@@ -149,7 +155,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             };
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
-            Assert.Throws<InvalidOperationException>(builder.Apply);
+            var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
+            Assert.Equal("Index -1 out of bounds when processing patch insert operation.", exception.Message);
         }
     }
 }

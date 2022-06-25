@@ -8,6 +8,7 @@ using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
@@ -34,8 +35,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         internal override Resource Execute()
         {
             // Setup;
-            var targetParent = Target.Parent;
-            var name = Target.Name;
+            ElementNode targetParent;
+            string name;
+            try
+            {
+                Target = ResourceElement.FindSingleOrCollection(Operation.Path);
+                targetParent = Target.Parent;
+                name = Target.Name;
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new InvalidOperationException($"{ex.Message} when processing patch insert operation.");
+            }
+
             var listElements = targetParent.Children(name).ToList()
                                               .Select(x => x as ElementNode)
                                               .Select((value, index) => (value, index))
@@ -44,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             // Ensure index is in bounds
             if (Operation.Index < 0 || Operation.Index > listElements.Count)
             {
-                throw new InvalidOperationException("Insert index out of bounds of target list");
+                throw new InvalidOperationException($"Index {Operation.Index} out of bounds when processing patch insert operation.");
             }
 
             // There is no easy "insert" operation in the FHIR library, so we must
@@ -65,6 +77,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
 
                 // Add the old element back to the list
                 targetParent.Add(Provider, child.value, name);
+            }
+
+            // Insert if index is at end of list (orig list length + 1
+            if (listElements.Count == Operation.Index)
+            {
+                targetParent.Add(Provider, ValueElementNode);
             }
 
             return ResourceElement.ToPoco<Resource>();
