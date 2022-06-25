@@ -140,6 +140,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Task<IEnumerable<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
         {
+            if (GetJobByIdFunc != null)
+            {
+                return Task.FromResult(jobIds.Select(jobId => GetJobByIdFunc(this, jobId)));
+            }
+
             IEnumerable<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id));
             return Task.FromResult<IEnumerable<JobInfo>>(result);
         }
