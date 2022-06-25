@@ -149,7 +149,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return true;
         }
 
-        public Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             HeartbeatFaultAction?.Invoke();
 
@@ -162,7 +162,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             job.HeartbeatDateTime = DateTime.Now;
             job.Result = jobInfo.Result;
 
-            return Task.FromResult(job);
+            return Task.FromResult(job.CancelRequested);
         }
     }
 }

@@ -317,10 +317,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task WaitRunningJobComplete(IProgress<string> progress, CancellationToken cancellationToken)
         {
             HashSet<long> completedJobIds = new HashSet<long>();
-            foreach (long jobId in _orchestratorJobResult.RunningJobIds)
+            List<JobInfo> runningJobs = new List<JobInfo>();
+            try
             {
-                JobInfo latestJobInfo = await _queueClient.GetJobByIdAsync(_jobInfo.QueueType, jobId, false, cancellationToken);
+                runningJobs.AddRange(await _queueClient.GetJobsByIdsAsync(_jobInfo.QueueType, _orchestratorJobResult.RunningJobIds.ToArray(), false, cancellationToken));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get running jobs.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
 
+            foreach (JobInfo latestJobInfo in runningJobs)
+            {
                 if (latestJobInfo.Status != JobStatus.Created && latestJobInfo.Status != JobStatus.Running)
                 {
                     if (latestJobInfo.Status == JobStatus.Completed)
@@ -374,9 +383,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             string[] definitions = new string[] { JsonConvert.SerializeObject(importJobPayload) };
 
-            JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(_jobInfo.QueueType, definitions, _jobInfo.GroupId, false, false, cancellationToken)).First();
+            try
+            {
+                JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(_jobInfo.QueueType, definitions, _jobInfo.GroupId, false, false, cancellationToken)).First();
 
-            return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
+                return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to enqueue job.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
         }
 
         private async Task CancelProcessingJobsAsync()

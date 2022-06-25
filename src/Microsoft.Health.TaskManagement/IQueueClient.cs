@@ -69,7 +69,8 @@ namespace Microsoft.Health.JobManagement
         /// </summary>
         /// <param name="jobInfo">Job Info to keep alive</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken);
+        /// <returns>CancelRequested</returns>
+        public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken);
 
         /// <summary>
         /// Cancel jobs by group id

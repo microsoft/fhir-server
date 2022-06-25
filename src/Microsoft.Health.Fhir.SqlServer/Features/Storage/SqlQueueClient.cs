@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
-        public async Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public async Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
@@ -269,9 +269,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             try
             {
                 VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-                await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                bool cancelRequested = (bool)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
 
-                return await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken);
+                return cancelRequested;
             }
             catch (SqlException sqlEx)
             {
