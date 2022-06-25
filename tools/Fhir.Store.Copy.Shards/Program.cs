@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
         private static readonly int UnitSize = int.Parse(ConfigurationManager.AppSettings["UnitSize"]);
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
+        private static readonly bool RebuildQueue = bool.Parse(ConfigurationManager.AppSettings["RebuildQueue"]);
         private static readonly bool QueueOnly = bool.Parse(ConfigurationManager.AppSettings["QueueOnly"]);
         private static readonly bool TransactionsOnly = bool.Parse(ConfigurationManager.AppSettings["TransactionsOnly"]);
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
@@ -290,7 +291,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private static void PopulateJobQueue(int unitSize)
         {
-            if (Queue.JobQueueIsNotEmpty())
+            if (Queue.JobQueueIsNotEmpty() && !RebuildQueue)
             {
                 return;
             }
@@ -301,7 +302,6 @@ namespace Microsoft.Health.Fhir.Store.Copy
             conn.Open();
             using var cmd = new SqlCommand(
                 @"
-TRUNCATE TABLE dbo.JobQueue
 EXECUTE dbo.EnqueueJobs @QueueType = @QueueType, @Definitions = @Strings, @ForceOneActiveJobGroup = 1
                 ",
                 conn)
