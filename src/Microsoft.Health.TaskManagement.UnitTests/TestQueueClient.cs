@@ -22,7 +22,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Action CompleteFaultAction { get; set; }
 
-        public Func<TestQueueClient, long, JobInfo> GetJobByIdFunc { get; set; }
+        public Func<TestQueueClient, long, CancellationToken, JobInfo> GetJobByIdFunc { get; set; }
 
         public List<JobInfo> JobInfos
         {
@@ -131,7 +131,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         {
             if (GetJobByIdFunc != null)
             {
-                return Task.FromResult(GetJobByIdFunc(this, jobId));
+                return Task.FromResult(GetJobByIdFunc(this, jobId, cancellationToken));
             }
 
             JobInfo result = jobInfos.FirstOrDefault(t => t.Id == jobId);
@@ -142,7 +142,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         {
             if (GetJobByIdFunc != null)
             {
-                return Task.FromResult(jobIds.Select(jobId => GetJobByIdFunc(this, jobId)));
+                return Task.FromResult(jobIds.Select(jobId => GetJobByIdFunc(this, jobId, cancellationToken)));
             }
 
             IEnumerable<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id));

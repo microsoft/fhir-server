@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -269,9 +270,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             try
             {
                 VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-                bool cancelRequested = (bool)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
 
-                return cancelRequested;
+                if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
+                {
+                    return (bool)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                }
+                else
+                {
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    return (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
+                }
             }
             catch (SqlException sqlEx)
             {

@@ -147,7 +147,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = taskCanceledEx.Message,
                 };
 
-                await CancelProcessingJobsAsync();
+                // Processing jobs has been cancelled by CancelImportRequestHandler
+                await WaitCancelledJobCompletedAsync();
                 await SendImportMetricsNotification(JobStatus.Cancelled);
             }
             catch (OperationCanceledException canceledEx)
@@ -160,7 +161,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = canceledEx.Message,
                 };
 
-                await CancelProcessingJobsAsync();
+                // Processing jobs has been cancelled by CancelImportRequestHandler
+                await WaitCancelledJobCompletedAsync();
                 await SendImportMetricsNotification(JobStatus.Cancelled);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
@@ -197,6 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = processingEx.Message,
                 };
 
+                // Cancel other processing jobs
                 await CancelProcessingJobsAsync();
                 await SendImportMetricsNotification(JobStatus.Failed);
             }
@@ -216,6 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = ex.Message,
                 };
 
+                // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync();
                 await SendImportMetricsNotification(JobStatus.Failed);
             }
@@ -407,10 +411,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _logger.LogWarning(ex, "failed to cancel job {GroupId}", _jobInfo.GroupId);
             }
 
-            await WaitRunningJobCompleteOrCancelledAsync();
+            await WaitCancelledJobCompletedAsync();
         }
 
-        private async Task WaitRunningJobCompleteOrCancelledAsync()
+        private async Task WaitCancelledJobCompletedAsync()
         {
             while (true)
             {
@@ -418,7 +422,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     IEnumerable<JobInfo> jobInfos = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Import, _jobInfo.GroupId, false, CancellationToken.None);
 
-                    if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || t.Id == _jobInfo.Id))
+                    if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || !t.CancelRequested || t.Id == _jobInfo.Id))
                     {
                         break;
                     }
