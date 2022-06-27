@@ -387,7 +387,4 @@
     <value>The configuration collection reference '{0}' is invalid.</value>
     <comment>{0} is the configuration collection reference</comment>
   </data>
-  <data name="ExportNotSupportedInBundle" xml:space="preserve">
-    <value>Export operation is not supported for Batch and Transaction request types.</value>
-  </data>
 </root>

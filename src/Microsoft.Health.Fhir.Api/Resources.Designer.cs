@@ -196,15 +196,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Export operation is not supported for Batch and Transaction request types..
-        /// </summary>
-        public static string ExportNotSupportedInBundle {
-            get {
-                return ResourceManager.GetString("ExportNotSupportedInBundle", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Failed while running health check..
         /// </summary>
         public static string FailedHealthCheckMessage {
