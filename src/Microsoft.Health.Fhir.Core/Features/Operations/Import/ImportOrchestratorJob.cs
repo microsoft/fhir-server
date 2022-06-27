@@ -334,6 +334,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             foreach (JobInfo latestJobInfo in runningJobs)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException();
+                }
+
                 if (latestJobInfo.Status != JobStatus.Created && latestJobInfo.Status != JobStatus.Running)
                 {
                     if (latestJobInfo.Status == JobStatus.Completed)
