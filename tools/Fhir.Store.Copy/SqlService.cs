@@ -68,37 +68,51 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return cnt > 0;
         }
 
-        internal void DequeueStoreCopyWorkQueue(int? thread, out short? resourceTypeId, out byte partitionId, out int unitId, out string minSurIdOrUrl, out string maxSurId)
+        private void DequeueJob(out long groupId, out long jobId, out long version, out string definition)
         {
-            resourceTypeId = null;
-            partitionId = 0;
-            unitId = 0;
-            minSurIdOrUrl = string.Empty;
-            maxSurId = string.Empty;
+            definition = null;
+            groupId = -1L;
+            jobId = -1L;
+            version = 0;
 
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
-            using var command = new SqlCommand("dbo.DequeueStoreCopyWorkUnit", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@StartPartitionId", GetNextPartitionId(thread));
+            using var command = new SqlCommand("dbo.DequeueJob", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            command.Parameters.AddWithValue("@QueueType", (byte)3);
             command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
+            command.Parameters.AddWithValue("@HeartbeatTimeoutSec", 600);
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                partitionId = reader.GetByte(0);
-                resourceTypeId = reader.GetInt16(1);
-                unitId = reader.GetInt32(2);
-                minSurIdOrUrl = reader.GetString(3);
-                maxSurId = reader.GetString(4);
+                //// put job type here
+                groupId = reader.GetInt64(0);
+                jobId = reader.GetInt64(1);
+                definition = reader.GetString(2);
+                version = reader.GetInt64(3);
             }
         }
 
-        internal void PutStoreCopyWorkHeartBeat(byte partitionId, int unitId, int? resourceCount = null)
+        public void DequeueJob(out short? resourceTypeId, out long unitId, out long version, out string minSurIdOrUrl, out string maxSurId)
+        {
+            DequeueJob(out var _, out unitId, out version, out var definition);
+            resourceTypeId = null;
+            minSurIdOrUrl = string.Empty;
+            maxSurId = string.Empty;
+            if (definition != null)
+            {
+                var split = definition.Split(";");
+                resourceTypeId = short.Parse(split[0]);
+                minSurIdOrUrl = split[1];
+                maxSurId = split[2];
+            }
+        }
+
+        internal void PutJobHeatbeat(long unitId, int? resourceCount = null)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
-            using var command = new SqlCommand("dbo.PutStoreCopyWorkHeartBeat", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@PartitionId", partitionId);
-            command.Parameters.AddWithValue("@UnitId", unitId);
+            using var command = new SqlCommand("dbo.PutJobHeatbeat", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            command.Parameters.AddWithValue("@JobId", unitId);
             if (resourceCount.HasValue)
             {
                 command.Parameters.AddWithValue("@ResourceCount", resourceCount.Value);
@@ -107,18 +121,26 @@ namespace Microsoft.Health.Fhir.Store.Copy
             command.ExecuteNonQuery();
         }
 
-        internal void CompleteStoreCopyWorkUnit(byte partitionId, int unitId, bool failed, int? resourceCount = null)
+        public void CompleteJob(long jobId, bool failed, long version, int? resourceCount = null)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
-            using var command = new SqlCommand("dbo.PutStoreCopyWorkUnitStatus", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@PartitionId", partitionId);
-            command.Parameters.AddWithValue("@UnitId", unitId);
+            using var command = new SqlCommand("dbo.PutJobStatus", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            command.Parameters.AddWithValue("@QueueType", (byte)3);
+            command.Parameters.AddWithValue("@JobId", jobId);
+            command.Parameters.AddWithValue("@Version", version);
             command.Parameters.AddWithValue("@Failed", failed);
+            command.Parameters.AddWithValue("@RequestCancellationOnFailure", true);
             if (resourceCount.HasValue)
             {
-                command.Parameters.AddWithValue("@ResourceCount", resourceCount.Value);
+                command.Parameters.AddWithValue("@Data", resourceCount.Value);
             }
+            else
+            {
+                command.Parameters.AddWithValue("@Data", DBNull.Value);
+            }
+
+            command.Parameters.AddWithValue("@FinalResult", DBNull.Value);
 
             command.ExecuteNonQuery();
         }

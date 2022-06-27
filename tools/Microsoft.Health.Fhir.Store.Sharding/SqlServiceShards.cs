@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         }
 
         public int MergeResources(
+            TransactionId transactionId,
             IEnumerable<Resource> resources,
             IEnumerable<ReferenceSearchParam> referenceSearchParams,
             IEnumerable<TokenSearchParam> tokenSearchParams,
@@ -89,6 +90,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 {
                     if (resourcesSharded[shardId] != null)
                     {
+                        // transaction is recorded inside merge stored procedure to avoid extra call to the database
                         affectedRows[shardId] = MergeResourcesSingleShard(
                                                     shardId,
                                                     resourcesSharded[shardId],
@@ -102,6 +104,10 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                                                     stringSearchParamsSharded[shardId],
                                                     tokenTokenCompositeSearchParamsSharded[shardId],
                                                     tokenStringCompositeSearchParamsSharded[shardId]);
+                    }
+                    else
+                    {
+                        PutShardTransaction(transactionId);
                     }
                 },
                 null);

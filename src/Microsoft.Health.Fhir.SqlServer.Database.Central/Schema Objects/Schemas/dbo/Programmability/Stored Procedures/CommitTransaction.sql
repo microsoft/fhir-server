@@ -7,7 +7,7 @@ CREATE PROCEDURE dbo.CommitTransaction
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
-       ,@Mode varchar(100) = 'T='+isnull(convert(varchar(50),@TransactionId),'NULL')+' WD='+isnull(convert(varchar,@IsWatchDog),'NULL')+' F='+isnull(convert(varchar,CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END),'NULL')
+       ,@Mode varchar(100) = 'T='+isnull(convert(varchar(50),@TransactionId),'NULL')+' WD='+isnull(convert(varchar,@IsWatchDog),'NULL')+' F='+isnull(convert(varchar,CASE WHEN @FailureReason IS NULL THEN 0 ELSE 1 END),'NULL')
        ,@tmpTransactionId bigint
        ,@Flag bit
        ,@TranCount int

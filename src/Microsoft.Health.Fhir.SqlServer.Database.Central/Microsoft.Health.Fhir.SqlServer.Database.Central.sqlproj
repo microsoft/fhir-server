@@ -141,5 +141,8 @@
     <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Types\BigintList.sql">
       <Link>Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\BigintList.sql</Link>
     </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\PutJobHeartbeat.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutJobHeartbeat.sql</Link>
+    </Build>
   </ItemGroup>
 </Project>

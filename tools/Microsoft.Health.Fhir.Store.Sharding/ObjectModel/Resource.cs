@@ -78,8 +78,6 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 new SqlMetaData("Sequence", SqlDbType.SmallInt),
                 new SqlMetaData("IsDeleted", SqlDbType.Bit),
                 new SqlMetaData("RequestMethod", SqlDbType.VarChar, 10),
-                new SqlMetaData("RawResource", SqlDbType.VarBinary, -1),
-                new SqlMetaData("IsRawResourceMetaSet", SqlDbType.Bit),
                 new SqlMetaData("SearchParamHash", SqlDbType.VarChar, 64),
             };
         }
@@ -107,9 +105,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 record.SetSqlInt16(6, row.Sequence);
                 record.SetBoolean(7, row.IsDeleted);
                 record.SetSqlString(8, row.RequestMethod);
-                record.SetSqlBinary(9, row.RawResource);
-                record.SetBoolean(10, row.IsRawResourceMetaSet);
-                record.SetSqlString(11, row.SearchParamHash);
+                record.SetSqlString(9, row.SearchParamHash);
                 yield return record;
             }
         }

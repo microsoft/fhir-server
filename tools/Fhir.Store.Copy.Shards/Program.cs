@@ -51,6 +51,15 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.Distributed.dacpac");
                 }
             }
+            else if (method == "init")
+            {
+                Target = new SqlService(TargetConnectionString);
+                foreach (var shard in Target.ShardletMap.Shards)
+                {
+                    TruncateTables(shard.Key);
+                    DisableIndexes(shard.Key);
+                }
+            }
             else
             {
                 Target = new SqlService(TargetConnectionString);
@@ -58,6 +67,32 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 PopulateJobQueue(UnitSize);
                 Copy();
             }
+        }
+
+        private static void TruncateTables(ShardId shardId)
+        {
+            using var cmd = new SqlCommand(@"
+DECLARE @cmd varchar(max) = ''
+SELECT @cmd = @cmd + 'TRUNCATE TABLE '+O.name+char(10)
+  FROM (SELECT * FROM sys.indexes WHERE index_id IN (0,1)) I
+       JOIN sys.objects O ON O.object_id = I.object_id
+  WHERE EXISTS (SELECT * FROM sys.partition_schemes PS WHERE PS.data_space_id = I.data_space_id AND name = 'PartitionScheme_ResourceTypeId')
+EXECUTE(@cmd)
+              ");
+            Target.ExecuteSqlWithRetries(shardId, cmd, c => c.ExecuteNonQuery(), 60);
+        }
+
+        private static void DisableIndexes(ShardId shardId)
+        {
+            using var cmd = new SqlCommand(@"
+DECLARE @cmd varchar(max) = ''
+SELECT @cmd = @cmd + 'ALTER INDEX '+I.name+' ON '+O.name+' DISABLE'+char(10)
+  FROM (SELECT * FROM sys.indexes WHERE index_id NOT IN (0,1)) I
+       JOIN sys.objects O ON O.object_id = I.object_id
+  WHERE EXISTS (SELECT * FROM sys.partition_schemes PS WHERE PS.data_space_id = I.data_space_id AND name = 'PartitionScheme_ResourceTypeId')
+EXECUTE(@cmd)
+              ");
+            Target.ExecuteSqlWithRetries(shardId, cmd, c => c.ExecuteNonQuery(), 60);
         }
 
         public static void Copy()
@@ -104,8 +139,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
                             {
                                 (resourceCount, totalCount) = CopyViaSql(thread, resourceTypeId.Value, jobId, minId, maxId, transactionId);
                             }
+                            else
+                            {
+                                Target.PutShardTransaction(transactionId);
+                            }
 
-                            Target.PutShardTransaction(transactionId);
                             Target.CommitTransaction(transactionId);
                         }
 
@@ -280,7 +318,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             var rows = 0;
             if (WritesEnabled)
             {
-                rows = Target.MergeResources(resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
+                rows = Target.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
             }
 
             Console.WriteLine($"Copy.{thread}.{jobId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");

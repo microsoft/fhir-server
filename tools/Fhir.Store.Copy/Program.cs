@@ -60,14 +60,14 @@ namespace Microsoft.Health.Fhir.Store.Copy
             else
             {
                 Target.RegisterDatabaseLogging();
-                if (PartitionByPartOfResourceId)
-                {
-                    PopulateStoreCopyWorkQueue(GetContainer(SourceBlobConnectionString, SourceBlobContainerName));
-                }
-                else
-                {
-                    PopulateStoreCopyWorkQueue(UnitSize);
-                }
+                ////if (PartitionByPartOfResourceId)
+                ////{
+                ////    PopulateStoreCopyWorkQueue(GetContainer(SourceBlobConnectionString, SourceBlobContainerName));
+                ////}
+                ////else
+                ////{
+                ////    PopulateStoreCopyWorkQueue(UnitSize);
+                ////}
 
                 Copy(method);
             }
@@ -96,8 +96,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
             while (resourceTypeId.HasValue && !stop)
             {
                 string minIdOrUrl = null;
-                var partitionId = (byte)0;
-                var unitId = 0;
+                var unitId = 0L;
+                var version = 0L;
                 var retries = 0;
                 var maxRetries = MaxRetries;
                 var resourceCount = 0;
@@ -105,26 +105,28 @@ namespace Microsoft.Health.Fhir.Store.Copy
             retry:
                 try
                 {
-                    Queue.DequeueStoreCopyWorkQueue(PartitionByPartOfResourceId ? thread : null, out resourceTypeId, out partitionId, out unitId, out minIdOrUrl, out var maxId);
+                    Queue.DequeueJob(out resourceTypeId, out unitId, out version, out minIdOrUrl, out var maxId);
                     if (!QueueOnly && resourceTypeId.HasValue)
                     {
                         if (method == "bcp")
                         {
-                            CopyViaBcp(thread, resourceTypeId.Value, partitionId, unitId, long.Parse(minIdOrUrl), long.Parse(maxId));
+                            ////CopyViaBcp(thread, resourceTypeId.Value, partitionId, unitId, long.Parse(minIdOrUrl), long.Parse(maxId));
                         }
                         else
                         {
                             if (PartitionByPartOfResourceId)
                             {
                                 var sourceContainer = GetContainer(SourceBlobConnectionString, SourceBlobContainerName);
-                                resourceCount = CopyViaSqlPartitionByPartOfResourceId(method == "merge", resourceTypeId.Value, partitionId, unitId, sourceContainer, minIdOrUrl, useSecondaryStore);
+                                ////resourceCount = CopyViaSqlPartitionByPartOfResourceId(method == "merge", resourceTypeId.Value, partitionId, unitId, sourceContainer, minIdOrUrl, useSecondaryStore);
                             }
                             else
                             {
-                                CopyViaSql(method == "merge", thread, resourceTypeId.Value, unitId, minIdOrUrl, maxId, SortBySurrogateId);
+                                resourceCount = CopyViaSql(method == "merge", thread, resourceTypeId.Value, unitId, minIdOrUrl, maxId, SortBySurrogateId);
                             }
                         }
                     }
+
+                    Queue.CompleteJob(unitId, false, version, resourceCount);
                 }
                 catch (Exception e)
                 {
@@ -146,19 +148,18 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     stop = true;
                     if (resourceTypeId.HasValue)
                     {
-                        Target.CompleteStoreCopyWorkUnit(partitionId, unitId, true);
+                        Target.CompleteJob(unitId, true, version);
                     }
 
                     throw;
                 }
-
-                Queue.CompleteStoreCopyWorkUnit(partitionId, unitId, false, PartitionByPartOfResourceId ? resourceCount : null);
             }
 
             Console.WriteLine($"Copy.{method}.{thread}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
-        private static int CopyViaSqlPartitionByPartOfResourceId(bool isMerge, short resourceTypeId, byte partitionId, int unitId, BlobContainerClient container, string blobUrl, bool useSecondaryStore)
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1107:Code should not contain multiple statements on one line", Justification = "Readability")]
+        private static int CopyViaSqlPartitionByPartOfResourceId(bool isMerge, short resourceTypeId, int unitId, BlobContainerClient container, string blobUrl, bool useSecondaryStore)
         {
             var sw = Stopwatch.StartNew();
             var resourceIds = GetResourceIdsInBlob(container, blobUrl);
@@ -299,10 +300,10 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
                 Interlocked.Add(ref totalCount, count);
 
-                Queue.PutStoreCopyWorkHeartBeat(partitionId, unitId, totalCount);
+                Queue.PutJobHeatbeat(unitId, totalCount);
             });
 
-            Console.WriteLine($"Copy.{(isMerge ? "merge" : "insert")}.partBy=ResourceId.{partitionId}.{unitId}.{resourceTypeId}.[{blobUrl}]: resources= {totalCount} completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"Copy.{(isMerge ? "merge" : "insert")}.partBy=ResourceId.{unitId}.{resourceTypeId}.[{blobUrl}]: resources= {totalCount} completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
             return totalCount;
         }
 
@@ -381,7 +382,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     }
 
                     stop = true;
-                    Target.CompleteStoreCopyWorkUnit(partitionId, unitId, true);
+                    ////Target.CompleteJob(unitId, true);
                     throw;
                 }
 
@@ -407,17 +408,18 @@ namespace Microsoft.Health.Fhir.Store.Copy
                         }
 
                         stop = true;
-                        Target.CompleteStoreCopyWorkUnit(partitionId, unitId, true);
+                        ////Target.CompleteStoreCopyWorkUnit(partitionId, unitId, true);
                         throw;
                     }
                 }
             }
 
-            Target.CompleteStoreCopyWorkUnit(partitionId, unitId, false);
+            ////Target.CompleteStoreCopyWorkUnit(partitionId, unitId, false);
             Console.WriteLine($"Copy.bcp.{thread}.{resourceTypeId}.{minSurId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
-        private static void CopyViaSql(bool isMerge, int thread, short resourceTypeId, int unitId, string minId, string maxId, bool convertToLong)
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1107:Code should not contain multiple statements on one line", Justification = "Reads")]
+        private static int CopyViaSql(bool isMerge, int thread, short resourceTypeId, long unitId, string minId, string maxId, bool convertToLong)
         {
             var sw = Stopwatch.StartNew();
             var surrIdMap = new Dictionary<long, int>();
@@ -552,6 +554,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
             }
 
             Console.WriteLine($"Copy.{(isMerge ? "merge" : "insert")}.sort={(SortBySurrogateId ? "SurrogateId" : "ResourceId")}.{thread}.{unitId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+
+            return resources.Count;
         }
 
         private static void RunOsCommand(string filename, string arguments, bool redirectOutput)

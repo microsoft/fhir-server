@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
 
-        internal void ExecuteSqlWithRetries(ShardId? shardId, SqlCommand cmd, Action<SqlCommand> action, int connectionTimeoutSec = 600)
+        public void ExecuteSqlWithRetries(ShardId? shardId, SqlCommand cmd, Action<SqlCommand> action, int connectionTimeoutSec = 600)
         {
             while (true)
             {

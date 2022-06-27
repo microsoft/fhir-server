@@ -9,7 +9,7 @@ DECLARE @SP varchar(100) = 'PutShardTransaction'
 
 BEGIN TRY
   INSERT INTO dbo.ShardTransactions 
-          ( TransactionId)
+          ( TransactionId )
     SELECT @TransactionId
       WHERE NOT EXISTS (SELECT * FROM dbo.ShardTransactions WHERE TransactionId = @TransactionId)
 
