@@ -14,13 +14,14 @@ DECLARE @SP varchar(100) = 'GetCommandsForRebuildIndexes'
        ,@Supported bit
        ,@Txt varchar(max)
        ,@Rows bigint
+       ,@Pages bigint
        ,@ResourceTypeId smallint
        ,@IndexesCnt int
 
 BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
 
-  DECLARE @Commands TABLE (Tbl varchar(100), Txt varchar(max), Rows bigint)
+  DECLARE @Commands TABLE (Tbl varchar(100), Txt varchar(max), Pages bigint)
   DECLARE @ResourceTypes TABLE (ResourceTypeId smallint PRIMARY KEY)
   DECLARE @Indexes TABLE (Ind varchar(200) PRIMARY KEY, IndId int)
   DECLARE @Tables TABLE (name varchar(100) PRIMARY KEY, Supported bit)
@@ -51,7 +52,7 @@ BEGIN TRY
       BEGIN
         SET @ResourceTypeId = (SELECT TOP 1 ResourceTypeId FROM @ResourceTypes ORDER BY ResourceTypeId)
         SET @TblInt = @Tbl+'_'+convert(varchar,@ResourceTypeId)
-        SET @Rows = (SELECT rows FROM sysindexes WHERE id = object_id(@TblInt) AND indid IN (0,1)) 
+        SET @Pages = (SELECT dpages FROM sysindexes WHERE id = object_id(@TblInt) AND indid IN (0,1)) 
 
         -- add indexes
         DELETE FROM @Indexes
@@ -64,7 +65,7 @@ BEGIN TRY
           IF @IndId = 1
           BEGIN
             SET @Txt = 'ALTER INDEX '+@Ind+' ON dbo.'+@TblInt+' REBUILD'
-            INSERT INTO @Commands SELECT @TblInt, @Txt, @Rows
+            INSERT INTO @Commands SELECT @TblInt, @Txt, @Pages
             EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
           END
           ELSE
@@ -75,7 +76,7 @@ BEGIN TRY
               IF @Txt IS NOT NULL
               BEGIN
                 SET @IndexesCnt = @IndexesCnt + 1
-                INSERT INTO @Commands SELECT @TblInt, @Txt, @Rows
+                INSERT INTO @Commands SELECT @TblInt, @Txt, @Pages
                 EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
               END
             END
@@ -86,7 +87,7 @@ BEGIN TRY
         IF @IndexesCnt > 1
         BEGIN
           -- add update stats so index creates are not waiting on each other
-          INSERT INTO @Commands SELECT @TblInt, 'UPDATE STATISTICS dbo.'+@TblInt, @Rows
+          INSERT INTO @Commands SELECT @TblInt, 'UPDATE STATISTICS dbo.'+@TblInt, @Pages
           EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text='Add stats update'
         END
 
@@ -97,7 +98,7 @@ BEGIN TRY
     DELETE FROM @Tables WHERE name = @Tbl
   END
 
-  SELECT Tbl, Txt FROM @Commands ORDER BY Rows DESC, Tbl, CASE WHEN Txt LIKE 'UPDATE STAT%' THEN 0 ELSE 1 END -- update stats should be before index creates
+  SELECT Tbl, Txt FROM @Commands ORDER BY Pages DESC, Tbl, CASE WHEN Txt LIKE 'UPDATE STAT%' THEN 0 ELSE 1 END -- update stats should be before index creates
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Commands',@Action='Select',@Rows=@@rowcount
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st

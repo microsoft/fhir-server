@@ -17,4 +17,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <PostBuildEvent>copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
+  </PropertyGroup>
 </Project>
