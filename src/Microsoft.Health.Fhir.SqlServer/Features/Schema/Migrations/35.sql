@@ -1752,7 +1752,7 @@ END CATCH
 GO
 CREATE PROCEDURE dbo.DisableIndex
 @tableName NVARCHAR (128), @indexName NVARCHAR (128)
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 DECLARE @errorTxt AS VARCHAR (1000), @sql AS NVARCHAR (1000), @isDisabled AS BIT;
 IF object_id(@tableName) IS NULL
@@ -2529,7 +2529,7 @@ ELSE
 GO
 CREATE PROCEDURE dbo.RebuildIndex
 @tableName NVARCHAR (128), @indexName NVARCHAR (128), @pageCompression BIT=0
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 DECLARE @errorTxt AS VARCHAR (1000), @sql AS NVARCHAR (1000), @isDisabled AS BIT, @isExecuted AS INT;
 IF object_id(@tableName) IS NULL
