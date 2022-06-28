@@ -87,47 +87,19 @@
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\SwitchPartitionsOutAllTables.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\SwitchPartitionsIn.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetIndexCommands.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\LogEvent.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Tables\EventLog.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Tables\Parameters.sql" />
     <None Include="Scripts\Pre-Deployment\PreDeployment.sql">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\ExecuteCommandForRebuildIndexes.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Functions\BuildStoreNumberAndErrorMessage.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Tables\IndexProperties.sql" />
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\CompartmentAssignment.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\CompartmentAssignment.sql</Link>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\LogEvent.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\LogEvent.sql</Link>
     </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\DateTimeSearchParam.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\DateTimeSearchParam.sql</Link>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\EventLog.sql">
+      <Link>Schema Objects\Schemas\dbo\Tables\EventLog.sql</Link>
     </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\QuantitySearchParam.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\QuantitySearchParam.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\ReferenceSearchParam.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\ReferenceSearchParam.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\Resource.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\Resource.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\StringSearchParam.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\StringSearchParam.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\TokenQuantityCompositeSearchParam.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\TokenQuantityCompositeSearchParam.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\TokenSearchParam.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\TokenSearchParam.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\TokenStringCompositeSearchParam.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\TokenStringCompositeSearchParam.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\TokenText.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\TokenText.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\TokenTokenCompositeSearchParam.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\TokenTokenCompositeSearchParam.sql</Link>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\Parameters.sql">
+      <Link>Schema Objects\Schemas\dbo\Tables\Parameters.sql</Link>
     </Build>
   </ItemGroup>
   <ItemGroup>

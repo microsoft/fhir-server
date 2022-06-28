@@ -5,7 +5,7 @@ WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsInAllTables'
-       ,@Mode varchar(200) = 'PS=PartitionScheme_ResourceTypeId'
+       ,@Mode varchar(100) = 'PS=PartitionScheme_ResourceTypeId'
        ,@st datetime = getUTCdate()
        ,@Tbl varchar(100)
 
@@ -30,6 +30,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
 END CATCH
 GO

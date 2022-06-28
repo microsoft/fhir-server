@@ -5,7 +5,7 @@ WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'ExecuteCommandForRebuildIndexes' 
-       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')
+       ,@Mode varchar(100) = 'Tbl='+isnull(@Tbl,'NULL')
        ,@st datetime
        ,@Retries int = 0
        ,@Action varchar(100)
@@ -51,7 +51,7 @@ BEGIN CATCH
       WAITFOR DELAY '00:10:00' -- 10 minutes
     GOTO RetryOnTempdbError
   END
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
-  RETURN
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
 END CATCH
 GO
