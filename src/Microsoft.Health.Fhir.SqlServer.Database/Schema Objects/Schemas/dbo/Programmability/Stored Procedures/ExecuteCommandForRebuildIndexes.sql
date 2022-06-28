@@ -51,7 +51,7 @@ BEGIN CATCH
       WAITFOR DELAY '00:10:00' -- 10 minutes
     GOTO RetryOnTempdbError
   END
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
-  RETURN
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
 END CATCH
 GO

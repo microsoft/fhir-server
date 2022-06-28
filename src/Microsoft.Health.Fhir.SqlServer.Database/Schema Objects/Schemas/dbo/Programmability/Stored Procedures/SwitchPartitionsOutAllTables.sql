@@ -30,6 +30,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
 END CATCH
 GO
