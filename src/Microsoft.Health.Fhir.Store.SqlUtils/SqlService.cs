@@ -65,6 +65,12 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
             return $"server={builder.DataSource};database={builder.InitialCatalog}";
         }
 
+        public static string ShowConnectionString(string connectionString)
+        {
+            var builder = new SqlConnectionStringBuilder(connectionString);
+            return $"server={builder.DataSource};database={builder.InitialCatalog}";
+        }
+
         public string GetTrueConnectionString(bool? useSecondaryStore = null)
         {
             if (!useSecondaryStore.HasValue || _secondaryConnectionString == null)
