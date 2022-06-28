@@ -27,5 +27,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             return bytesToWrite;
         }
+
+        public string StringSerialize(ResourceElement resourceElement)
+        {
+            EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
+
+            return resourceElement.Instance.ToJson();
+        }
     }
 }

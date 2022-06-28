@@ -72,7 +72,14 @@
     },
     "relatesTo": [
         {
-            "code": "appends",
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://hl7.org/fhir/document-relationship-type",
+                        "code": "appends"
+                    }
+                ]
+            },
             "target": {
                 "reference": "DocumentReference/example-appends"
             }

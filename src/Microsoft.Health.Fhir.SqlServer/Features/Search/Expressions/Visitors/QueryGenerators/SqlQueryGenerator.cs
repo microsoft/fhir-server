@@ -108,13 +108,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // The last CTE has all the surrogate IDs that match the results.
                     // We just need to count those and don't need to join with the Resource table
                     selectingFromResourceTable = false;
-                    StringBuilder.AppendLine("SELECT COUNT(DISTINCT Sid1)");
+                    StringBuilder.AppendLine("SELECT COUNT_BIG(DISTINCT Sid1)");
                 }
                 else
                 {
                     // We will be counting over the Resource table.
                     selectingFromResourceTable = true;
-                    StringBuilder.AppendLine("SELECT COUNT(*)");
+                    StringBuilder.AppendLine("SELECT COUNT_BIG(*)");
                 }
             }
             else
@@ -227,7 +227,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     else if (IsSortValueNeeded(searchOptions))
                     {
                         StringBuilder
-                            .Append($"{TableExpressionName(_tableExpressionCounter)}.SortValue ")
+                            .Append(TableExpressionName(_tableExpressionCounter))
+                            .Append(".SortValue ")
                             .Append(searchOptions.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
                     }
@@ -453,7 +454,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Everything in the top expression is considered a match
             string selectStatement = sortExpression == null ? "SELECT DISTINCT" : "SELECT";
-            StringBuilder.Append($"{selectStatement} TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
+            StringBuilder.Append(selectStatement).Append(" TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                 .Append("FROM ").AppendLine(tableExpressionName);
 
@@ -471,7 +472,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             void AppendOrderBy()
             {
-                StringBuilder.Append($"ORDER BY ");
+                StringBuilder.Append("ORDER BY ");
                 if (IsPrimaryKeySort(context))
                 {
                     StringBuilder.AppendDelimited(", ", context.Sort, (sb, sort) =>
@@ -771,7 +772,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // Handle Multiple Results sets to include from
             if (_includeFromCteIds?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCteIds.Count - 1)
             {
-                StringBuilder.Append($"),{Environment.NewLine}");
+                StringBuilder.AppendLine("),");
 
                 // If it's not the last result set, append a new IncludeLimit cte, since IncludeLimitCte was not created for the current cte
                 if (_curFromCteIndex < _includeFromCteIds?.Count - 1)
@@ -812,7 +813,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (isRev)
             {
-                StringBuilder.Append("CASE WHEN count(*) over() > ")
+                StringBuilder.Append("CASE WHEN COUNT_BIG(*) over() > ")
                     .Append(Parameters.AddParameter(context.IncludeCount, true))
                     .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
             }
@@ -899,9 +900,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         var sortOperand = sortContext.SortOrder == SortOrder.Ascending ? ">" : "<";
 
                         delimited.BeginDelimitedElement();
-                        StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false));
-                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
-                        StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
+                        StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append(" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false));
+                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
+                        StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
@@ -940,9 +941,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         var sortOperand = sortContext.SortOrder == SortOrder.Ascending ? ">" : "<";
 
                         delimited.BeginDelimitedElement();
-                        StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false));
-                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
-                        StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
+                        StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append(" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false));
+                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
+                        StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
@@ -962,12 +963,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount, true)).Append(") ");
 
             StringBuilder.Append("T1, Sid1, IsMatch, ");
-            StringBuilder.Append("CASE WHEN count(*) over() > ")
+            StringBuilder.Append("CASE WHEN COUNT_BIG(*) over() > ")
                 .Append(Parameters.AddParameter(context.IncludeCount, true))
                 .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
 
             StringBuilder.Append("FROM ").AppendLine(cteToLimit);
-            StringBuilder.Append($"),{Environment.NewLine}");
+            StringBuilder.AppendLine("),");
 
             // the 'original' include cte is not in the union, but this new layer is instead
             _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));

@@ -16,7 +16,8 @@
 --     @runId
 --         * Current runId for this exuction of the task
 --
-CREATE PROCEDURE [dbo].[CompleteTask]
+GO
+CREATE PROCEDURE dbo.CompleteTask
     @taskId varchar(64),
     @taskResult varchar(max),
     @runId varchar(50)
@@ -34,26 +35,13 @@ IF NOT EXISTS (SELECT *
         THROW 50404, 'Task not exist or runid not match', 1;
     END
 
--- We will timestamp the jobs when we update them to track stale jobs.
-DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
 UPDATE dbo.TaskInfo
 SET    Status            = 3,
-       HeartbeatDateTime = @heartbeatDateTime,
+       EndDateTime       = SYSUTCDATETIME(),
        Result            = @taskResult
 WHERE  TaskId = @taskId;
-SELECT TaskId,
-       QueueId,
-       Status,
-       TaskTypeId,
-       RunId,
-       IsCanceled,
-       RetryCount,
-       MaxRetryCount,
-       HeartbeatDateTime,
-       InputData,
-       TaskContext,
-       Result
-FROM   [dbo].[TaskInfo]
-WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
+
+EXECUTE dbo.GetTaskDetails @TaskId = @taskId
+
 GO

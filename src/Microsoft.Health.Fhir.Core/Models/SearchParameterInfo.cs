@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public Uri Url { get; }
 
-        public SearchParamType Type { get; }
+        public SearchParamType Type { get; set; }
 
         /// <summary>
         /// Returns true if this parameter is enabled for searches

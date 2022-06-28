@@ -1,0 +1,33 @@
+{
+  "resourceType": "SupplyDelivery",
+  "id": "809b2402-8c7f-bd17-0fc8-00426c45d8e3",
+  "status": "completed",
+  "patient": {
+    "reference": "Patient/8016aed3-aedf-0677-297c-957d0294ad38"
+  },
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/supply-item-type",
+        "code": "device",
+        "display": "Device"
+      }
+    ]
+  },
+  "suppliedItem": {
+    "quantity": {
+      "value": 2
+    },
+    "itemCodeableConcept": {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "409534002",
+          "display": "Disposable air-purifying respirator (physical object)"
+        }
+      ],
+      "text": "Disposable air-purifying respirator (physical object)"
+    }
+  },
+  "occurrenceDateTime": "2020-03-06T16:17:07+00:00"
+}

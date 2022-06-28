@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel : IRequireInitializationOnFirstRequest, ISqlServerFhirModel
+    public sealed class SqlServerFhirModel : ISqlServerFhirModel
     {
         private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                  _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
             }
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 // Synchronous calls are used because this code is executed on startup and doesn't need to be async.
                 // Additionally, XUnit task scheduler constraints prevent async calls from being easily tested.
@@ -278,7 +278,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 sqlCommandWrapper.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
                 sqlCommandWrapper.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
-                using (SqlDataReader reader = sqlCommandWrapper.ExecuteReader(CommandBehavior.SequentialAccess))
+                using (SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
                     var resourceTypeIdToTypeName = new Dictionary<short, string>();
@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // result set 1
                     short lowestResourceTypeId = short.MaxValue;
                     short highestResourceTypeId = short.MinValue;
-                    while (reader.Read())
+                    while (await reader.ReadAsync(cancellationToken))
                     {
                         (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
 
@@ -310,45 +310,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     // result set 2
-                    reader.NextResult();
+                    await reader.NextResultAsync(cancellationToken);
 
-                    while (reader.Read())
+                    while (await reader.ReadAsync(cancellationToken))
                     {
                         (string uri, short searchParamId) = reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
                         searchParamUriToId.Add(new Uri(uri), searchParamId);
                     }
 
                     // result set 3
-                    reader.NextResult();
+                    await reader.NextResultAsync(cancellationToken);
 
-                    while (reader.Read())
+                    while (await reader.ReadAsync(cancellationToken))
                     {
                         (byte id, string claimTypeName) = reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
                         claimNameToId.Add(claimTypeName, id);
                     }
 
                     // result set 4
-                    reader.NextResult();
+                    await reader.NextResultAsync(cancellationToken);
 
-                    while (reader.Read())
+                    while (await reader.ReadAsync(cancellationToken))
                     {
                         (byte id, string compartmentName) = reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
                         compartmentTypeToId.Add(compartmentName, id);
                     }
 
                     // result set 5
-                    reader.NextResult();
+                    await reader.NextResultAsync(cancellationToken);
 
-                    while (reader.Read())
+                    while (await reader.ReadAsync(cancellationToken))
                     {
                         var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
                         systemToId.TryAdd(value, systemId);
                     }
 
                     // result set 6
-                    reader.NextResult();
+                    await reader.NextResultAsync(cancellationToken);
 
-                    while (reader.Read())
+                    while (await reader.ReadAsync(cancellationToken))
                     {
                         (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
                         quantityCodeToId.TryAdd(value, quantityCodeId);
@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 sqlCommandWrapper.CommandText = @"
                         SET XACT_ABORT ON
@@ -410,14 +410,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return id;
             }
 
-            _logger.LogInformation("Cache miss for string ID on {table}", table);
+            _logger.LogInformation("Cache miss for string ID on {Table}", table);
 
             // Forgive me father, I have sinned.
             // In ideal world I should make this method async, but that spirals out of control and forces changes in all RowGenerators (about 35 files)
             // and overall logic of preparing data for insert.
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
             using (SqlConnectionWrapper sqlConnectionWrapper = scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true).Result)
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 // This command are not using any user arguments, and can't be rewritten to parametrized command string
                 // because you can't parameterize column or table.
@@ -463,7 +463,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void ThrowIfCurrentSchemaVersionIsNull()
         {
-            if (_schemaInformation.Current == null)
+            // While applying the full schema, CurrentVersion is set as 0 in InstanceSchema table
+            if (_schemaInformation.Current == null || _schemaInformation.Current == 0)
             {
                 throw new InvalidOperationException(Resources.SchemaVersionShouldNotBeNull);
             }

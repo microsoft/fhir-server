@@ -9,7 +9,11 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
@@ -49,9 +53,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
+            var fhirContext = context.HttpContext.RequestServices.GetService<RequestContextAccessor<IFhirRequestContext>>();
+
             HttpResponse response = context.HttpContext.Response;
 
-            if (StatusCode.HasValue)
+            if (fhirContext.GetMissingResourceCode() != null)
+            {
+                response.StatusCode = (int)fhirContext.GetMissingResourceCode().Value;
+            }
+            else if (StatusCode.HasValue)
             {
                 response.StatusCode = (int)StatusCode.Value;
             }

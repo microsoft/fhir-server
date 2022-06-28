@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 // So, it would be a good option that opens and closes a connection for each call,
                 // and there is no database connection pooling in the Application at this time.
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
                     if (ResourceTypeIdToTypeNameMap.IsEmpty)
                     {
@@ -144,17 +144,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             {
                 _logger.LogInformation(ex, Resources.GetRecordsAsyncOperationIsCanceled);
                 throw;
-            }
-            catch (SqlException ex)
-            {
-                switch (ex.Number)
-                {
-                    case SqlErrorCodes.TimeoutExpired:
-                        throw new TimeoutException(ex.Message, ex);
-                    default:
-                        _logger.LogError(ex, string.Format(Resources.SqlExceptionOccurredWhenFetchingResourceChanges, ex.Number));
-                        throw;
-                }
             }
             catch (Exception ex)
             {

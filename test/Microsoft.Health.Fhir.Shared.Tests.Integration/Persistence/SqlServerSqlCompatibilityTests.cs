@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -33,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
             try
             {
-                for (int i = SchemaVersionConstants.Min; i <= SchemaVersionConstants.Max; i++)
+                for (int i = SchemaVersionConstants.Max - 5; i <= SchemaVersionConstants.Max; i++)
                 {
                     try
                     {
@@ -76,35 +78,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
         /// </summary>
         [Fact]
-        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
+        public void GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
-            for (int i = SchemaVersionConstants.Min; i <= SchemaVersionConstants.Max; i++)
+            var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
+            Parallel.ForEach(versions, new ParallelOptions() { MaxDegreeOfParallelism = 2 }, async version =>
             {
-                string databaseName = $"FHIRCOMPATIBILITYTEST_V{i}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-
-                var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
-                try
+                if (version >= SchemaVersionConstants.Max - 5 && version <= SchemaVersionConstants.Max)
                 {
-                    await fhirStorageTestsFixture.InitializeAsync();
+                    string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
-                    Mediator mediator = fhirStorageTestsFixture.Mediator;
+                    var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName));
+                    try
+                    {
+                        await fhirStorageTestsFixture.InitializeAsync();
 
-                    var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                    var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
-                    var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+                        Mediator mediator = fhirStorageTestsFixture.Mediator;
 
-                    Assert.NotNull(result);
-                    Assert.Equal(deserialized.Id, result.Id);
+                        var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                        var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+                        var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+
+                        Assert.NotNull(result);
+                        Assert.Equal(deserialized.Id, result.Id);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new InvalidOperationException($"Failure using schema version {version}", e);
+                    }
+                    finally
+                    {
+                        await fhirStorageTestsFixture?.DisposeAsync();
+                    }
                 }
-                catch (Exception e)
-                {
-                    throw new InvalidOperationException($"Failure using schema version {i}", e);
-                }
-                finally
-                {
-                    await fhirStorageTestsFixture?.DisposeAsync();
-                }
-            }
+            });
         }
 
         /// <summary>

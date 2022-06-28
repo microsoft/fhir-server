@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Extensions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -89,7 +90,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Create resources that references the Patient resource
             Device deviceToCreate = Samples.GetJsonSample<Device>("Device-d1");
-            deviceToCreate.Patient = new ResourceReference(patientReference);
+
+            deviceToCreate.AssignPatient(new ResourceReference(patientReference));
             Device = await TestFhirClient.CreateAsync(deviceToCreate);
 
             // Create Patient compartment resources
@@ -117,7 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             NonExistentPatient = await TestFhirClient.CreateAsync(patientToCreate);
             patientReference = $"Patient/{NonExistentPatient.Id}";
 
-            deviceToCreate.Patient = new ResourceReference(patientReference);
+            deviceToCreate.AssignPatient(new ResourceReference(patientReference));
             DeviceOfNonExistentPatient = await TestFhirClient.CreateAsync(deviceToCreate);
 
             observationToCreate.Subject.Reference = patientReference;

@@ -93,6 +93,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
             public int Order { get; }
 
+            public bool IsModifier { get; }
+
             public IReadOnlyCollection<IElementDefinitionSummary> GetElements()
             {
                 if (_list == null)

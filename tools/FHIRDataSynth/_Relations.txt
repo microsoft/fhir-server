@@ -1,0 +1,19 @@
+Patient:
+Practitioner:
+Organization:
+AllergyIntolerance: Patient
+Encounter: Patient, Practitioner[], Organization
+CareTeam: Patient, Encounter[0..1], Practitioner, Organization
+CarePlan: Patient, Encounter[0..1], CareTeam
+Observation: Patient, Encounter[0..1]
+MedicationRequest: Patient, Encounter[0..1], Practitioner
+Claim: Patient, Organization, MedicationRequest, Encounter[0..*]
+Condition: Patient, Encounter[0..1]
+Device: Patient
+DiagnosticReport: Patient, Encounter[0..1], Observation
+ExplanationOfBenefits: Patient, Practitioner, Claim, Encounter[0..*]
+ImagingStudy: Patient, Encounter[0..1]
+Immunization: Patient, Encounter[0..1]
+MedicationAdministration: Patient, Encounter[0..1]
+Procedure: Patient, Encounter[0..1]
+SupplyDelivery: Patient

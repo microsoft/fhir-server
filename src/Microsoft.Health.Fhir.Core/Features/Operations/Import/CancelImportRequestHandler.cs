@@ -13,23 +13,23 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Import;
-using Microsoft.Health.TaskManagement;
+using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class CancelImportRequestHandler : IRequestHandler<CancelImportRequest, CancelImportResponse>
     {
-        private readonly ITaskManager _taskManager;
+        private readonly IQueueClient _queueClient;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ILogger<CancelImportRequestHandler> _logger;
 
-        public CancelImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService, ILogger<CancelImportRequestHandler> logger)
+        public CancelImportRequestHandler(IQueueClient queueClient, IAuthorizationService<DataActions> authorizationService, ILogger<CancelImportRequestHandler> logger)
         {
-            EnsureArg.IsNotNull(taskManager, nameof(taskManager));
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _taskManager = taskManager;
+            _queueClient = queueClient;
             _authorizationService = authorizationService;
             _logger = logger;
         }
@@ -43,23 +43,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            try
-            {
-                TaskInfo taskInfo = await _taskManager.CancelTaskAsync(request.TaskId, cancellationToken);
+            JobInfo jobInfo = await _queueClient.GetJobByIdAsync((byte)QueueType.Import, request.JobId, false, cancellationToken);
 
-                if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
-                {
-                    throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
-                }
-                else
-                {
-                    return new CancelImportResponse(HttpStatusCode.Accepted);
-                }
-            }
-            catch (TaskNotExistException)
+            if (jobInfo == null)
             {
-                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
+                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
             }
+
+            if (jobInfo.Status == JobManagement.JobStatus.Completed || jobInfo.Status == JobManagement.JobStatus.Cancelled || jobInfo.Status == JobManagement.JobStatus.Failed)
+            {
+                throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
+            }
+
+            await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Import, jobInfo.GroupId, cancellationToken);
+            return new CancelImportResponse(HttpStatusCode.Accepted);
         }
     }
 }

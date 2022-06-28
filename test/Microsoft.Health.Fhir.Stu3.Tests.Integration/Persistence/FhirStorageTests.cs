@@ -11,6 +11,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    /// <summary>
+    /// Persistence tests for Stu3
+    /// </summary>
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         [Fact]

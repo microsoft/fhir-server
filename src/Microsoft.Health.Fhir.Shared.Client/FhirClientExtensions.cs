@@ -66,12 +66,29 @@ namespace Microsoft.Health.Fhir.Client
         /// This is sometimes desirable over calling <see cref="FhirClient.CreateAsync{T}(T,string,System.Threading.CancellationToken)"/> when you want to be sure that at most
         /// one resource is created, even if the call has to be issued multiple times.
         /// </summary>
+        /// <param name="client">The FHIR client</param>
+        /// <param name="resource">The type of FHIR resource to create</param>
+        /// <param name="cancellationToken">Cancellation token</param>
         public static Task<FhirResponse<T>> CreateByUpdateAsync<T>(this FhirClient client, T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
             resource.Id = Guid.NewGuid().ToString();
 
             return client.UpdateAsync(resource, cancellationToken: cancellationToken);
+        }
+
+        public static async System.Threading.Tasks.Task DeleteAllResources(this FhirClient client, ResourceType resourceType, string searchUrl)
+        {
+            Bundle bundle = null;
+            while (bundle == null || bundle.NextLink != null)
+            {
+                bundle = bundle == null ? await client.SearchAsync(resourceType, searchUrl, count: 100) : await client.SearchAsync(bundle.NextLink.ToString());
+
+                foreach (Bundle.EntryComponent entry in bundle.Entry)
+                {
+                    using var response = await client.DeleteAsync(entry.FullUrl);
+                }
+            }
         }
     }
 }

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +14,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core;
@@ -29,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -47,6 +50,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirDataStore _dataStore;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ConformanceProviderBase _conformanceProvider;
+        private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
+        private const string ContentUpdated = "Updated resource content";
 
         public FhirStorageTests(FhirStorageTestsFixture fixture)
         {
@@ -360,6 +365,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var newResourceValues = Samples.GetDefaultOrganization()
                 .UpdateId(saveResult.RawResourceElement.Id);
 
+            newResourceValues.ToPoco<Organization>().Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>{ContentUpdated}</div>",
+            };
             var updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(
@@ -660,7 +670,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 (ResourceWrapper original, ResourceWrapper updatedWithSearchParam1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam1, searchValue1);
 
-                await _dataStore.UpsertAsync(updatedWithSearchParam1, WeakETag.FromVersionId(original.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+                var deserializedResource = _fhirJsonParser.Parse<Patient>(original.RawResource.Data);
+                UpdatePatient(deserializedResource);
+                await _dataStore.UpsertAsync(UpdatePatientResourceWrapper(deserializedResource), WeakETag.FromVersionId(original.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
 
                 // Let's update the resource again with new information
                 searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
@@ -719,6 +731,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
                 }
             }
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenAValidResource_WhenUpdatingAResourceWithSameDataImmaterialKeepHistoryValue_ServerShouldNotCreateANewVersionAndReturnOk(bool keepHistory)
+        {
+            // Upserting a resource twice with no data change
+            UpsertOutcome createResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), null, allowCreate: true, keepHistory: keepHistory, CancellationToken.None);
+            UpsertOutcome upsertResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(createResult.Wrapper.ResourceId), null, allowCreate: true, keepHistory: keepHistory, CancellationToken.None);
+
+            Assert.NotNull(createResult);
+            Assert.NotNull(upsertResult);
+
+            var createResource = new RawResourceElement(createResult.Wrapper);
+            var updatedeResource = new RawResourceElement(upsertResult.Wrapper);
+
+            Assert.Equal(createResult.Wrapper.ResourceId, upsertResult.Wrapper.ResourceId);
+            Assert.Equal(createResult.Wrapper.Version, upsertResult.Wrapper.Version);
+
+            // With current "o" format for date we only store upto 3 digits for millisconds
+            // CreateResult.LastUpdated has date as 2008-10-31T17:04:32:3210000
+            // upsertResult.lastUpdated will return what is stored in DB 2008-10-31T17:04:32:321 mismatching the milliseconds value
+            // Hence comparing milliseconds separately. s Format Specifier 2008-10-31T17:04:32
+            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updatedeResource.LastUpdated.Value.ToString("s"));
+            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updatedeResource.LastUpdated.Value.Millisecond);
+            Assert.Equal(createResult.Wrapper.LastModified.ToString("s"), createResult.Wrapper.LastModified.ToString("s"));
+            Assert.Equal(createResult.Wrapper.LastModified.Millisecond, createResult.Wrapper.LastModified.Millisecond);
         }
 
         [Fact]
@@ -788,14 +828,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam1, searchValue1);
                 (ResourceWrapper original2, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam1, searchValue1);
 
-                await _dataStore.UpsertAsync(updated1, WeakETag.FromVersionId(original1.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
-                await _dataStore.UpsertAsync(updated2, WeakETag.FromVersionId(original2.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+                var deserializedResource = _fhirJsonParser.Parse<Patient>(original1.RawResource.Data);
+                UpdatePatient(deserializedResource);
+                await _dataStore.UpsertAsync(UpdatePatientResourceWrapper(deserializedResource), WeakETag.FromVersionId(original1.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+
+                deserializedResource = _fhirJsonParser.Parse<Patient>(original2.RawResource.Data);
+                UpdatePatient(deserializedResource);
+                await _dataStore.UpsertAsync(UpdatePatientResourceWrapper(deserializedResource), WeakETag.FromVersionId(original2.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
 
                 // Let's update the resources again with new information
                 searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
                 ISearchValue searchValue2 = new TokenSearchValue("system", "code", "text");
 
                 // Create the updated wrappers using the original resource and its outdated version
+                UpdatePatient(upsertResult1.RawResourceElement.ToPoco<Patient>(Deserializers.ResourceDeserializer));
+                UpdatePatient(upsertResult2.RawResourceElement.ToPoco<Patient>(Deserializers.ResourceDeserializer));
                 (_, ResourceWrapper updated1WithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam2, searchValue2, original1);
                 (_, ResourceWrapper updated2WithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam2, searchValue2, original2);
 
@@ -858,6 +905,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
                 }
             }
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()
+        {
+            var wrapper = CreateObservationResourceWrapper("obsId1", true);
+            await Assert.ThrowsAsync<ServiceUnavailableException>(() => _fixture.DataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None));
         }
 
         private static void VerifyReindexedResource(ResourceWrapper original, ResourceWrapper replaceResult)
@@ -971,6 +1026,56 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 observation.UpdateCreate = originalValue;
                 _conformanceProvider.ClearCache();
             }
+        }
+
+        private ResourceWrapper CreateObservationResourceWrapper(string observationId, bool setRawResourceNull = false)
+        {
+            Observation observationResource = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observationResource.Id = observationId;
+            observationResource.VersionId = "1";
+
+            var resourceElement = observationResource.ToResourceElement();
+            RawResource rawResource;
+
+            if (setRawResourceNull)
+            {
+                var rawSubstitute = Substitute.For<RawResource>();
+                rawResource = rawSubstitute;
+            }
+            else
+            {
+                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
+            }
+
+            var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
+            wrapper.SearchParameterHash = "hash";
+
+            return wrapper;
+        }
+
+        private ResourceWrapper UpdatePatientResourceWrapper(Patient patientResource)
+        {
+            var resourceElement = patientResource.ToResourceElement();
+            var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
+            var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
+            wrapper.SearchParameterHash = "hash";
+
+            return wrapper;
+        }
+
+        private static void UpdatePatient(Patient patientResource)
+        {
+            patientResource.Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>{ContentUpdated}</div>",
+            };
         }
     }
 }

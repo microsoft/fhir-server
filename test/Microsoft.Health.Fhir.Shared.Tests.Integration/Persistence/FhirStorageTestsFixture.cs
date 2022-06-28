@@ -90,6 +90,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public IFhirStorageTestHelper TestHelper => _fixture.GetRequiredService<IFhirStorageTestHelper>();
 
+        public ISqlServerFhirStorageTestHelper SqlHelper => _fixture.GetRequiredService<ISqlServerFhirStorageTestHelper>();
+
         public ITransactionHandler TransactionHandler => _fixture.GetRequiredService<ITransactionHandler>();
 
         public ISearchParameterStatusDataStore SearchParameterStatusDataStore => _fixture.GetRequiredService<ISearchParameterStatusDataStore>();

@@ -1,0 +1,33 @@
+{
+  "targetRatios": [
+    {
+      "name": "multiply-x0-5",
+      "resourceGroupsCount": 1,
+      "ratios": {
+        "AllergyIntolerance": 0.5,
+        "CarePlan": 0.5,
+        "CareTeam": 0.5,
+        "Claim": 0.5,
+        "Condition": 0.5,
+        "Device": 0.5,
+        "DiagnosticReport": 0.5,
+        "Encounter": 0.5,
+        "ExplanationOfBenefit": 0.5,
+        "ImagingStudy": 0.5,
+        "Immunization": 0.5,
+        "MedicationAdministration": 0.5,
+        "MedicationRequest": 0.5,
+        "Observation": 0.5,
+        "Organization": 0.5,
+        "Patient": 0.5,
+        "Practitioner": 0.5,
+        "Procedure": 0.5,
+        "SupplyDelivery": 0.5,
+
+        "Communication": 50.0,
+        "DocumentReference": 50.0,
+        "StructureDefinition": 50.0
+      }
+    }
+  ]
+}

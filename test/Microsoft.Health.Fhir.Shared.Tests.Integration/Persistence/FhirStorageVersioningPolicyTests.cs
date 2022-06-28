@@ -25,6 +25,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public partial class FhirStorageVersioningPolicyTests : IClassFixture<FhirStorageTestsFixture>
     {
+        private const string ContentUpdated = "Updated resource content";
+
         public FhirStorageVersioningPolicyTests(FhirStorageTestsFixture fixture)
         {
             Mediator = fixture?.Mediator;
@@ -59,6 +61,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ResourceElement newResourceValues = Samples.GetDefaultObservation().UpdateId(observationResource.Id);
 
+            newResourceValues.ToPoco<Observation>().Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>{ContentUpdated}</div>",
+            };
             SaveOutcome updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(observationResource.VersionId));
 
             ResourceElement historyResults = await Mediator.SearchResourceHistoryAsync(KnownResourceTypes.Observation, updateResult.RawResourceElement.Id);
@@ -79,6 +86,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ResourceElement newResourceValues = Samples.GetDefaultMedication().UpdateId(medicationResource.Id);
 
+            newResourceValues.ToPoco<Medication>().Text = new Narrative
+            {
+                Status = Narrative.NarrativeStatus.Generated,
+                Div = $"<div>{ContentUpdated}</div>",
+            };
             SaveOutcome updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(medicationResource.VersionId));
 
             ResourceElement historyResults = await Mediator.SearchResourceHistoryAsync(KnownResourceTypes.Medication, updateResult.RawResourceElement.Id);

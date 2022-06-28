@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [Collection(Categories.CustomSearch)]
     [Trait(Traits.Category, Categories.CustomSearch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
+    public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private ITestOutputHelper _output;
@@ -38,29 +38,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _output = output;
         }
 
+        public async Task InitializeAsync()
+        {
+            await Client.DeleteAllResources(ResourceType.Specimen, null);
+            await Client.DeleteAllResources(ResourceType.Immunization, null);
+        }
+
         [SkippableFact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-AppointmentStatus");
+            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-SpecimenStatus");
             searchParam.Name = randomName;
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
 
-            // POST a new appointment
-            var appointment = Samples.GetJsonSample<Appointment>("Appointment");
-            appointment.Status = Appointment.AppointmentStatus.Noshow;
+            // POST a new Specimen
+            var specimen = Samples.GetJsonSample<Specimen>("Specimen");
+            specimen.Status = Specimen.SpecimenStatus.Available;
             var tag = new Coding(null, randomName);
-            appointment.Meta = new Meta();
-            appointment.Meta.Tag.Add(tag);
-            FhirResponse<Appointment> expectedAppointment = await Client.CreateAsync(appointment);
+            specimen.Meta = new Meta();
+            specimen.Meta.Tag.Add(tag);
+            FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
 
-            // POST a second appointment to show it is filtered and not returned when using the new search parameter
-            var appointment2 = Samples.GetJsonSample<Appointment>("Appointment");
-            appointment2.Status = Appointment.AppointmentStatus.Booked;
-            appointment2.Meta = new Meta();
-            appointment2.Meta.Tag.Add(tag);
-            await Client.CreateAsync(appointment2);
+            // POST a second Specimen to show it is filtered and not returned when using the new search parameter
+            var specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
+            specimen2.Status = Specimen.SpecimenStatus.EnteredInError;
+            specimen2.Meta = new Meta();
+            specimen2.Meta.Tag.Add(tag);
+            await Client.CreateAsync(specimen2);
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
@@ -109,8 +115,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     try
                     {
                         await ExecuteAndValidateBundle(
-                            $"Appointment?{searchParam.Code}={Appointment.AppointmentStatus.Noshow.ToString().ToLower()}&_tag={tag.Code}",
-                            expectedAppointment.Resource);
+                            $"Specimen?{searchParam.Code}={Specimen.SpecimenStatus.Available.ToString().ToLower()}&_tag={tag.Code}",
+                            expectedSpecimen.Resource);
                     }
                     catch (Exception ex)
                     {
@@ -241,13 +247,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
 
-            // POST a new appointment
-            var appointment = Samples.GetJsonSample<Appointment>("Appointment");
-            FhirResponse<Appointment> expectedAppointment = await Client.CreateAsync(appointment);
+            // POST a new Specimen
+            var specimen = Samples.GetJsonSample<Specimen>("Specimen");
+            FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
 
-            // POST a second appointment to show it is filtered and not returned when using the new search parameter
-            var appointment2 = Samples.GetJsonSample<Appointment>("Appointment");
-            await Client.CreateAsync(appointment2);
+            // POST a second Specimen to show it is filtered and not returned when using the new search parameter
+            var specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
+            await Client.CreateAsync(specimen2);
 
             // POST a new patient
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = randomName } } };
@@ -264,7 +270,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Start a reindex job
                 var reindexParameters = new Parameters();
-                reindexParameters.Add("targetResourceTypes", new FhirString("Appointment"));
+                reindexParameters.Add("targetResourceTypes", new FhirString("Specimen"));
                 (_, reindexJobUri) = await Client.PostReindexJobAsync(reindexParameters);
 
                 await WaitForReindexStatus(reindexJobUri, "Completed");
@@ -280,10 +286,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
                 Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam?.Value?.ToString());
-                Assert.Equal("Appointment", targetResourcesParam?.Value?.ToString());
-                Assert.Equal("Appointment", resourcesParam?.Value?.ToString());
+                Assert.Equal("Specimen", targetResourcesParam?.Value?.ToString());
+                Assert.Equal("Specimen", resourcesParam?.Value?.ToString());
 
-                _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Appointment only.");
+                _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Specimen only.");
 
                 var floatParse = float.TryParse(
                     reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
@@ -307,9 +313,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     try
                     {
                         await ExecuteAndValidateBundle(
-                            $"Appointment?{searchParam.Code}={expectedAppointment.Resource.Id}",
+                            $"Specimen?{searchParam.Code}={expectedSpecimen.Resource.Id}",
                             Tuple.Create("x-ms-use-partial-indices", "true"),
-                            expectedAppointment.Resource);
+                            expectedSpecimen.Resource);
                     }
                     catch (Exception ex)
                     {
@@ -359,15 +365,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             searchParam.Name = searchParam.Name.Replace("foo", randomName);
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
-            searchParam.Base = new List<ResourceType?>() { ResourceType.Appointment, ResourceType.Immunization };
+            searchParam.Base = new List<ResourceType?>() { ResourceType.Specimen, ResourceType.Immunization };
 
-            // POST a new appointment
-            var appointment = Samples.GetJsonSample<Appointment>("Appointment");
-            FhirResponse<Appointment> expectedAppointment = await Client.CreateAsync(appointment);
+            // POST a new Specimen
+            var specimen = Samples.GetJsonSample<Specimen>("Specimen");
+            FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
 
-            // POST a second appointment to show it is filtered and not returned when using the new search parameter
-            var appointment2 = Samples.GetJsonSample<Appointment>("Appointment");
-            await Client.CreateAsync(appointment2);
+            // POST a second Specimen to show it is filtered and not returned when using the new search parameter
+            var specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
+            await Client.CreateAsync(specimen2);
 
             // POST a new Immunization
             var immunization = Samples.GetJsonSample<Immunization>("Immunization");
@@ -384,7 +390,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Start a reindex job
                 var reindexParameters = new Parameters();
-                reindexParameters.Add("targetResourceTypes", new FhirString("Appointment,Immunization"));
+                reindexParameters.Add("targetResourceTypes", new FhirString("Specimen,Immunization"));
                 (_, reindexJobUri) = await Client.PostReindexJobAsync(reindexParameters);
 
                 await WaitForReindexStatus(reindexJobUri, "Completed");
@@ -400,12 +406,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
                 Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam?.Value?.ToString());
-                Assert.Contains("Appointment", targetResourcesParam?.Value?.ToString());
-                Assert.Contains("Appointment", resourcesParam?.Value?.ToString());
+                Assert.Contains("Specimen", targetResourcesParam?.Value?.ToString());
+                Assert.Contains("Specimen", resourcesParam?.Value?.ToString());
                 Assert.Contains("Immunization", targetResourcesParam?.Value?.ToString());
                 Assert.Contains("Immunization", resourcesParam?.Value?.ToString());
 
-                _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Appointment and Immunization only.");
+                _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Specimen and Immunization only.");
 
                 var floatParse = float.TryParse(
                     reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
@@ -429,8 +435,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     try
                     {
                         await ExecuteAndValidateBundle(
-                            $"Appointment?{searchParam.Code}={expectedAppointment.Resource.Id}",
-                            expectedAppointment.Resource);
+                            $"Specimen?{searchParam.Code}={expectedSpecimen.Resource.Id}",
+                            expectedSpecimen.Resource);
 
                         await ExecuteAndValidateBundle(
                             $"Immunization?{searchParam.Code}={expectedImmunization.Resource.Id}",
@@ -529,5 +535,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Contains("Gone", ex.Message);
             }
         }
+
+        public Task DisposeAsync() => Task.CompletedTask;
     }
 }

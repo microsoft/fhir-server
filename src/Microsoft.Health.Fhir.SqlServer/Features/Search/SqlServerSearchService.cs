@@ -12,6 +12,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -284,7 +285,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
@@ -300,6 +301,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
+                SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
+
                 sqlCommandWrapper.CommandText = stringBuilder.ToString();
 
                 LogSqlCommand(sqlCommandWrapper);
@@ -309,7 +312,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     if (clonedSearchOptions.CountOnly)
                     {
                         await reader.ReadAsync(cancellationToken);
-                        var searchResult = new SearchResult(reader.GetInt32(0), clonedSearchOptions.UnsupportedSearchParams);
+                        long count = reader.GetInt64(0);
+                        if (count > int.MaxValue)
+                        {
+                            _requestContextAccessor.RequestContext.BundleIssues.Add(
+                                new OperationOutcomeIssue(
+                                    OperationOutcomeConstants.IssueSeverity.Error,
+                                    OperationOutcomeConstants.IssueType.NotSupported,
+                                    string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
+                            throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                        }
+
+                        var searchResult = new SearchResult((int)count, clonedSearchOptions.UnsupportedSearchParams);
 
                         // call NextResultAsync to get the info messages
                         await reader.NextResultAsync(cancellationToken);
@@ -356,7 +371,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        }
+
+                        _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
+
+                        if (string.IsNullOrEmpty(rawResource))
+                        {
+                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
                         }
 
                         // See if this resource is a continuation token candidate and increase the count
@@ -604,7 +627,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             stringBuilder.AppendLine("SET STATISTICS IO ON;");
             stringBuilder.AppendLine("SET STATISTICS TIME ON;");
             stringBuilder.AppendLine();
-            sqlConnectionWrapper.SqlConnection.InfoMessage += (sender, args) => _logger.LogInformation($"SQL message: {args.Message}");
+            sqlConnectionWrapper.SqlConnection.InfoMessage += (sender, args) => _logger.LogInformation("SQL message: {Message}", args.Message);
         }
 
         /// <summary>
@@ -630,7 +653,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             sb.AppendLine();
 
             sb.AppendLine(sqlCommandWrapper.CommandText);
-            _logger.LogInformation(sb.ToString());
+            _logger.LogInformation("{SqlQuery}", sb.ToString());
         }
 
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)

@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(_mockedSearchCount, job.Count);
-            Assert.Equal(expectedResourceType, job.ResourceList);
+            Assert.Contains(expectedResourceType, job.ResourceList);
             Assert.Equal(param.Url.ToString(), job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList.Keys.OrderBy(q => q.LastModified),
