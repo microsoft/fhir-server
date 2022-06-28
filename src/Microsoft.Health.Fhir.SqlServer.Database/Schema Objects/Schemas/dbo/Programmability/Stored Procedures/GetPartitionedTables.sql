@@ -5,7 +5,7 @@ WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetPartitionedTables'
-       ,@Mode varchar(100) = 'PS=PartitionScheme_ResourceTypeId D='+isnull(convert(varchar,@IncludeNotDisabled),'NULL')+' S='+isnull(convert(varchar,@IncludeNotSupported),'NULL')
+       ,@Mode varchar(200) = 'PS=PartitionScheme_ResourceTypeId D='+isnull(convert(varchar,@IncludeNotDisabled),'NULL')+' S='+isnull(convert(varchar,@IncludeNotSupported),'NULL')
        ,@st datetime = getUTCdate()
 
 DECLARE @NotSupportedTables TABLE (id int PRIMARY KEY)

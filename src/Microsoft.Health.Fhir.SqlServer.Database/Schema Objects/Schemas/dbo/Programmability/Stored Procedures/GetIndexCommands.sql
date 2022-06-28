@@ -5,7 +5,7 @@ WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetIndexCommands'
-       ,@Mode varchar(100) = 'Tbl='+isnull(@Tbl,'NULL')+' Ind='+isnull(@Ind,'NULL')
+       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' Ind='+isnull(@Ind,'NULL')
        ,@st datetime = getUTCdate()
 
 DECLARE @Indexes TABLE (Ind varchar(200) PRIMARY KEY, Txt varchar(max))

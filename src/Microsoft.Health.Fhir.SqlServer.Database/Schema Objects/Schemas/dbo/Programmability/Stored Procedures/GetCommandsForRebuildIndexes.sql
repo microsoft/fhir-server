@@ -5,7 +5,7 @@ WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetCommandsForRebuildIndexes'
-       ,@Mode varchar(100) = 'PS=PartitionScheme_ResourceTypeId RC='+isnull(convert(varchar,@RebuildClustered),'NULL')
+       ,@Mode varchar(200) = 'PS=PartitionScheme_ResourceTypeId RC='+isnull(convert(varchar,@RebuildClustered),'NULL')
        ,@st datetime = getUTCdate()
        ,@Tbl varchar(100)
        ,@TblInt varchar(100)

@@ -28,7 +28,7 @@ SELECT @cmd = @cmd + 'ALTER INDEX '+I.name+' ON '+O.name+' DISABLE'+char(10)
        JOIN sys.objects O ON O.object_id = I.object_id
   WHERE EXISTS (SELECT * FROM sys.partition_schemes PS WHERE PS.data_space_id = I.data_space_id AND name = 'PartitionScheme_ResourceTypeId')
     AND I.name <> 'IndexToKeep'
-    AND I.IsDisabled = 0
+    AND is_disabled = 0
 EXECUTE(@cmd)
               ";
 

@@ -5,7 +5,7 @@ WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
-       ,@Mode varchar(100) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')
+       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')
        ,@st datetime = getUTCdate()
        ,@ResourceTypeId smallint
        ,@Rows bigint
