@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task NonParametersRequestBody_ResultsInBadRequest()
+        public async Task GivenNonParametersRequestBody_WhenMemberMatchSent_ThenBadRequest()
         {
             string body = Samples.GetJson("PatientWithMinimalData");
             var ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostAsync("Patient/$member-match", body));

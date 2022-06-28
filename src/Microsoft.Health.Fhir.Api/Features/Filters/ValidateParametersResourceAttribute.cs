@@ -7,7 +7,7 @@ using System;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -24,9 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             context.ActionArguments.TryGetValue("inputParams", out var inputResource);
             if (inputResource is not Parameters)
             {
-                throw new BadRequestException(string.Format(
-                    "Expected input object to be of type 'Hl7.Fhir.Model.Parameters' instead of '{0}'",
-                    inputResource.GetType().FullName));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, inputResource.GetType().ToString()));
             }
         }
     }
