@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
         private static readonly bool RebuildClustered = bool.Parse(ConfigurationManager.AppSettings["RebuildClustered"]);
         private static readonly string EventLogQuery = ConfigurationManager.AppSettings["EventLogQuery"];
         private static readonly bool IsSharded = bool.Parse(ConfigurationManager.AppSettings["IsSharded"]);
+        private static readonly string IndexToKeep = ConfigurationManager.AppSettings["IndexToKeep"];
 
         private const string DisableIndexesCmd = @"
 DECLARE @cmd varchar(max) = ''
@@ -26,6 +27,8 @@ SELECT @cmd = @cmd + 'ALTER INDEX '+I.name+' ON '+O.name+' DISABLE'+char(10)
   FROM (SELECT * FROM sys.indexes WHERE index_id NOT IN (0,1)) I
        JOIN sys.objects O ON O.object_id = I.object_id
   WHERE EXISTS (SELECT * FROM sys.partition_schemes PS WHERE PS.data_space_id = I.data_space_id AND name = 'PartitionScheme_ResourceTypeId')
+    AND I.name <> 'IndexToKeep'
+    AND I.IsDisabled = 0
 EXECUTE(@cmd)
               ";
 
@@ -82,11 +85,12 @@ EXECUTE(@cmd)
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
         private static void DisableIndexes(string connectionString)
         {
             Console.WriteLine($"IndexRebuilder.DisableIndexes.Started: Store={SqlService.ShowConnectionString(connectionString)}");
             using var conn = new SqlConnection(connectionString);
-            using var cmd = new SqlCommand(DisableIndexesCmd, conn);
+            using var cmd = new SqlCommand(DisableIndexesCmd.Replace("IndexToKeep", IndexToKeep, StringComparison.OrdinalIgnoreCase), conn);
             conn.Open();
             cmd.ExecuteNonQuery();
             Console.WriteLine($"IndexRebuilder.DisableIndexes.Completed: Store={SqlService.ShowConnectionString(connectionString)}");
