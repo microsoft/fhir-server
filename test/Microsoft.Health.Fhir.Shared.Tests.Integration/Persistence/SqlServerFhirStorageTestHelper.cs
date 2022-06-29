@@ -151,8 +151,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await command.ExecuteNonQueryAsync(cancellationToken);
             await connection.CloseAsync();
             _sqlServerFhirModel.RemoveSearchParamIdToUriMapping(uri);
-
-            await connection.CloseAsync();
         }
 
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
