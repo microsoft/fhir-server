@@ -71,9 +71,9 @@ EXECUTE(@cmd)
 
         private static void DisableIndexes()
         {
-            var shardedStore = new Store.Sharding.SqlService(ConnectionString);
             if (IsSharded)
             {
+                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
                 foreach (var shard in shardedStore.ShardletMap.Shards.Values)
                 {
                     DisableIndexes(shard.ConnectionString);
