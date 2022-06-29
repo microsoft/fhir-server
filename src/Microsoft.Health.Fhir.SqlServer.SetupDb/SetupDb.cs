@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Database
     {
         public static void Publish(string connectionString, string dacpac)
         {
-            var param = $"/C sqlpackage.exe /Action:Publish /SourceFile:\"{dacpac}\" /TargetConnectionString:{connectionString} /p:AllowDropBlockingAssemblies=true /p:NoAlterStatementsToChangeClrTypes=true /p:AllowIncompatiblePlatform=true /p:IncludeCompositeObjects=true";
+            var param = $"/C sqlpackage.exe /Action:Publish /SourceFile:\"{dacpac}\" /TargetConnectionString:\"{connectionString}\" /p:AllowDropBlockingAssemblies=true /p:NoAlterStatementsToChangeClrTypes=true /p:AllowIncompatiblePlatform=true /p:IncludeCompositeObjects=true";
             RunOsCommand("cmd.exe ", param, true);
         }
 
