@@ -1,0 +1,22 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "us-core-genderIdentity",
+  "text": {
+    "status": "extensions",
+    "div": "<div>PlaceHolder</div>"
+  },
+  "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity",
+  "version": "3.0.2",
+  "name": "MockSTU3USCoreGenderIdentityExtension",
+  "status": "active",
+  "mapping": [
+    {
+      "identity": "rim",
+      "uri": "http://hl7.org/v3",
+      "name": "RIM Mapping"
+    }
+  ],
+  "kind": "complex-type",
+  "abstract": false,
+  "type": "Extension"
+}

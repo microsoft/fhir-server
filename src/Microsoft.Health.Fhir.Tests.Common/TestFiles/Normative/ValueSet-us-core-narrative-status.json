@@ -1,59 +1,55 @@
-{
-  "resourceType": "ValueSet",
-  "id": "us-core-narrative-status",
-  "text": {
-    "status": "extensions",
-    "div": "<div>PlaceHolder</div>"
-  },
-  "url": "http://hl7.org/fhir/us/core/ValueSet/us-core-narrative-status",
-  "version": "4.1.0",
-  "name": "NarrativeStatus",
-  "title": "US Core Narrative Status",
-  "status": "active",
-  "date": "2021-12-06T21:52:32+00:00",
-  "publisher": "HL7 International - Cross-Group Projects",
-  "contact": [
-    {
-      "name": "HL7 International - Cross-Group Projects",
-      "telecom": [
+﻿{
+    "resourceType": "ValueSet",
+    "id": "us-core-narrative-status",
+    "text": {
+        "status": "generated",
+        "div": "<div>PlaceHolder</div>"
+    },
+    "url": "http://hl7.org/fhir/us/core/ValueSet/us-core-narrative-status",
+    "version": "3.0.0",
+    "name": "NarrativeStatus",
+    "title": "US Core Narrative Status",
+    "status": "active",
+    "date": "2019-06-18T21:18:40-04:00",
+    "publisher": "HL7 US Realm Steering Committee",
+    "contact": [
         {
-          "system": "url",
-          "value": "http://www.hl7.org/Special/committees/cgp"
-        },
-        {
-          "system": "email",
-          "value": "cgp@lists.HL7.org"
+            "telecom": [
+                {
+                    "system": "other",
+                    "value": "http://hl7.org/fhir"
+                }
+            ]
         }
-      ]
-    }
-  ],
-  "description": "The US Core Narrative Status Value Set limits the text status for the resource narrative.",
-  "jurisdiction": [
-    {
-      "coding": [
+    ],
+    "description": "The US Core Narrative Status Value Set limits the text status for the resource narrative.",
+    "jurisdiction": [
         {
-          "system": "urn:iso:std:iso:3166",
-          "code": "US"
+            "coding": [
+                {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "US",
+                    "display": "United States of America"
+                }
+            ]
         }
-      ]
-    }
-  ],
-  "copyright": "HL7",
-  "compose": {
-    "include": [
-      {
-        "system": "http://hl7.org/fhir/narrative-status",
-        "concept": [
-          {
-            "code": "additional",
-            "display": "additional"
-          },
-          {
-            "code": "generated",
-            "display": "generated"
-          }
+    ],
+    "copyright": "HL7",
+    "compose": {
+        "include": [
+            {
+                "system": "http://hl7.org/fhir/narrative-status",
+                "concept": [
+                    {
+                        "code": "additional",
+                        "display": "additional"
+                    },
+                    {
+                        "code": "generated",
+                        "display": "generated"
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  }
+    }
 }

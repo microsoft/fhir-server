@@ -168,11 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirSource = Samples.GetJson("Profile-Patient-PassUsCore-Example");
 
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
-
-            foreach (OperationOutcome.IssueComponent issue in outcome.Issue)
-            {
-                Assert.True(issue.Code == OperationOutcome.IssueType.Informational);
-            }
+            Assert.Empty(outcome.Issue.Where(x => (x.Code != OperationOutcome.IssueType.Informational)));
         }
 
         [Fact]
@@ -180,11 +176,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var fhirSource = Samples.GetJson("Profile-Patient-FailUsCore-Example");
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
-
+            bool hasSeenCodeInvalid = false;
             foreach (OperationOutcome.IssueComponent issue in outcome.Issue)
             {
                 Assert.True(issue.Code == OperationOutcome.IssueType.Informational || issue.Code == OperationOutcome.IssueType.CodeInvalid);
+                if (issue.Code == OperationOutcome.IssueType.CodeInvalid)
+                {
+                    hasSeenCodeInvalid = true;
+                }
             }
+
+            Assert.True(hasSeenCodeInvalid, "Resource has invalid code");
         }
 
         [Fact]

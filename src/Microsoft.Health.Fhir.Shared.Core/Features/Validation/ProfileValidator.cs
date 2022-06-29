@@ -33,7 +33,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
-                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(@"definitions.zip"), options.Value.CacheDurationInSeconds), profilesResolver);
+                DirectorySourceSettings directorySettings = new DirectorySourceSettings();
+                directorySettings.FormatPreference = DirectorySource.DuplicateFilenameResolution.PreferJson;
+                directorySettings.Mask = "*.*";
+                ZipSource zipSource = new ZipSource(@"definitions.zip", directorySettings);
+                zipSource.Mask = "*.*";
+
+                _resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.CacheDurationInSeconds), profilesResolver);
 
                 if (!string.IsNullOrEmpty(options.Value.ExternalTerminologyServer))
                 {

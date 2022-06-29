@@ -1,62 +1,93 @@
 {
-  "resourceType": "ValueSet",
-  "id": "omb-race-category",
-  "text": {
-    "status": "generated",
-    "div": "<div>PlaceHolder</div>"
-  },
-  "url": "http://hl7.org/fhir/us/core/ValueSet/omb-race-category",
-  "identifier": [
-    {
-      "system": "urn:ietf:rfc:3986",
-      "value": "urn:oid:2.16.840.1.113883.4.642.2.575"
-    }
-  ],
-  "version": "4.1.0",
-  "name": "OmbRaceCategories",
-  "title": "OMB Race Categories",
-  "status": "active",
-  "date": "2021-12-08",
-  "publisher": "HL7 International - Cross-Group Projects",
-  "contact": [
-    {
-      "name": "HL7 International - Cross-Group Projects",
-      "telecom": [
+    "resourceType": "ValueSet",
+    "id": "omb-race-category",
+    "text": {
+        "status": "generated",
+        "div": "<div>PlaceHolder</div>"
+    },
+    "url": "http://hl7.org/fhir/us/core/ValueSet/omb-race-category",
+    "identifier": [
         {
-          "system": "url",
-          "value": "http://www.hl7.org/Special/committees/cgp"
+            "system": "urn:ietf:rfc:3986",
+            "value": "urn:oid:2.16.840.1.113883.4.642.2.575"
+        }
+    ],
+    "version": "3.0.0",
+    "name": "OmbRaceCategories",
+    "title": "OMB Race Categories",
+    "status": "active",
+    "date": "2019-05-21T00:00:00-04:00",
+    "publisher": "HL7 US Realm Steering Committee",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "other",
+                    "value": "http://hl7.org/fhir"
+                }
+            ]
         },
         {
-          "system": "email",
-          "value": "cgp@lists.HL7.org"
+            "telecom": [
+                {
+                    "system": "other",
+                    "value": "http://wiki.siframework.org/Data+Access+Framework+Homepage"
+                }
+            ]
         }
-      ]
-    }
-  ],
-  "description": "The codes for the concepts 'Unknown', 'Asked but no answer', 'other, and the codes for the five race categories - 'American Indian' or 'Alaska Native', 'Asian', 'Black or African American', 'Native Hawaiian or Other Pacific Islander', and 'White' - as defined by the [OMB Standards for Maintaining, Collecting, and Presenting Federal Data on Race and Ethnicity, Statistical Policy Directive No. 15, as revised, October 30, 1997](https://www.govinfo.gov/content/pkg/FR-1997-10-30/pdf/97-28653.pdf) .",
-  "jurisdiction": [
-    {
-      "coding": [
+    ],
+    "description": "The codes for the concepts 'Unknown' and  'Asked but no answer' and the the codes for the five race categories - 'American Indian' or 'Alaska Native', 'Asian', 'Black or African American', 'Native Hawaiian or Other Pacific Islander', and 'White' - as defined by the [OMB Standards for Maintaining, Collecting, and Presenting Federal Data on Race and Ethnicity, Statistical Policy Directive No. 15, as revised, October 30, 1997](https://www.whitehouse.gov/omb/fedreg_1997standards) .",
+    "jurisdiction": [
         {
-          "system": "urn:iso:std:iso:3166",
-          "code": "US"
+            "coding": [
+                {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "US",
+                    "display": "United States of America"
+                }
+            ]
         }
-      ]
+    ],
+    "compose": {
+        "include": [
+            {
+                "system": "urn:oid:2.16.840.1.113883.6.238",
+                "concept": [
+                    {
+                        "code": "1002-5",
+                        "display": "American Indian or Alaska Native"
+                    },
+                    {
+                        "code": "2028-9",
+                        "display": "Asian"
+                    },
+                    {
+                        "code": "2054-5",
+                        "display": "Black or African American"
+                    },
+                    {
+                        "code": "2076-8",
+                        "display": "Native Hawaiian or Other Pacific Islander"
+                    },
+                    {
+                        "code": "2106-3",
+                        "display": "White"
+                    }
+                ]
+            },
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-NullFlavor",
+                "concept": [
+                    {
+                        "code": "UNK",
+                        "display": "Unknown"
+                    },
+                    {
+                        "code": "ASKU",
+                        "display": "Asked but no answer"
+                    }
+                ]
+            }
+        ]
     }
-  ],
-  "copyright": "Used by permission of HL7 International, all rights reserved Creative Commons License",
-  "compose": {
-    "include": [
-      {
-        "valueSet": [
-          "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.2074.1.1.3"
-        ]
-      },
-      {
-        "valueSet": [
-          "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113762.1.4.1021.103"
-        ]
-      }
-    ]
-  }
 }

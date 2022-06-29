@@ -424,8 +424,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         HttpContext httpContext = request.HttpContext;
 
-                        string path = httpContext.Request.Path.Value;
-
                         SetupContexts(request, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
