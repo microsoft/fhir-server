@@ -55,9 +55,9 @@ EXECUTE(@cmd)
 
         private static void SetupDatabase()
         {
-            var shardedStore = new Store.Sharding.SqlService(ConnectionString);
             if (IsSharded)
             {
+                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
                 foreach (var shard in shardedStore.ShardletMap.Shards)
                 {
                     SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
