@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             {
                 foreach (var t in partFhirMapping.FhirType)
                 {
-                    if (t.IsAssignableFrom(valueDataType.GetType()))
+                    if (ReflectionHelper.CanBeTreatedAsType(t, valueDataType.GetType()))
                     {
                         return valueDataType.ToElementNode(partName);
                     }
