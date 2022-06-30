@@ -463,7 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void ThrowIfCurrentSchemaVersionIsNull()
         {
-            if (_schemaInformation.Current == null || _schemaInformation.Current == 0)
+            if (_schemaInformation.Current == null)
             {
                 _logger.LogError($"The SQL schema is yet to be initialized.");
                 throw new ServiceUnavailableException();
