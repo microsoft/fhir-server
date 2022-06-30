@@ -17,7 +17,6 @@
     <PackageReference Include="Hl7.Fhir.Serialization" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="MediatR" Version="9.0.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="9.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="$(AspNetPackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(AspNetPackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
