@@ -463,10 +463,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void ThrowIfCurrentSchemaVersionIsNull()
         {
-            // While applying the full schema, CurrentVersion is set as 0 in InstanceSchema table
-            if (_schemaInformation.Current == null || _schemaInformation.Current == 0)
+            if (_schemaInformation.Current == null)
             {
-                throw new InvalidOperationException(Resources.SchemaVersionShouldNotBeNull);
+                _logger.LogError($"The SQL schema is yet to be initialized.");
+                throw new ServiceUnavailableException();
+            }
+
+            // During schema initialization, once the base schema is initialized, CurrentVersion is set as 0 in InstanceSchema table and making progress to apply full schema snapshot file.
+            if (_schemaInformation.Current == 0)
+            {
+                _logger.LogError($"The SQL Schema initialization is in progress.");
+                throw new ServiceUnavailableException();
             }
         }
     }
