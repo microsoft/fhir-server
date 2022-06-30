@@ -123,6 +123,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             Assert.Equal("No content found at Patient.identifier when processing patch insert operation.", exception.Message);
         }
 
+        // Not a defined test case, but the path will not resolve and thus a exception is expected.
+        // The FHIRPath must return a single element or list according to the spec and the path does not resolve.
+        [Fact]
+        public void GivenAFhirPatchInsertRequest_WhenPathHasMultipleMatches_ThenInvalidOperationExceptionShouldBeThrown()
+        {
+            var patchParam = new Parameters().AddInsertPatchParameter("Patient.contact.name.given", new FhirString { Value = "Fake"}, 0);
+            var patientResource = new Patient
+            {
+                Contact = new List<Patient.ContactComponent>
+                    {
+                        new Patient.ContactComponent { Name = new HumanName() { Family = "Smith", Given = new List<string>() { "Bob" } } },
+                        new Patient.ContactComponent { Name = new HumanName() { Family = "Smith", Given = new List<string>() { "Jane" } } },
+                    },
+            };
+
+            var builder = new FhirPathPatchBuilder(patientResource, patchParam);
+            var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
+            Assert.Equal("Multiple matches found for Patient.contact.name.given when processing patch insert operation.", exception.Message);
+        }
+
         // Not an official test case, but testing index out of range.
         [Fact]
         public void GivenAFhirPatchInsertRequest_WhenInsertingWithOutOfRangeIndex_ThenInvalidOperationExceptionShouldBeThrown()

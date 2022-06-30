@@ -25,32 +25,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             Assert.Equal("Invalid input for identifier when processing patch add operation.", exception.Message);
         }
 
-        // Tests insert of datatype to list.
-        [Fact]
-        public void GivenAFhirPatchRequest_WhenInsertingDataTypeToList_ThenTheDataTypeShouldResolveAndSuccess()
-        {
-            var patchParam = new Parameters().AddInsertPatchParameter("Patient.name", new HumanName { Use = HumanName.NameUse.Nickname, Text = "Katy Test" }, 0);
-            var patientResource = new Patient
-            {
-                Name = new List<HumanName>
-                {
-                    new HumanName { Use = HumanName.NameUse.Official, Text = "Katherine Test" },
-                },
-            };
-
-            var patchedPatientResource = new FhirPathPatchBuilder(patientResource, patchParam).Apply() as Patient;
-            var expectedPatientResource = new Patient
-            {
-                Name = new List<HumanName>
-                    {
-                        new HumanName { Use = HumanName.NameUse.Nickname, Text = "Katy Test" },
-                        new HumanName { Use = HumanName.NameUse.Official, Text = "Katherine Test" },
-                    },
-            };
-
-            Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
-        }
-
+        // Tests using "part" for a predefined type. Part is unnecessary but should still work.
         [Fact]
         public void GivenAFhirPatchRequest_WhenAddingObjectTypeAsNestedParts_ThenListShouldBeCreatedWithObject()
         {
@@ -131,34 +106,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
         }
 
-        // Implements test case at:
-        // https://github.com/FHIR/fhir-test-cases/blob/master/r4/patch/fhir-path-tests.xml#L1381
-        // More context:
-        // https://chat.fhir.org/#narrow/stream/179166-implementers/topic/FHIRPath.20Patch.20on.20uninitialized.20object.2Flist
+        // Not in official test cases but tests choice types.
         [Fact]
-        public void GivenAFhirPatchRequest_WhenAddingToUninitializedObject_ThenInvalidOperationExceptionIsThrown()
+        public void GivenAFhirPatchRequest_WhenAddingChoicetype_ThenElementWithPropertypeShouldBePopulated()
         {
-            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official').period", "end", new FhirDateTime("2021-07-05"));
-            var patientResource = new Patient
+            var patchParam1 = new Parameters().AddPatchParameter("add", path: "Patient", name: "deceased", value: new FhirBoolean(true));
+            var patchParam2 = new Parameters().AddPatchParameter("add", path: "Patient", name: "deceased", value: new FhirDateTime("2020-12-12"));
+
+            var patchedPatientResource1 = new FhirPathPatchBuilder(new Patient(), patchParam1).Apply() as Patient;
+            var expectedPatientResource1 = new Patient
             {
-                Identifier = new List<Identifier>()
-                    {
-                        new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "value 3" },
-                    },
+                Deceased = new FhirBoolean(true),
             };
 
-            var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
-            Assert.Equal("No content found at Patient.identifier.where(use = 'official').period when processing patch add operation.", exception.Message);
-        }
+            var patchedPatientResource2 = new FhirPathPatchBuilder(new Patient(), patchParam2).Apply() as Patient;
+            var expectedPatientResource2 = new Patient
+            {
+                Deceased = new FhirDateTime("2020-12-12"),
+            };
 
-        // Add operations are special in the use of "name". Testing this with an invalid target.
-        [Fact]
-        public void GivenAFhirPatchRequest_WhenAddingInvalidName_ThenInvalidOperationExceptionIsThrown()
-        {
-            var patchParam = new Parameters().AddAddPatchParameter("Patient", "invalid", new FhirDateTime("2021-07-05"));
-
-            var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
-            Assert.Equal("Element invalid not found when processing patch add operation.", exception.Message);
+            Assert.Equal(patchedPatientResource1.ToJson(), expectedPatientResource1.ToJson());
+            Assert.Equal(patchedPatientResource2.ToJson(), expectedPatientResource2.ToJson());
         }
     }
 }

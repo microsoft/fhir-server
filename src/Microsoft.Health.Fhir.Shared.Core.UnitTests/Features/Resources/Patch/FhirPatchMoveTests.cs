@@ -211,6 +211,48 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
         }
 
+        [Fact]
+        public void GivenAFhirPatchMoveRequest_WhenMovingInvalidPath_ThenInvalidOperationExceptionShouldBeThrown()
+        {
+            var patchParam = new Parameters().AddMovePatchParameter("Patient.nothing", 0, 1);
+
+            var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
+            var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
+            Assert.Equal("No content found at Patient.nothing when processing patch move operation.", exception.Message);
+        }
+
+        // Not a defined test case, but the path will not resolve and thus a exception is expected.
+        // The FHIRPath must return a single element according to the spec and the path does not resolve.
+        [Fact]
+        public void GivenAFhirPatchMoveRequest_WhenMovingOnUninitializedList_ThenInvalidOperationExceptionShouldBeThrown()
+        {
+            var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 0, 1);
+
+            var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
+            var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
+            Assert.Equal("No content found at Patient.identifier when processing patch move operation.", exception.Message);
+        }
+
+        // Not a defined test case, but the path will not resolve and thus a exception is expected.
+        // The FHIRPath must return a single element or list according to the spec and the path does not resolve.
+        [Fact]
+        public void GivenAFhirPatchMoveRequest_WhenPathHasMultipleMatches_ThenInvalidOperationExceptionShouldBeThrown()
+        {
+            var patchParam = new Parameters().AddMovePatchParameter("Patient.contact.name.given", 0, 1);
+            var patientResource = new Patient
+            {
+                Contact = new List<Patient.ContactComponent>
+                    {
+                        new Patient.ContactComponent { Name = new HumanName() { Family = "Smith", Given = new List<string>() { "Bob", "Middle" } } },
+                        new Patient.ContactComponent { Name = new HumanName() { Family = "Smith", Given = new List<string>() { "Jane", "Middle" } } },
+                    },
+            };
+
+            var builder = new FhirPathPatchBuilder(patientResource, patchParam);
+            var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
+            Assert.Equal("Multiple matches found for Patient.contact.name.given when processing patch move operation.", exception.Message);
+        }
+
         // Not an official test case, but ensuring proper error messages for out of index errors.
         [Fact]
         public void GivenAFhirPatchMoveRequest_WhenMovingFromInvalidIndex_ThenInvalidOperationExceptionIsThrown()

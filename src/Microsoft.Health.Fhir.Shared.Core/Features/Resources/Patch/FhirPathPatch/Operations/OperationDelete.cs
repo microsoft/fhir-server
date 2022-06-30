@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} when processing patch insert operation.");
+                throw new InvalidOperationException($"{ex.Message} when processing patch delete operation.");
             }
 
             if (target is not null)

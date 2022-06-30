@@ -2,7 +2,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
-
+using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -15,8 +15,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchAddTests
     {
-        private FhirJsonSerializer testSerializer = new FhirJsonSerializer();
-
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L78
         [Fact]
@@ -182,6 +180,63 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             };
 
             Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
+        }
+
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/master/r4/patch/fhir-path-tests.xml#L1381
+        // More context:
+        // https://chat.fhir.org/#narrow/stream/179166-implementers/topic/FHIRPath.20Patch.20on.20uninitialized.20object.2Flist
+        [Fact]
+        public void GivenAFhirPatchRequest_WhenAddingToUninitializedObject_ThenInvalidOperationExceptionIsThrown()
+        {
+            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official').period", "end", new FhirDateTime("2021-07-05"));
+            var patientResource = new Patient
+            {
+                Identifier = new List<Identifier>()
+                    {
+                        new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "value 3" },
+                    },
+            };
+
+            var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
+            Assert.Equal("No content found at Patient.identifier.where(use = 'official').period when processing patch add operation.", exception.Message);
+        }
+
+        // Not an official test case, but path for Add operations must return a single element or a list
+        [Fact]
+        public void GivenAFhirPatchRequest_WhenAddingToPathWithNoResults_ThenInvalidOperationExceptionIsThrown()
+        {
+            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.period", "end", new FhirDateTime("2021-07-05"));
+            var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
+            Assert.Equal("No content found at Patient.identifier.period when processing patch add operation.", exception.Message);
+        }
+
+        // Not an official test case, but path for Add operations must return a single element or a list
+        [Fact]
+        public void GivenAFhirPatchRequest_WhenAddingToPathWithMultipleResults_ThenInvalidOperationExceptionIsThrown()
+        {
+            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.period", "end", new FhirDateTime("2021-07-05"));
+            var patientResource = new Patient
+            {
+                Identifier = new List<Identifier>()
+                    {
+                        new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "value 3", Period = new Period() { Start = "2021-01-01"} },
+                        new Identifier() { Use = Identifier.IdentifierUse.Secondary, Value = "value 2", Period = new Period() { Start = "2020-01-01"} },
+                    },
+            };
+
+            var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
+            Assert.Equal("Multiple matches found for Patient.identifier.period when processing patch add operation.", exception.Message);
+        }
+
+        // Not an official test case, but add operations are special in the use of "name". Testing this with an invalid target.
+        [Fact]
+        public void GivenAFhirPatchRequest_WhenAddingInvalidName_ThenInvalidOperationExceptionIsThrown()
+        {
+            var patchParam = new Parameters().AddAddPatchParameter("Patient", "invalid", new FhirDateTime("2021-07-05"));
+
+            var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
+            Assert.Equal("Element invalid not found when processing patch add operation.", exception.Message);
         }
     }
 }

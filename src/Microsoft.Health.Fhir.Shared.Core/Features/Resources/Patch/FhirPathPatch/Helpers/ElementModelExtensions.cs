@@ -47,9 +47,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             }
             else if (resultList.Count() > 1)
             {
-                if (resultList.Any(l => !l.Definition.IsCollection))
+                var firstResultLocation = resultList.First().Location;
+                var expectedLocation = firstResultLocation.Remove(firstResultLocation.LastIndexOf('.'));
+
+                // Multiple results are only allowed on collection types
+                if (resultList.Any(l =>
+                    !l.Definition.IsCollection ||
+                    !l.Location.StartsWith(expectedLocation, StringComparison.InvariantCultureIgnoreCase)))
                 {
-                    throw new InvalidOperationException($"Multiple matches found for {pathExpression} which must return a single element");
+                    throw new InvalidOperationException($"Multiple matches found for {pathExpression}");
                 }
             }
 
@@ -68,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             }
             else if (resultList.Count() > 1)
             {
-                throw new InvalidOperationException($"Multiple matches found for {pathExpression} which must return a single element");
+                throw new InvalidOperationException($"Multiple matches found for {pathExpression}");
             }
 
             return resultList.Single().ToScopedNode().Current.ToElementNode();
@@ -82,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             // Paths must resolve to exactly one element (unless target is collection)
             if (resultList.Count() > 1)
             {
-                throw new InvalidOperationException($"Multiple matches found for {pathExpression} which must return a single element");
+                throw new InvalidOperationException($"Multiple matches found for {pathExpression}");
             }
 
             return resultList.Count() == 1 ? resultList.Single().ToScopedNode().Current.ToElementNode() : null;
