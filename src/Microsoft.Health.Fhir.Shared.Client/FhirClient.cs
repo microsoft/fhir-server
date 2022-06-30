@@ -353,6 +353,7 @@ namespace Microsoft.Health.Fhir.Client
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
+            message.Headers.Accept.Add(_mediaType);
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
