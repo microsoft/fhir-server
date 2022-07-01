@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.Reindex)]
         [ServiceFilter(typeof(ValidateReindexRequestFilterAttribute))]
+        [ServiceFilter(typeof(ValidateParametersResourceAttribute))]
         [AuditEventType(AuditEventSubType.Reindex)]
         public async Task<IActionResult> CreateReindexJob([FromBody] Parameters inputParams)
         {
