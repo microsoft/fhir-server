@@ -52,8 +52,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(encoding, nameof(encoding));
 
-            context.HttpContext.AllowSynchronousIO();
-
             HttpRequest request = context.HttpContext.Request;
 
             if (!request.Body.CanSeek)
@@ -67,8 +65,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 using (var textReader = XmlDictionaryReader.CreateTextReader(request.Body, encoding, XmlDictionaryReaderQuotas.Max, onClose: null))
                 {
-                    var model = _parser.Parse<Resource>(textReader);
-                    return InputFormatterResult.Success(model);
+                    var model = await _parser.ParseAsync<Resource>(textReader);
+                    return await InputFormatterResult.SuccessAsync(model);
                 }
             }
             catch (Exception ex)
@@ -78,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 context.ModelState.TryAddModelError(string.Empty, errorMessage);
             }
 
-            return InputFormatterResult.Failure();
+            return await InputFormatterResult.FailureAsync();
         }
     }
 }

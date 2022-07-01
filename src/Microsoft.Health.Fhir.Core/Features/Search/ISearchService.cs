@@ -22,17 +22,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resourceType">The resource type that should be searched.</param>
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
         Task<SearchResult> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false);
 
         /// <summary>
         /// Searches the resources using the <paramref name="searchOptions"/>.
         /// </summary>
         /// <param name="searchOptions">The options to use during the search.</param>
         /// <param name="cancellationToken">The cancellationToken.</param>
+        /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
         /// <returns>The search result.</returns>
         Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
@@ -46,13 +49,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resourceType">The resource type that should be searched. If null is specified we search all resource types.</param>
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
         Task<SearchResult> SearchCompartmentAsync(
             string compartmentType,
             string compartmentId,
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false);
 
         Task<SearchResult> SearchHistoryAsync(
             string resourceType,
@@ -62,7 +67,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime before,
             int? count,
             string continuationToken,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false);
 
         /// <summary>
         /// Searches resources by queryParameters and returns the raw resource,
@@ -74,11 +80,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="searchParameterHash">Value representing a current state of the search params</param>
         /// <param name="countOnly">Indicates that the query should return only count of the total resources</param>
         /// <param name="cancellationToken">The cancellation token</param>
+        /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
         /// <returns>A collection of resources matching the query parameters</returns>
         Task<SearchResult> SearchForReindexAsync(
             IReadOnlyList<Tuple<string, string>> queryParameters,
             string searchParameterHash,
             bool countOnly,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false);
     }
 }

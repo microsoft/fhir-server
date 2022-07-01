@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                 && _provisionedRUThroughput > 0)
             {
                 _targetRUs = _provisionedRUThroughput.Value * (ReindexJobRecord.TargetDataStoreUsagePercentage.Value / 100.0);
-                _logger.LogInformation($"Reindex throttling initialized, target RUs: {_targetRUs}");
+                _logger.LogInformation("Reindex throttling initialized, target RUs: {TargetRUs}", _targetRUs);
                 _delayFactor = 0;
                 _rUsConsumedDuringInterval = 0.0;
                 _initialized = true;
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
             }
             else
             {
-                _logger.LogInformation("Unable to initialize throttle controller.  Throttling unavailable. Provisioned RUs: {0}", _provisionedRUThroughput);
+                _logger.LogInformation("Unable to initialize throttle controller.  Throttling unavailable. Provisioned RUs: {ProvisionRU}", _provisionedRUThroughput);
             }
         }
 
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                     double batchPercent = _targetRUs.Value / responseRequestCharge;
                     _targetBatchSize = (uint)(_targetBatchSize * batchPercent);
                     _targetBatchSize = _targetBatchSize >= 10 ? _targetBatchSize : 10;
-                    _logger.LogInformation($"Reindex query for one batch was larger than target RUs, current query cost: {responseRequestCharge}.  Reduced batch size to: {_targetBatchSize}");
+                    _logger.LogInformation("Reindex query for one batch was larger than target RUs, current query cost: {ResponseRequestCharge}.  Reduced batch size to: {TargetBatchSize}", responseRequestCharge, _targetBatchSize);
                 }
                 else
                 {
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                     if (averageRUsConsumed > _targetRUs)
                     {
                         _delayFactor += 1;
-                        _logger.LogInformation($"Reindex RU consumption high, delay factor increase to: {_delayFactor}");
+                        _logger.LogInformation("Reindex RU consumption high, delay factor increase to: {DelayFactor}", _delayFactor);
                     }
                     else if (averageRUsConsumed < (_targetRUs * 0.75)
                         && _delayFactor > 0)

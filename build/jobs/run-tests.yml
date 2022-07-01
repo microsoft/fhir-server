@@ -38,7 +38,7 @@ jobs:
     displayName: 'Run Integration Tests'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 3m'
+      arguments: '"**\*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:

@@ -1,11 +1,10 @@
 ﻿--DROP PROCEDURE dbo.DequeueJob
 GO
-CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @StartPartitionId tinyint = NULL, @Worker varchar(100), @HeartbeatTimeoutSec int
+CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueJob'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
-                           +' P='+isnull(convert(varchar,@StartPartitionId),'NULL')
                            +' H='+isnull(convert(varchar,@HeartbeatTimeoutSec),'NULL')
                            +' W='+isnull(@Worker,'NULL')
        ,@Rows int
@@ -13,7 +12,7 @@ DECLARE @SP varchar(100) = 'DequeueJob'
        ,@JobId bigint
        ,@msg varchar(100)
        ,@Lock varchar(100)
-       ,@PartitionId tinyint = @StartPartitionId
+       ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
        ,@LookedAtPartitions tinyint = 0
 

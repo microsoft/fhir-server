@@ -21,7 +21,7 @@ CREATE PROCEDURE dbo.RebuildIndex
     @tableName nvarchar(128),
     @indexName nvarchar(128),
     @pageCompression bit = 0
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 DECLARE @errorTxt as varchar(1000)
        ,@sql as nvarchar (1000)

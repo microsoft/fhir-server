@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EndTime = exportJobRecord.EndTime;
             DataSize = exportJobRecord.Output?.Values.Sum(fileList => fileList.Sum(job => job?.CommittedBytes ?? 0)) ?? 0;
             IsAnonymizedExport = !string.IsNullOrEmpty(exportJobRecord.AnonymizationConfigurationLocation);
+            IsAcrMode = !string.IsNullOrEmpty(exportJobRecord.AnonymizationConfigurationCollectionReference);
         }
 
         public string FhirOperation { get; }
@@ -41,5 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public long DataSize { get; }
 
         public bool IsAnonymizedExport { get; }
+
+        public bool IsAcrMode { get; }
     }
 }

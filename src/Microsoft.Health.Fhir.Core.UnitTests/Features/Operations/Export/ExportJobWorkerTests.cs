@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         public ExportJobWorkerTests()
         {
-            _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed = DefaultMaximumNumberOfConcurrentJobAllowed;
+            _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance = DefaultMaximumNumberOfConcurrentJobAllowed;
             _exportJobConfiguration.JobHeartbeatTimeoutThreshold = DefaultJobHeartbeatTimeoutThreshold;
             _exportJobConfiguration.JobPollingFrequency = DefaultJobPollingFrequency;
 
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const int MaximumNumberOfConcurrentJobsAllowed = 2;
 
-            _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed = MaximumNumberOfConcurrentJobsAllowed;
+            _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance = MaximumNumberOfConcurrentJobsAllowed;
 
             ExportJobOutcome job1 = CreateExportJobOutcome();
             ExportJobOutcome job2 = CreateExportJobOutcome();

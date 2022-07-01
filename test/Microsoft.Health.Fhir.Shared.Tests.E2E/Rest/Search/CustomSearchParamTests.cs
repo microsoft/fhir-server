@@ -472,6 +472,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        [Fact]
+        public async Task GivenNonParametersRequestBody_WhenReindexSent_ThenBadRequest()
+        {
+            string body = Samples.GetJson("PatientWithMinimalData");
+            var ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostAsync("$reindex", body));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
         private async Task<FhirResponse<Parameters>> WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
         {
             int checkReindexCount = 0;

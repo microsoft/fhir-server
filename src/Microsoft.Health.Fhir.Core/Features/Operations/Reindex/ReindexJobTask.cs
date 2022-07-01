@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     else
                     {
-                        _logger.LogInformation("Search parameter {url} is not being reindexed as it does not match the target types of reindex job {reindexid}.", searchParam.Url, _reindexJobRecord.Id);
+                        _logger.LogInformation("Search parameter {Url} is not being reindexed as it does not match the target types of reindex job {Reindexid}.", searchParam.Url, _reindexJobRecord.Id);
                     }
                 }
             }
@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _reindexJobRecord.FailureCount++;
 
-                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
+                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}.", _reindexJobRecord.FailureCount);
 
                 await UpdateJobAsync();
 
@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     queryTasks.Add(ProcessQueryAsync(query, queryTokensSource.Token));
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
-                    _logger.LogInformation($"Reindex job task created {queryTasks.Count} Tasks");
+                    _logger.LogInformation("Reindex job task created {Count} Tasks", queryTasks.Count);
                 }
 
                 // reset stale queries to pending
@@ -371,9 +371,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 var averageDbConsumption = _throttleController.UpdateDatastoreUsage();
-                _logger.LogInformation($"Reindex avaerage DB consumption: {averageDbConsumption}");
+                _logger.LogInformation("Reindex avaerage DB consumption: {AverageDbConsumption}", averageDbConsumption);
                 var throttleDelayTime = _throttleController.GetThrottleBasedDelay();
-                _logger.LogInformation($"Reindex throttle delay: {throttleDelayTime}");
+                _logger.LogInformation("Reindex throttle delay: {ThrottleDelayTime}", throttleDelayTime);
                 await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + throttleDelayTime, _cancellationToken);
 
                 // Remove all finished tasks from the collections of tasks
@@ -465,7 +465,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _jobSemaphore.Release();
                 }
 
-                _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
+                _logger.LogInformation("Reindex job current thread: {ThreadId}", Environment.CurrentManagedThreadId);
                 await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.ResourceTypeSearchParameterHashMap, cancellationToken);
                 _throttleController.UpdateDatastoreUsage();
 
@@ -474,7 +474,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await _jobSemaphore.WaitAsync(cancellationToken);
                     try
                     {
-                        _logger.LogInformation("Reindex job updating progress, current result count: {0}", results.Results.Count());
+                        _logger.LogInformation("Reindex job updating progress, current result count: {Count}", results.Results.Count());
                         _reindexJobRecord.Progress += results.Results.Count();
                         query.Status = OperationStatus.Completed;
 
@@ -518,7 +518,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 query.Error = ex.Message;
                 query.FailureCount++;
-                _logger.LogError(ex, "Encountered an unhandled exception. The query failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
+                _logger.LogError(ex, "Encountered an unhandled exception. The query failure count increased to {FailureCount}.", _reindexJobRecord.FailureCount);
 
                 if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                 {
@@ -566,13 +566,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount();
                     if (totalCount != 0)
                     {
-                        string message = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'.";
-                        string userMessage = message + " Resubmit the same reindex job to finish indexing the remaining resources.";
+                        string userMessage = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'." + " Resubmit the same reindex job to finish indexing the remaining resources.";
                         _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,
                             OperationOutcomeConstants.IssueType.Incomplete,
                             userMessage));
-                        _logger.LogError(message);
+                        _logger.LogError("{TotalCount} resource(s) of the following type(s) failed to be reindexed: '{Types}'.", totalCount, string.Join("', '", resourcesTypes));
 
                         await MoveToFinalStatusAsync(OperationStatus.Failed);
                     }
@@ -584,7 +583,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 else
                 {
                     await MoveToFinalStatusAsync(OperationStatus.Failed);
-                    _logger.LogInformation($"Reindex job did not complete successfully, id: {_reindexJobRecord.Id}.");
+                    _logger.LogInformation("Reindex job did not complete successfully, id: {Id}.", _reindexJobRecord.Id);
                 }
             }
         }
@@ -617,7 +616,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var message = $"Error running reindex query for resource type {queryStatus.ResourceType}.";
                     var reindexJobException = new ReindexJobException(message, ex);
-                    _logger.LogError(ex, message);
+                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}", queryStatus.ResourceType);
                     queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
 
                     throw reindexJobException;
@@ -713,13 +712,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            _logger.LogTrace("Completing reindex job. Updating the status of the fully indexed search parameters: '{paramUris}'", string.Join("', '", fullyIndexedParamUris));
+            _logger.LogTrace("Completing reindex job. Updating the status of the fully indexed search parameters: '{ParamUris}'", string.Join("', '", fullyIndexedParamUris));
             (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(fullyIndexedParamUris, _cancellationToken);
 
             if (success)
             {
                 await MoveToFinalStatusAsync(OperationStatus.Completed);
-                _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
+                _logger.LogInformation("Reindex job successfully completed, id {Id}.", _reindexJobRecord.Id);
             }
             else
             {
@@ -728,7 +727,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     OperationOutcomeConstants.IssueType.Exception,
                     error);
                 _reindexJobRecord.Error.Add(issue);
-                _logger.LogError(error);
+                _logger.LogError("{Error}", error);
 
                 await MoveToFinalStatusAsync(OperationStatus.Failed);
             }

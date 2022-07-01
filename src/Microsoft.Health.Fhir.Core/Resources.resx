@@ -582,12 +582,12 @@
   <data name="InvalidEverythingOperationPhase" xml:space="preserve">
     <value>The phase '{0}' in $everything operation is invalid.</value>
   </data>
-  <data name="ImportTaskIsRunning" xml:space="preserve">
-    <value>There is already an import task running.</value>
+  <data name="ImportJobIsRunning" xml:space="preserve">
+    <value>There is already an import job running.</value>
   </data>
-  <data name="ImportTaskNotFound" xml:space="preserve">
-    <value>The requested import task "{0}" was not found.</value>
-    <comment>{0} is the import task id.</comment>
+  <data name="ImportJobNotFound" xml:space="preserve">
+    <value>The requested import job "{0}" was not found.</value>
+    <comment>{0} is the import job id.</comment>
   </data>
   <data name="ImportOperationCompleted" xml:space="preserve">
     <value>Import operation has already completed</value>
@@ -626,6 +626,13 @@
   </data>
   <data name="SearchParameterDefinitionNullorEmptyCodeValue" xml:space="preserve">
     <value>Code value cannot be null or empty</value>
+  </data>
+  <data name="Meta" xml:space="preserve">
+    <value>Meta</value>
+  </data>
+  <data name="OperationOutcomeLocationDeprication" xml:space="preserve">
+    <value>OperationOutcome.Location is deprecated, please use OperationOutcome.Expression</value>
+    <comment>Warning message informing users of a field deprecation</comment>
   </data>
   <data name="SearchCountResultsExceedLimit" xml:space="preserve">
     <value>Search count returned {0} and exceeds the maximum defined limit of {1}.</value>

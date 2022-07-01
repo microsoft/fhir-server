@@ -353,6 +353,7 @@ namespace Microsoft.Health.Fhir.Client
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
+            message.Headers.Accept.Add(_mediaType);
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
@@ -380,6 +381,24 @@ namespace Microsoft.Health.Fhir.Client
             etag = HttpUtility.UrlEncode(etag);
             container = HttpUtility.UrlEncode(container);
             string requestUrl = $"{path}$export?_since={since.ToString("yyyy-MM-ddTHH:mm:ss")}&_container={container}&_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}";
+
+            using var message = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+            message.Headers.Add("Accept", "application/fhir+json");
+            message.Headers.Add("Prefer", "respond-async");
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return response.Content.Headers.ContentLocation;
+        }
+
+        public async Task<Uri> AnonymizedExportUsingAcrAsync(string anonymizationConfig, string anonymizationConfigCollectionReference, DateTimeOffset since, string container, string path = "", CancellationToken cancellationToken = default)
+        {
+            anonymizationConfig = HttpUtility.UrlEncode(anonymizationConfig);
+            anonymizationConfigCollectionReference = HttpUtility.UrlEncode(anonymizationConfigCollectionReference);
+            container = HttpUtility.UrlEncode(container);
+            string requestUrl = $"{path}$export?_since={since.ToString("yyyy-MM-ddTHH:mm:ss")}&_container={container}&_anonymizationConfig={anonymizationConfig}&_anonymizationConfigCollectionReference={anonymizationConfigCollectionReference}";
 
             using var message = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             message.Headers.Add("Accept", "application/fhir+json");

@@ -119,18 +119,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.CancelImport)]
         [AuditEventType(AuditEventSubType.Import)]
-        public async Task<IActionResult> CancelImport(string idParameter)
+        public async Task<IActionResult> CancelImport(long idParameter)
         {
             CancelImportResponse response = await _mediator.CancelImportAsync(idParameter, HttpContext.RequestAborted);
 
-            _logger.LogInformation($"CancelImport {response.StatusCode}");
+            _logger.LogInformation("CancelImport {StatusCode}", response.StatusCode);
             return new ImportResult(response.StatusCode);
         }
 
         [HttpGet]
         [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.GetImportStatusById)]
         [AuditEventType(AuditEventSubType.Import)]
-        public async Task<IActionResult> GetImportStatusById(string idParameter)
+        public async Task<IActionResult> GetImportStatusById(long idParameter)
         {
             var getBulkImportResult = await _mediator.GetImportStatusAsync(
                 idParameter,
@@ -141,18 +141,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ImportResult bulkImportActionResult;
             if (getBulkImportResult.StatusCode == HttpStatusCode.OK)
             {
-                bulkImportActionResult = ImportResult.Ok(getBulkImportResult.TaskResult);
+                bulkImportActionResult = ImportResult.Ok(getBulkImportResult.JobResult);
                 bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
             }
             else
             {
-                if (getBulkImportResult.TaskResult == null)
+                if (getBulkImportResult.JobResult == null)
                 {
                     bulkImportActionResult = ImportResult.Accepted();
                 }
                 else
                 {
-                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.TaskResult);
+                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.JobResult);
                     bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
                 }
             }
