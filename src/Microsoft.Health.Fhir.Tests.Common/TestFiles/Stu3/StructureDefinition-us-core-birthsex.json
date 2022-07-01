@@ -205,7 +205,7 @@
                     "strength": "required",
                     "description": "Code for sex assigned at birth",
                     "valueSetReference": {
-                        "reference": "http://hl7.org/fhir/us/core/ValueSet/us-core-birthsex"
+                        "reference": "http://hl7.org/fhir/us/core/ValueSet/birthsex"
                     }
                 },
                 "mapping": [
@@ -257,7 +257,7 @@
                     "strength": "required",
                     "description": "Code for sex assigned at birth",
                     "valueSetReference": {
-                        "reference": "http://hl7.org/fhir/us/core/ValueSet/us-core-birthsex"
+                        "reference": "http://hl7.org/fhir/us/core/ValueSet/birthsex"
                     }
                 }
             }

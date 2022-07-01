@@ -1,15 +1,16 @@
 {
     "resourceType": "ValueSet",
-    "id": "us-core-birthsex",
+    "id": "birthsex",
     "text": {
         "status": "generated",
         "div": "<div>PlaceHolder</div>"
     },
     "url": "http://hl7.org/fhir/us/core/ValueSet/us-core-birthsex",
-    "version": "2.0.0",
-    "name": "US Core Birth Sex Value Set",
+    "version": "2.1.0",
+    "name": "US_Core_Birth_Sex_Value_Set",
+    "title": "US Core Birth Sex Value Set",
     "status": "active",
-    "date": "2016-08-10T00:00:00+10:00",
+    "date": "2016-08-10",
     "publisher": "HL7 US Realm Steering Committee",
     "contact": [
         {
@@ -36,7 +37,7 @@
     "compose": {
         "include": [
             {
-                "system": "http://hl7.org/fhir/v3/AdministrativeGender",
+                "system": "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender",
                 "concept": [
                     {
                         "code": "F",
@@ -49,7 +50,7 @@
                 ]
             },
             {
-                "system": "http://hl7.org/fhir/v3/NullFlavor",
+                "system": "http://terminology.hl7.org/CodeSystem/v3-NullFlavor",
                 "concept": [
                     {
                         "code": "UNK",

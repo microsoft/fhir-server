@@ -140,8 +140,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patient = parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
             Patient createdResource = await _client.CreateAsync(patient.ToPoco<Patient>());
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
-
+#if !R5
             Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+#endif
         }
 
         [Fact]
@@ -168,7 +169,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirSource = Samples.GetJson("Profile-Patient-PassUsCore-Example");
 
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
+#if !R5
             Assert.Empty(outcome.Issue.Where(x => (x.Code != OperationOutcome.IssueType.Informational)));
+#endif
         }
 
         [Fact]

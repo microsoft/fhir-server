@@ -74,7 +74,7 @@
     <None Remove="TestFiles\Normative\ValueSet-detailed-race.json" />
     <None Remove="TestFiles\Normative\ValueSet-omb-ethnicity-category.json" />
     <None Remove="TestFiles\Normative\ValueSet-omb-race-category.json" />
-    <None Remove="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
+    <None Remove="TestFiles\Normative\ValueSet-birthsex.json" />
     <None Remove="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
     <None Remove="TestFiles\Normative\ValueSet.json" />
     <None Remove="TestFiles\Observation-For-Patient-f001.json" />
@@ -113,6 +113,7 @@
     <None Remove="TestFiles\R4\StructureDefinition-us-core-race.json" />
     <None Remove="TestFiles\R4\ValueSet-detailed-ethnicity.json" />
     <None Remove="TestFiles\R4\ValueSet-detailed-race.json" />
+    <None Remove="TestFiles\R4\ValueSet-birthsex.json" />
     <None Remove="TestFiles\R4\ValueSet-omb-ethnicity-category.json" />
     <None Remove="TestFiles\R4\ValueSet-omb-race-category.json" />
     <None Remove="TestFiles\R4\ValueSet-us-core-narrative-status.json" />
@@ -134,7 +135,7 @@
     <None Remove="TestFiles\R5\ValueSet-detailed-race.json" />
     <None Remove="TestFiles\R5\ValueSet-omb-ethnicity-category.json" />
     <None Remove="TestFiles\R5\ValueSet-omb-race-category.json" />
-    <None Remove="TestFiles\R5\ValueSet-us-core-birthsex.json" />
+    <None Remove="TestFiles\R5\ValueSet-birthsex.json" />
     <None Remove="TestFiles\R5\ValueSet-us-core-narrative-status.json" />
     <None Remove="TestFiles\R5\Profile-Patient-PassUsCore-Example.json" />
     <None Remove="TestFiles\R5\Profile-Patient-FailUsCore-Example.json" />
@@ -178,7 +179,6 @@
     <None Remove="TestFiles\Normative\PatientWithMinimalData.json" />
     <None Remove="TestFiles\Normative\Weight.json" />
     <None Remove="TestFiles\Normative\WeightInGrams.json" />
-    <None Remove="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-careplan.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-genderIdentity.json" />
     <None Remove="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
@@ -189,7 +189,6 @@
     <None Remove="TestFiles\Normative\ValueSet-detailed-race.json" />
     <None Remove="TestFiles\Normative\ValueSet-omb-ethnicity-category.json" />
     <None Remove="TestFiles\Normative\ValueSet-omb-race-category.json" />
-    <None Remove="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
     <None Remove="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
     <None Remove="TestFiles\R5\CarePlan.json" />
     <None Remove="TestFiles\R5\Condition-For-Patient-f001.json" />
@@ -272,7 +271,7 @@
     <None Remove="TestFiles\Stu3\ValueSet-detailed-race.json" />
     <None Remove="TestFiles\Stu3\ValueSet-omb-ethnicity-category.json" />
     <None Remove="TestFiles\Stu3\ValueSet-omb-race-category.json" />
-    <None Remove="TestFiles\Stu3\ValueSet-us-core-birthsex.json" />
+    <None Remove="TestFiles\Stu3\ValueSet-birthsex.json" />
     <None Remove="TestFiles\Stu3\ValueSet-us-core-narrative-status.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
@@ -382,7 +381,7 @@
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-detailed-race.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-omb-ethnicity-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-omb-race-category.json" />
-    <EmbeddedResource Include="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValueSet-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
@@ -404,6 +403,7 @@
     <EmbeddedResource Include="TestFiles\R4\ValueSet-detailed-race.json" />
     <EmbeddedResource Include="TestFiles\R4\ValueSet-omb-ethnicity-category.json" />
     <EmbeddedResource Include="TestFiles\R4\ValueSet-omb-race-category.json" />
+    <EmbeddedResource Include="TestFiles\R4\ValueSet-birthsex.json" />
     <EmbeddedResource Include="TestFiles\R4\ValueSet-us-core-narrative-status.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\R5\StructureDefinition-us-core-careplan.json" />
@@ -416,6 +416,7 @@
     <EmbeddedResource Include="TestFiles\R5\ValueSet-detailed-race.json" />
     <EmbeddedResource Include="TestFiles\R5\ValueSet-omb-ethnicity-category.json" />
     <EmbeddedResource Include="TestFiles\R5\ValueSet-omb-race-category.json" />
+    <EmbeddedResource Include="TestFiles\R5\ValueSet-birthsex.json" />
     <EmbeddedResource Include="TestFiles\R5\ValueSet-us-core-narrative-status.json" />
     <EmbeddedResource Include="TestFiles\R5\Appointment.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
@@ -523,7 +524,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-detailed-race.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-omb-ethnicity-category.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-omb-race-category.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\ValueSet-us-core-birthsex.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ValueSet-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-us-core-narrative-status.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />

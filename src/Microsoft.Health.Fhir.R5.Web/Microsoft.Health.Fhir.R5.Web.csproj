@@ -41,11 +41,5 @@
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Update="C:\Users\t-sadonchev\.nuget\packages\hl7.fhir.specification.r5\4.0.0\contentFiles\any\any\specification.zip">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
   <Import Project="..\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.projitems" Label="Shared" />
 </Project>

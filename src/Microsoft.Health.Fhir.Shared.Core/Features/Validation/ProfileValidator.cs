@@ -33,11 +33,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             try
             {
-                DirectorySourceSettings directorySettings = new DirectorySourceSettings();
-                directorySettings.FormatPreference = DirectorySource.DuplicateFilenameResolution.PreferJson;
-                directorySettings.Mask = "*.*";
-                ZipSource zipSource = new ZipSource(@"definitions.zip", directorySettings);
-                zipSource.Mask = "*.*";
+                ZipSource zipSource = ZipSource.CreateValidationSource(@"definitions.zip");
+
+                // Force summaries to be loaded.
+                zipSource.ListSummaries();
 
                 _resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.CacheDurationInSeconds), profilesResolver);
 
