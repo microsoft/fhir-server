@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     /// <summary>
     /// Validate that the deserialized request body object is of type Hl7.Fhir.Model.Parameters.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
     public sealed class ValidateParametersResourceAttribute : ActionFilterAttribute
     {
         public override void OnActionExecuting(ActionExecutingContext context)
