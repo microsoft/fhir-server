@@ -125,6 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("ReindexJobWorker: Search parameters initialized");
             _searchParametersInitialized = true;
             return Task.CompletedTask;
         }
