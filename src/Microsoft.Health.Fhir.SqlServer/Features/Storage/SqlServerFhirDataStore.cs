@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -219,13 +219,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
-                    _logger.LogTrace("Upserting resource of type: {0} with a stream length of {1}, request method: {2}", resource.ResourceTypeName, stream.Length, resource.Request.Method);
+                    _logger.LogInformation("Upserting {ResourceTypeName} with a stream length of {StreamLength}", resource.ResourceTypeName, stream.Length);
 
                     // throwing ServiceUnavailableException in order to send a 503 error message to the client
                     // indicating the server has a transient error, and the client can try again
                     if (stream.Length < 31) // rather than error on a length of 0, a stream with a small number of bytes should still throw an error. RawResource.Data = null, still results in a stream of 29 bytes
                     {
-                        _logger.LogCritical("Stream size for resource of type: {0} is less than 50 bytes, request method: {1}", resource.ResourceTypeName, resource.Request.Method);
+                        _logger.LogCritical("Stream size for resource of type: {ResourceTypeName} is less than 50 bytes, request method: {RequestMethod}", resource.ResourceTypeName, resource.Request.Method);
                         throw new ServiceUnavailableException();
                     }
 
@@ -266,8 +266,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         switch (e.Number)
                         {
-                            case SqlErrorCodes.TimeoutExpired:
-                                throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
                             case SqlErrorCodes.Conflict:
                                 // someone else beat us to it, re-read and try comparing again - Compared resource was updated
                                 continue;
@@ -439,7 +437,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     using (SqlDataReader sqlDataReader = await commandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
-                        if (!sqlDataReader.Read())
+                        if (!await sqlDataReader.ReadAsync(cancellationToken))
                         {
                             return null;
                         }
@@ -456,7 +454,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         if (string.IsNullOrEmpty(rawResource))
@@ -465,7 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.InternalServerError);
                         }
 
-                        _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(key.ResourceType)}: {key.ResourceType}; {nameof(rawResource)} length: {rawResource.Length}");
+                        _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceType}: {ResourceType}; {NameOfRawResource} length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(key.ResourceType), key.ResourceType, nameof(rawResource), rawResource.Length);
 
                         var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
 
@@ -554,8 +552,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
                         string userAction = Core.Resources.ReindexingUserAction;
-
-                        _logger.LogError(message);
+                        _logger.LogError("{Error}", message);
                         throw new PreconditionFailedException(message + " " + userAction);
                     }
                 }
@@ -574,7 +571,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 string message = Core.Resources.ReindexingResourceVersionConflict;
                                 string userAction = Core.Resources.ReindexingUserAction;
 
-                                _logger.LogError(message);
+                                _logger.LogError("{Error}", message);
                                 throw new PreconditionFailedException(message + " " + userAction);
 
                             default:

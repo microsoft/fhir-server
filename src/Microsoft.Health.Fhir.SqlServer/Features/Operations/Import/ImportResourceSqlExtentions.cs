@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     {
         internal static BulkImportResourceTypeV1Row ExtractBulkImportResourceTypeV1Row(this ImportResource importResource, short resourceTypeId)
         {
-            return new BulkImportResourceTypeV1Row(resourceTypeId, importResource.Resource.ResourceId, 0, false, importResource.Id, false, "POST", importResource.CompressedStream, true, importResource.Resource.SearchParameterHash);
+            return new BulkImportResourceTypeV1Row(resourceTypeId, importResource.Resource.ResourceId, 1, false, importResource.Id, false, "POST", importResource.CompressedStream, true, importResource.Resource.SearchParameterHash);
         }
 
         internal static bool ContainsError(this ImportResource importResource)

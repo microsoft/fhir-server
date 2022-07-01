@@ -5,17 +5,18 @@
 
 using System;
 using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
+using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
-using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -33,7 +34,10 @@ namespace Microsoft.Health.Fhir.Web
         {
             services.AddDevelopmentIdentityProvider(Configuration);
 
-            Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
+            Core.Registration.IFhirServerBuilder fhirServerBuilder =
+                services.AddFhirServer(
+                    Configuration,
+                    fhirServerConfiguration => fhirServerConfiguration.Security.AddAuthenticationLibrary = AddAuthenticationLibrary)
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
@@ -91,13 +95,13 @@ namespace Microsoft.Health.Fhir.Web
 
         private void AddTaskHostingService(IServiceCollection services)
         {
-            services.Add<TaskHosting>()
+            services.Add<JobHosting>()
                 .Scoped()
                 .AsSelf();
-            services.AddFactory<IScoped<TaskHosting>>();
+            services.AddFactory<IScoped<JobHosting>>();
 
-            services.AddHostedService<TaskHostingBackgroundService>();
-            services.Add<TaskFactory>()
+            services.AddHostedService<HostingBackgroundService>();
+            services.Add<JobFactory>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -130,6 +134,23 @@ namespace Microsoft.Health.Fhir.Web
                 services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
                 services.AddLogging(loggingBuilder => loggingBuilder.AddApplicationInsights(instrumentationKey));
             }
+        }
+
+        private static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
+        {
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+                .AddJwtBearer(options =>
+                {
+                    options.Authority = securityConfiguration.Authentication.Authority;
+                    options.Audience = securityConfiguration.Authentication.Audience;
+                    options.RequireHttpsMetadata = true;
+                    options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
+                });
         }
     }
 }

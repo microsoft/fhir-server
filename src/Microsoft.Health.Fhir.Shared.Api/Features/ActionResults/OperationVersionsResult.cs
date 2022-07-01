@@ -54,8 +54,8 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 foreach (MediaTypeHeaderValue acceptHeader in _acceptHeaders)
                 {
                     // If the accept header is application/[json/xml]
-                    if (string.Compare(acceptHeader.SubType.ToString(), ContentType.FORMAT_PARAM_XML, StringComparison.OrdinalIgnoreCase) == 0 ||
-                        string.Compare(acceptHeader.SubType.ToString(), ContentType.FORMAT_PARAM_JSON, StringComparison.OrdinalIgnoreCase) == 0)
+                    if (string.Equals(acceptHeader.SubType.ToString(), ContentType.FORMAT_PARAM_XML, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(acceptHeader.SubType.ToString(), ContentType.FORMAT_PARAM_JSON, StringComparison.OrdinalIgnoreCase))
                     {
                         // Follow the format outlined in the spec: https://www.hl7.org/fhir/capabilitystatement-operation-versions.html.
                         return _versionsResult;

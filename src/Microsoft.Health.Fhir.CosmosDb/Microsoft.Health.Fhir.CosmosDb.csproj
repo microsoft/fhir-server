@@ -1,7 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
-  </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Features\Storage\StoredProcedures\AcquireExportJobs\acquireExportJobs.js" />
     <EmbeddedResource Include="Features\Storage\StoredProcedures\AcquireReindexJobs\acquireReindexJobs.js" />
@@ -10,7 +7,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.27.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.28.0" />
     <PackageReference Include="System.Private.ServiceModel" Version="4.9.0" /><!-- Microsoft.Azure.Cosmos.Direct is referencing an insecure version of System.Private.ServiceModel (4.5.0) -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(RuntimePackageVersion)" />

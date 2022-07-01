@@ -1,6 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
     <IsPackable>true</IsPackable>
     <RootNamespace>Microsoft.Health.Fhir.Tests.E2E</RootNamespace>
     <IncludeContentInPack>false</IncludeContentInPack>
@@ -18,7 +17,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageReference Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
     <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
@@ -26,7 +25,6 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="6.0.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
@@ -65,5 +63,4 @@
       <BuiltProjectOutputGroupOutput Include="$(ProjectRuntimeConfigFilePath)" FinalOutputPath="$(ProjectRuntimeConfigFilePath)" />
     </ItemGroup>
   </Target>
-  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Smart\Microsoft.Health.Fhir.Shared.Tests.Smart.projitems" Label="Shared" />
 </Project>

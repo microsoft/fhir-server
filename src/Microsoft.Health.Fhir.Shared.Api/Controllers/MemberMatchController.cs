@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateFormatParametersAttribute))]
     [ValidateModelState]
+    [ValidateParametersResourceAttribute]
     public class MemberMatchController : Controller
     {
         private readonly IMediator _mediator;
