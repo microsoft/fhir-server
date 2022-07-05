@@ -226,7 +226,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             };
 
             var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
-            Assert.Equal("Multiple matches found for Patient.identifier.period when processing patch add operation.", exception.Message);
+            Assert.Equal("Multiple matches found at Patient.identifier.period when processing patch add operation.", exception.Message);
         }
 
         // Not an official test case, but add operations are special in the use of "name". Testing this with an invalid target.
@@ -236,7 +236,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "invalid", new FhirDateTime("2021-07-05"));
 
             var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
-            Assert.Equal("Element invalid not found when processing patch add operation.", exception.Message);
+            Assert.Equal("Element invalid not found at Patient when processing patch add operation.", exception.Message);
+        }
+
+        // Not an official test case, but ensures add operations cannot add choice types.
+        [Fact]
+        public void GivenAFhirPatchRequest_WhenAddingExistingValue_ThenInvalidOperationExceptionIsThrown()
+        {
+            var patchParam = new Parameters().AddAddPatchParameter("Patient", "deceased", new FhirDateTime("2021-07-05"));
+            var patientResource = new Patient
+            {
+                Deceased = new FhirBoolean(true),
+            };
+
+            var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
+            Assert.Equal("Existing element deceased found at Patient when processing patch add operation.", exception.Message);
         }
     }
 }

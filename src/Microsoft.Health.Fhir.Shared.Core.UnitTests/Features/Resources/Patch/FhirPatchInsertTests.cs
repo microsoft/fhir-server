@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L619
         [Fact]
-        public void GivenAFhirPatchInsertRequest_WhenInsertingEndOfList_ThenValueShouldExistAtEndOfList()
+        public void GivenAFhirPatchInsertRequest_WhenInsertingEndOfList_ThenValueShouldExistAfotEndOfList()
         {
             var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new Identifier { System = "http://example.org", Value = "value 3" }, 2);
             var patientResource = new Patient
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Multiple matches found for Patient.contact.name.given when processing patch insert operation.", exception.Message);
+            Assert.Equal("Multiple matches found at Patient.contact.name.given when processing patch insert operation.", exception.Message);
         }
 
         // Not an official test case, but testing index out of range.

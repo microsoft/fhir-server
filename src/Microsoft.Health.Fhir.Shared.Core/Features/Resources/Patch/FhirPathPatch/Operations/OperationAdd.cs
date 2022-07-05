@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
@@ -19,6 +21,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             : base(resource, po)
         {
         }
+
+        // Gets the value of the patch operation as an ElementNode.
+        internal override ElementNode ValueElementNode =>
+            Operation.Value.GetElementNodeFromPart(Target.Definition.GetChildMapping(Operation.Name));
 
         /// <summary>
         /// Executes a FHIRPath Patch Add operation. Add operations will add a new
@@ -35,12 +41,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         {
             try
             {
-                Target = ResourceElement.FindSingleOrCollection(Operation.Path);
+                Target = ResourceElement
+                            .Select(Operation.Path)
+                            .CheckNoElements()
+                            .CheckMultipleElements()
+                            .GetFirstElementNode();
+
+                // Check to ensure we aren't adding over an exsting element
+                var targetAtName = Target.Select(Operation.Name);
+                if (targetAtName.Any(x => !x.Definition.IsCollection))
+                {
+                    throw new InvalidOperationException($"Existing element {Operation.Name} found");
+                }
+
                 Target.Add(Provider, ValueElementNode);
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} when processing patch add operation.");
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch add operation.");
             }
 
             return ResourceElement.ToPoco<Resource>();

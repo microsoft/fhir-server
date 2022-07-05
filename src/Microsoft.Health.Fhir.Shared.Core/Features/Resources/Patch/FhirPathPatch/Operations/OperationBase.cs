@@ -41,23 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         internal ElementNode Target { get; set; }
 
         // Gets the value of the patch operation as an ElementNode.
-        internal ElementNode ValueElementNode
-        {
-            get
-            {
-                PropertyMapping mapping;
-                if (Operation.Type is PatchOperationType.ADD)
-                {
-                    mapping = Target.Definition.GetChildMapping(Operation.Name);
-                }
-                else
-                {
-                    mapping = Target.Definition as PropertyMapping;
-                }
-
-                return Operation.Value.GetElementNodeFromPart(mapping.Name, mapping);
-            }
-        }
+        internal virtual ElementNode ValueElementNode =>
+             Operation.Value.GetElementNodeFromPart(Target.Definition as PropertyMapping);
 
         /// <summary>
         /// All inheriting classes must implement an operation exeuction method.

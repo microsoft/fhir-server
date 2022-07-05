@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
@@ -33,19 +34,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         /// <returns>Patched FHIR Resource as POCO.</returns>
         internal override Resource Execute()
         {
-            ElementNode target;
             try
             {
-                target = ResourceElement.FindSingleOrNone(Operation.Path);
+                var findResult = ResourceElement
+                            .Select(Operation.Path)
+                            .CheckMultipleElementsOrCollection();
+
+                Target = findResult.Count() == 1 ? findResult.GetFirstElementNode() : null;
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} when processing patch delete operation.");
+                throw new InvalidOperationException($"{ex.Message} for {Operation.Path} when processing patch delete operation.");
             }
 
-            if (target is not null)
+            if (Target is not null)
             {
-                Target = target;
                 Target.Parent.Remove(Target);
             }
 

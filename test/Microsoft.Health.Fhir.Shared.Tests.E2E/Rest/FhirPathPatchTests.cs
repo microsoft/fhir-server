@@ -54,23 +54,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public static IEnumerable<object[]> GetIncorrectRequestTestData()
         {
-            yield return new object[] { new Parameters().AddPatchParameter("replace", value: new Code("female")).AddDeletePatchParameter("Patient.address") };
-            yield return new object[] { new Parameters().AddPatchParameter("coo", path: "Patient.gender", value: new Code("femaale")).AddDeletePatchParameter("Patient.address") };
-            yield return new object[] { new Parameters().AddPatchParameter("replace") };
-            yield return new object[] { new Parameters().AddPatchParameter("replace", path: "Patient.gender") };
+            yield return new object[] { new Parameters().AddPatchParameter("replace", value: new Code("female")), "Patch replace operations must have the 'path' part." };
+            yield return new object[] { new Parameters().AddPatchParameter("coo", path: "Patient.gender", value: new Code("femaale")), "Invalid patch operation type: 'coo'. Only 'add', 'insert', 'delete', 'replace', and 'move' are allowed." };
+            yield return new object[] { new Parameters().AddPatchParameter("replace"), "Patch replace operations must have the 'path' part." };
+            yield return new object[] { new Parameters().AddPatchParameter("replace", path: "Patient.gender"), "Patch replace operations must have the 'value' part." };
         }
 
         [Theory]
         [MemberData(nameof(GetIncorrectRequestTestData))]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAServerThatSupportsIt_WhenSubmittingInvalidFhirPatch_ThenServerShouldBadRequest(Parameters patchRequest)
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingInvalidFhirPatch_ThenServerShouldBadRequest(Parameters patchRequest, string expectedError)
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
             Assert.Equal(AdministrativeGender.Male, response.Resource.Gender);
             Assert.NotNull(response.Resource.Address);
+
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
+
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            var responseObject = exception.Response.ToT();
+            Assert.Equal(expectedError, responseObject.Issue[0].Diagnostics);
+            Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
         [SkippableFact]
@@ -142,16 +147,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 patchRequest));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            var responseObject = exception.Response.ToT();
+            Assert.Equal("Element dummyProperty not found at Patient when processing patch add operation.", responseObject.Issue[0].Diagnostics);
+            Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
         public static IEnumerable<object[]> GetForbiddenPropertyTestData()
         {
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.id", new FhirString("abc")) };
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.versionId", new FhirString("100")) };
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.meta.versionId", new FhirString("100")) };
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.resourceType", new FhirString("DummyResource")) };
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.text.div", new FhirString("<div>dummy narrative</div>")) };
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.text.status", new FhirString("extensions")) };
+            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.id", new Id("abc")) };
+            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.meta.versionId", new Id("100")) };
+            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.text.div", new XHtml("<div>dummy narrative</div>")) };
+            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.text.status", new Code("extensions")) };
         }
 
         [Theory]
@@ -167,28 +173,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 patchRequest));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            var responseObject = exception.Response.ToT();
+            Assert.Equal("Patching immutable properties is not allowed.", responseObject.Issue[0].Diagnostics);
+            Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
         public static IEnumerable<object[]> GetInvalidDataValueTestData()
         {
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.gender", new FhirString("dummyGender")) };
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.birthDate", new FhirString("abc")) };
-            yield return new object[] { new Parameters().AddReplacePatchParameter("Patient.address[0]use", new FhirString("dummyAddress")) };
+            yield return new object[] { "Patient.gender", new FhirString("dummyGender"), "Invalid input for gender at Patient.gender when processing patch replace operation." };
+            yield return new object[] { "Patient.birthDate", new FhirString("abc"), "Invalid input for birthDate at Patient.birthDate when processing patch replace operation." };
+            yield return new object[] { "Patient.address[0].use", new FhirString("dummyAddress"), "Invalid input for use at Patient.address[0].use when processing patch replace operation." };
         }
 
         [Theory]
         [MemberData(nameof(GetInvalidDataValueTestData))]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAServerThatSupportsIt_WhenSubmittingPatchWithInvalidValue_ThenAnErrorShouldBeReturned(Parameters patchRequest)
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingPatchWithInvalidValue_ThenAnErrorShouldBeReturned(string patchPath, DataType patchValue, string expectedError)
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
 
+            var patchRequest = new Parameters().AddReplacePatchParameter(patchPath, patchValue)
+;
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
                 response.Resource,
                 patchRequest));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            var responseObject = exception.Response.ToT();
+
+            Assert.Equal(expectedError, responseObject.Issue[0].Diagnostics);
+            Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
         [Fact]
@@ -222,6 +237,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 patchRequest));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            var responseObject = exception.Response.ToT();
+            Assert.Equal("Existing element deceased found at Patient when processing patch add operation.", responseObject.Issue[0].Diagnostics);
+            Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
         [Fact]
@@ -270,6 +288,49 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patchRequest = new Parameters().AddReplacePatchParameter("Patient.gender", new Code("female"));
 
             var patch = await _client.FhirPatchAsync(response.Resource, patchRequest, ifMatchVersion: "1");
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnInvalidPartDefinition_WhenPatching_ThenAnErrorShouldBeReturned()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            var patchRequest = new Parameters().AddPatchParameter("add", "Patient", "link", new List<Parameters.ParameterComponent>()
+            {
+                new Parameters.ParameterComponent { Name = "value", Value = new Code("replaced-by") },
+                new Parameters.ParameterComponent { Name = "value", Value = new ResourceReference() { Reference = "Patient/1234", Type = "Patient" } },
+            });
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
+                response.Resource,
+                patchRequest));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            var responseObject = exception.Response.ToT();
+            Assert.Equal("Element value not found at Patient when processing patch add operation.", responseObject.Issue[0].Diagnostics);
+            Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnPatchWithAnonymousObjectContainingResource_WhenPatching_ThenAnResourceShouldBeUpdated()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            var patchRequest = new Parameters().AddPatchParameter("add", "Patient", "link", new List<Parameters.ParameterComponent>()
+            {
+                new Parameters.ParameterComponent { Name = "type", Value = new Code("replaced-by") },
+                new Parameters.ParameterComponent { Name = "other", Value = new ResourceReference() { Reference = "Patient/1234", Type = "Patient" } },
+            });
+
+            var patch = await _client.FhirPatchAsync(response.Resource, patchRequest);
 
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
         }

@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "identifier", new FhirDecimal(-42));
 
             var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
-            Assert.Equal("Invalid input for identifier when processing patch add operation.", exception.Message);
+            Assert.Equal("Invalid input for identifier at Patient when processing patch add operation.", exception.Message);
         }
 
         // Tests using "part" for a predefined type. Part is unnecessary but should still work.
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 new Parameters.ParameterComponent()
                 {
                     Name = "other",
-                    Value = new ResourceReference("Patient/123"),
+                    Value = new ResourceReference() { Reference = "Patient/123", Type = "Patient" },
                 },
             });
 
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     new Patient.LinkComponent
                     {
                         Type = Patient.LinkType.ReplacedBy,
-                        Other = new ResourceReference("Patient/123"),
+                        Other = new ResourceReference() { Reference = "Patient/123", Type = "Patient" },
                     },
                 },
             };

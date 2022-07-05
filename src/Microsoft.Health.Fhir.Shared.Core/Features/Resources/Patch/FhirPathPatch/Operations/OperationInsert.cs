@@ -39,13 +39,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             string name;
             try
             {
-                Target = ResourceElement.FindSingleOrCollection(Operation.Path);
+                Target = ResourceElement
+                            .Select(Operation.Path)
+                            .CheckNoElements()
+                            .CheckMultipleElements()
+                            .GetFirstElementNode();
+
                 targetParent = Target.Parent;
                 name = Target.Name;
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} when processing patch insert operation.");
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch insert operation.");
             }
 
             var listElements = targetParent.Children(name).ToList()

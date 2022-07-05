@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Multiple matches found for Patient.contact.name.given when processing patch move operation.", exception.Message);
+            Assert.Equal("Multiple matches found at Patient.contact.name.given when processing patch move operation.", exception.Message);
         }
 
         // Not an official test case, but ensuring proper error messages for out of index errors.

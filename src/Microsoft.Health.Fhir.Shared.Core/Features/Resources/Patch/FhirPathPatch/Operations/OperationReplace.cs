@@ -6,6 +6,7 @@
 using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
@@ -33,12 +34,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         {
             try
             {
-                Target = ResourceElement.FindSingle(Operation.Path);
+                Target = ResourceElement
+                            .Select(Operation.Path)
+                            .CheckNoElements()
+                            .CheckMultipleElementsOrCollection()
+                            .GetFirstElementNode();
+
                 Target.ReplaceWith(Provider, ValueElementNode);
             }
             catch (InvalidOperationException ex)
             {
-                throw new InvalidOperationException($"{ex.Message} when processing patch replace operation.");
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch replace operation.");
             }
 
             return ResourceElement.ToPoco<Resource>();
