@@ -5,11 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class SecurityConfiguration
     {
+        public delegate void AddAuthenticationLibraryMethod(IServiceCollection services, SecurityConfiguration securityConfiguration);
+
         public bool Enabled { get; set; }
 
         public bool EnableAadSmartOnFhirProxy { get; set; }
@@ -19,5 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public virtual HashSet<string> PrincipalClaims { get; } = new HashSet<string>(StringComparer.Ordinal);
 
         public AuthorizationConfiguration Authorization { get; set; } = new AuthorizationConfiguration();
+
+        public string ServicePrincipalClientId { get; set; }
+
+        public AddAuthenticationLibraryMethod AddAuthenticationLibrary { get; set; }
     }
 }

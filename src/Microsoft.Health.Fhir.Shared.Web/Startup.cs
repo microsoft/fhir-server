@@ -5,6 +5,7 @@
 
 using System;
 using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
@@ -33,7 +34,10 @@ namespace Microsoft.Health.Fhir.Web
         {
             services.AddDevelopmentIdentityProvider(Configuration);
 
-            Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
+            Core.Registration.IFhirServerBuilder fhirServerBuilder =
+                services.AddFhirServer(
+                    Configuration,
+                    fhirServerConfiguration => fhirServerConfiguration.Security.AddAuthenticationLibrary = AddAuthenticationLibrary)
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
@@ -130,6 +134,23 @@ namespace Microsoft.Health.Fhir.Web
                 services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
                 services.AddLogging(loggingBuilder => loggingBuilder.AddApplicationInsights(instrumentationKey));
             }
+        }
+
+        private static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
+        {
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+                .AddJwtBearer(options =>
+                {
+                    options.Authority = securityConfiguration.Authentication.Authority;
+                    options.Audience = securityConfiguration.Authentication.Audience;
+                    options.RequireHttpsMetadata = true;
+                    options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
+                });
         }
     }
 }
