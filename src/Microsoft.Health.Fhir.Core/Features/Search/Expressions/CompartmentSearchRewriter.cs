@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -65,10 +64,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                         {
                             if (_searchParameterDefinitionManager.Value.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
                             {
-                                Debug.WriteLine(format: "Expression Uri: {0}", sp.Url);
-                                Debug.WriteLine(format: "     Base Resource Types: {0}", string.Join(", ", sp.BaseResourceTypes));
-                                Debug.WriteLine(format: "     Target Resource Types: {0}", string.Join(", ", sp.TargetResourceTypes));
-
                                 searchParamExpressionsForResourceType.Add(
                                     Expression.SearchParameter(sp, Expression.And(Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false), Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false))));
                             }
@@ -78,7 +73,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     foreach (var expr in searchParamExpressionsForResourceType)
                     {
                         string searchParamUrl = expr.Parameter.Url.ToString();
-
                         if (compartmentSearchExpressions.TryGetValue(searchParamUrl, out var resourceTypeList))
                         {
                             resourceTypeList.ResourceTypes.Add(compartmentResourceType);
@@ -115,11 +109,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
                     if (compartmentSearchExpressionsGrouped.Count > 1)
                     {
-                        compartmentSearchExpressionsGrouped.ForEach((e) =>
-                        {
-                            Debug.WriteLine("CSW - Expression: {0}", e.ToString());
-                        });
-
                         return Expression.UnionAll(compartmentSearchExpressionsGrouped);
                     }
                     else if (compartmentSearchExpressions.Count == 1)

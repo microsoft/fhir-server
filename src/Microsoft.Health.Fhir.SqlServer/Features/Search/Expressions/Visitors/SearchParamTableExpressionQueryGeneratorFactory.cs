@@ -150,33 +150,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitMultiary(MultiaryExpression expression, object context)
         {
-            foreach (var childExpression in expression.Expressions)
-            {
-                var handler = childExpression.AcceptVisitor(this, context);
-                if (handler != null)
-                {
-                    return handler;
-                }
-            }
-
-            return null;
+            return VisitIExpressionsContainer(expression, context);
         }
 
         public SearchParamTableExpressionQueryGenerator VisitUnionAll(UnionAllExpression expression, object context)
         {
-            // TODO: FERNFE - This is a copy of the method above.
-            // If it works as expected, I would refactor VisitMultiary and VisitUnionAll to use a single piece of code.
-
-            foreach (var childExpression in expression.Expressions)
-            {
-                var handler = childExpression.AcceptVisitor(this, context);
-                if (handler != null)
-                {
-                    return handler;
-                }
-            }
-
-            return null;
+            return VisitIExpressionsContainer(expression, context);
         }
 
         public SearchParamTableExpressionQueryGenerator VisitString(StringExpression expression, object context)
@@ -207,6 +186,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public SearchParamTableExpressionQueryGenerator VisitIn<T>(InExpression<T> expression, object context)
         {
             return InQueryGenerator.Instance;
+        }
+
+        private SearchParamTableExpressionQueryGenerator VisitIExpressionsContainer(IExpressionsContainer expression, object context)
+        {
+            foreach (var childExpression in expression.Expressions)
+            {
+                var handler = childExpression.AcceptVisitor(this, context);
+                if (handler != null)
+                {
+                    return handler;
+                }
+            }
+
+            return null;
         }
     }
 }

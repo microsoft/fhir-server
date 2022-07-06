@@ -36,8 +36,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
             SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
-            Debug.WriteLine("Uri: {0} - Search Param ID: {1}", expression.Parameter.Url, searchParamId);
-
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")

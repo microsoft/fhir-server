@@ -10,6 +10,9 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
+    /// <summary>
+    /// Represents a union all operator.
+    /// </summary>
     public class UnionAllExpression : Expression, IExpressionsContainer
     {
         public UnionAllExpression(IReadOnlyList<Expression> expressions)
@@ -64,11 +67,3 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
     }
 }
-
-// Plan:
-//     - (ok) Create UnionAllExpression - Mix between MultiaryExpression and CompartmentSearchException?
-//     - (ok) UnionAllExpression is not a multiary exception (keep following original SqlRootExpressionRewriter logic)
-//     - (ok) Some additional changes in CosmosDB will be required
-//     - (ok) Alter SqlQueryGenerator.VisitSqlRoot to start creating multiples CTEs.
-//          - (ok) Forces the creation of multiple CTEs, but it'll also allow the aggregation of all them in the end.
-//     - Consider reverting the changes in SearchParamTableExpressionKind, SqlRootExpressionRewriter.TryGetSearchParamTableExpressionQueryGenerator and deleting UnionAllQueryGenerator.
