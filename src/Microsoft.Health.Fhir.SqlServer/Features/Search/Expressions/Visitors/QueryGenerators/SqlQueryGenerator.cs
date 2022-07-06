@@ -84,7 +84,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append("WITH ");
 
-                StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions, (sb, tableExpression) =>
+                List<SearchParamTableExpression> newTableExpressionSequence = new List<SearchParamTableExpression>();
+
+                foreach (SearchParamTableExpression tableExpression in expression.SearchParamTableExpressions)
+                {
+                    IExpressionsContainer expressionContainer = tableExpression.Predicate as IExpressionsContainer;
+                    UnionAllExpression tempUnionAllExpression = expressionContainer?.Expressions.SingleOrDefault(e => e is UnionAllExpression) as UnionAllExpression;
+
+                    if (tempUnionAllExpression == null)
+                    {
+                        newTableExpressionSequence.Add(tableExpression);
+                    }
+                    else
+                    {
+                        newTableExpressionSequence.Insert(0, tableExpression);
+                    }
+                }
+
+                StringBuilder.AppendDelimited($",{Environment.NewLine}", newTableExpressionSequence, (sb, tableExpression) =>
                 {
                     if (ContainsUnionAllExpression(tableExpression, out UnionAllExpression unionAllExpression, out SearchParamTableExpression allOtherRenainingExpressions))
                     {
@@ -469,19 +486,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindAll(SearchParamTableExpression searchParamTableExpression)
         {
-            StringBuilder.Append("SELECT ")
-                .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                .Append("FROM ").AppendLine(VLatest.Resource);
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
 
-            using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+            if (_unionAllVisited && predecessorIndex > 0 && searchParamTableExpression.ChainLevel == 0)
             {
-                AppendHistoryClause(delimited);
-                AppendDeletedClause(delimited);
-                if (searchParamTableExpression.Predicate != null)
+                var cte = TableExpressionName(predecessorIndex);
+                StringBuilder.Append("SELECT ")
+                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1 ")
+                    .Append("FROM ").AppendLine(VLatest.Resource)
+                    .Append("INNER JOIN ").AppendLine(cte);
+
+                using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
-                    delimited.BeginDelimitedElement();
-                    searchParamTableExpression.Predicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
+                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(cte).Append(".T1");
+                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).Append(".Sid1");
+
+                    AppendHistoryClause(delimited);
+                    AppendDeletedClause(delimited);
+                    if (searchParamTableExpression.Predicate != null)
+                    {
+                        delimited.BeginDelimitedElement();
+                        searchParamTableExpression.Predicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
+                    }
+                }
+            }
+            else
+            {
+                StringBuilder.Append("SELECT ")
+                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
+                    .Append("FROM ").AppendLine(VLatest.Resource);
+
+                using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                {
+                    AppendHistoryClause(delimited);
+                    AppendDeletedClause(delimited);
+                    if (searchParamTableExpression.Predicate != null)
+                    {
+                        delimited.BeginDelimitedElement();
+                        searchParamTableExpression.Predicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
+                    }
                 }
             }
         }
@@ -1141,6 +1186,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         return FindImpl(currentIndex - 1);
                     case SearchParamTableExpressionKind.Sort:
                     case SearchParamTableExpressionKind.SortWithFilter:
+                        return currentIndex - 1;
+                    case SearchParamTableExpressionKind.All:
                         return currentIndex - 1;
                     default:
                         throw new ArgumentOutOfRangeException(currentSearchParamTableExpression.Kind.ToString());
