@@ -9,6 +9,7 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -29,49 +30,115 @@ namespace BlobReaderWriter
         private static readonly int SourceBlobs = int.Parse(ConfigurationManager.AppSettings["SourceBlobs"]);
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
         private static readonly bool SplitBySize = bool.Parse(ConfigurationManager.AppSettings["SplitBySize"]);
+        private static readonly bool WriteSingleResource = bool.Parse(ConfigurationManager.AppSettings["WriteSingleResource"]);
+        private static readonly int WriteThreadsPerReadThread = int.Parse(ConfigurationManager.AppSettings["WriteThreadsPerReadThread"]);
         private static readonly string NameFilter = ConfigurationManager.AppSettings["NameFilter"];
 
         public static void Main()
         {
             var sourceContainer = GetContainer(SourceConnectionString, SourceContainerName);
             var targetContainer = GetContainer(TargetConnectionString, TargetContainerName);
-            var gPrefix = $"BlobReaderWriter.Threads={Threads}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
+            var gPrefix = $"BlobReaderWriter.Threads={Threads}{(WriteSingleResource ? $".WriteThreadsPerReadThread={WriteThreadsPerReadThread}" : string.Empty)}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
             Console.WriteLine($"{gPrefix}: Starting at {DateTime.UtcNow.ToString("s")}...");
             var blobs = WritesEnabled
                       ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
                       : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase));
-            if (WritesEnabled)
-            {
-                Console.WriteLine($"{gPrefix}: SourceBlobs={blobs.Count()} at {DateTime.UtcNow.ToString("s")}.");
-            }
+            Console.WriteLine($"{gPrefix}: SourceBlobs={blobs.Count()} at {DateTime.UtcNow.ToString("s")}.");
 
             var sw = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
             var totalLines = 0L;
             var sourceBlobs = 0L;
             var targetBlobs = 0L;
-            BatchExtensions.ExecuteInParallelBatches(blobs, Threads, 1, (thread, blobInt) =>
+            if (WriteSingleResource)
             {
-                var blobIndex = blobInt.Item1;
-                var blob = blobInt.Item2.First();
-
-                var lines = SplitBySize ? SplitBlobBySize(sourceContainer, blob, targetContainer, ref targetBlobs) : SplitBlobByResourceId(sourceContainer, blob, targetContainer, ref targetBlobs);
-                Interlocked.Add(ref totalLines, lines);
-                Interlocked.Increment(ref sourceBlobs);
-
-                if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                BatchExtensions.ExecuteInParallelBatches(blobs, Threads, 1, (reader, blobInt) =>
                 {
-                    lock (swReport)
+                    var blob = blobInt.Item2.First();
+                    BatchExtensions.ExecuteInParallelBatches(GetLinesInBlob(sourceContainer, blob), WriteThreadsPerReadThread, 100, (thread, lineBatch) =>
                     {
-                        if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                        foreach (var line in lineBatch.Item2)
                         {
-                            Console.WriteLine($"{gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
-                            swReport.Restart();
+                            Interlocked.Increment(ref totalLines);
+                            PutResource(line, targetContainer);
+                            if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                            {
+                                lock (swReport)
+                                {
+                                    if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                                    {
+                                        var currWrites = Interlocked.Read(ref totalLines);
+                                        Console.WriteLine($"{gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" Writes={totalLines}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} res/sec");
+                                        swReport.Restart();
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    Interlocked.Increment(ref sourceBlobs);
+                });
+            }
+            else
+            {
+                BatchExtensions.ExecuteInParallelBatches(blobs, Threads, 1, (thread, blobInt) =>
+                {
+                    var blobIndex = blobInt.Item1;
+                    var blob = blobInt.Item2.First();
+
+                    var lines = SplitBySize ? SplitBlobBySize(sourceContainer, blob, targetContainer, ref targetBlobs) : SplitBlobByResourceId(sourceContainer, blob, targetContainer, ref targetBlobs);
+                    Interlocked.Add(ref totalLines, lines);
+                    Interlocked.Increment(ref sourceBlobs);
+
+                    if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                    {
+                        lock (swReport)
+                        {
+                            if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                            {
+                                Console.WriteLine($"{gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
+                                swReport.Restart();
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
+
             Console.WriteLine($"{gPrefix}.Total: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
+        }
+
+        private static void PutResource(string json, BlobContainerClient targetContainer)
+        {
+            var (resourceType, resourceId) = ParseJson(json);
+
+            if (!WritesEnabled)
+            {
+                return;
+            }
+
+            WriteLine(targetContainer, json, $"{resourceType}_{resourceId}.ndjson");
+        }
+
+        private static (string resourceType, string resourceId) ParseJson(string jsonString)
+        {
+            var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
+            var idShort = jsonString.Substring(idStart, 50);
+            var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+            var resourceId = idShort.Substring(0, idEnd);
+            if (string.IsNullOrEmpty(resourceId))
+            {
+                throw new ArgumentException("Cannot parse resource id with string parser");
+            }
+
+            var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
+            var rtShort = jsonString.Substring(rtStart, 50);
+            var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+            var resourceType = rtShort.Substring(0, rtEnd);
+            if (string.IsNullOrEmpty(resourceType))
+            {
+                throw new ArgumentException("Cannot parse resource type with string parser");
+            }
+
+            return (resourceType, resourceId);
         }
 
         private static long SplitBlobByResourceId(BlobContainerClient sourceContainer, BlobItem blob, BlobContainerClient targetContainer, ref long targetBlobs)
@@ -165,7 +232,30 @@ namespace BlobReaderWriter
             {
                 if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine(e);
+                    Console.WriteLine(e.Message);
+                    goto retry;
+                }
+
+                throw;
+            }
+        }
+
+        private static void WriteLine(BlobContainerClient container, string line, string blobName)
+        {
+        retry:
+            try
+            {
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(line));
+                container.GetBlockBlobClient(blobName).Upload(stream);
+            }
+            catch (Exception e)
+            {
+                var eStr = e.ToString();
+                if (eStr.Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase)
+                        || eStr.Contains("ServerBusy", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine(e.Message);
+                    Thread.Sleep(2000);
                     goto retry;
                 }
 
