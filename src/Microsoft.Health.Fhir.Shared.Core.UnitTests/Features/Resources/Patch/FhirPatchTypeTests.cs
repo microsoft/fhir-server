@@ -9,6 +9,7 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
+using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
@@ -76,6 +77,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         [Fact]
         public void GivenAFhirPatchRequest_WhenAddingAnonymousTypeToList_ThenTypeWithElementsShouldBePopulated()
         {
+            var versionSpecificResourceReference = new ResourceReference() { Reference = "Patient/123", Display = "Test Patient" };
+            if (ModelInfoProvider.Version != FhirSpecification.Stu3)
+            {
+                versionSpecificResourceReference.Type = "Patient";
+            }
+
             var patchParam = new Parameters().AddPatchParameter("add", path: "Patient", name: "link", value: new List<Parameters.ParameterComponent>()
             {
                 new Parameters.ParameterComponent()
@@ -86,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 new Parameters.ParameterComponent()
                 {
                     Name = "other",
-                    Value = new ResourceReference() { Reference = "Patient/123", Type = "Patient" },
+                    Value = versionSpecificResourceReference,
                 },
             });
 
@@ -98,7 +105,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     new Patient.LinkComponent
                     {
                         Type = Patient.LinkType.ReplacedBy,
-                        Other = new ResourceReference() { Reference = "Patient/123", Type = "Patient" },
+                        Other = versionSpecificResourceReference,
                     },
                 },
             };
