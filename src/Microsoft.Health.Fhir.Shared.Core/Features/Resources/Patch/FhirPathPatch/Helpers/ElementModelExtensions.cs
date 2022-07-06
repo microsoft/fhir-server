@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             if (part.Value is null)
             {
                 var provider = ModelInfoProvider.Instance.StructureDefinitionSummaryProvider;
-                var node = ElementNode.Root(provider, partFhirMapping.Name, partFhirMapping.Name);
+                var node = ElementNode.Root(provider, partFhirMapping.Name);
 
                 // Group and loop over parts for the same target parameter
                 foreach (var group in part.Part.GroupBy(x => x.Name))

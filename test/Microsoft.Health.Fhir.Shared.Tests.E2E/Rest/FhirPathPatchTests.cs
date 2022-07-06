@@ -301,10 +301,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
 
+            var versionSpecificResourceReference = new ResourceReference() { Reference = "Patient/123", Display = "Test Patient" };
+            if (ModelInfoProvider.Version != FhirSpecification.Stu3)
+            {
+                versionSpecificResourceReference.Type = "Patient";
+            }
+
             var patchRequest = new Parameters().AddPatchParameter("add", "Patient", "link", new List<Parameters.ParameterComponent>()
             {
                 new Parameters.ParameterComponent { Name = "value", Value = new Code("replaced-by") },
-                new Parameters.ParameterComponent { Name = "value", Value = new ResourceReference() { Reference = "Patient/1234", Type = "Patient" } },
+                new Parameters.ParameterComponent { Name = "value", Value = versionSpecificResourceReference },
             });
 
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
@@ -325,10 +331,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
 
+            var versionSpecificResourceReference = new ResourceReference() { Reference = "Patient/123", Display = "Test Patient" };
+            if (ModelInfoProvider.Version != FhirSpecification.Stu3)
+            {
+                versionSpecificResourceReference.Type = "Patient";
+            }
+
             var patchRequest = new Parameters().AddPatchParameter("add", "Patient", "link", new List<Parameters.ParameterComponent>()
             {
                 new Parameters.ParameterComponent { Name = "type", Value = new Code("replaced-by") },
-                new Parameters.ParameterComponent { Name = "other", Value = new ResourceReference() { Reference = "Patient/1234", Type = "Patient" } },
+                new Parameters.ParameterComponent { Name = "other", Value = versionSpecificResourceReference },
             });
 
             var patch = await _client.FhirPatchAsync(response.Resource, patchRequest);
