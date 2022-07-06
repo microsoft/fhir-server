@@ -6,10 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="definitions.zip" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="definitions.zip">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
