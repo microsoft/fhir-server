@@ -114,6 +114,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<ReindexJobSqlThrottlingController>()
                 .Singleton()
+                .AsSelf()
                 .AsImplementedInterfaces();
 
             services.Add<SqlQueueClient>()
