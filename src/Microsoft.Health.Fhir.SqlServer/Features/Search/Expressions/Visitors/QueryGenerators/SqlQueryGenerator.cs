@@ -1122,7 +1122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 // Due the UnionAll expressions, the number of the current index used to create new CTEs can be greater than
                 // the number of expressions in '_rootExpression.SearchParamTableExpressions'.
-                if (currentIndex > _rootExpression.SearchParamTableExpressions.Count)
+                if (currentIndex >= _rootExpression.SearchParamTableExpressions.Count)
                 {
                     return currentIndex - 1;
                 }

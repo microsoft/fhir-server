@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -12,6 +13,8 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
+    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.CompartmentSearch)]
     public class CompartmentTests : SearchTestsBase<CompartmentTestFixture>
     {
         public CompartmentTests(CompartmentTestFixture fixture)
