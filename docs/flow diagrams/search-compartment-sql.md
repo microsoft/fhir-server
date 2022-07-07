@@ -3,19 +3,22 @@
 flowchart LR
 SearchOptionsFactory -- Expression --> SqlServerSearchService
 
-subgraph Core
+subgraph Fhir.Core
+
     SearchOptionsFactory
 end
 
-subgraph SQL
-    SqlServerSearchService -- UnionAllExpression --> Rewriters
+subgraph Fhir.SqlServer
+
+    SqlServerSearchService -- Expression --> Rewriters
     
     Rewriters -- SqlRootExpression --> SqlQueryGenerator
 
-    SqlQueryGenerator --> SQL_Generation_Logic
+    SqlQueryGenerator
 
     subgraph Rewriters
-        CompartmentSearchRewriter -- Expression --> SqlRootExpressionRewriter
+
+        CompartmentSearchRewriter -- UnionAllExpression --> SqlRootExpressionRewriter
         SqlRootExpressionRewriter -- SqlRootExpression --> PartitionEliminationRewriter
         PartitionEliminationRewriter -- SqlRootExpression --> TopRewriter
     end

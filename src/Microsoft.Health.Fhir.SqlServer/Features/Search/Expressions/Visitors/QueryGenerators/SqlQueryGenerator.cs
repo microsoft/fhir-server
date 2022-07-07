@@ -82,6 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new InvalidOperationException("Expected no predicates on the Resource table because of the presence of TableExpressions");
                 }
 
+                // Union All expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
+                // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 StringBuilder.Append("WITH ");
                 StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
@@ -1056,7 +1058,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionAllExpression unionAllExpression, SearchParamTableExpressionQueryGenerator queryGenerator)
         {
-            // Iterate through all expressions and create a unique CTE to each one.
+            // Iterate through all expressions and create a unique CTE for each one.
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
             foreach (Expression innerExpression in unionAllExpression.Expressions)
             {
