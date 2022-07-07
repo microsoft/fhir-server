@@ -25,12 +25,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public virtual TOutput VisitMultiary(MultiaryExpression expression, TContext context)
         {
-            return VisitIExpressionsContainer(expression, context);
+            return VisitExpressionsContainer(expression, context);
         }
 
         public virtual TOutput VisitUnionAll(UnionAllExpression expression, TContext context)
         {
-            return VisitIExpressionsContainer(expression, context);
+            return VisitExpressionsContainer(expression, context);
         }
 
         public virtual TOutput VisitNotExpression(NotExpression expression, TContext context) => expression.Expression.AcceptVisitor(this, context);
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public virtual TOutput VisitIn<T>(InExpression<T> expression, TContext context) => default;
 
-        private TOutput VisitIExpressionsContainer(IExpressionsContainer expression, TContext context)
+        private TOutput VisitExpressionsContainer(IExpressionsContainer expression, TContext context)
         {
             TOutput result = default;
             for (var i = 0; i < expression.Expressions.Count; i++)

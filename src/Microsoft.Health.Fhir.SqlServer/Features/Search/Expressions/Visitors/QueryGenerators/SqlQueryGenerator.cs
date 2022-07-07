@@ -83,27 +83,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append("WITH ");
-
-                List<SearchParamTableExpression> newTableExpressionSequence = new List<SearchParamTableExpression>();
-
-                foreach (SearchParamTableExpression tableExpression in expression.SearchParamTableExpressions)
+                StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
-                    IExpressionsContainer expressionContainer = tableExpression.Predicate as IExpressionsContainer;
-                    UnionAllExpression tempUnionAllExpression = expressionContainer?.Expressions.SingleOrDefault(e => e is UnionAllExpression) as UnionAllExpression;
-
-                    if (tempUnionAllExpression == null)
-                    {
-                        newTableExpressionSequence.Add(tableExpression);
-                    }
-                    else
-                    {
-                        newTableExpressionSequence.Insert(0, tableExpression);
-                    }
-                }
-
-                StringBuilder.AppendDelimited($",{Environment.NewLine}", newTableExpressionSequence, (sb, tableExpression) =>
-                {
-                    if (ContainsUnionAllExpression(tableExpression, out UnionAllExpression unionAllExpression, out SearchParamTableExpression allOtherRenainingExpressions))
+                    if (tableExpression.SplitExpressions(out UnionAllExpression unionAllExpression, out SearchParamTableExpression allOtherRenainingExpressions))
                     {
                         AppendNewSetOfUnionAllTableExpressions(context, unionAllExpression, tableExpression.QueryGenerator);
 
@@ -351,35 +333,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return null;
-        }
-
-        private static bool ContainsUnionAllExpression(SearchParamTableExpression tableExpression, out UnionAllExpression unionAllExpression, out SearchParamTableExpression allOtherRemainingExpressions)
-        {
-            unionAllExpression = null;
-            allOtherRemainingExpressions = null;
-
-            IExpressionsContainer expressionContainer = tableExpression.Predicate as IExpressionsContainer;
-            UnionAllExpression tempUnionAllExpression = expressionContainer?.Expressions.SingleOrDefault(e => e is UnionAllExpression) as UnionAllExpression;
-
-            if (tempUnionAllExpression != null)
-            {
-                IReadOnlyList<Expression> allOtherExpression = expressionContainer.Expressions.Where(e => e != tempUnionAllExpression).ToList();
-
-                if (allOtherExpression.Any())
-                {
-                    allOtherRemainingExpressions = new SearchParamTableExpression(
-                        tableExpression.QueryGenerator,
-                        new MultiaryExpression(MultiaryOperator.And, allOtherExpression),
-                        SearchParamTableExpressionKind.Normal,
-                        chainLevel: tableExpression.ChainLevel + 1);
-                }
-
-                unionAllExpression = tempUnionAllExpression;
-
-                return true;
-            }
-
-            return false;
         }
 
         private void HandleParamTableUnionAll(SearchParamTableExpression searchParamTableExpression)
