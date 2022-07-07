@@ -29,38 +29,38 @@ namespace BlobReaderWriter
         private static readonly int LinesPerBlob = int.Parse(ConfigurationManager.AppSettings["LinesPerBlob"]);
         private static readonly int SourceBlobs = int.Parse(ConfigurationManager.AppSettings["SourceBlobs"]);
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
+        private static readonly bool ReadFromTargetInsteadOfWrite = bool.Parse(ConfigurationManager.AppSettings["ReadFromTargetInsteadOfWrite"]);
         private static readonly bool SplitBySize = bool.Parse(ConfigurationManager.AppSettings["SplitBySize"]);
-        private static readonly bool WriteSingleResource = bool.Parse(ConfigurationManager.AppSettings["WriteSingleResource"]);
-        private static readonly int WriteThreadsPerReadThread = int.Parse(ConfigurationManager.AppSettings["WriteThreadsPerReadThread"]);
+        private static readonly int ThreadsPerSourceReadThread = int.Parse(ConfigurationManager.AppSettings["ThreadsPerSourceReadThread"]);
         private static readonly string NameFilter = ConfigurationManager.AppSettings["NameFilter"];
 
         public static void Main()
         {
             var sourceContainer = GetContainer(SourceConnectionString, SourceContainerName);
             var targetContainer = GetContainer(TargetConnectionString, TargetContainerName);
-            var gPrefix = $"BlobReaderWriter.Threads={Threads}{(WriteSingleResource ? $".WriteThreadsPerReadThread={WriteThreadsPerReadThread}" : string.Empty)}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
+            var gPrefix = $"BlobReaderWriter.Threads={Threads}{(LinesPerBlob == 1 ? $".ThreadsPerSourceReadThread={ThreadsPerSourceReadThread}" : string.Empty)}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
             Console.WriteLine($"{gPrefix}: Starting at {DateTime.UtcNow.ToString("s")}...");
             var blobs = WritesEnabled
                       ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
-                      : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase));
-            Console.WriteLine($"{gPrefix}: SourceBlobs={blobs.Count()} at {DateTime.UtcNow.ToString("s")}.");
+                      : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase));
+            ////Console.WriteLine($"{gPrefix}: SourceBlobs={blobs.Count()} at {DateTime.UtcNow.ToString("s")}.");
 
             var sw = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
             var totalLines = 0L;
             var sourceBlobs = 0L;
             var targetBlobs = 0L;
-            if (WriteSingleResource)
+            if (LinesPerBlob == 1)
             {
                 BatchExtensions.ExecuteInParallelBatches(blobs, Threads, 1, (reader, blobInt) =>
                 {
                     var blob = blobInt.Item2.First();
-                    BatchExtensions.ExecuteInParallelBatches(GetLinesInBlob(sourceContainer, blob), WriteThreadsPerReadThread, 100, (thread, lineBatch) =>
+                    BatchExtensions.ExecuteInParallelBatches(GetLinesInBlob(sourceContainer, blob.Name), ThreadsPerSourceReadThread, 100, (thread, lineBatch) =>
                     {
                         foreach (var line in lineBatch.Item2)
                         {
                             Interlocked.Increment(ref totalLines);
-                            PutResource(line, targetContainer);
+                            ReadWriteResource(line, targetContainer);
                             if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                             {
                                 lock (swReport)
@@ -68,7 +68,7 @@ namespace BlobReaderWriter
                                     if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                                     {
                                         var currWrites = Interlocked.Read(ref totalLines);
-                                        Console.WriteLine($"{gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" Writes={totalLines}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} res/sec");
+                                        Console.WriteLine($"{gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" {(ReadFromTargetInsteadOfWrite ? "Reads" : "Writes")}={totalLines}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} res/sec");
                                         swReport.Restart();
                                     }
                                 }
@@ -106,16 +106,21 @@ namespace BlobReaderWriter
             Console.WriteLine($"{gPrefix}.Total: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
         }
 
-        private static void PutResource(string json, BlobContainerClient targetContainer)
+        private static void ReadWriteResource(string json, BlobContainerClient targetContainer)
         {
             var (resourceType, resourceId) = ParseJson(json);
-
-            if (!WritesEnabled)
+            var blobName = $"{resourceType}_{resourceId}.ndjson";
+            if (WritesEnabled)
             {
-                return;
+                if (ReadFromTargetInsteadOfWrite)
+                {
+                    ReadResource(targetContainer, blobName);
+                }
+                else
+                {
+                    WriteResource(targetContainer, json, blobName);
+                }
             }
-
-            WriteLine(targetContainer, json, $"{resourceType}_{resourceId}.ndjson");
         }
 
         private static (string resourceType, string resourceId) ParseJson(string jsonString)
@@ -145,7 +150,7 @@ namespace BlobReaderWriter
         {
             var lines = 0L;
             var partitions = new Dictionary<string, List<string>>();
-            foreach (var line in GetLinesInBlob(sourceContainer, blob))
+            foreach (var line in GetLinesInBlob(sourceContainer, blob.Name))
             {
                 lines++;
                 var partitionKey = GetPartitionKey(line);
@@ -184,7 +189,7 @@ namespace BlobReaderWriter
             var lines = 0L;
             var batch = new List<string>();
             var batchIndex = 0;
-            foreach (var line in GetLinesInBlob(sourceContainer, blob))
+            foreach (var line in GetLinesInBlob(sourceContainer, blob.Name))
             {
                 lines++;
                 if (WritesEnabled)
@@ -240,7 +245,14 @@ namespace BlobReaderWriter
             }
         }
 
-        private static void WriteLine(BlobContainerClient container, string line, string blobName)
+        private static string ReadResource(BlobContainerClient container, string blobName)
+        {
+            using var stream = new MemoryStream();
+            container.GetBlockBlobClient(blobName).DownloadTo(stream);
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+
+        private static void WriteResource(BlobContainerClient container, string line, string blobName)
         {
         retry:
             try
@@ -268,9 +280,9 @@ namespace BlobReaderWriter
             return $"{partition}/{origBlobName}";
         }
 
-        private static IEnumerable<string> GetLinesInBlob(BlobContainerClient container, BlobItem blob)
+        private static IEnumerable<string> GetLinesInBlob(BlobContainerClient container, string blobName)
         {
-            using var reader = new StreamReader(container.GetBlobClient(blob.Name).Download().Value.Content);
+            using var reader = new StreamReader(container.GetBlockBlobClient(blobName).Download().Value.Content);
             while (!reader.EndOfStream)
             {
                 yield return reader.ReadLine();
