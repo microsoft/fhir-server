@@ -6,7 +6,7 @@
 using System.Net.Http;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using Microsoft.Health.Client;
+using Microsoft.Health.Client.Authentication;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using FhirClient = Microsoft.Health.Fhir.Client.FhirClient;
 
