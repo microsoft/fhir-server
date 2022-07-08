@@ -153,6 +153,21 @@ namespace Microsoft.Health.Fhir.Store.Export
             command.ExecuteNonQuery();
         }
 
+        internal IEnumerable<string> GetResourceIds(short resourceTypeId, long minId, long maxId)
+        {
+            using var conn = new SqlConnection(ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("dbo.GetResourcesByTypeAndSurrogateIdRange", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@StartId", minId);
+            cmd.Parameters.AddWithValue("@EndId", maxId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                yield return reader.GetString(1);
+            }
+        }
+
         internal IEnumerable<byte[]> GetDataBytes(short resourceTypeId, long minId, long maxId)
         {
             using var conn = new SqlConnection(ConnectionString);
@@ -170,6 +185,33 @@ namespace Microsoft.Health.Fhir.Store.Export
 
         internal IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize)
         {
+            var numberOfRanges = 100;
+            var returnedRanges = 101;
+            var newStartId = startId;
+            var iteration = 0;
+            while (returnedRanges >= numberOfRanges)
+            {
+                returnedRanges = 0;
+                var maxEndId = 0L;
+                foreach (var range in GetSurrogateIdRanges(resourceTypeId, newStartId, endId, unitSize, numberOfRanges))
+                {
+                    returnedRanges++;
+                    if (range.EndId > maxEndId)
+                    {
+                        maxEndId = range.EndId;
+                    }
+
+                    yield return range;
+                }
+
+                iteration++;
+                newStartId = maxEndId + 1;
+                Console.WriteLine($"GetSurrogateIdRanges.iteration={iteration}: returnedRanges={returnedRanges} newStartId={newStartId}");
+            }
+        }
+
+        internal IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize, int numberOfRanges)
+        {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var cmd = new SqlCommand("dbo.GetResourceSurrogateIdRanges", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 3600 };
@@ -177,7 +219,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             cmd.Parameters.AddWithValue("@StartId", startId);
             cmd.Parameters.AddWithValue("@EndId", endId);
             cmd.Parameters.AddWithValue("@UnitSize", unitSize);
-            cmd.Parameters.AddWithValue("@NumberOfRanges", (int)(2e9 / unitSize));
+            cmd.Parameters.AddWithValue("@NumberOfRanges", numberOfRanges);
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {

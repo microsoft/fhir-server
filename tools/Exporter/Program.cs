@@ -10,6 +10,7 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
@@ -24,7 +25,9 @@ namespace Microsoft.Health.Fhir.Store.Export
         private static readonly string QueueConnectionString = ConfigurationManager.ConnectionStrings["QueueDatabase"].ConnectionString;
         private static readonly string BlobConnectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
         private static readonly string BlobContainerName = ConfigurationManager.AppSettings["BlobContainerName"];
+        private static readonly string RawResourceBlobContainerName = ConfigurationManager.AppSettings["RawResourceBlobContainerName"];
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
+        private static readonly int GetRawResourcesThreads = int.Parse(ConfigurationManager.AppSettings["GetRawResourcesThreads"]);
         private static readonly string ResourceType = ConfigurationManager.AppSettings["ResourceType"];
         private static readonly int UnitSize = int.Parse(ConfigurationManager.AppSettings["UnitSize"]);
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
@@ -32,6 +35,7 @@ namespace Microsoft.Health.Fhir.Store.Export
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
         private static readonly bool DecompressEnabled = bool.Parse(ConfigurationManager.AppSettings["DecompressEnabled"]);
         private static readonly bool RebuildWorkQueue = bool.Parse(ConfigurationManager.AppSettings["RebuildWorkQueue"]);
+        private static readonly bool GetRawResourcesFromBlobStorage = bool.Parse(ConfigurationManager.AppSettings["GetRawResourcesFromBlobStorage"]);
         private static readonly int ReportingPeriodSec = int.Parse(ConfigurationManager.AppSettings["ReportingPeriodSec"]);
         private static readonly DateTime StartDate = DateTime.Parse(ConfigurationManager.AppSettings["StartDate"]);
         private static readonly DateTime EndDate = DateTime.Parse(ConfigurationManager.AppSettings["EndDate"]);
@@ -73,9 +77,10 @@ namespace Microsoft.Health.Fhir.Store.Export
             var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, UnitSize).ToList();
             Console.WriteLine($"ExportNoQueue.{ResourceType}: ranges={ranges.Count}.");
             var container = GetContainer(BlobConnectionString, BlobContainerName);
+            var rawResourcecontainer = GetContainer(BlobConnectionString, RawResourceBlobContainerName);
             foreach (var range in ranges)
             {
-                Export(resourceTypeId, container, range.StartId, range.EndId);
+                Export(resourceTypeId, container, range.StartId, range.EndId, rawResourcecontainer);
                 if (_swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                 {
                     lock (_swReport)
@@ -127,7 +132,8 @@ namespace Microsoft.Health.Fhir.Store.Export
                     if (resourceTypeId.HasValue)
                     {
                         var container = GetContainer(BlobConnectionString, BlobContainerName);
-                        var resources = Export(resourceTypeId.Value, container, long.Parse(minId), long.Parse(maxId));
+                        var rawResourceContainer = GetContainer(BlobConnectionString, RawResourceBlobContainerName);
+                        var resources = Export(resourceTypeId.Value, container, long.Parse(minId), long.Parse(maxId), rawResourceContainer);
                         Queue.CompleteJob(unitId, false, version, resources);
                     }
 
@@ -137,7 +143,7 @@ namespace Microsoft.Health.Fhir.Store.Export
                         {
                             if (_swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                             {
-                                Console.WriteLine($"Export.{ResourceType}.threads={Threads}.Writes={WritesEnabled}.Decompress={DecompressEnabled}.Reads={ReadsEnabled}: Resources={_resourcesTotal} secs={(int)_sw.Elapsed.TotalSeconds} speed={(int)(_resourcesTotal / _sw.Elapsed.TotalSeconds)} resources/sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
+                                Console.WriteLine($"Export.{ResourceType}.threads={Threads}{(GetRawResourcesFromBlobStorage ? $".resourceThreads={GetRawResourcesThreads}" : string.Empty)}.Writes={WritesEnabled}.{(GetRawResourcesFromBlobStorage ? "GetRawFromBlob" : "Decompress")}={DecompressEnabled}.Reads={ReadsEnabled}: Resources={_resourcesTotal} secs={(int)_sw.Elapsed.TotalSeconds} speed={(int)(_resourcesTotal / _sw.Elapsed.TotalSeconds)} resources/sec DB={_database.Elapsed.TotalSeconds} sec UnZip={_unzip.Elapsed.TotalSeconds} sec Blob={_blob.Elapsed.TotalSeconds}");
                                 _swReport.Restart();
                             }
                         }
@@ -173,28 +179,56 @@ namespace Microsoft.Health.Fhir.Store.Export
             ////Console.WriteLine($"Export.{ResourceType}.{thread}: {(stop ? "FAILED" : "completed")} at {DateTime.Now:s}, elapsed={_sw.Elapsed.TotalSeconds:N0} sec.");
         }
 
-        private static int Export(short resourceTypeId, BlobContainerClient container, long minId, long maxId)
+        private static int Export(short resourceTypeId, BlobContainerClient container, long minId, long maxId, BlobContainerClient rawResourceContainer)
         {
             if (!ReadsEnabled)
             {
                 return 0;
             }
 
-            _database.Start();
-            var resources = Source.GetDataBytes(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
-            _database.Stop();
-
             var strings = new List<string>();
-            if (DecompressEnabled)
+            if (GetRawResourcesFromBlobStorage)
             {
-                _unzip.Start();
-                foreach (var res in resources)
-                {
-                    using var mem = new MemoryStream(res);
-                    strings.Add(CompressedRawResourceConverterCopy.ReadCompressedRawResource(mem));
-                }
+                _database.Start();
+                var resourceIds = Source.GetResourceIds(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
+                _database.Stop();
 
-                _unzip.Stop();
+                if (DecompressEnabled)
+                {
+                    _unzip.Start();
+                    BatchExtensions.ExecuteInParallelBatches(resourceIds, GetRawResourcesThreads, 100, (thread, resourceIdBatch) =>
+                    {
+                        var stringsInt = new List<string>();
+                        foreach (var resourceId in resourceIdBatch.Item2)
+                        {
+                            stringsInt.Add(ReadResource(rawResourceContainer, $"{ResourceType}_{resourceId}.ndjson"));
+                        }
+
+                        lock (strings)
+                        {
+                            strings.AddRange(stringsInt);
+                        }
+                    });
+                    _unzip.Stop();
+                }
+            }
+            else
+            {
+                _database.Start();
+                var resources = Source.GetDataBytes(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
+                _database.Stop();
+
+                if (DecompressEnabled)
+                {
+                    _unzip.Start();
+                    foreach (var res in resources)
+                    {
+                        using var mem = new MemoryStream(res);
+                        strings.Add(CompressedRawResourceConverterCopy.ReadCompressedRawResource(mem));
+                    }
+
+                    _unzip.Stop();
+                }
             }
 
             if (WritesEnabled)
@@ -207,6 +241,21 @@ namespace Microsoft.Health.Fhir.Store.Export
             Interlocked.Add(ref _resourcesTotal, strings.Count);
 
             return strings.Count;
+        }
+
+        private static string ReadResource(BlobContainerClient container, string blobName)
+        {
+            try
+            {
+                using var stream = new MemoryStream();
+                container.GetBlockBlobClient(blobName).DownloadTo(stream);
+                return Encoding.UTF8.GetString(stream.ToArray());
+            }
+            catch (Exception)
+            {
+                Console.WriteLine($"blobName={blobName}");
+                throw;
+            }
         }
 
         private static void WriteBatchOfLines(BlobContainerClient container, IEnumerable<string> batch, string blobName)
