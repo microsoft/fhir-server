@@ -218,12 +218,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
             CalculateSearchParameterHash();
             await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
             await EnsureInitializedAsync(cancellationToken);
         }
 
