@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
@@ -41,8 +42,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         internal ElementNode Target { get; set; }
 
         // Gets the value of the patch operation as an ElementNode.
-        internal virtual ElementNode ValueElementNode =>
-             Operation.Value.GetElementNodeFromPart(Target.Definition as PropertyMapping);
+        internal virtual ElementNode ValueElementNode
+        {
+            get
+            {
+                var mapping = Target.Definition as PropertyMapping;
+                if (mapping is PropertyMapping propMapping)
+                {
+                    return Operation.Value.GetElementNodeFromPart(propMapping);
+                }
+
+                throw new InvalidOperationException("Patch target must have a property mapping");
+            }
+        }
 
         /// <summary>
         /// All inheriting classes must implement an operation exeuction method.
