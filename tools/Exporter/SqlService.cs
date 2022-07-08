@@ -11,6 +11,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
+    /// <summary>
+    /// Dummy comment
+    /// </summary>
     internal class SqlService
     {
         private string _connectionString;
