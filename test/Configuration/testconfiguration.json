@@ -9,7 +9,7 @@
         "Operations": {
             "Validate": {
                 "CacheDurationInSeconds": 14400,
-                "ExternalTerminologyServer": "http://hapi.fhir.org/baseR4"
+                "ExternalTerminologyServer": "https://r4.ontoserver.csiro.au/fhir"
             }
         }
     }

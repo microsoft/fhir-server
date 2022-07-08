@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -191,6 +192,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.True(hasSeenCodeInvalid, "Resource has invalid code");
         }
+
+        [Theory]
+        [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "F", "Female")]
+        [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "M", "")]
+        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "generated", "Generated")]
+        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "additional")]
+        public async void GivenValidCodeFromKnownValueSet_ThenTrueParameterIsReturned(string path, string system, string code, string display = null)
+        {
+            Parameters resultParam = await _client.ValidateCodeValueSetdAsync(path, system, code, display);
+            Assert.True(resultParam.Parameter[0].Value.ToString() == "true");
+        }
+
+        [Theory]
+        [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "F", "IncorrectDisplay")]
+        [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "IncorrectCode", "")]
+
+        // Display should be "Generated"
+        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "generated", "generated")]
+
+        // Code should be additional
+        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "Additional")]
+        public async void GivenInValidCodeorDisplayFromKnownValueSet_ThenTrueParameterIsReturned(string path, string system, string code, string display = null)
+        {
+            Parameters resultParam = await _client.ValidateCodeValueSetdAsync(path, system, code, display);
+            Assert.True(resultParam.Parameter[0].Value.ToString() == "false");
+        }
+
+        [Theory]
+        [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "", "IncorrectDisplay")]
+        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "", "generated", "generated")]
+        public async void GivenInvalidRequestParams_ValidateCodeValueSetThrowsExcept(string path, string system, string code, string display = null)
+        {
+            await Assert.ThrowsAsync<BadRequestException>(async () => await _client.ValidateCodeValueSetdAsync(path, system, code, display));
+        }
+
+        // Test if endpoint times out or is non-existant any more
 
         [Fact]
         public async void GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()

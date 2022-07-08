@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -16,6 +17,9 @@ using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
@@ -25,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly IResourceResolver _resolver;
         private readonly BaseFhirClient _client;
         private readonly FallbackTerminologyService _ts = null;
+        private readonly LocalTerminologyService _localService;
+        private readonly ITerminologyService _fallbackService;
 
         public ProfileValidator(IProvideProfilesForValidation profilesResolver, IOptions<ValidateOperationConfiguration> options)
         {
@@ -64,7 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                         _client = new FhirClient(options.Value.ExternalTerminologyServer, settings);
                     }
 
-                    _ts = new FallbackTerminologyService(new LocalTerminologyService(_resolver.AsAsync(), new ValueSetExpanderSettings() { ValueSetSource = _resolver }), new ExternalTerminologyService(_client));
+                    _localService = new LocalTerminologyService(_resolver.AsAsync(), new ValueSetExpanderSettings() { ValueSetSource = _resolver });
+                    _fallbackService = new ExternalTerminologyService(_client);
+                    _ts = new FallbackTerminologyService(_localService, _fallbackService);
                 }
             }
             catch (Exception)
@@ -115,6 +123,68 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 .ToArray();
 
             return outcomeIssues;
+        }
+
+        public Parameters TryValidateCodeValueSet(Resource valueset, string system, string id, string code, string display = null)
+        {
+            Parameters param = new Parameters();
+
+            if (!string.IsNullOrWhiteSpace(display))
+            {
+                param.Add("coding", new Coding(system, code, display.Trim(' ')));
+            }
+            else
+            {
+                param.Add("coding", new Coding(system, code));
+            }
+
+            param.Add("valueSet", (ValueSet)valueset);
+            Task<Parameters> result = _fallbackService.ValueSetValidateCode(param, useGet: false);
+
+            try
+            {
+                result.Wait();
+            }
+            catch (Exception)
+            {
+                // figure out type of innerexception and cast it
+                throw new BadRequestException("Valueset references unknown valueSet");
+            }
+
+            return result.Result;
+        }
+
+        public async Task<Parameters> Test(Parameters param, string id, Resource resource)
+        {
+            try
+            {
+                // First, try the local service
+                return await _localService.ValueSetValidateCode(param, id, useGet: true).ConfigureAwait(false);
+            }
+            catch (FhirOperationException)
+            {
+                // If that fails, call the fallback
+                try
+                {
+                    return await _fallbackService.ValueSetValidateCode(param, id, useGet: true).ConfigureAwait(false);
+                }
+                catch (FhirOperationException vse) when (vse.Status == System.Net.HttpStatusCode.NotFound)
+                {
+                    // The fall back service does not know the valueset. If our local service
+                    // does, try get the VS from there, and retry by sending the vs inline
+                    var url = param.GetSingleValue<FhirUri>("url")?.Value;
+                    var valueSet = (ValueSet)resource;
+                    if (valueSet == null)
+                    {
+                        throw;
+                    }
+
+                    param.Remove("valueSet");
+                    param.Add("valueSet", valueSet);
+
+                    return await _fallbackService.ValueSetValidateCode(param, id, useGet: true).ConfigureAwait(false);
+                }
+            }
         }
 
 #pragma warning disable CA1063 // Implement IDisposable Correctly
