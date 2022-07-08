@@ -48,8 +48,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
             if (thisVersion.Version < CollectionSettingsVersion)
             {
-                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}");
-
                 var containerResponse = await container.ReadContainerAsync(cancellationToken: cancellationToken);
 
                 // For more information on setting indexing policies refer to:

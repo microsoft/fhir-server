@@ -66,6 +66,8 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// <remarks>The anonymization configuration location and addition information. </remarks>
         public const string AnonymizationConfigurationLocation = "_anonymizationConfig";
 
+        public const string AnonymizationConfigurationCollectionReference = "_anonymizationConfigCollectionReference";
+
         public const string AnonymizationConfigurationFileEtag = "_anonymizationConfigEtag";
 
         public const string OutputFormat = "_outputFormat";

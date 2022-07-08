@@ -18,5 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// <param name="resourceElement">The resource element used to serialize.</param>
         /// <returns>The serialized bytes.</returns>
         byte[] Serialize(ResourceElement resourceElement);
+
+        string StringSerialize(ResourceElement resourceElement);
     }
 }

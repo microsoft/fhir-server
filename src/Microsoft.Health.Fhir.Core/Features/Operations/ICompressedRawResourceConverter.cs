@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.IO;
-using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
@@ -17,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// Read from compressed resource stream to string
         /// </summary>
         /// <param name="compressedResourceStream">Compressed resource stream</param>
-        public Task<string> ReadCompressedRawResource(Stream compressedResourceStream);
+        public string ReadCompressedRawResource(Stream compressedResourceStream);
 
         /// <summary>
         /// Convert rawResource string to compressed stream

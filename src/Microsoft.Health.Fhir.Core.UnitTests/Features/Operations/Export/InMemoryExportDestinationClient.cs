@@ -5,10 +5,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -18,8 +16,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class InMemoryExportDestinationClient : IExportDestinationClient
     {
-        private Dictionary<Uri, StringBuilder> _exportedData = new Dictionary<Uri, StringBuilder>();
-        private Dictionary<(Uri FileUri, string PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, string PartId), Stream>();
+        private Dictionary<string, StringBuilder> _exportedData = new Dictionary<string, StringBuilder>();
+        private Dictionary<string, StringBuilder> _dataBuffers = new Dictionary<string, StringBuilder>();
 
         public int ExportedDataFileCount => _exportedData.Keys.Count;
 
@@ -37,75 +35,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await Task.CompletedTask;
         }
 
-        public async Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken)
+        public void WriteFilePart(string fileName, string data)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(fileName, nameof(fileName));
+            EnsureArg.IsNotNull(fileName, nameof(fileName));
+            EnsureArg.IsNotNull(data, nameof(data));
 
-            var fileUri = new Uri(fileName, UriKind.Relative);
-
-            if (!_exportedData.ContainsKey(fileUri))
+            if (!_dataBuffers.ContainsKey(fileName))
             {
-                _exportedData.Add(fileUri, new StringBuilder());
+                _dataBuffers.Add(fileName, new StringBuilder());
             }
 
-            return await Task.FromResult(fileUri);
+            _dataBuffers[fileName].Append(data);
         }
 
-        public async Task WriteFilePartAsync(Uri fileUri, string partId, byte[] bytes, CancellationToken cancellationToken)
+        public IDictionary<string, Uri> Commit()
         {
-            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
-            EnsureArg.IsNotNull(bytes, nameof(bytes));
+            Dictionary<string, Uri> localUris = new Dictionary<string, Uri>();
 
-            var key = (fileUri, partId);
-
-            if (!_streamMappings.TryGetValue(key, out Stream stream))
+            foreach (string fileName in _dataBuffers.Keys)
             {
-                stream = new MemoryStream();
-                _streamMappings.Add(key, stream);
+                var uri = CommitFile(fileName);
+                localUris.Add(fileName, uri);
             }
 
-            await stream.WriteAsync(bytes, cancellationToken);
+            return localUris;
         }
 
-        public async Task CommitAsync(CancellationToken cancellationToken)
+        public Uri CommitFile(string fileName)
         {
-            foreach (KeyValuePair<(Uri, string), Stream> mapping in _streamMappings)
+            if (_dataBuffers.ContainsKey(fileName))
             {
-                Stream stream = mapping.Value;
+                var localStorage = new StringBuilder();
+                var data = _dataBuffers.GetValueOrDefault(fileName);
+                localStorage.Append(data.ToString());
 
-                // Reset the position.
-                stream.Position = 0;
+                _exportedData[fileName] = localStorage;
+                _dataBuffers.Remove(fileName);
 
-                StringBuilder stringBuilder = _exportedData[mapping.Key.Item1];
-
-                using (var reader = new StreamReader(stream, Encoding.UTF8))
-                {
-                    stringBuilder.Append(await reader.ReadToEndAsync());
-                }
+                return new Uri(fileName, UriKind.Relative);
             }
 
-            // Now that all of the parts are committed, remove all stream mappings.
-            _streamMappings.Clear();
+            return null;
         }
 
-        public async Task CommitAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        public string GetExportedData(string fileName)
         {
-            await CommitAsync(cancellationToken);
-        }
-
-        public Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken)
-        {
-            if (!_exportedData.ContainsKey(fileUri))
-            {
-                _exportedData.Add(fileUri, new StringBuilder());
-            }
-
-            return Task.CompletedTask;
-        }
-
-        public string GetExportedData(Uri fileUri)
-        {
-            if (_exportedData.TryGetValue(fileUri, out StringBuilder sb))
+            if (_exportedData.TryGetValue(fileName, out StringBuilder sb))
             {
                 return sb.ToString();
             }

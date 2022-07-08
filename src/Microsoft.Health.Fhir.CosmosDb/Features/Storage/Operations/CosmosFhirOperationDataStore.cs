@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         }
 
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(
-            ushort maximumNumberOfConcurrentJobsAllowed,
+            ushort numberOfJobsToAcquire,
             TimeSpan jobHeartbeatTimeoutThreshold,
             CancellationToken cancellationToken)
         {
@@ -249,7 +249,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 var response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _acquireExportJobs.ExecuteAsync(
                         _containerScope.Value.Scripts,
-                        maximumNumberOfConcurrentJobsAllowed,
+                        numberOfJobsToAcquire,
                         (ushort)jobHeartbeatTimeoutThreshold.TotalSeconds,
                         ct),
                     cancellationToken);
@@ -380,7 +380,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
                 }
 
-                _logger.LogError(dce, "Failed to get reindex job by id: {jobId}.", jobId);
+                _logger.LogError(dce, "Failed to get reindex job by id: {JobId}.", jobId);
                 throw;
             }
         }

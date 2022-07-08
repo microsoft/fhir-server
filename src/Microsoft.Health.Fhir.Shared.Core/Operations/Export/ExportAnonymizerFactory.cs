@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Anonymizer.Core;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -27,15 +28,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
         }
 
-        public async Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, CancellationToken cancellationToken)
+        public async Task<IAnonymizer> CreateAnonymizerAsync(ExportJobRecord exportJobRecord, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrEmpty(configurationLocation, nameof(configurationLocation));
+            EnsureArg.IsNotNullOrEmpty(exportJobRecord.AnonymizationConfigurationLocation, nameof(exportJobRecord.AnonymizationConfigurationLocation));
 
             using (Stream stream = new MemoryStream())
             {
                 try
                 {
-                    await _artifactProvider.FetchAsync(configurationLocation, stream, cancellationToken);
+                    await _artifactProvider.FetchAsync(exportJobRecord, stream, cancellationToken);
                     stream.Position = 0;
                 }
                 catch (FileNotFoundException ex)
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError("Failed to fetch Anonymization configuration file: {configLocation}", configurationLocation);
+                    _logger.LogError("Failed to fetch Anonymization configuration file: {ConfigLocation}", exportJobRecord.AnonymizationConfigurationLocation);
                     throw new AnonymizationConfigurationFetchException(ex.Message, ex);
                 }
 
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError("Failed to parse configuration file: {message}", ex.Message);
+                        _logger.LogError("Failed to parse configuration file: {Message}", ex.Message);
                         throw new FailedToParseAnonymizationConfigurationException(ex.Message, ex);
                     }
                 }
