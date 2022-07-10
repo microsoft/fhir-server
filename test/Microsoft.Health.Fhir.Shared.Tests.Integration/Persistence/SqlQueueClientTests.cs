@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenJobsEnqueue_WhenDequeue_ThenAllJobsShouldBeReturened,
         GivenJobKeepPutHeartbeat_WhenDequeue_ThenJobShouldNotBeReturened,
         GivenJobKeepPutHeartbeatWithResult_WhenDequeue_ThenJobWithResultShouldNotBeReturened,
-        GivenRunningJobCanelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturened,
+        GivenRunningJobCancelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturned,
         GivenJobNotHeartbeat_WhenDequeue_ThenJobShouldBeReturenedAgain,
         GivenGroupJobs_WhenCompleteJob_ThenJobsShouldBeCompleted,
         GivenGroupJobs_WhenCancelJobsByGroupId_ThenAllJobsShouldBeCancelled,
@@ -171,9 +171,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenRunningJobCanelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturened()
+        public async Task GivenRunningJobCancelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturned()
         {
-            byte queueType = (byte)TestQueueType.GivenRunningJobCanelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturened;
+            byte queueType = (byte)TestQueueType.GivenRunningJobCancelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturned;
 
             SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1" }, null, false, false, CancellationToken.None);

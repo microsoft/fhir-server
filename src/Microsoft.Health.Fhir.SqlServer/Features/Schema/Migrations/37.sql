@@ -2402,10 +2402,10 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.PutJobHeartbeat
-@QueueType TINYINT, @JobId BIGINT, @Version BIGINT, @Data BIGINT=NULL, @CurrentResult VARCHAR (MAX)=NULL
+@QueueType TINYINT, @JobId BIGINT, @Version BIGINT, @Data BIGINT=NULL, @CurrentResult VARCHAR (MAX)=NULL, @CancelRequested BIT=0 OUTPUT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'PutJobHeartbeat', @Mode AS VARCHAR (100), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @PartitionId AS TINYINT = @JobId % 16, @CancelRequested AS BIT = 0;
+DECLARE @SP AS VARCHAR (100) = 'PutJobHeartbeat', @Mode AS VARCHAR (100), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @PartitionId AS TINYINT = @JobId % 16;
 SET @Mode = 'Q=' + CONVERT (VARCHAR, @QueueType) + ' J=' + CONVERT (VARCHAR, @JobId) + ' P=' + CONVERT (VARCHAR, @PartitionId) + ' V=' + CONVERT (VARCHAR, @Version) + ' D=' + isnull(CONVERT (VARCHAR, @Data), 'NULL');
 BEGIN TRY
     IF @CurrentResult IS NULL
@@ -2441,7 +2441,6 @@ BEGIN TRY
             ELSE
                 THROW 50404, 'Job record not found', 1;
         END
-    SELECT @CancelRequested;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH

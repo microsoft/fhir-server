@@ -269,14 +269,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             try
             {
-                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-
                 if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
                 {
-                    return (bool)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
+
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    return VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
                 }
                 else
                 {
+                    V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
+
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                     return (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
                 }

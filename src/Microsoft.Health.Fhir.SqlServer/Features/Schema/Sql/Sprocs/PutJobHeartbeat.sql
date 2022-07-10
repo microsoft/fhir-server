@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.PutJobHeartbeat
 GO
-CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CurrentResult varchar(max) = NULL
+CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CurrentResult varchar(max) = NULL, @CancelRequested bit = 0 OUTPUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobHeartbeat'
@@ -8,7 +8,6 @@ DECLARE @SP varchar(100) = 'PutJobHeartbeat'
        ,@st datetime = getUTCdate()
        ,@Rows int = 0
        ,@PartitionId tinyint = @JobId % 16
-       ,@CancelRequested bit = 0
 
 SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)+' D='+isnull(convert(varchar,@Data),'NULL')
 
@@ -45,7 +44,6 @@ BEGIN TRY
       THROW 50404, 'Job record not found', 1
   END
 
-  Select @CancelRequested
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
