@@ -104,6 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public async Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("SearchParameterStatusManager: Search parameter definition manager initialized");
             await EnsureInitializedAsync(cancellationToken);
         }
 

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
-    <PackageReference Include="FluentValidation" Version="11.0.2" />
+    <PackageReference Include="FluentValidation" Version="11.1.0" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />

@@ -111,6 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("ExportJobWorker: Storage initialized");
             _storageReady = true;
             return Task.CompletedTask;
         }
