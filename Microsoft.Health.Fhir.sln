@@ -493,6 +493,7 @@ Global
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13

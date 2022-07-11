@@ -5,6 +5,12 @@
     <RootNamespace>Microsoft.Health.Fhir.Web</RootNamespace>
   </PropertyGroup>
 
+	<ItemGroup>
+		<Content Include="definitions.zip">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="IdentityServer4" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />

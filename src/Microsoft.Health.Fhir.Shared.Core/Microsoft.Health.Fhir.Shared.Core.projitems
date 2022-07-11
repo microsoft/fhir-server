@@ -85,4 +85,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)VersionSpecificModelInfoProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchPipeBehavior.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)Features\Validation\definitions.json.zip" />
+  </ItemGroup>
 </Project>

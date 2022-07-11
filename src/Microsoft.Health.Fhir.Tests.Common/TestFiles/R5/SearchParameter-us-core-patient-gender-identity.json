@@ -1,0 +1,66 @@
+{
+  "resourceType": "SearchParameter",
+  "id": "us-core-patient-gender-identity",
+  "text": {
+    "status": "generated",
+    "div": "<div>PlaceHolder</div>"
+  },
+  "url": "http://hl7.org/fhir/us/core/SearchParameter/us-core-patient-gender-identity",
+  "version": "5.0.1",
+  "name": "USCorePatientGenderIdentity",
+  "status": "active",
+  "date": "2022-04-14",
+  "publisher": "HL7 International - Cross-Group Projects",
+  "contact": [
+    {
+      "name": "HL7 International - Cross-Group Projects",
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/cgp"
+        },
+        {
+          "system": "email",
+          "value": "cgp@lists.HL7.org"
+        }
+      ]
+    }
+  ],
+  "description": "Returns patients with an gender-identity extension matching the specified code.",
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "code": "gender-identity",
+  "base": [
+    "Patient"
+  ],
+  "type": "token",
+  "expression": "Patient.extension.where(url = 'http://hl7.org/fhir/StructureDefinition/patient-genderIdentity').extension.value.code",
+  "xpath": "f:Patient/f:extension[@url='http://hl7.org/fhir/StructureDefinition/patient-genderIdentity']/f:extension/f:valueCoding/f:code/@value xpathUsage: normal",
+  "xpathUsage": "normal",
+  "multipleOr": true,
+  "_multipleOr": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+        "valueCode": "MAY"
+      }
+    ]
+  },
+  "multipleAnd": true,
+  "_multipleAnd": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+        "valueCode": "MAY"
+      }
+    ]
+  }
+}
