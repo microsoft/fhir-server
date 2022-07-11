@@ -21,7 +21,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
 using Newtonsoft.Json.Linq;
@@ -139,9 +138,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Server = new TestServer(builder);
 
             _builtConfiguration = Server.Services.GetRequiredService<IConfiguration>();
+            Configuration = _builtConfiguration;
         }
 
         public TestServer Server { get; }
+
+        public IConfiguration Configuration { get; }
 
         internal override HttpMessageHandler CreateMessageHandler()
         {

@@ -107,7 +107,8 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            using var message = new HttpRequestMessage(HttpMethod.Post, uri);
+            // Ask RB about chaning it to PUT from POST
+            using var message = new HttpRequestMessage(HttpMethod.Put, uri + "/" + resource.Id);
             message.Headers.Accept.Add(_mediaType);
             message.Content = CreateStringContent(resource);
 
@@ -552,7 +553,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<Parameters> ValidateCodeValueSetdAsync(string path, string system, string code, string display, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, path + "?system=" + system + "&code=" + code + "&display=" + display);
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}?system={system}&code={code}&display={display}");
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);

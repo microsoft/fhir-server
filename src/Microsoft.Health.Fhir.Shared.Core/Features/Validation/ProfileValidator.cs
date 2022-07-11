@@ -17,9 +17,7 @@ using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
@@ -139,16 +137,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
 
             param.Add("valueSet", (ValueSet)valueset);
-            Task<Parameters> result = _fallbackService.ValueSetValidateCode(param, useGet: false);
+            Task<Parameters> result = null;
+            try
+            {
+                result = _fallbackService.ValueSetValidateCode(param, useGet: false);
+            }
+            catch (NullReferenceException)
+            {
+                throw new BadRequestException("Cannot hit terminology service endpoint, please check that endpoint is correct / exists.");
+            }
 
             try
             {
                 result.Wait();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // figure out type of innerexception and cast it
-                throw new BadRequestException("Valueset references unknown valueSet");
+                throw new BadRequestException(ex.InnerException.Message);
             }
 
             return result.Result;
