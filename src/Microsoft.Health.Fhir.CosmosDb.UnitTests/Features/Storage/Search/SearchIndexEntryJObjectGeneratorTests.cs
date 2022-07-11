@@ -160,8 +160,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var expectedValues = new[]
             {
-                CreateTuple("st", "2000-01-01T00:00:00.0000000+00:00"),
-                CreateTuple("et", "2001-12-31T23:59:59.9999999+00:00"),
+                CreateTuple("st", "20000101000000"),
+                CreateTuple("et", "20011231235959"),
             };
 
             TestAndValidateOutput(
@@ -301,8 +301,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var expectedValues = new[]
             {
-                CreateTuple("s", s),
-                CreateTuple("n_s", s.ToUpperInvariant()),
+                CreateTuple("s", "1"),
+                CreateTuple("n_s", "2"),
             };
 
             TestAndValidateOutput(

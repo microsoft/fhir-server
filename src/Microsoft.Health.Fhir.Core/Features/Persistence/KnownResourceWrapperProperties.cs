@@ -7,42 +7,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public static class KnownResourceWrapperProperties
     {
-        public const string LastModified = "lastModified";
+        public const string LastModified = "lmd";
 
-        public const string RawResource = "rawResource";
+        public const string RawResource = "raw";
 
-        public const string IsDeleted = "isDeleted";
+        public const string IsDeleted = "isd";
 
-        public const string IsHistory = "isHistory";
+        public const string IsHistory = "ish";
 
-        public const string ResourceId = "resourceId";
+        public const string ResourceId = "rid";
 
-        public const string ResourceTypeName = "resourceTypeName";
+        public const string ResourceTypeName = "rtn";
 
-        public const string Request = "request";
+        public const string Request = "rq";
 
-        public const string Version = "version";
+        public const string Version = "ver";
 
-        public const string SearchIndices = "searchIndices";
+        public const string SearchIndices = "sind";
 
-        public const string LastModifiedClaims = "lastModifiedClaims";
+        public const string LastModifiedClaims = "lmcls";
 
-        public const string CompartmentIndices = "compartmentIndices";
+        public const string CompartmentIndices = "cind";
 
-        public const string Device = "device";
+        public const string Device = "dev";
 
-        public const string Encounter = "encounter";
+        public const string Encounter = "enc";
 
-        public const string Patient = "patient";
+        public const string Patient = "pat";
 
-        public const string Practitioner = "practitioner";
+        public const string Practitioner = "pract";
 
-        public const string RelatedPerson = "relatedPerson";
+        public const string RelatedPerson = "relp";
 
-        public const string SearchParameterHash = "searchParameterHash";
+        public const string SearchParameterHash = "shash";
 
-        public const string RawResourceContainsVersion = "rawResourceContainsVersion";
+        public const string RawResourceContainsVersion = "rawcver";
 
-        public const string RawResourceContainsLastUpdatedTime = "rawResourceContainsLastUpdatedTime";
+        public const string RawResourceContainsLastUpdatedTime = "rawclu";
     }
 }

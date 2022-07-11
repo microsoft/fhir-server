@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
     {
         public const string RootAliasName = "r";
 
-        public const string RootResourceTypeName = "resourceTypeName";
+        public const string RootResourceTypeName = "rrt";
 
         public const string SearchIndexAliasName = "si";
 
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string HighQuantityName = "hq";
 
-        public const string SystemName = "s";
+        public const string SystemName = "sy";
 
         public const string CodeName = "c";
 
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string UriName = "u";
 
-        public const string LastModified = "lastModified";
+        public const string LastModified = "lm";
 
         public const string SelectedFields = "r.id,r.isSystem,r.partitionKey,r.lastModified,r.rawResource,r.request,r.isDeleted,r.resourceId,r.resourceTypeName,r.isHistory,r.version,r._self,r._etag, r.searchParameterHash";
 

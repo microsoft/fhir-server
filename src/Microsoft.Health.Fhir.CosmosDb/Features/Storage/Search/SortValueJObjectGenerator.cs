@@ -4,7 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Globalization;
+using System.Collections.Concurrent;
+////using System.Collections.Generic;
+////using System.Globalization;
+////using System.Linq;
+////using System.Text;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -15,6 +19,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
     public class SortValueJObjectGenerator : ISearchValueVisitor
     {
         private string _prefix;
+
+#pragma warning disable CA2211 // Non-constant fields should not be visible
+#pragma warning disable SA1401 // Fields should be private
+        public static ConcurrentDictionary<string, int> UriToInt = new ConcurrentDictionary<string, int>();
+#pragma warning restore SA1401 // Fields should be private
+#pragma warning restore CA2211 // Non-constant fields should not be visible
 
         private JObject CurrentEntry { get; set; }
 
@@ -56,10 +66,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             switch (_prefix)
             {
                 case SearchValueConstants.SortLowValueFieldName:
-                    AddProperty(_prefix, dateTime.Start.ToString("o", CultureInfo.InvariantCulture));
+                    AddProperty(_prefix, dateTime.Start.ToString("yyyyMMddHHmmss"));
                     break;
                 case SearchValueConstants.SortHighValueFieldName:
-                    AddProperty(_prefix, dateTime.End.ToString("o", CultureInfo.InvariantCulture));
+                    if (dateTime.End.Year < 9999)
+                    {
+                        AddProperty(_prefix, dateTime.End.ToString("yyyyMMddHHmmss"));
+                    }
+
                     break;
                 default:
                     throw new NotSupportedException();
@@ -101,6 +115,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         public void Visit(UriSearchValue uri)
         {
             AddProperty(_prefix, uri.Uri);
+            ////if (!UriToInt.TryGetValue(uri.Uri, out var key))
+            ////{
+            ////    lock (UriToInt)
+            ////    {
+            ////        key = UriToInt.IsEmpty ? 1 : UriToInt.Values.Max() + 1;
+            ////        AddProperty(_prefix, key.ToString());
+            ////    }
+            ////}
+            ////else
+            ////{
+            ////    AddProperty(_prefix, key.ToString());
+            ////}
         }
 
         private void CreateEntry()

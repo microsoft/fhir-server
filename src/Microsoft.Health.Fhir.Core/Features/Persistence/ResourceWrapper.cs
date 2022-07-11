@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceId = resourceId;
             Version = versionId;
             ResourceTypeName = resourceTypeName;
-            RawResource = rawResource;
+            RawResource = new RawResource("{}", FhirResourceFormat.Json, false);
             Request = request;
             IsDeleted = deleted;
             LastModified = lastModified;
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public bool IsDeleted { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.ResourceId)]
-        public string ResourceId { get; protected set; }
+        public string ResourceId { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.ResourceTypeName)]
         public string ResourceTypeName { get; protected set; }
