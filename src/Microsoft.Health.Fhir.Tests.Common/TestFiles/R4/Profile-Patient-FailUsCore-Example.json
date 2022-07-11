@@ -1,0 +1,101 @@
+{
+  "resourceType" : "Patient",
+  "id" : "child-example",
+  "meta" : {
+    "extension" : [
+    ],
+    "profile" : [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+    ]
+  },
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Child Example </b> male, DoB: 2016-01-15 ( Medical Record Number: 1032704 (USUAL))</p></div>"
+  },
+  "extension" : [
+    {
+      "extension" : [
+        {
+          "url" : "ombCategory",
+          "valueCoding" : {
+            "system" : "urn:oid:2.16.840.1.113883.6.238",
+            "code" : "2028-9",
+            "display" : "Asian"
+          }
+        },
+        {
+          "url" : "text",
+          "valueString" : "Asian"
+        }
+      ],
+      "url" : "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race"
+    },
+    {
+      "extension" : [
+        {
+          "url" : "ombCategory",
+          "valueCoding" : {
+            "system" : "urn:oid:2.16.840.1.113883.6.238",
+            "code" : "2186-5",
+            "display" : "Not Hispanic or Latino"
+          }
+        },
+        {
+          "url" : "text",
+          "valueString" : "Not Hispanic or Latino"
+        }
+      ],
+      "url" : "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity"
+    },
+    {
+      "url" : "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
+      "valueCode" : "M"
+    }
+  ],
+  "identifier" : [
+    {
+      "use" : "usual",
+      "type" : {
+        "coding" : [
+          {
+            "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code" : "MR",
+            "display" : "Medical Record Number"
+          }
+        ],
+        "text" : "Medical Record Number"
+      },
+      "system" : "http://hospital.smarthealthit.org",
+      "value" : "1032704"
+    }
+  ],
+  "active" : true,
+  "name" : [
+    {
+      "family" : "Example",
+      "given" : [
+        "Child"
+      ]
+    }
+  ],
+  "telecom" : [
+    {
+      "system" : "phone",
+      "value" : "555-555-5555",
+      "use" : "home"
+    }
+  ],
+  "gender" : "male",
+  "birthDate" : "2016-01-15",
+  "address" : [
+    {
+      "line" : [
+        "49 Meadow St"
+      ],
+      "city" : "Mounds",
+      "state" : "OK",
+      "postalCode" : "74047",
+      "country" : "US"
+    }
+  ]
+}

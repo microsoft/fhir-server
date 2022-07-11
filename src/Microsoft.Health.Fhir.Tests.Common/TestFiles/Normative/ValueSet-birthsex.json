@@ -1,0 +1,63 @@
+{
+    "resourceType": "ValueSet",
+    "id": "birthsex",
+    "text": {
+        "status": "generated",
+        "div": "<div>PlaceHolder</div>"
+    },
+    "url": "http://hl7.org/fhir/us/core/ValueSet/us-core-birthsex",
+    "version": "2.1.0",
+    "name": "US_Core_Birth_Sex_Value_Set",
+    "title": "US Core Birth Sex Value Set",
+    "status": "active",
+    "date": "2016-08-10",
+    "publisher": "HL7 US Realm Steering Committee",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "other",
+                    "value": "http://hl7.org/fhir"
+                }
+            ]
+        }
+    ],
+    "description": "Codes for assigning sex at birth as specified by the [Office of the National Coordinator for Health IT (ONC)](https://www.healthit.gov/newsroom/about-onc)",
+    "jurisdiction": [
+        {
+            "coding": [
+                {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "US",
+                    "display": "United States of America"
+                }
+            ]
+        }
+    ],
+    "compose": {
+        "include": [
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender",
+                "concept": [
+                    {
+                        "code": "F",
+                        "display": "Female"
+                    },
+                    {
+                        "code": "M",
+                        "display": "Male"
+                    }
+                ]
+            },
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-NullFlavor",
+                "concept": [
+                    {
+                        "code": "UNK",
+                        "display": "Unknown"
+                    }
+                ]
+            }
+        ]
+    }
+}
