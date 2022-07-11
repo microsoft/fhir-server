@@ -159,39 +159,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return result.Result;
         }
 
-        public async Task<Parameters> Test(Parameters param, string id, Resource resource)
-        {
-            try
-            {
-                // First, try the local service
-                return await _localService.ValueSetValidateCode(param, id, useGet: true).ConfigureAwait(false);
-            }
-            catch (FhirOperationException)
-            {
-                // If that fails, call the fallback
-                try
-                {
-                    return await _fallbackService.ValueSetValidateCode(param, id, useGet: true).ConfigureAwait(false);
-                }
-                catch (FhirOperationException vse) when (vse.Status == System.Net.HttpStatusCode.NotFound)
-                {
-                    // The fall back service does not know the valueset. If our local service
-                    // does, try get the VS from there, and retry by sending the vs inline
-                    var url = param.GetSingleValue<FhirUri>("url")?.Value;
-                    var valueSet = (ValueSet)resource;
-                    if (valueSet == null)
-                    {
-                        throw;
-                    }
-
-                    param.Remove("valueSet");
-                    param.Add("valueSet", valueSet);
-
-                    return await _fallbackService.ValueSetValidateCode(param, id, useGet: true).ConfigureAwait(false);
-                }
-            }
-        }
-
 #pragma warning disable CA1063 // Implement IDisposable Correctly
         public void Dispose()
 #pragma warning restore CA1063 // Implement IDisposable Correctly

@@ -90,34 +90,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await RunValidationAsync(resource, profileUri);
         }
 
-        [HttpGet]
-        [Route(KnownRoutes.ValidateCodeValueset)]
-        [AuditEventType(AuditEventSubType.ValidateCode)]
-        public async Task<Parameters> ValidateCodeValueSet([FromRoute] string typeParameter, [FromRoute] string idParameter, [FromQuery] string system, [FromQuery] string code, [FromQuery] string display = null)
-        {
-            if (string.IsNullOrWhiteSpace(system) || string.IsNullOrWhiteSpace(code))
-            {
-                throw new BadRequestException("Must provide System and Code");
-            }
-
-            system = system.Trim(' ');
-            code = code.Trim(' ');
-
-            // Read resource from storage.
-            Resource resource = null;
-            try
-            {
-                RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
-                resource = _resourceDeserializer.Deserialize(response).ToPoco();
-            }
-            catch (BadRequestException)
-            {
-                throw new BadRequestException("Unknown Valuset. Make sure ValueSet is in FHIR server");
-            }
-
-            return await RunValidateCodeValueSetAsync(resource, system, idParameter, code, display);
-        }
-
         [HttpPost]
         [Route(KnownRoutes.ValidateResourceTypeById)]
         [AuditEventType(AuditEventSubType.Validate)]
@@ -141,12 +113,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             return await RunValidationAsync(resourceElement, profileUri);
-        }
-
-        private async Task<Parameters> RunValidateCodeValueSetAsync(Resource resource, string system, string idParameter, string code, string display)
-        {
-            ValidateCodeValueSetOperationResponse response = await _mediator.Send<ValidateCodeValueSetOperationResponse>(new ValidateCodeValueSetOperationRequest(resource, system, idParameter, code, display));
-            return response.ParameterOutcome;
         }
 
         private async Task<IActionResult> RunValidationAsync(ResourceElement resource, Uri profile)
