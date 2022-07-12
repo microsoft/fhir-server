@@ -6,7 +6,7 @@ services:
     mem_limit: 3g
     cpu_count: 2
     environment:
-        AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 10
+        AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 2
         AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "true"
     volumes:
         - /var/run/docker.sock:/var/run/docker-host.sock
@@ -15,8 +15,8 @@ services:
     depends_on:
       - "cosmos"
     build: 
-      context: .
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: .devcontainer/Dockerfile
       args:
         # On Linux, you may need to update USER_UID and USER_GID below if not your local UID is not 1000.
         USER_UID: 1000
