@@ -198,8 +198,8 @@ namespace Microsoft.Health.JobManagement
                 bool shouldCancel = false;
                 try
                 {
-                    JobInfo keepAliveResult = await _queueClient.KeepAliveJobAsync(jobInfo, CancellationToken.None);
-                    shouldCancel |= keepAliveResult.CancelRequested;
+                    bool cancelRequested = await _queueClient.KeepAliveJobAsync(jobInfo, CancellationToken.None);
+                    shouldCancel |= cancelRequested;
                 }
                 catch (JobNotExistException notExistEx)
                 {

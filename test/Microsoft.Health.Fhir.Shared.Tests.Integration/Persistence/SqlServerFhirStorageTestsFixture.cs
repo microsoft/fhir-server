@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Threading;
-using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -189,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor);
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
