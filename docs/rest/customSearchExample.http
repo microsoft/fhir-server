@@ -43,7 +43,7 @@ POST https://{{hostname}}/SearchParameter
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-< ./Data/DompositeCustomSearchParameter.json
+< ./Data/CompositeCustomSearchParameter.json
 
 ###  This creates a reindex job, you can do this now, or you can skip below to see if you can search
 # using the new search parameter before it is indexed
