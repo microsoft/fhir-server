@@ -24,7 +24,7 @@ POST https://{{hostname}}/Patient
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-< .\Data\R4ExamplePatient.json
+< ./Data/R4ExamplePatient.json
 
 ###
 ## Add an address

@@ -21,14 +21,14 @@ POST https://{{hostname}}/Patient
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-< .\Data\CustomSearchPatient.json
+< ./Data/CustomSearchPatient.json
 
 ### Create a new SearchParameter resource, this is copied from US Core race
 POST https://{{hostname}}/SearchParameter
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-< .\Data\CustomSearchSearchParameter.json
+< ./Data/CustomSearchSearchParameter.json
 
 ### Another search parameter example, this is based on the the definition for the id parameter
 # it has a base type of Resource, so it applies to all resources in the server
@@ -43,7 +43,7 @@ POST https://{{hostname}}/SearchParameter
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-< .\Data\CompositeCustomSearchParameter.json
+< ./Data/DompositeCustomSearchParameter.json
 
 ###  This creates a reindex job, you can do this now, or you can skip below to see if you can search
 # using the new search parameter before it is indexed
