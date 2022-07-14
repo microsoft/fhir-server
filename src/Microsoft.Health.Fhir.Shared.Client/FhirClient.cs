@@ -551,9 +551,22 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<OperationOutcome>(response);
         }
 
-        public async Task<Parameters> ValidateCodeValueSetdAsync(string path, string system, string code, string display, CancellationToken cancellationToken = default)
+        public async Task<Parameters> ValidateCodeGETdAsync(string path, string system, string code, string display, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}?system={system}&code={code}&display={display}");
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            string content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            return (Parameters)_deserialize(content);
+        }
+
+        public async Task<Parameters> ValidateCodePOSTdAsync(string path, string parameter, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, path);
+            message.Content = new StringContent(parameter, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);

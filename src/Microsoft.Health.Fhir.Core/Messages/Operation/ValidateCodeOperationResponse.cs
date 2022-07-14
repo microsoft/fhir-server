@@ -8,9 +8,9 @@ using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
-    public class ValidateCodeValueSetOperationResponse
+    public class ValidateCodeOperationResponse
     {
-        public ValidateCodeValueSetOperationResponse(Parameters parameterOutcome)
+        public ValidateCodeOperationResponse(Parameters parameterOutcome)
         {
             EnsureArg.IsNotNull(parameterOutcome, nameof(parameterOutcome));
 

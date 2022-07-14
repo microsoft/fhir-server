@@ -17,7 +17,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// <param name="resource">Resource to validate.</param>
         /// <param name="profile">Profile url to check. If <see langword="null"/>> we will validate according to meta profiles in resource.</param>
         OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null);
-
-        Parameters TryValidateCodeValueSet(Resource valueset, string system, string id, string code, string display);
     }
 }

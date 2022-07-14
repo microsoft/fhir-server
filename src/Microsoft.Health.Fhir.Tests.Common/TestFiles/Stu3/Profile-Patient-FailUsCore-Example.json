@@ -36,7 +36,7 @@
           "url" : "ombCategory",
           "valueCoding" : {
             "system" : "urn:oid:2.16.840.1.113883.6.238",
-            "code" : "2186-65",
+            "code" : "21386-65",
             "display" : "Not Hispanic or Latino"
           }
         },

@@ -70,6 +70,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\PersistenceModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\TerminologyModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
   </ItemGroup>

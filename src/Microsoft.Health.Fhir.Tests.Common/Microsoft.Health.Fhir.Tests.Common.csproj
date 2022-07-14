@@ -121,6 +121,8 @@
     <None Remove="TestFiles\R5\Appointment.json" />
     <None Remove="TestFiles\R4\Profile-Patient-PassUsCore-Example.json" />
     <None Remove="TestFiles\R4\Profile-Patient-FailUsCore-Example.json" />
+    <None Remove="TestFiles\R4\Parameter-Validate-Code-Correct.json" />
+    <None Remove="TestFiles\R4\Parameter-Validate-Code-Incorrect.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\R5\StructureDefinition-us-core-birthsex.json" />
@@ -456,6 +458,8 @@
     <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\Profile-Patient-PassUsCore-Example.json" />
     <EmbeddedResource Include="TestFiles\R4\Profile-Patient-FailUsCore-Example.json" />
+    <EmbeddedResource Include="TestFiles\R4\Parameter-Validate-Code-Correct.json" />
+    <EmbeddedResource Include="TestFiles\R4\Parameter-Validate-Code-Incorrect.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />
