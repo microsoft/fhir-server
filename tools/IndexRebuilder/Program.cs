@@ -34,7 +34,7 @@ EXECUTE(@cmd)
 
         public static void Main(string[] args)
         {
-            Console.WriteLine($"IndexRebuilder.Start: Store(sraded={IsSharded})={SqlService.ShowConnectionString(ConnectionString)} Threads={Threads} at {DateTime.UtcNow:s}");
+            Console.WriteLine($"IndexRebuilder.Start: Store(sharded={IsSharded})={SqlService.ShowConnectionString(ConnectionString)} Threads={Threads} at {DateTime.UtcNow:s}");
 
             var method = args.Length > 0 ? args[0] : "rebuild";
             switch (method)
