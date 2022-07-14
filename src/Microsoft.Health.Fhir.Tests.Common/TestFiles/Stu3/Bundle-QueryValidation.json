@@ -1,0 +1,1238 @@
+{
+    "resourceType": "Bundle",
+    "id": "1eb6b09c8316564abe35fad9b948e0d3",
+    "meta": {
+        "lastUpdated": "2022-06-21T14:08:06.1034496+00:00"
+    },
+    "type": "searchset",
+    "link": [
+        {
+            "relation": "self",
+            "url": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole?practitioner=2ec3586b-9454-4c7f-8eaf-7a0e64cecf17&service%3Amissing=false&_total=accurate&_count=20"
+        }
+    ],
+    "total": 13,
+    "entry": [
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/9caa2ec1-8107-4a1e-9854-f1a5e5468209",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "9caa2ec1-8107-4a1e-9854-f1a5e5468209",
+                "meta": {
+                    "versionId": "3",
+                    "lastUpdated": "2022-05-23T19:31:44.596+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "408443003",
+                                "display": "General medical practice"
+                            }
+                        ],
+                        "text": "General medical practice"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/7f6b44f8-97e1-4e8b-af36-c5edae08c7ea",
+                        "display": "Appointment Requests"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/7c31b5b4-5998-4eb2-a6c2-6be514d52c17",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "7c31b5b4-5998-4eb2-a6c2-6be514d52c17",
+                "meta": {
+                    "versionId": "4",
+                    "lastUpdated": "2022-05-23T19:31:44.609+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "408459003",
+                                "display": "Pediatric cardiology"
+                            }
+                        ],
+                        "text": "Pediatric cardiology"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/f59d4bff-5803-491c-9b83-e8608777cb15",
+                        "display": "Emergent Infant Conditions"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/d5968aa2-46a4-4144-9bf8-b50923a975ce",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "d5968aa2-46a4-4144-9bf8-b50923a975ce",
+                "meta": {
+                    "versionId": "4",
+                    "lastUpdated": "2022-05-23T19:31:44.626+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394600006",
+                                "display": "Clinical pharmacology"
+                            }
+                        ],
+                        "text": "Clinical pharmacology"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/1bf31656-d228-4f43-bebe-2155bea72542",
+                        "display": "Medication Questions"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/2f5f2c00-88a1-45a1-8423-08e7704d20e0",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "2f5f2c00-88a1-45a1-8423-08e7704d20e0",
+                "meta": {
+                    "versionId": "8",
+                    "lastUpdated": "2022-05-23T19:31:44.69+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "code": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://nucc.org/provider-taxonomy",
+                                "code": "363LA2100X",
+                                "display": "Acute Care Nurse Practitioner"
+                            }
+                        ],
+                        "text": "Acute Care Nurse Practitioner"
+                    }
+                ],
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "408443003",
+                                "display": "General medical practice"
+                            }
+                        ],
+                        "text": "General medical practice"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/917f8a50-efb1-4a62-852e-872a710c745c",
+                        "display": "Emergent Medical Conditions"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/464136ea-a78d-412c-b166-a4b783118482",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "464136ea-a78d-412c-b166-a4b783118482",
+                "meta": {
+                    "versionId": "10",
+                    "lastUpdated": "2022-05-24T17:21:24.69+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394813003",
+                                "display": "Medical ophthalmology"
+                            }
+                        ],
+                        "text": "Medical ophthalmology"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "422191005",
+                                "display": "Ophthalmic surgery"
+                            }
+                        ],
+                        "text": "Ophthalmic surgery"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394594003",
+                                "display": "Ophthalmology"
+                            }
+                        ],
+                        "text": "Ophthalmology"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "419983000",
+                                "display": "Pediatric ophthalmology"
+                            }
+                        ],
+                        "text": "Pediatric ophthalmology"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/c9907a29-975f-4837-9a6b-47328e7acd32",
+                        "display": "Activity-Practitioners-CU"
+                    }
+                ],
+                "availableTime": [
+                    {
+                        "daysOfWeek": [
+                            "mon"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "tue"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "wed"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "thu"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "fri"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sat"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sun"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/c275ece9-b566-4c01-9939-f0f644bca062",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "c275ece9-b566-4c01-9939-f0f644bca062",
+                "meta": {
+                    "versionId": "10",
+                    "lastUpdated": "2022-05-24T17:21:24.716+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394813003",
+                                "display": "Medical ophthalmology"
+                            }
+                        ],
+                        "text": "Medical ophthalmology"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "422191005",
+                                "display": "Ophthalmic surgery"
+                            }
+                        ],
+                        "text": "Ophthalmic surgery"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394594003",
+                                "display": "Ophthalmology"
+                            }
+                        ],
+                        "text": "Ophthalmology"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "419983000",
+                                "display": "Pediatric ophthalmology"
+                            }
+                        ],
+                        "text": "Pediatric ophthalmology"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/0c2ac381-ea52-4887-b5c8-a200813280be",
+                        "display": "Activity-Triage"
+                    }
+                ],
+                "availableTime": [
+                    {
+                        "daysOfWeek": [
+                            "mon"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "tue"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "wed"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "thu"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "fri"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sat"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sun"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/a7bcb688-09e7-4de9-aea1-be5d010101da",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "a7bcb688-09e7-4de9-aea1-be5d010101da",
+                "meta": {
+                    "versionId": "10",
+                    "lastUpdated": "2022-05-24T17:21:24.737+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394813003",
+                                "display": "Medical ophthalmology"
+                            }
+                        ],
+                        "text": "Medical ophthalmology"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "422191005",
+                                "display": "Ophthalmic surgery"
+                            }
+                        ],
+                        "text": "Ophthalmic surgery"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394594003",
+                                "display": "Ophthalmology"
+                            }
+                        ],
+                        "text": "Ophthalmology"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "419983000",
+                                "display": "Pediatric ophthalmology"
+                            }
+                        ],
+                        "text": "Pediatric ophthalmology"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/bfbb4e1b-3f20-4e69-882b-cee20cbc6fff",
+                        "display": "Activity-ReQueue"
+                    }
+                ],
+                "availableTime": [
+                    {
+                        "daysOfWeek": [
+                            "mon"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "tue"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "wed"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "thu"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "fri"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sat"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sun"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/3e963ae9-bd07-0c70-6384-55ca96639db1",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "3e963ae9-bd07-0c70-6384-55ca96639db1",
+                "meta": {
+                    "versionId": "13",
+                    "lastUpdated": "2022-05-24T17:21:24.756+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394813003",
+                                "display": "Medical ophthalmology"
+                            }
+                        ],
+                        "text": "Medical ophthalmology"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "422191005",
+                                "display": "Ophthalmic surgery"
+                            }
+                        ],
+                        "text": "Ophthalmic surgery"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394594003",
+                                "display": "Ophthalmology"
+                            }
+                        ],
+                        "text": "Ophthalmology"
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "419983000",
+                                "display": "Pediatric ophthalmology"
+                            }
+                        ],
+                        "text": "Pediatric ophthalmology"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/bee4d9a4-036b-49b5-8f77-829cb9d779eb",
+                        "display": "Activity-Patients-CU"
+                    }
+                ],
+                "availableTime": [
+                    {
+                        "daysOfWeek": [
+                            "mon"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "tue"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "wed"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "thu"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "fri"
+                        ],
+                        "availableStartTime": "08:00:00",
+                        "availableEndTime": "20:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sat"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sun"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/8e71ca67-8a49-453d-8a79-2fe30288aa37",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "8e71ca67-8a49-453d-8a79-2fe30288aa37",
+                "meta": {
+                    "versionId": "2",
+                    "lastUpdated": "2022-06-16T21:45:28.454+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "code": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://nucc.org/provider-taxonomy",
+                                "code": "363LA2100X",
+                                "display": "Acute Care Nurse Practitioner"
+                            }
+                        ],
+                        "text": "Acute Care Nurse Practitioner"
+                    }
+                ],
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "408478003",
+                                "display": "Critical care medicine"
+                            }
+                        ],
+                        "text": "Critical care medicine"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/f51cef48-5832-4675-993d-30a4e7dcc5f1",
+                        "display": "LDS Hospital ICU Room 625"
+                    },
+                    {
+                        "reference": "Location/f51cef48-5832-4675-993d-30a4e7dcc5f2",
+                        "display": "LDS Hospital ICU Room 626"
+                    },
+                    {
+                        "reference": "Location/f51cef48-5832-4675-993d-30a4e7dcc5f3",
+                        "display": "LDS Hospital ICU Room 627"
+                    },
+                    {
+                        "reference": "Location/8a883371-6aed-3948-b487-a874cfdb8cea",
+                        "display": "BETH ISRAEL DEACONESS HOSPITAL - PLYMOUTH"
+                    },
+                    {
+                        "reference": "Location/09b5c2f8-f4fe-3662-b18d-fc5eb3f5fc5e",
+                        "display": "ADCARE HOSPITAL OF WORCESTER INC"
+                    },
+                    {
+                        "reference": "Location/3b06f875-7d94-3393-9cbb-c0d1d472a67d",
+                        "display": "LOWELL GENERAL HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/52e5eff5-cdce-3686-91d1-61e05ac01078",
+                        "display": "NOBLE HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/8317ed63-5fe5-360c-bead-0e3f7eb95bbc",
+                        "display": "MERCY MEDICAL CTR"
+                    },
+                    {
+                        "reference": "Location/d02aaed4-c05c-36e3-9776-6b3b96c35753",
+                        "display": "HALLMARK HEALTH SYSTEM"
+                    },
+                    {
+                        "reference": "Location/98fbb854-6baf-3935-a39c-b5b68b6c0e0a",
+                        "display": "MORTON HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/a3c831f7-cf73-39d1-9e4f-61a7f3488d99",
+                        "display": "MASSACHUSETTS GENERAL HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/9f09451e-2da9-3119-aacf-866115e0cc04",
+                        "display": "SOUTHCOAST HOSPITAL GROUP, INC"
+                    },
+                    {
+                        "reference": "Location/348c93c5-0196-32a5-a385-9364455c40e6",
+                        "display": "MASSACHUSETTS EYE AND EAR INFIRMARY -"
+                    },
+                    {
+                        "reference": "Location/8a4463e4-5cbd-3783-bd3f-9469d5b94fef",
+                        "display": "BAYSTATE MEDICAL CENTER"
+                    },
+                    {
+                        "reference": "Location/bf29110f-fba1-3e0d-920b-b2d4d05d52f1",
+                        "display": "HOLY FAMILY HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/5621931f-9ebf-320b-a2cd-648d8e65fb6b",
+                        "display": "BETH ISRAEL DEACONESS HOSPITAL - NEEDHAM"
+                    },
+                    {
+                        "reference": "Location/9923479a-3707-3e67-8711-c025a0e8d77b",
+                        "display": "EMERSON HOSPITAL -"
+                    },
+                    {
+                        "reference": "Location/72938669-0ff4-3ead-97c4-9439f3926900",
+                        "display": "BETH ISRAEL DEACONESS MEDICAL CENTER"
+                    },
+                    {
+                        "reference": "Location/8164d1f4-c11a-31f3-8af3-dbbf69028e81",
+                        "display": "NEW ENGLAND BAPTIST HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/e7defd99-1c69-307b-9e99-5bb405c3bd7d",
+                        "display": "MILFORD REGIONAL MEDICAL CENTER"
+                    },
+                    {
+                        "reference": "Location/d9a13930-ab2f-377e-a0fa-c6cffcea811f",
+                        "display": "HEYWOOD HOSPITAL -"
+                    },
+                    {
+                        "reference": "Location/4284938a-e33b-353b-b785-12d6cdb6f357",
+                        "display": "NASHOBA VALLEY MEDICAL CENTER"
+                    },
+                    {
+                        "reference": "Location/e111a884-fc5e-3766-9077-c44100ba56e2",
+                        "display": "NEWTON-WELLESLEY HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/9fad6955-7f91-34dd-80c4-997e5e173651",
+                        "display": "SOUTH SHORE HOSPITAL"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/9a3b7a83-2f9d-406b-bdb7-57d6fb8ca3e1",
+                        "display": "Critical Care 1"
+                    }
+                ],
+                "availableTime": [
+                    {
+                        "daysOfWeek": [
+                            "mon"
+                        ],
+                        "availableStartTime": "09:00:00",
+                        "availableEndTime": "18:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "tue"
+                        ],
+                        "availableStartTime": "09:00:00",
+                        "availableEndTime": "18:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "wed"
+                        ],
+                        "availableStartTime": "09:00:00",
+                        "availableEndTime": "18:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sat"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    }
+                ],
+                "availabilityExceptions": "Reduced capacity is available during the Christmas period"
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/c024d4a9-0eca-4c2b-8876-cfcaac73fc5c",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "c024d4a9-0eca-4c2b-8876-cfcaac73fc5c",
+                "meta": {
+                    "versionId": "4",
+                    "lastUpdated": "2022-06-16T21:45:28.499+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "408478003",
+                                "display": "Critical care medicine"
+                            }
+                        ],
+                        "text": "Critical care medicine"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/f51cef48-5832-4675-993d-30a4e7dcc5f4",
+                        "display": "Logan Regional Hospital ICU Room 301"
+                    },
+                    {
+                        "reference": "Location/f51cef48-5832-4675-993d-30a4e7dcc5f5",
+                        "display": "Logan Regional Hospital ICU Room 302"
+                    },
+                    {
+                        "reference": "Location/f51cef48-5832-4675-993d-30a4e7dcc5f6",
+                        "display": "Logan Regional Hospital ICU Room 303"
+                    },
+                    {
+                        "reference": "Location/388c5eda-d584-3ef1-a498-5ab0e90e2eaf",
+                        "display": "COOLEY DICKINSON HOSPITAL INC,THE"
+                    },
+                    {
+                        "reference": "Location/00baacd6-0e7a-32ab-af81-7a06b600e802",
+                        "display": "Advanced healthcare"
+                    },
+                    {
+                        "reference": "Location/27abf3f3-fa08-31e4-8bca-c4c9ade68709",
+                        "display": "First Healthcare"
+                    },
+                    {
+                        "reference": "Location/b642b4b7-55d2-37c2-890e-ecd84b2d1c6b",
+                        "display": "CAPE COD HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/3138da4e-08fe-346f-bb53-2d8b9e4db74f",
+                        "display": "Advanced healthcare"
+                    },
+                    {
+                        "reference": "Location/3138da4e-08fe-346f-bb53-2d8b9e4db74f",
+                        "display": "BAYSTATE FRANKLIN MEDICAL CENTER"
+                    },
+                    {
+                        "reference": "Location/df7f5f50-13dc-31e1-beed-9231dc4111b4",
+                        "display": "Smart Healthcare"
+                    },
+                    {
+                        "reference": "Location/fed70cf9-a1bd-3342-9abe-233261e0d5c6",
+                        "display": "SAINT ANNE'S HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/9ed28ebe-c0b9-37d3-a2d5-1dc51ebe9516",
+                        "display": "CARNEY HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/3957402a-ea15-3dfd-9399-223f9598b99c",
+                        "display": "HARRINGTON MEMORIAL HOSPITAL-1"
+                    },
+                    {
+                        "reference": "Location/1d9ed00f-53ca-3e8d-87f0-7ccaf193f8bc",
+                        "display": "HOLYOKE MEDICAL CENTER"
+                    },
+                    {
+                        "reference": "Location/fa4ed337-54d9-3558-9e24-1c86ebbc57fe",
+                        "display": "ANNA JAQUES HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/77b782d7-7273-3e6b-a694-de0d00748ca7",
+                        "display": "BOSTON MEDICAL CENTER CORPORATION-"
+                    },
+                    {
+                        "reference": "Location/c0c25839-5091-393d-bcec-edc98ebc8b00",
+                        "display": "BEVERLY HOSPITAL CORPORATION"
+                    },
+                    {
+                        "reference": "Location/a665d88d-991a-3d77-9b4b-6f4450b5acff",
+                        "display": "BAYSTATE WING HOSPITAL AND MEDICAL CENTERS"
+                    },
+                    {
+                        "reference": "Location/0dd962d9-92fa-3bab-b82b-7b62cf33abe4",
+                        "display": "NORTH SHORE MEDICAL CENTER -"
+                    },
+                    {
+                        "reference": "Location/0cc3d2b7-46d4-3c1a-91c7-db5dadb9f54e",
+                        "display": "ST ELIZABETH'S MEDICAL CENTER"
+                    },
+                    {
+                        "reference": "Location/33bf17e3-fb50-342f-bf7a-d1d6be54c2bc",
+                        "display": "BERKSHIRE MEDICAL CENTER INC - 1"
+                    },
+                    {
+                        "reference": "Location/97bc3a8d-35db-3628-88b5-e595c34fde0c",
+                        "display": "SIGNATURE HEALTHCARE BROCKTON HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/f9ead6b6-e084-32b8-bb09-4bb00b9b7e85",
+                        "display": "MARLBOROUGH HOSPITAL"
+                    },
+                    {
+                        "reference": "Location/5d154e4d-1d0d-300f-bc3f-0dee4905b600",
+                        "display": "CLINTON HOSPITAL ASSOCIATION"
+                    },
+                    {
+                        "reference": "Location/633b4209-91a0-36dd-94c3-5d0ce0399fec",
+                        "display": "WINCHESTER HOSPITAL"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/9a3b7a83-2f9d-406b-bdb7-57d6fb8ca3e2",
+                        "display": "Critical Care 2"
+                    }
+                ],
+                "availableTime": [
+                    {
+                        "daysOfWeek": [
+                            "mon"
+                        ],
+                        "availableStartTime": "09:00:00",
+                        "availableEndTime": "18:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "tue"
+                        ],
+                        "availableStartTime": "09:00:00",
+                        "availableEndTime": "18:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "wed"
+                        ],
+                        "availableStartTime": "09:00:00",
+                        "availableEndTime": "18:00:00"
+                    },
+                    {
+                        "daysOfWeek": [
+                            "sat"
+                        ],
+                        "availableStartTime": "10:00:00",
+                        "availableEndTime": "16:00:00"
+                    }
+                ],
+                "availabilityExceptions": "Reduced capacity is available during the Christmas period"
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/8f6a220f-7cf5-4a6b-b2f4-063ec39b99a4",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "8f6a220f-7cf5-4a6b-b2f4-063ec39b99a4",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-06-17T16:42:23.154+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "408443003",
+                                "display": "General medical practice"
+                            }
+                        ],
+                        "text": "General medical practice"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/3821f94d-87cb-4262-9d2d-4b956409eada",
+                        "display": "Patient Advice Questions"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/13fcc80c-cf52-43bc-aeff-f2e920b54cd0",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "13fcc80c-cf52-43bc-aeff-f2e920b54cd0",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-06-20T23:38:24.821+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "code": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://nucc.org/provider-taxonomy",
+                                "code": "207LA0401X",
+                                "display": "Addiction Medicine (Anesthesiology) Physician"
+                            }
+                        ],
+                        "text": "Addiction Medicine (Anesthesiology) Physician"
+                    }
+                ],
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394802001",
+                                "display": "General medicine"
+                            }
+                        ],
+                        "text": "General medicine"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/bfbb4e1b-3f20-4e69-882b-cee20cbc6ff1",
+                        "display": "Activity-Claim"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        },
+        {
+            "fullUrl": "https://ihealth-pie.fhir.azurehealthcareapis.com/PractitionerRole/dc8c8466-87cc-45e0-9ba1-e2e25b8c7f6d",
+            "resource": {
+                "resourceType": "PractitionerRole",
+                "id": "dc8c8466-87cc-45e0-9ba1-e2e25b8c7f6d",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2022-06-20T23:38:24.91+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/2ec3586b-9454-4c7f-8eaf-7a0e64cecf17",
+                    "display": "Dr. Yury Strashnoy"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "394802001",
+                                "display": "General medicine"
+                            }
+                        ],
+                        "text": "General medicine"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/bfbb4e1b-3f20-4e69-882b-cee20cbc6ff3",
+                        "display": "Activity-ClaimEx"
+                    }
+                ]
+            },
+            "search": {
+                "mode": "match"
+            }
+        }
+    ]
+}
