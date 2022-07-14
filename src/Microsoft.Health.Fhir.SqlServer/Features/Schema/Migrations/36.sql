@@ -86,10 +86,11 @@ CREATE TYPE dbo.BulkReferenceSearchParamTableType_1 AS TABLE (
     ReferenceResourceVersion INT           NULL);
 
 CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE (
-    Offset        INT           NOT NULL,
-    SearchParamId SMALLINT      NOT NULL,
-    SystemId      INT           NULL,
-    Code          VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
+    Offset        INT            NOT NULL,
+    SearchParamId SMALLINT       NOT NULL,
+    SystemId      INT            NULL,
+    Code          VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow  NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL);
 
 CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE (
     Offset        INT            NOT NULL,
@@ -847,12 +848,13 @@ CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Cod
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenSearchParam (
-    ResourceTypeId      SMALLINT      NOT NULL,
-    ResourceSurrogateId BIGINT        NOT NULL,
-    SearchParamId       SMALLINT      NOT NULL,
-    SystemId            INT           NULL,
-    Code                VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT           NOT NULL
+    ResourceTypeId      SMALLINT       NOT NULL,
+    ResourceSurrogateId BIGINT         NOT NULL,
+    SearchParamId       SMALLINT       NOT NULL,
+    SystemId            INT            NULL,
+    Code                VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL,
+    IsHistory           BIT            NOT NULL
 );
 
 ALTER TABLE dbo.TokenSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -864,6 +866,12 @@ CREATE CLUSTERED INDEX IXC_TokenSearchParam
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
     ON dbo.TokenSearchParam(ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_CodeWithOverflow_SystemId
+    ON dbo.TokenSearchParam(ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
+    INCLUDE(SystemId) WHERE IsHistory = 0
+                            AND CodeOverflow IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenStringCompositeSearchParam (

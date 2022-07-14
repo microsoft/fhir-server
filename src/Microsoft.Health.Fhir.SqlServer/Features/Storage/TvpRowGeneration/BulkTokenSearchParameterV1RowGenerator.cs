@@ -12,6 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
     internal class BulkTokenSearchParameterV1RowGenerator : BulkSearchParameterRowGenerator<TokenSearchValue, BulkTokenSearchParamTableTypeV1Row>
     {
         private short _resourceIdSearchParamId;
+        private readonly int _indexedCodeMaxLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength;
 
         public BulkTokenSearchParameterV1RowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
             : base(model, searchParameterTypeMap)
@@ -31,11 +32,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 return false;
             }
 
+            string indexedPrefix;
+            string overflow;
+            if (searchValue.Code.Length > _indexedCodeMaxLength)
+            {
+                // TODO: this truncation can break apart grapheme clusters.
+                indexedPrefix = searchValue.Code.Substring(0, _indexedCodeMaxLength);
+                overflow = searchValue.Code;
+            }
+            else
+            {
+                indexedPrefix = searchValue.Code;
+                overflow = null;
+            }
+
             row = new BulkTokenSearchParamTableTypeV1Row(
                 offset,
                 searchParamId,
                 searchValue.System == null ? null : Model.GetSystemId(searchValue.System),
-                searchValue.Code);
+                indexedPrefix,
+                overflow);
 
             return true;
         }
