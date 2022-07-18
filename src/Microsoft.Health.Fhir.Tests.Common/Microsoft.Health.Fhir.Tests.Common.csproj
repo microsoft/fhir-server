@@ -282,6 +282,9 @@
     <None Remove="TestFiles\Stu3\ValueSet-omb-race-category.json" />
     <None Remove="TestFiles\Stu3\ValueSet-birthsex.json" />
     <None Remove="TestFiles\Stu3\ValueSet-us-core-narrative-status.json" />
+    <None Remove="TestFiles\Stu3\CodeSystem-Example.json" />
+    <None Remove="TestFiles\Stu3\Parameter-CodeSystem-Validate-Code-Incorrect.json" />
+    <None Remove="TestFiles\Stu3\Parameter-CodeSystem-Validate-Code-Correct.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
@@ -541,6 +544,9 @@
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-omb-ethnicity-category.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-omb-race-category.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-birthsex.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\CodeSystem-Example.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Parameter-CodeSystem-Validate-Code-Incorrect.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Parameter-CodeSystem-Validate-Code-Correct.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValueSet-us-core-narrative-status.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />

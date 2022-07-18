@@ -125,6 +125,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
             }
             catch (Exception ex)
             {
+                if (string.Equals(ex.InnerException.Message, "Cannot read the conformance statement of the server to verify FHIR version compatibility", StringComparison.OrdinalIgnoreCase))
+                {
+                    return TryValidateCode(param);
+                }
+
                 throw new BadRequestException(ex.InnerException.Message);
             }
 

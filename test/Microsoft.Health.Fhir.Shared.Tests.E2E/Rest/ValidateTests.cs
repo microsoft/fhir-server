@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Patient createdResource = await _client.CreateAsync(patient.ToPoco<Patient>());
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 #if !R5
-            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Assert.Empty(outcome.Issue.Where(x => x.Code != OperationOutcome.IssueType.Informational));
 #endif
         }
 
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         // Validate-Code Post Tests Start
         [SkippableTheory]
         [InlineData("Parameter-ValueSet-Validate-Code-Correct")]
-        [InlineData("Parameter-CodeSystem-Validate-Code-Correct")]
+        [InlineData("Parameter-CodeSystem-Validate-Code-Correct")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenValidParamaterInput_ValidateCodeReturnTrue(string fileName)
         {
             var fhirSource = Samples.GetJson(fileName);
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [SkippableTheory]
         [InlineData("Parameter-ValueSet-Validate-Code-Incorrect")]
-        [InlineData("Parameter-CodeSystem-Validate-Code-Incorrect")]
+        [InlineData("Parameter-CodeSystem-Validate-Code-Incorrect")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenValidParamaterInput_ValidateCodeReturnFalse(string fileName)
         {
             var fhirSource = Samples.GetJson(fileName);
@@ -251,8 +251,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "M", "")]
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "generated", "Generated")]
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "additional")]
-        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol (mmol/L)")]
-        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme-plasma", "")]
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol (mmol/L)")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme-plasma", "")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenValidCodeFromKnownValueSet_ThenTrueParameterIsReturned(string path, string system, string code, string display = null)
         {
             Parameters resultParam = await _client.ValidateCodeGETdAsync(path, system, code, display);
@@ -272,8 +272,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "IncorrectCode", "")]
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "generated", "generate")] // Display should be "Generated"
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "Addition")] // Code should be "additional"
-        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol")] // Display should "SChol (mmol/L)"
-        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme", "")] // Code should be "acme-plasma"
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol")] // Display should "SChol (mmol/L)" May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme", "")] // Code should be "acme-plasma" May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenInValidCodeorDisplayFromKnownValueSet_ThenFalseParameterIsReturned(string path, string system, string code, string display = null)
         {
             Parameters resultParam = await _client.ValidateCodeGETdAsync(path, system, code, display);
