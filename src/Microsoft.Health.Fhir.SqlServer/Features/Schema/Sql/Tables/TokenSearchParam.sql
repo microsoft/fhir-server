@@ -5,7 +5,7 @@
     SearchParamId               smallint                NOT NULL,
     SystemId                    int                     NULL,
     Code                        varchar(128)            COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow                nvarchar(max)           COLLATE Latin1_General_100_CI_AI_SC NULL,
+    CodeOverflow                nvarchar(max)           COLLATE Latin1_General_100_CS_AS NULL,
     IsHistory                   bit                     NOT NULL,
 )
 
