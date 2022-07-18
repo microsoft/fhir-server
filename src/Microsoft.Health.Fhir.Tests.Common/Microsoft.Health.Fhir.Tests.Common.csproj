@@ -35,6 +35,10 @@
     <None Remove="TestFiles\Device-d1.json" />
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
+    <None Remove="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Correct.json" />
+    <None Remove="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Incorrect.json" />
+    <None Remove="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Correct.json" />
+    <None Remove="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Incorrect.json" />
     <None Remove="TestFiles\Normative\Appointment.json" />
     <None Remove="TestFiles\Normative\Bundle-FhirPatch.json" />
     <None Remove="TestFiles\Normative\CarePlan.json" />
@@ -121,8 +125,10 @@
     <None Remove="TestFiles\R5\Appointment.json" />
     <None Remove="TestFiles\R4\Profile-Patient-PassUsCore-Example.json" />
     <None Remove="TestFiles\R4\Profile-Patient-FailUsCore-Example.json" />
-    <None Remove="TestFiles\R4\Parameter-Validate-Code-Correct.json" />
-    <None Remove="TestFiles\R4\Parameter-Validate-Code-Incorrect.json" />
+    <None Remove="TestFiles\R4\Parameter-ValueSet-Validate-Code-Correct.json" />
+    <None Remove="TestFiles\R4\Parameter-ValueSet-Validate-Code-Incorrect.json" />
+    <None Remove="TestFiles\R4\Parameter-CodeSystem-Validate-Code-Correct.json" />
+    <None Remove="TestFiles\R4\Parameter-CodeSystem-Validate-Code-Incorrect.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\R5\StructureDefinition-us-core-birthsex.json" />
@@ -192,6 +198,7 @@
     <None Remove="TestFiles\Normative\ValueSet-omb-ethnicity-category.json" />
     <None Remove="TestFiles\Normative\ValueSet-omb-race-category.json" />
     <None Remove="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
+    <None Remove="TestFiles\Normative\CodeSystem-Example.json" />
     <None Remove="TestFiles\R5\CarePlan.json" />
     <None Remove="TestFiles\R5\Condition-For-Patient-f001.json" />
     <None Remove="TestFiles\R5\Device-d1.json" />
@@ -385,6 +392,11 @@
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-omb-race-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Correct.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Incorrect.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Correct.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Incorrect.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CodeSystem-Example.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
@@ -458,8 +470,8 @@
     <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\Profile-Patient-PassUsCore-Example.json" />
     <EmbeddedResource Include="TestFiles\R4\Profile-Patient-FailUsCore-Example.json" />
-    <EmbeddedResource Include="TestFiles\R4\Parameter-Validate-Code-Correct.json" />
-    <EmbeddedResource Include="TestFiles\R4\Parameter-Validate-Code-Incorrect.json" />
+    <EmbeddedResource Include="TestFiles\R4\Parameter-ValueSet-Validate-Code-Correct.json" />
+    <EmbeddedResource Include="TestFiles\R4\Parameter-ValueSet-Validate-Code-Incorrect.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />

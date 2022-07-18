@@ -25,7 +25,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateFormatParametersAttribute))]
     [ValidateResourceTypeFilter(true)]
-
     [ValidateModelState]
     public class TerminologyController : Controller
     {
@@ -58,20 +57,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new BadRequestException("Unknown Valuset or CodeSystem. Make sure resource is in FHIR server");
             }
 
-            if (!string.IsNullOrWhiteSpace(code) && (!string.IsNullOrWhiteSpace(system) || typeParameter == "CodeSystem"))
+            if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(system))
             {
                 return await RunValidateCodeGETAsync(resource, idParameter, code?.Trim(' '), system?.Trim(' '), display);
             }
             else
             {
-                if (typeParameter == "CodeSystem")
-                {
-                    throw new BadRequestException("Must provide Code.");
-                }
-                else
-                {
-                    throw new BadRequestException("Must provide System and Code when validating code using valueset");
-                }
+                throw new BadRequestException("Must provide System and Code");
             }
         }
 
@@ -104,6 +96,47 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private async Task<Parameters> RunValidateCodePOSTAsync(Resource resource)
         {
             ValidateCodeOperationResponse response = await _mediator.Send<ValidateCodeOperationResponse>(new ValidateCodeOperationRequest(resource));
+            return response.ParameterOutcome;
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.LookUp)]
+        [AuditEventType(AuditEventSubType.LookUp)]
+        public async Task<Parameters> LookupCodeGET([FromRoute] string typeParameter, [FromQuery] string system, [FromQuery] string code)
+        {
+            if (string.IsNullOrWhiteSpace(typeParameter))
+            {
+                throw new BadRequestException("Resource type must be CodeSystem.");
+            }
+
+            if (string.IsNullOrWhiteSpace(system) || string.IsNullOrWhiteSpace(code))
+            {
+                throw new BadRequestException("Must provide code and code system.");
+            }
+
+            return await RunLookUpCodeAsync(system, code);
+        }
+
+        [HttpPost]
+        [Route(KnownRoutes.LookUp)]
+        [AuditEventType(AuditEventSubType.LookUp)]
+        public async Task<Parameters> LookupCodePOST([FromBody] Resource resource)
+        {
+            return await RunLookUpCodeAsync(string.Empty, string.Empty, (Parameters)resource);
+        }
+
+        private async Task<Parameters> RunLookUpCodeAsync(string system, string code, Parameters parameter = null)
+        {
+            LookUpOperationResponse response = null;
+            if (parameter == null)
+            {
+                response = await _mediator.Send<LookUpOperationResponse>(new LookUpOperationRequest(system, code));
+            }
+            else
+            {
+                response = await _mediator.Send<LookUpOperationResponse>(new LookUpOperationRequest(parameter));
+            }
+
             return response.ParameterOutcome;
         }
     }

@@ -196,32 +196,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(hasSeenCodeInvalid, "Resource has invalid code");
         }
 
-        [SkippableFact]
-        public async void GivenValidParamaterInput_ValidateCodeReturnTrue()
+        // Validate-Code Post Tests Start
+        [SkippableTheory]
+        [InlineData("Parameter-ValueSet-Validate-Code-Correct")]
+        [InlineData("Parameter-CodeSystem-Validate-Code-Correct")]
+        public async void GivenValidParamaterInput_ValidateCodeReturnTrue(string fileName)
         {
-            var fhirSource = Samples.GetJson("Parameter-Validate-Code-Correct");
+            var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
             foreach (var paramComponenet in resultParam)
             {
                 if (paramComponenet.Key == "result")
                 {
-                    Assert.True(paramComponenet.Value.ToString() == "true");
-                }
-
-                break;
-            }
-        }
-
-        [SkippableFact]
-        public async void GivenValidParamaterInput_ValidateCodeReturnFalse()
-        {
-            var fhirSource = Samples.GetJson("Parameter-Validate-Code-Incorrect");
-            Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
-            foreach (var paramComponenet in resultParam)
-            {
-                if (paramComponenet.Key == "result")
-                {
-                    Assert.True(paramComponenet.Value.ToString() == "false");
+                    Assert.Equal("true", paramComponenet.Value.ToString());
                 }
 
                 break;
@@ -229,10 +216,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableTheory]
+        [InlineData("Parameter-ValueSet-Validate-Code-Incorrect")]
+        [InlineData("Parameter-CodeSystem-Validate-Code-Incorrect")]
+        public async void GivenValidParamaterInput_ValidateCodeReturnFalse(string fileName)
+        {
+            var fhirSource = Samples.GetJson(fileName);
+            Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
+            foreach (var paramComponenet in resultParam)
+            {
+                if (paramComponenet.Key == "result")
+                {
+                    Assert.Equal("false", paramComponenet.Value.ToString());
+                }
+
+                break;
+            }
+        }
+
+        [SkippableTheory]
+        [InlineData("notAjson")]
+        [InlineData("")]
+        [InlineData("    ")]
+        public async void GivenInValidParamaterInput_ValidateCodeThrowsBadRequest(string body)
+        {
+            await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", body));
+        }
+
+        // Validate-Code Post Tests End
+
+        // Validate-Code Get Tests Start
+
+        [SkippableTheory]
         [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "F", "Female")]
         [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "M", "")]
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "generated", "Generated")]
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "additional")]
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol (mmol/L)")]
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme-plasma", "")]
         public async void GivenValidCodeFromKnownValueSet_ThenTrueParameterIsReturned(string path, string system, string code, string display = null)
         {
             Parameters resultParam = await _client.ValidateCodeGETdAsync(path, system, code, display);
@@ -251,7 +271,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "F", "IncorrectDisplay")]
         [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "IncorrectCode", "")]
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "generated", "generate")] // Display should be "Generated"
-        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "Addition")] // Code should be additional
+        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "Addition")] // Code should be "additional"
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol")] // Display should "SChol (mmol/L)"
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme", "")] // Code should be "acme-plasma"
         public async void GivenInValidCodeorDisplayFromKnownValueSet_ThenFalseParameterIsReturned(string path, string system, string code, string display = null)
         {
             Parameters resultParam = await _client.ValidateCodeGETdAsync(path, system, code, display);
@@ -269,6 +291,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "", "IncorrectDisplay")]
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "", "generated", "generated")]
+        [InlineData("CodeSystem/example/$validate-code", "", "chol-mmol", "SChol (mmol/L)")]
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "", "")]
         public async void GivenInvalidRequestParams_ValidateCodeValueSetThrowsExcept(string path, string system, string code, string display = null)
         {
             await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodeGETdAsync(path, system, code, display));
@@ -283,6 +307,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodeGETdAsync("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "F", "Female"));
             }
         }
+
+        // Validate-Code Get Tests End
 
         [Fact]
         public async void GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()

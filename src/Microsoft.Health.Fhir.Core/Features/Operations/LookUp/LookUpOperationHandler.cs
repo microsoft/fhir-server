@@ -16,7 +16,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Terminology
 {
-    public class ValidateCodeOperationHandler : IRequestHandler<ValidateCodeOperationRequest, ValidateCodeOperationResponse>
+    public class LookUpOperationHandler : IRequestHandler<LookUpOperationRequest, LookUpOperationResponse>
     {
         public static readonly OperationOutcomeIssue ValidationPassed = new OperationOutcomeIssue(
               OperationOutcomeConstants.IssueSeverity.Information,
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ITerminologyOperator _terminologyOperator;
 
-        public ValidateCodeOperationHandler(IAuthorizationService<DataActions> authorizationService, ITerminologyOperator terminologyOperator)
+        public LookUpOperationHandler(IAuthorizationService<DataActions> authorizationService, ITerminologyOperator terminologyOperator)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(terminologyOperator, nameof(terminologyOperator));
@@ -40,22 +40,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
         /// </summary>
         /// <param name="request">The request</param>
         /// <param name="cancellationToken">The CancellationToken</param>
-        public async Task<ValidateCodeOperationResponse> Handle(ValidateCodeOperationRequest request, CancellationToken cancellationToken)
+        public async Task<LookUpOperationResponse> Handle(LookUpOperationRequest request, CancellationToken cancellationToken)
         {
             if (await _authorizationService.CheckAccess(DataActions.ResourceValidate, cancellationToken) != DataActions.ResourceValidate)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            if (string.IsNullOrEmpty(request.ResourceID))
+            if (request.Parameter != null)
             {
-                Parameters parameterOutcome = _terminologyOperator.TryValidateCode((Parameters)request.Resource);
-                return new ValidateCodeOperationResponse(parameterOutcome);
+                Parameters parameterOutcome = _terminologyOperator.TryLookUp(request.Parameter);
+                return new LookUpOperationResponse(parameterOutcome);
             }
             else
             {
-                Parameters parameterOutcome = _terminologyOperator.TryValidateCode(request.Resource, request.ResourceID?.ToString(), request.Code?.ToString(), request.System?.ToString(), request.Display?.ToString());
-                return new ValidateCodeOperationResponse(parameterOutcome);
+                Parameters parameterOutcome = _terminologyOperator.TryLookUp(request.System?.ToString(), request.Code?.ToString());
+                return new LookUpOperationResponse(parameterOutcome);
             }
         }
     }

@@ -3,18 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
 using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Core.Features.Terminology
+namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
-    public interface ITerminologyOperator
+    public class LookUpOperationResponse
     {
-        Parameters TryValidateCode(Resource resource, string id, string code, string system, string display);
+        public LookUpOperationResponse(Parameters parameterOutcome)
+        {
+            EnsureArg.IsNotNull(parameterOutcome, nameof(parameterOutcome));
 
-        Parameters TryValidateCode(Parameters param);
+            ParameterOutcome = parameterOutcome;
+        }
 
-        Parameters TryLookUp(string system, string code);
-
-        Parameters TryLookUp(Parameters param);
+        public Parameters ParameterOutcome { get; }
     }
 }

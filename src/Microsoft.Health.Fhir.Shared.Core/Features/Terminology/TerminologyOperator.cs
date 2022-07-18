@@ -20,32 +20,61 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
             _externalTerminoilogy = externalTSResolver;
         }
 
+        public Parameters TryLookUp(string system, string code)
+        {
+            Parameters param = new Parameters();
+
+            param.Add("coding", new Coding(code, system));
+
+            Task<Parameters> result = null;
+
+            try
+            {
+                result = _externalTerminoilogy.Lookup(param, useGet: false);
+            }
+            catch (NullReferenceException)
+            {
+                throw new BadRequestException("Cannot hit terminology service endpoint, please check that endpoint is correct / exists.");
+            }
+
+            try
+            {
+                result.Wait();
+            }
+            catch (Exception ex)
+            {
+                throw new BadRequestException(ex.InnerException.Message);
+            }
+
+            return result.Result;
+        }
+
+        public Parameters TryLookUp(Parameters param)
+        {
+            Task<Parameters> result = null;
+
+            try
+            {
+                result = _externalTerminoilogy.Lookup(param, useGet: false);
+            }
+            catch (NullReferenceException)
+            {
+                throw new BadRequestException("Cannot hit terminology service endpoint, please check that endpoint is correct / exists.");
+            }
+
+            try
+            {
+                result.Wait();
+            }
+            catch (Exception ex)
+            {
+                throw new BadRequestException(ex.InnerException.Message);
+            }
+
+            return result.Result;
+        }
+
         public Parameters TryValidateCode(Resource resource, string id, string code, string system = null, string display = null)
-        {
-            if (resource.TypeName == "ValueSet")
-            {
-                return ValidateCode(resource, id, code, system, display);
-            }
-            else
-            {
-                return ValidateCode(resource, id, code, system, display);
-            }
-        }
-
-        public Parameters TryValidateCode(Resource parameters)
-        {
-            Parameters param = (Parameters)parameters;
-            if (param.Parameter[1].Resource.TypeName == "ValueSet")
-            {
-                return ValidateCode(param);
-            }
-            else
-            {
-                return ValidateCode(param);
-            }
-        }
-
-        private Parameters ValidateCode(Resource resource, string id, string code, string system = null, string display = null)
         {
             Parameters param = new Parameters();
 
@@ -67,10 +96,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
                 param.Add("codeSystem", (CodeSystem)resource);
             }
 
-            return ValidateCode(param);
+            return TryValidateCode(param);
         }
 
-        private Parameters ValidateCode(Parameters param)
+        public Parameters TryValidateCode(Parameters param)
         {
             Task<Parameters> result = null;
 

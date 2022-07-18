@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await TestFhirClient.CreateAsync(Samples.GetJsonSample<ValueSet>(name), $"name={name}");
             }
 
-            var codeSystem = new List<string>() { "CodeSystem-careplan-category" };
+            var codeSystem = new List<string>() { "CodeSystem-careplan-category", "CodeSystem-Example" };
             foreach (var name in codeSystem)
             {
                 await TestFhirClient.CreateAsync(Samples.GetJsonSample<CodeSystem>(name), $"name={name}");
