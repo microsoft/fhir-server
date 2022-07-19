@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task TestSearchExecution_WithChainingAndSortOperators()
+        public async Task GivenAChainedSearchPattern_WhenSearched_ThenCompareTheResultsWithDifferentVariationsOfSortingExpressions()
         {
             string requestBundleAsString = Samples.GetJson("Bundle-ChainingAndSortSearchValidation");
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
@@ -37,6 +38,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+            // Ensure all records were ingested.
+            Assert.Equal(requestBundle.Entry.Count, fhirResponse.Resource.Entry.Count);
+            foreach (Bundle.EntryComponent component in fhirResponse.Resource.Entry)
+            {
+                Assert.NotNull(component.Response.Status);
+                HttpStatusCode httpStatusCode = (HttpStatusCode)Convert.ToInt32(component.Response.Status);
+                Assert.True(httpStatusCode == HttpStatusCode.OK || httpStatusCode == HttpStatusCode.Created);
+            }
 
             const int totalNumberOfHealthcareServices = 15;             // Total number of healthcare services ingested.
             const int expectedNumberOfEntriesInFirstPage = 10;          // Max number of entries in the first page.
