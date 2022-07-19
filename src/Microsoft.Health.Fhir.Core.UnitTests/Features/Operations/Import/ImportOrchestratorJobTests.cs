@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobInputData importOrchestratorInputData = new ImportOrchestratorJobInputData();
             TestQueueClient testQueueClient = new TestQueueClient();
-            testQueueClient.GetJobByIdFunc = (queueClient, id) =>
+            testQueueClient.GetJobByIdFunc = (queueClient, id, _) =>
             {
                 JobInfo jobInfo = new JobInfo()
                 {
@@ -367,6 +367,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.Equal("error", resultDetails.ErrorMessage);
 
+            Assert.True(testQueueClient.JobInfos.All(t => t.Status == JobStatus.Cancelled));
+
             _ = mediator.Received().Publish(
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
@@ -389,7 +391,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorJobInputData importOrchestratorJobInputData = new ImportOrchestratorJobInputData();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
             TestQueueClient testQueueClient = new TestQueueClient();
-            testQueueClient.GetJobByIdFunc = (testQueueClient, id) =>
+            testQueueClient.GetJobByIdFunc = (testQueueClient, id, _) =>
             {
                 JobInfo jobInfo = testQueueClient.JobInfos.First(t => t.Id == id);
 
@@ -463,6 +465,77 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task GivenAnOrchestratorJob_WhenCancelledBeforeCompleted_ThenProcessingJobsShouldNotBeCancelled()
+        {
+            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
+            ImportOrchestratorJobInputData importOrchestratorJobInputData = new ImportOrchestratorJobInputData();
+            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
+            TestQueueClient testQueueClient = new TestQueueClient();
+            testQueueClient.GetJobByIdFunc = (testQueueClient, id, cancellationToken) =>
+            {
+                JobInfo jobInfo = testQueueClient.JobInfos.First(t => t.Id == id);
+
+                if (jobInfo == null)
+                {
+                    return null;
+                }
+
+                if (jobInfo.Status == JobManagement.JobStatus.Completed)
+                {
+                    return jobInfo;
+                }
+
+                jobInfo.Status = JobStatus.Running;
+                return jobInfo;
+            };
+
+            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
+            importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
+            var inputs = new List<InputResource>();
+            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
+
+            importOrchestratorJobInputData.Input = inputs;
+            importOrchestratorJobInputData.InputFormat = "ndjson";
+            importOrchestratorJobInputData.InputSource = new Uri("http://dummy");
+            importOrchestratorJobInputData.RequestUri = new Uri("http://dummy");
+
+            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Dictionary<string, object> properties = new Dictionary<string, object>();
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
+                    return properties;
+                });
+
+            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, false, CancellationToken.None)).First();
+
+            ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
+                mediator,
+                importOrchestratorJobInputData,
+                new ImportOrchestratorJobResult(),
+                contextAccessor,
+                fhirDataBulkImportOperation,
+                integrationDataStoreClient,
+                testQueueClient,
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 },
+                loggerFactory);
+            orchestratorJob.PollingFrequencyInSeconds = 0;
+
+            CancellationTokenSource cancellationToken = new CancellationTokenSource();
+            cancellationToken.CancelAfter(TimeSpan.FromSeconds(1));
+            await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(new Progress<string>(), cancellationToken.Token));
+
+            Assert.True(testQueueClient.JobInfos.All(t => t.Status != JobStatus.Cancelled && !t.CancelRequested));
+        }
+
         private static async Task VerifyCommonOrchestratorJobAsync(int inputFileCount, int concurrentCount, int resumeFrom = -1, int completedCount = 0)
         {
             IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
@@ -476,7 +549,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             TestQueueClient testQueueClient = new TestQueueClient();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
-            testQueueClient.GetJobByIdFunc = (testQueueClient, id) =>
+            testQueueClient.GetJobByIdFunc = (testQueueClient, id, _) =>
             {
                 JobInfo jobInfo = testQueueClient.JobInfos.First(t => t.Id == id);
 

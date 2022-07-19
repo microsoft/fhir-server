@@ -179,4 +179,6 @@ exec "\$@"
 EOF
 chmod +x /usr/local/share/docker-init.sh
 chown ${USERNAME}:root /usr/local/share/docker-init.sh
+mkdir /workspace && chown ${USERNAME}:root /workspace
+mkdir /home && chown ${USERNAME}:root /home
 echo "Done!"
