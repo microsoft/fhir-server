@@ -6,6 +6,53 @@
         {
             "resource": {
                 "resourceType": "PractitionerRole",
+                "id": "fake-practitionerRole-01",
+                "meta": {
+                    "versionId": "3",
+                    "lastUpdated": "2022-05-23T19:31:44.596+00:00"
+                },
+                "active": true,
+                "practitioner": {
+                    "reference": "Practitioner/fake-practitioner-01",
+                    "display": "Dr. Yury"
+                },
+                "organization": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "specialty": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "408443003",
+                                "display": "General medical practice"
+                            }
+                        ],
+                        "text": "General medical practice"
+                    }
+                ],
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "healthcareService": [
+                    {
+                        "reference": "HealthcareService/7f6b44f8-97e1-4e8b-af36-c5edae08c7ea",
+                        "display": "Appointment Requests"
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "PractitionerRole"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "PractitionerRole",
                 "id": "9caa2ec1-8107-4a1e-9854-f1a5e5468209",
                 "meta": {
                     "versionId": "3",
@@ -1851,6 +1898,68 @@
             "request": {
                 "method": "PUT",
                 "url": "HealthcareService/9a3b7a83-2f9d-406b-bdb7-57d6fb8ca3e2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "HealthcareService",
+                "id": "fake-01",
+                "identifier": [
+                    {
+                        "type": {
+                            "text": "Activity-Claim"
+                        },
+                        "system": "https://piesystems.net/iHealth/activity",
+                        "value": "Activity-Claim"
+                    }
+                ],
+                "active": false,
+                "providedBy": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "name": "Activity-Claim"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "HealthcareService/fake-01"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "HealthcareService",
+                "id": "fake-02",
+                "identifier": [
+                    {
+                        "type": {
+                            "text": "Activity-Claim"
+                        },
+                        "system": "https://piesystems.net/iHealth/activity",
+                        "value": "Activity-Claim"
+                    }
+                ],
+                "active": false,
+                "providedBy": {
+                    "reference": "Organization/ef58ea08-d883-3957-8300-150554edc8fb",
+                    "display": "ABC health"
+                },
+                "location": [
+                    {
+                        "reference": "Location/1ee7e785-1991-34c3-9d64-8bed2e20233a",
+                        "display": "ABC health"
+                    }
+                ],
+                "name": "Activity-Claim"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "HealthcareService/fake-02"
             }
         }
     ]
