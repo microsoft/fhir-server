@@ -92,14 +92,8 @@
     </None>
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\ExecuteCommandForRebuildIndexes.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Tables\IndexProperties.sql" />
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\LogEvent.sql">
-      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\LogEvent.sql</Link>
-    </Build>
     <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\EventLog.sql">
       <Link>Schema Objects\Schemas\dbo\Tables\EventLog.sql</Link>
-    </Build>
-    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\Parameters.sql">
-      <Link>Schema Objects\Schemas\dbo\Tables\Parameters.sql</Link>
     </Build>
   </ItemGroup>
   <ItemGroup>
