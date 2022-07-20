@@ -279,9 +279,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return null;
         }
 
-        public object VisitUnionAll(UnionAllExpression expression, Context context)
+        public object VisitUnion(UnionExpression expression, Context context)
         {
-            return VisitMultiary(Expression.Or(expression.Expressions), context);
+            if (expression.Operator == UnionOperator.All)
+            {
+                return VisitMultiary(Expression.Or(expression.Expressions), context);
+            }
+            else
+            {
+                string message = string.Format(
+                            CultureInfo.InvariantCulture,
+                            Resources.UnhandledEnumValue,
+                            nameof(UnionOperator),
+                            expression.Operator);
+
+                Debug.Fail(message);
+
+                throw new InvalidOperationException(message);
+            }
         }
 
         public object VisitString(StringExpression expression, Context context)

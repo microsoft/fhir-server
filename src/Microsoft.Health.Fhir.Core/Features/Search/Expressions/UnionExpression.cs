@@ -11,18 +11,21 @@ using EnsureThat;
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
-    /// Represents a union all operator.
+    /// Represents a union operator.
     /// </summary>
-    public class UnionAllExpression : Expression, IExpressionsContainer
+    public class UnionExpression : Expression, IExpressionsContainer
     {
-        public UnionAllExpression(IReadOnlyList<Expression> expressions)
+        public UnionExpression(UnionOperator unionOperator, IReadOnlyList<Expression> expressions)
         {
             EnsureArg.IsNotNull(expressions, nameof(expressions));
             EnsureArg.IsTrue(expressions.Any(), nameof(expressions));
             EnsureArg.IsTrue(expressions.All(o => o != null), nameof(expressions));
 
+            Operator = unionOperator;
             Expressions = expressions;
         }
+
+        public UnionOperator Operator { get; }
 
         public IReadOnlyList<Expression> Expressions { get; }
 
@@ -30,17 +33,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
-            return visitor.VisitUnionAll(this, context);
+            return visitor.VisitUnion(this, context);
         }
 
         public override string ToString()
         {
-            return $"(UnionAll {Expressions} {string.Join(' ', Expressions)})";
+            return $"(Union ({Operator}) {Expressions} {string.Join(' ', Expressions)})";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
-            hashCode.Add(typeof(UnionAllExpression));
+            hashCode.Add(typeof(UnionExpression));
             foreach (Expression expression in Expressions)
             {
                 expression.AddValueInsensitiveHashCode(ref hashCode);
@@ -49,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override bool ValueInsensitiveEquals(Expression other)
         {
-            if (other is not UnionAllExpression unionAll ||
+            if (other is not UnionExpression unionAll ||
                 unionAll.Expressions.Count != Expressions.Count)
             {
                 return false;

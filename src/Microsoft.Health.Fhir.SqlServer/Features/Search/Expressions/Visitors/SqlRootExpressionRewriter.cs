@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(tableExpressions, resourceExpressions);
         }
 
-        public override Expression VisitUnionAll(UnionAllExpression expression, int context) => ConvertNonMultiary(expression);
+        public override Expression VisitUnion(UnionExpression expression, int context) => ConvertNonMultiary(expression);
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, int context) => ConvertNonMultiary(expression);
 

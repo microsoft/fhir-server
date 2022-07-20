@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return VisitExpressionsContainer(expression, context);
         }
 
-        public SearchParamTableExpressionQueryGenerator VisitUnionAll(UnionAllExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitUnion(UnionExpression expression, object context)
         {
             return VisitExpressionsContainer(expression, context);
         }

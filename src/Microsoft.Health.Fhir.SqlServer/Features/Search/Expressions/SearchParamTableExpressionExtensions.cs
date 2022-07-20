@@ -15,29 +15,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     internal static class SearchParamTableExpressionExtensions
     {
         /// <summary>
-        /// Identifies if a <see cref="SearchParamTableExpression"/> contains a <see cref="UnionAllExpression"/>.
+        /// Identifies if a <see cref="SearchParamTableExpression"/> contains a <see cref="UnionExpression"/>.
         /// </summary>
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static bool HasUnionAllExpression(this SearchParamTableExpression expression)
         {
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
-            return expressionContainer?.Expressions.Any(e => e is UnionAllExpression) ?? false;
+            return expressionContainer?.Expressions.Any(e => e is UnionExpression) ?? false;
         }
 
         /// <summary>
-        /// Split the inner expressions from a <see cref="SearchParamTableExpression"/> into two groups: an existing <see cref="UnionAllExpression"/> and the other expressions.
+        /// Split the inner expressions from a <see cref="SearchParamTableExpression"/> into two groups: an existing <see cref="UnionExpression"/> and the other expressions.
         /// </summary>
         /// <param name="expression">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
-        /// <param name="unionAllExpression">Instance of <see cref="UnionAllExpression"/>.</param>
-        /// <param name="allOtherRemainingExpressions">Other exception different than <see cref="UnionAllExpression"/>.</param>
-        /// <returns>Returns TRUE if the <see cref="SearchParamTableExpression"/> contains a <see cref="UnionAllExpression"/>.</returns>
-        public static bool SplitExpressions(this SearchParamTableExpression expression, out UnionAllExpression unionAllExpression, out SearchParamTableExpression allOtherRemainingExpressions)
+        /// <param name="unionExpression">Instance of <see cref="UnionExpression"/>.</param>
+        /// <param name="allOtherRemainingExpressions">Other exception different than <see cref="UnionExpression"/>.</param>
+        /// <returns>Returns TRUE if the <see cref="SearchParamTableExpression"/> contains a <see cref="UnionExpression"/>.</returns>
+        public static bool SplitExpressions(this SearchParamTableExpression expression, out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions)
         {
-            unionAllExpression = null;
+            unionExpression = null;
             allOtherRemainingExpressions = null;
 
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
-            UnionAllExpression tempUnionAllExpression = expressionContainer?.Expressions.SingleOrDefault(e => e is UnionAllExpression) as UnionAllExpression;
+            UnionExpression tempUnionAllExpression = expressionContainer?.Expressions.SingleOrDefault(e => e is UnionExpression) as UnionExpression;
 
             if (tempUnionAllExpression != null)
             {
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
                         chainLevel: expression.ChainLevel + 1);
                 }
 
-                unionAllExpression = tempUnionAllExpression;
+                unionExpression = tempUnionAllExpression;
 
                 return true;
             }
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Sort expression by query composition logic. <see cref="UnionAllExpression"/> always is the first expression to be processed, other expressions will follow it.
+        /// Sort expression by query composition logic. <see cref="UnionExpression"/> always is the first expression to be processed, other expressions will follow it.
         /// </summary>
         /// <param name="expressions">Instance of <see cref="SearchParamTableExpression"/> under evaluation.</param>
         public static IReadOnlyList<SearchParamTableExpression> SortExpressionsByQueryLogic(this IReadOnlyList<SearchParamTableExpression> expressions)

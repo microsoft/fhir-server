@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return VisitExpressionsContainer(expression, context);
         }
 
-        public virtual TOutput VisitUnionAll(UnionAllExpression expression, TContext context)
+        public virtual TOutput VisitUnion(UnionExpression expression, TContext context)
         {
             return VisitExpressionsContainer(expression, context);
         }

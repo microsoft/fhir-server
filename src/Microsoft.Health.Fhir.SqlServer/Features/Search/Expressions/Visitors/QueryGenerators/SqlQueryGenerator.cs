@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
-        private bool _unionAllVisited = false;
+        private bool _unionVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
         public SqlQueryGenerator(
@@ -82,14 +82,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new InvalidOperationException("Expected no predicates on the Resource table because of the presence of TableExpressions");
                 }
 
-                // Union All expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
+                // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 StringBuilder.Append("WITH ");
                 StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
-                    if (tableExpression.SplitExpressions(out UnionAllExpression unionAllExpression, out SearchParamTableExpression allOtherRenainingExpressions))
+                    if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRenainingExpressions))
                     {
-                        AppendNewSetOfUnionAllTableExpressions(context, unionAllExpression, tableExpression.QueryGenerator);
+                        AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
 
                         if (allOtherRenainingExpressions != null)
                         {
@@ -326,8 +326,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     HandleTableKindSortWithFilter(searchParamTableExpression, context);
                     break;
 
-                case SearchParamTableExpressionKind.UnionAll:
-                    HandleParamTableUnionAll(searchParamTableExpression);
+                case SearchParamTableExpressionKind.Union:
+                    HandleParamTableUnion(searchParamTableExpression);
                     break;
 
                 default:
@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return null;
         }
 
-        private void HandleParamTableUnionAll(SearchParamTableExpression searchParamTableExpression)
+        private void HandleParamTableUnion(SearchParamTableExpression searchParamTableExpression)
         {
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
@@ -392,7 +392,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
             }
-            else if (searchParamTableExpression.ChainLevel == 1 && _unionAllVisited)
+            else if (searchParamTableExpression.ChainLevel == 1 && _unionVisited)
             {
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).AppendLine(" AS T2, ")
@@ -443,7 +443,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
 
-            if (_unionAllVisited && predecessorIndex > 0 && searchParamTableExpression.ChainLevel == 0)
+            // In the case the query contains a UNION operator, the following CTE must join the latest Union CTE
+            // where all data is aggregated.
+            if (_unionVisited && predecessorIndex > 0 && searchParamTableExpression.ChainLevel == 0)
             {
                 var cte = TableExpressionName(predecessorIndex);
                 StringBuilder.Append("SELECT ")
@@ -1056,16 +1058,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionAllExpression unionAllExpression, SearchParamTableExpressionQueryGenerator queryGenerator)
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator queryGenerator)
         {
+            if (unionExpression.Operator != UnionOperator.All)
+            {
+                throw new ArgumentOutOfRangeException(unionExpression.Operator.ToString());
+            }
+
             // Iterate through all expressions and create a unique CTE for each one.
             int firstInclusiveTableExpressionId = _tableExpressionCounter + 1;
-            foreach (Expression innerExpression in unionAllExpression.Expressions)
+            foreach (Expression innerExpression in unionExpression.Expressions)
             {
                 var searchParamExpression = new SearchParamTableExpression(
                     queryGenerator,
                     innerExpression,
-                    SearchParamTableExpressionKind.UnionAll);
+                    SearchParamTableExpressionKind.Union);
 
                 searchParamExpression.AcceptVisitor(this, context);
             }
@@ -1086,7 +1093,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append(")");
 
-            _unionAllVisited = true;
+            _unionVisited = true;
         }
 
         private void AppendNewTableExpression(IndentedStringBuilder sb, SearchParamTableExpression tableExpression, int cteId, SearchOptions context)
