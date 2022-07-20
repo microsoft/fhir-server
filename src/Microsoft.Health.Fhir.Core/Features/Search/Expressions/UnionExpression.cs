@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             EnsureArg.IsTrue(expressions.Any(), nameof(expressions));
             EnsureArg.IsTrue(expressions.All(o => o != null), nameof(expressions));
 
+            CheckForInvalidInnerUnionExpressions(expressions);
+
             Operator = unionOperator;
             Expressions = expressions;
         }
@@ -67,6 +69,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Checks if the expressions used to initialize the <see cref="UnionExpression"/> are not other instances of <see cref="UnionExpression"/>.
+        /// </summary>
+        private static void CheckForInvalidInnerUnionExpressions(IReadOnlyList<Expression> expressions)
+        {
+            foreach (Expression expression in expressions)
+            {
+                if (expression is UnionExpression)
+                {
+                    throw new InvalidOperationException(string.Format(Core.Resources.InvalidInnerUnionExpression, nameof(UnionExpression)));
+                }
+
+                if (expression is MultiaryExpression multiaryExpression)
+                {
+                    CheckForInvalidInnerUnionExpressions(multiaryExpression.Expressions);
+                }
+            }
         }
     }
 }
