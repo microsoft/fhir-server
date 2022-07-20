@@ -36,6 +36,8 @@
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Correct.json" />
+    <None Remove="TestFiles\Normative\Parameter-LookUp-Correct.json" />
+    <None Remove="TestFiles\Normative\Parameter-LookUp-Incorrect.json" />
     <None Remove="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Incorrect.json" />
     <None Remove="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Correct.json" />
     <None Remove="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Incorrect.json" />
@@ -399,6 +401,8 @@
     <EmbeddedResource Include="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Incorrect.json" />
     <EmbeddedResource Include="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Correct.json" />
     <EmbeddedResource Include="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Incorrect.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Parameter-LookUp-Correct.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Parameter-LookUp-Incorrect.json" />
     <EmbeddedResource Include="TestFiles\Normative\CodeSystem-Example.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />

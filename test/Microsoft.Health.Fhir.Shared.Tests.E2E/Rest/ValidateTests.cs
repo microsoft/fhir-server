@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "", "generated", "generated")]
         [InlineData("CodeSystem/example/$validate-code", "", "chol-mmol", "SChol (mmol/L)")]
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "", "")]
-        public async void GivenInvalidRequestParams_ValidateCodeValueSetThrowsExcept(string path, string system, string code, string display = null)
+        public async void GivenInvalidRequestParams_ValidateCodeThrowsExcept(string path, string system, string code, string display = null)
         {
             await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodeGETdAsync(path, system, code, display));
         }

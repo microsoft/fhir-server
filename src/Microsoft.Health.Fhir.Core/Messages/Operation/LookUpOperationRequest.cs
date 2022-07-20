@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
     public class LookUpOperationRequest : IRequest<LookUpOperationResponse>, IRequest
     {
-        public LookUpOperationRequest(string code, string system, string display = null)
+        public LookUpOperationRequest(string system, string code, string display = null)
         {
             EnsureArg.IsNotNull(system, nameof(system));
             EnsureArg.IsNotNull(code, nameof(code));
