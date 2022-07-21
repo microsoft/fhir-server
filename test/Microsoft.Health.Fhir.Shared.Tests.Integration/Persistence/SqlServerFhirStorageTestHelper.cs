@@ -8,6 +8,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Medallion.Threading;
+using Medallion.Threading.SqlServer;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,6 +66,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
             schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
 
+            await using SqlConnection lockConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
+            await lockConnection.OpenAsync(cancellationToken);
+            await using IDistributedSynchronizationHandle lockHandle = await AcquireLockHandleAsync(cancellationToken, lockConnection);
+
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
                 // Create the database.
@@ -93,6 +99,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await connection.CloseAsync();
             });
 
+            await lockHandle.DisposeAsync();
+
             await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
         }
@@ -112,10 +120,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
+                await using IDistributedSynchronizationHandle lockHandle = await AcquireLockHandleAsync(cancellationToken, connection);
                 await using SqlCommand command = connection.CreateCommand();
                 command.CommandTimeout = 600;
                 command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
                 await command.ExecuteNonQueryAsync(cancellationToken);
+                await lockHandle.DisposeAsync();
                 await connection.CloseAsync();
             });
         }
@@ -265,6 +275,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var connectionBuilder = new SqlConnectionStringBuilder(connectionString);
             var result = new SqlConnection(connectionBuilder.ToString());
             return result;
+        }
+
+        private static async Task<IDistributedSynchronizationHandle> AcquireLockHandleAsync(CancellationToken cancellationToken, SqlConnection connection)
+        {
+            IDistributedLock sqlLock = new SqlDistributedLock("FhirIntegrationTests", connection);
+            IDistributedSynchronizationHandle lockHandle = await sqlLock.TryAcquireAsync(TimeSpan.FromMinutes(10), cancellationToken);
+
+            if (lockHandle == null)
+            {
+                throw new Exception("Database lock was not acquired.");
+            }
+
+            return lockHandle;
         }
     }
 }
