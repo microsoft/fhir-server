@@ -430,21 +430,21 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public void GivenListTokenSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
         {
-            List<BulkTokenSearchParamTableTypeV1Row> input = new List<BulkTokenSearchParamTableTypeV1Row>()
+            List<BulkTokenSearchParamTableTypeV2Row> input = new List<BulkTokenSearchParamTableTypeV2Row>()
             {
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 1, 1, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 0, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test1"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, null, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 1, 1, "test", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 0, "test", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test1", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, null, "test", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, null, null),
 
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 1, 1, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 0, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test1"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, null, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 1, 1, "test", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 0, "test", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test1", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, null, "test", null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, null, null),
             };
 
             Assert.Equal(6, TokenSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
