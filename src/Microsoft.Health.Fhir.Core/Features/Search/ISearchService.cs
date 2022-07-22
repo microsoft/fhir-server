@@ -35,7 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="searchOptions">The options to use during the search.</param>
         /// <param name="cancellationToken">The cancellationToken.</param>
-        /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
         /// <returns>The search result.</returns>
         Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
@@ -67,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime before,
             int? count,
             string continuationToken,
+            string sort,
             CancellationToken cancellationToken,
             bool isAsyncOperation = false);
 
