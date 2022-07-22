@@ -48,7 +48,7 @@ CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE
     Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
-    Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     CodeOverflow nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
 )
 

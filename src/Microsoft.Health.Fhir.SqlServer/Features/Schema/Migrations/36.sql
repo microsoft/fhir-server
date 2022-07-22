@@ -95,7 +95,7 @@ CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE (
     Offset        INT            NOT NULL,
     SearchParamId SMALLINT       NOT NULL,
     SystemId      INT            NULL,
-    Code          VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code          VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     CodeOverflow  NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
 
 CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE (
@@ -858,7 +858,7 @@ CREATE TABLE dbo.TokenSearchParam (
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     SystemId            INT            NULL,
-    Code                VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code                VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     CodeOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
     IsHistory           BIT            NOT NULL
 );
