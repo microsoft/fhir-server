@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 request.Before,
                 request.Count,
                 request.ContinuationToken,
+                request.Sort,
                 cancellationToken);
 
             ResourceElement bundle = _bundleFactory.CreateHistoryBundle(searchResult);

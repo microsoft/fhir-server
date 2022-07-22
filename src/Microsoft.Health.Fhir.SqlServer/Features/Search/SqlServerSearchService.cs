@@ -493,11 +493,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // history is always sorted by _lastUpdated.
                 newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
-                newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
-                {
-                    (_fakeLastUpdate, SortOrder.Ascending),
-                };
-
                 return newSearchOptions;
             }
 

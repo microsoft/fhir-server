@@ -55,7 +55,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 
             var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
             _searchService.SearchAsync(Arg.Any<SearchOptions>(), CancellationToken.None).Returns(searchResult);
-            _searchService.SearchHistoryAsync(KnownResourceTypes.Patient, Arg.Any<string>(), null, null, null, null, Arg.Any<string>(), CancellationToken.None).Returns(searchResult);
+            _searchService.SearchHistoryAsync(
+                KnownResourceTypes.Patient,
+                Arg.Any<string>(),
+                Arg.Any<PartialDateTime>(),
+                Arg.Any<PartialDateTime>(),
+                Arg.Any<PartialDateTime>(),
+                Arg.Any<int?>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                CancellationToken.None,
+                Arg.Any<bool>()).Returns(searchResult);
 
             SearchResult actualResult = await _patientEverythingService.SearchAsync("123", null, null, null, null, null, CancellationToken.None);
 
