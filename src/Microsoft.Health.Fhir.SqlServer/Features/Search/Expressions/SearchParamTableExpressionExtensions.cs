@@ -37,24 +37,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             allOtherRemainingExpressions = null;
 
             IExpressionsContainer expressionContainer = expression.Predicate as IExpressionsContainer;
-            UnionExpression tempUnionAllExpression = expressionContainer?.Expressions.SingleOrDefault(e => e is UnionExpression) as UnionExpression;
 
-            if (tempUnionAllExpression != null)
+            if (expressionContainer != null)
             {
-                IReadOnlyList<Expression> allOtherExpression = expressionContainer.Expressions.Where(e => e != tempUnionAllExpression).ToList();
+                UnionExpression tempUnionAllExpression = expressionContainer.Expressions.SingleOrDefault(e => e is UnionExpression) as UnionExpression;
 
-                if (allOtherExpression.Any())
+                if (tempUnionAllExpression != null)
                 {
-                    allOtherRemainingExpressions = new SearchParamTableExpression(
-                        expression.QueryGenerator,
-                        new MultiaryExpression(MultiaryOperator.And, allOtherExpression),
-                        SearchParamTableExpressionKind.Normal,
-                        chainLevel: expression.ChainLevel + 1);
+                    IReadOnlyList<Expression> allOtherExpression = expressionContainer.Expressions.Where(e => e != tempUnionAllExpression).ToList();
+
+                    if (allOtherExpression.Any())
+                    {
+                        allOtherRemainingExpressions = new SearchParamTableExpression(
+                            expression.QueryGenerator,
+                            new MultiaryExpression(MultiaryOperator.And, allOtherExpression),
+                            SearchParamTableExpressionKind.Normal,
+                            chainLevel: expression.ChainLevel + 1);
+                    }
+
+                    unionExpression = tempUnionAllExpression;
+
+                    return true;
                 }
-
-                unionExpression = tempUnionAllExpression;
-
-                return true;
             }
 
             return false;
