@@ -21,7 +21,7 @@ POST https://{{hostname}}
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-< .\Data\ExportDataBatch.json
+< ./Data/ExportDataBatch.json
 
 ### Record group id
 @groupId = {{batch.response.body.entry[2].resource.id}}

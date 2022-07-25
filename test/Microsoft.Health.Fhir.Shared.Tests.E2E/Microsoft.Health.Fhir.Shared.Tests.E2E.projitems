@@ -77,6 +77,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\FhirPathPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingAndSortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CustomSearchParamTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RequiresIsolatedDatabaseAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />

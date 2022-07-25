@@ -18,22 +18,29 @@ ARG USERNAME=automatic
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-COPY library-scripts/*.sh /tmp/library-scripts/
-COPY library-scripts/fix-cert.sh /tmp/fix-cert.sh
+RUN sudo mkdir -p /setup
+COPY .devcontainer/library-scripts/*.sh /setup/library-scripts/
+COPY .devcontainer/library-scripts/fix-cert.sh /setup/fix-cert.sh
+COPY global.json /setup/global.json
 
 RUN apt-get update \
-    && /bin/bash /tmp/library-scripts/common-debian.sh "${INSTALL_ZSH}" "${USERNAME}" "${USER_UID}" "${USER_GID}" "${UPGRADE_PACKAGES}" "true" "true" \
+    && apt-get install -y dos2unix \
+    && dos2unix /setup/library-scripts/*.sh \
+    && /bin/bash /setup/library-scripts/common-debian.sh "${INSTALL_ZSH}" "${USERNAME}" "${USER_UID}" "${USER_GID}" "${UPGRADE_PACKAGES}" "true" "true" \
     # Use Docker script from script library to set things up
-    && /bin/bash /tmp/library-scripts/docker-debian.sh "${ENABLE_NONROOT_DOCKER}" "/var/run/docker-host.sock" "/var/run/docker.sock" "${USERNAME}" \
+    && /bin/bash /setup/library-scripts/docker-debian.sh "${ENABLE_NONROOT_DOCKER}" "/var/run/docker-host.sock" "/var/run/docker.sock" "${USERNAME}" \
     # Clean up
-    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts/
+    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /setup/library-scripts/
 
 
 # Install .net SDK
 RUN wget https://dot.net/v1/dotnet-install.sh -O $HOME/dotnet-install.sh
 RUN chmod +x $HOME/dotnet-install.sh
+RUN dos2unix /setup/global.json
+RUN dos2unix /setup/*.sh
+RUN chmod +x /setup/*.sh
 RUN sudo mkdir -p /usr/share/dotnet
-RUN $HOME/dotnet-install.sh -c 5.0 --install-dir /usr/share/dotnet
+RUN $HOME/dotnet-install.sh --install-dir /usr/share/dotnet --jsonfile /setup/global.json
 RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 
 # Setting the ENTRYPOINT to docker-init.sh will configure non-root access 
