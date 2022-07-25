@@ -105,6 +105,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\StartupForExportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\SuppressExecutionContextHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\TerminologyOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />

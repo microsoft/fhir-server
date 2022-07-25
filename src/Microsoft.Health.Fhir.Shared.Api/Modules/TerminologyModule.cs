@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.IO;
 using System.Net.Http.Headers;
 using System.Text;
 using Hl7.Fhir.Rest;
@@ -23,66 +24,27 @@ namespace Microsoft.Health.Fhir.Api.Modules
     {
         public void Load(IServiceCollection services)
         {
-            ZipSource zipSource = ZipSource.CreateValidationSource(@"definitions.zip");
+            FhirClient client = null;
+            ZipSource zipSource = null;
+            try
+            {
+                zipSource = ZipSource.CreateValidationSource(@"definitions.zip");
+            }
+            catch (FileNotFoundException)
+            {
+                // Ask RB what to do since this does not get handled well
+                throw;
+            }
 
             // Force summaries to be loaded.
             zipSource.ListSummaries();
 
-            Func<IServiceProvider, FallbackTerminologyService> tsResolver = service =>
-            {
-                ExternalTerminologyService externalTerminologyService = null;
-                FallbackTerminologyService ts = null;
-                try
-                {
-                    IProvideProfilesForValidation profilesResolver = service.GetRequiredService<IProvideProfilesForValidation>();
-                    FhirClient client = null;
-                    IOptions<ValidateOperationConfiguration> options = service.GetRequiredService<IOptions<ValidateOperationConfiguration>>();
-                    var resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.CacheDurationInSeconds), profilesResolver);
-
-                    if (!string.IsNullOrEmpty(options.Value.ExternalTerminologyServer))
-                    {
-                        var settings = new FhirClientSettings
-                        {
-                            Timeout = 300000,
-                            PreferredFormat = ResourceFormat.Json,
-                            VerifyFhirVersion = true,
-                            PreferredReturn = Prefer.ReturnRepresentation,
-                        };
-
-                        if (!string.IsNullOrEmpty(options.Value.ApiKey))
-                        {
-                            var handler = new AuthorizationMessageHandler();
-                            string encodedKey = Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes("apikey" + ":" + options.Value.ApiKey));
-                            handler.Authorization = new AuthenticationHeaderValue("Basic", encodedKey);
-                            client = new FhirClient(options.Value.ExternalTerminologyServer, settings, handler);
-                        }
-                        else
-                        {
-                            client = new FhirClient(options.Value.ExternalTerminologyServer, settings);
-                        }
-
-                        externalTerminologyService = new ExternalTerminologyService(client);
-
-                        // might want to return a Local terminology service in the future when there is one.
-                        ts = new FallbackTerminologyService(new LocalTerminologyService(resolver.AsAsync(), new ValueSetExpanderSettings() { ValueSetSource = resolver }), externalTerminologyService);
-                    }
-                }
-                catch (Exception)
-                {
-                    // Something went wrong during profile loading, what should we do?
-                    throw;
-                }
-
-                return ts;
-            };
-
-            Func<IServiceProvider, ExternalTerminologyService> externalTSResolver = service =>
+            Func<IServiceProvider, ExternalTerminologyService> externalTSResolver = (service) =>
             {
                 ExternalTerminologyService externalTerminologyService = null;
                 try
                 {
                     IProvideProfilesForValidation profilesResolver = service.GetRequiredService<IProvideProfilesForValidation>();
-                    FhirClient client = null;
                     IOptions<ValidateOperationConfiguration> options = service.GetRequiredService<IOptions<ValidateOperationConfiguration>>();
                     var resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.CacheDurationInSeconds), profilesResolver);
 
@@ -118,6 +80,53 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 }
 
                 return externalTerminologyService;
+            };
+
+            Func<IServiceProvider, FallbackTerminologyService> tsResolver = service =>
+            {
+                ExternalTerminologyService externalTerminologyService = null;
+                FallbackTerminologyService ts = null;
+                try
+                {
+                    IProvideProfilesForValidation profilesResolver = service.GetRequiredService<IProvideProfilesForValidation>();
+                    IOptions<ValidateOperationConfiguration> options = service.GetRequiredService<IOptions<ValidateOperationConfiguration>>();
+                    var resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.CacheDurationInSeconds), profilesResolver);
+
+                    if (!string.IsNullOrEmpty(options.Value.ProfileValidationTerminologyServer))
+                    {
+                        var settings = new FhirClientSettings
+                        {
+                            Timeout = 300000,
+                            PreferredFormat = ResourceFormat.Json,
+                            VerifyFhirVersion = true,
+                            PreferredReturn = Prefer.ReturnRepresentation,
+                        };
+
+                        if (!string.IsNullOrEmpty(options.Value.ApiKey))
+                        {
+                            var handler = new AuthorizationMessageHandler();
+                            string encodedKey = Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes("apikey" + ":" + options.Value.ApiKey));
+                            handler.Authorization = new AuthenticationHeaderValue("Basic", encodedKey);
+                            client = new FhirClient(options.Value.ProfileValidationTerminologyServer, settings, handler);
+                        }
+                        else
+                        {
+                            client = new FhirClient(options.Value.ProfileValidationTerminologyServer, settings);
+                        }
+
+                        externalTerminologyService = new ExternalTerminologyService(client);
+
+                        // might want to return a Local terminology service in the future when there is one.
+                        ts = new FallbackTerminologyService(new LocalTerminologyService(resolver.AsAsync(), new ValueSetExpanderSettings() { ValueSetSource = resolver }), externalTerminologyService);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Something went wrong during profile loading, what should we do?
+                    throw;
+                }
+
+                return ts;
             };
 
             Func<IServiceProvider, Validator> validatorResolver = service =>

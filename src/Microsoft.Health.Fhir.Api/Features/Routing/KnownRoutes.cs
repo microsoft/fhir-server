@@ -49,6 +49,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public const string LookUp = ResourceType + "/" + "$lookup";
 
+        public const string Expand = "$expand";
+        public const string ExpandWithId = ResourceType + "/" + IdRouteSegment + "/" + Expand;
+        public const string ExpandGET = ResourceType + "/" + Expand;
+
         public const string Reindex = "$reindex";
         public const string ReindexSingleResource = ResourceTypeById + "/" + Reindex;
         public const string ReindexJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Reindex + "/" + IdRouteSegment;

@@ -75,6 +75,8 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string LookUp = "lookup";
 
+        public const string Expand = "expand";
+
         public const string Import = "import";
 
         public const string MemberMatch = "member-match";

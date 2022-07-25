@@ -49,12 +49,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
 
             if (request.Parameter != null)
             {
-                Parameters parameterOutcome = _terminologyOperator.TryLookUp(request.Parameter);
+                Parameters parameterOutcome = _terminologyOperator.TryLookUp(request.Parameter, false);
                 return new LookUpOperationResponse(parameterOutcome);
             }
             else
             {
-                Parameters parameterOutcome = _terminologyOperator.TryLookUp(request.System?.ToString(), request.Code?.ToString());
+                Parameters parameterOutcome = _terminologyOperator.TryLookUp(request.System, request.Code);
                 return new LookUpOperationResponse(parameterOutcome);
             }
         }

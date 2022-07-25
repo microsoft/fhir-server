@@ -11,10 +11,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
     {
         Parameters TryValidateCode(Resource resource, string id, string code, string system, string display);
 
-        Parameters TryValidateCode(Parameters param);
+        Parameters TryValidateCode(Parameters param, bool attempted);
 
         Parameters TryLookUp(string system, string code);
 
-        Parameters TryLookUp(Parameters param);
+        Parameters TryLookUp(Parameters param, bool attempted);
+
+        Resource TryExpand(Resource valueSet = null, FhirUri canonicalURL = null, int offset = 0, int count = 0);
+
+        Resource TryExpand(Parameters param, bool attempted);
     }
 }

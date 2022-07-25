@@ -15,6 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Operation
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
             EnsureArg.IsNotNull(code, nameof(code));
+            EnsureArg.IsNotNull(system, nameof(system));
 
             Resource = resource;
             System = system;
@@ -26,7 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Operation
         public ValidateCodeOperationRequest(Resource resource)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
-
             Resource = resource;
         }
 

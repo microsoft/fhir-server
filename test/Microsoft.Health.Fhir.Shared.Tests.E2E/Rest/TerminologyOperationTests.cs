@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [Trait(Traits.Category, Categories.Validate)]
+    [Trait(Traits.Category, Categories.Terminology)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class TerminologyOperationTests : IClassFixture<ValidateTestFixture>
     {
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact] // $lookup on a code not in a code system throws...
-        public async void GivenValidParamaterInput_LookUpReturnFalse()
+        public async void GivenValidParamaterInput_LookUpThrowsException()
         {
             var fhirSource = Samples.GetJson("Parameter-LookUp-Incorrect");
             await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTdAsync("CodeSystem/$lookup", fhirSource));
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("UIUC#1")]
         [InlineData("")]
         [InlineData("    ")]
-        public async void GivenInValidParamaterInput_ValidateCodeThrowsBadRequest(string body)
+        public async void GivenInValidParamaterInput_LookUpThrowsBadRequest(string body)
         {
             await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTdAsync("CodeSystem/lookup", body));
         }
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "drosophola")]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "TAATA-box")]
-        public async void GivenLookUpForUnknownCode_ThenFalseParameterIsReturned(string path, string system, string code)
+        public async void GivenLookUpForUnknownCode_ThenThrowException(string path, string system, string code)
         {
             await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpGETdAsync(path, system, code));
         }
@@ -99,5 +99,67 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         // $lookup GET tests end
+
+        // $expand GET tests Start
+        [SkippableTheory]
+        [InlineData("ValueSet/birthsex/$expand")]
+        [InlineData("ValueSet/us-core-narrative-status/$expand")]
+        public async void GivenExpandOnValidValueSet_ExpandedValueSetReturned(string path)
+        {
+            ValueSet resultValueSet = await _client.ExpandGETAsync(path);
+            Assert.True(resultValueSet.Expansion != null);
+        }
+
+        [SkippableTheory]
+        [InlineData("ValueSet/birthsex/$expand?count=0")]
+        [InlineData("ValueSet/birthsex/$expand?offset=0")]
+        public async void GivenExpandOnValidValueSetEmptyParameters_ExpandedValueSetReturned(string path)
+        {
+            ValueSet resultValueSet = await _client.ExpandGETAsync(path);
+            Assert.True(resultValueSet.Expansion != null);
+        }
+
+        [SkippableTheory]
+        [InlineData("ValueSet/birthsex/$expand?offset=1", 2)]
+        [InlineData("ValueSet/birthsex/$expand?offset=2", 3)]
+        [InlineData("ValueSet/birthsex/$expand?offset=3", 4)]
+        public async void GivenExpandOnValidValueSetWithOffsetParameter_ExpandedValueSetReturned(string path, int offset)
+        {
+            int codeCount = 5;
+
+            ValueSet resultValueSet = await _client.ExpandGETAsync(path);
+            Assert.Equal(codeCount - offset, resultValueSet.Expansion.Contains.Count);
+        }
+
+        [SkippableTheory]
+        [InlineData("ValueSet/birthsex/$expand?count=1", 1)]
+        [InlineData("ValueSet/birthsex/$expand?count=2", 2)]
+        [InlineData("ValueSet/birthsex/$expand?count=3", 3)]
+        public async void GivenExpandOnValidValueSetWithCountParameter_ExpandedValueSetReturned(string path, int count)
+        {
+            ValueSet resultValueSet = await _client.ExpandGETAsync(path);
+            Assert.Equal(count, resultValueSet.Expansion.Contains.Count);
+        }
+
+        // $expand GET tests end
+
+        // $expand POST tests Start
+
+        [SkippableFact] // $lookup on a code not in a code system throws...
+        public async void GivenValidParamaterInput_ReturnExpandedValueSet()
+        {
+            var fhirSource = Samples.GetJson("Parameter-Expand-Correct");
+            ValueSet resultValueSet = await _client.ExpandPOSTAsync("ValueSet/$expand", fhirSource);
+            Assert.True(resultValueSet.Expansion != null);
+        }
+
+        [SkippableFact] // $lookup on a code not in a code system throws...
+        public async void GivenValidParamaterInput_LookUpThrows()
+        {
+            var fhirSource = Samples.GetJson("Parameter-Expand-Incorrect");
+            await Assert.ThrowsAsync<FhirException>(async () => await _client.ExpandPOSTAsync("ValueSet/$expand", fhirSource));
+        }
+
+        // $expand POST tests end
     }
 }

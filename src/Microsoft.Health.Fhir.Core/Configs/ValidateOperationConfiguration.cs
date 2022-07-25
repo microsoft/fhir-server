@@ -13,9 +13,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int CacheDurationInSeconds { get; set; } = 14400;
 
         /// <summary>
-        /// Url indicating an external terminology service that can be used for validation purposes
+        /// Url indicating an external terminology service that can be used for Terminology Operations
         /// </summary>
         public string ExternalTerminologyServer { get; set; } = null;
+
+        /// <summary>
+        /// Url indicating an external terminology service that can be used for validation purposes
+        /// </summary>
+        public string ProfileValidationTerminologyServer { get; set; } = null;
 
         /// <summary>
         /// ApiKey for secure terminology servers

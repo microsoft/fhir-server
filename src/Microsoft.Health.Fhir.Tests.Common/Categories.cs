@@ -49,6 +49,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Validate = "Validate";
 
+        public const string Terminology = "Terminology";
+
         public const string Xml = "Xml";
     }
 }

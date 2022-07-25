@@ -16,7 +16,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Terminology
 {
-    public class ValidateCodeOperationHandler : IRequestHandler<ValidateCodeOperationRequest, ValidateCodeOperationResponse>
+    public class ExpandOperationHandler : IRequestHandler<ExpandOperationRequest, ExpandOperationResponse>
     {
         public static readonly OperationOutcomeIssue ValidationPassed = new OperationOutcomeIssue(
               OperationOutcomeConstants.IssueSeverity.Information,
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ITerminologyOperator _terminologyOperator;
 
-        public ValidateCodeOperationHandler(IAuthorizationService<DataActions> authorizationService, ITerminologyOperator terminologyOperator)
+        public ExpandOperationHandler(IAuthorizationService<DataActions> authorizationService, ITerminologyOperator terminologyOperator)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(terminologyOperator, nameof(terminologyOperator));
@@ -40,25 +40,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
         /// </summary>
         /// <param name="request">The request</param>
         /// <param name="cancellationToken">The CancellationToken</param>
-        public async Task<ValidateCodeOperationResponse> Handle(ValidateCodeOperationRequest request, CancellationToken cancellationToken)
+        public async Task<ExpandOperationResponse> Handle(ExpandOperationRequest request, CancellationToken cancellationToken)
         {
             if (await _authorizationService.CheckAccess(DataActions.ResourceValidate, cancellationToken) != DataActions.ResourceValidate)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            Parameters parameterOutcome = null;
+            Resource parameterOutcome;
 
-            if (!string.IsNullOrEmpty(request.ResourceID))
+            if (request.Parameter != null)
             {
-                parameterOutcome = _terminologyOperator.TryValidateCode(request.Resource, request.ResourceID, request.Code, request.System, request.Display);
+                parameterOutcome = _terminologyOperator.TryExpand(request.Parameter, false);
+            }
+            else if (request.ValueSet != null)
+            {
+                parameterOutcome = _terminologyOperator.TryExpand(request.ValueSet, offset: request.Offset, count: request.Count);
             }
             else
             {
-                parameterOutcome = _terminologyOperator.TryValidateCode((Parameters)request.Resource, false);
+                parameterOutcome = _terminologyOperator.TryExpand(canonicalURL: request.CanonicalURL, offset: request.Offset, count: request.Count);
             }
 
-            return new ValidateCodeOperationResponse(parameterOutcome);
+            return new ExpandOperationResponse(parameterOutcome);
         }
     }
 }
