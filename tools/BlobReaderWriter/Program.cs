@@ -21,7 +21,7 @@ namespace BlobReaderWriter
     public static class Program
     {
         private static readonly string SourceConnectionString = ConfigurationManager.AppSettings["SourceConnectionString"];
-        private static readonly string TargetConnectionString = ConfigurationManager.AppSettings["TargetConnectionString"];
+        private static readonly string TargetConnectionStrings = ConfigurationManager.AppSettings["TargetConnectionStrings"];
         private static readonly string SourceContainerName = ConfigurationManager.AppSettings["SourceContainerName"];
         private static readonly string TargetContainerName = ConfigurationManager.AppSettings["TargetContainerName"];
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
@@ -37,13 +37,23 @@ namespace BlobReaderWriter
         public static void Main()
         {
             var sourceContainer = GetContainer(SourceConnectionString, SourceContainerName);
-            var targetContainer = GetContainer(TargetConnectionString, TargetContainerName);
-            var gPrefix = $"BlobReaderWriter.Threads={Threads}{(LinesPerBlob == 1 ? $".ThreadsPerSourceReadThread={ThreadsPerSourceReadThread}" : string.Empty)}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
+            var targetContainers = new List<BlobContainerClient>();
+            foreach (var target in TargetConnectionStrings.Split(" "))
+            {
+                targetContainers.Add(GetContainer(target, TargetContainerName));
+            }
+
+            if (LinesPerBlob > 1 && targetContainers.Count > 1)
+            {
+                throw new ArgumentException($"LinesPerBlob={LinesPerBlob} > 1 && targetContainers.Count={targetContainers.Count} > 1");
+            }
+
+            var gPrefix = $"BlobReaderWriter.Targets={targetContainers.Count}.Threads={Threads}{(LinesPerBlob == 1 ? $".ThreadsPerSourceReadThread={ThreadsPerSourceReadThread}" : string.Empty)}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
             Console.WriteLine($"{gPrefix}: Starting at {DateTime.UtcNow.ToString("s")}...");
             var blobs = WritesEnabled
                       ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
                       : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase));
-            ////Console.WriteLine($"{gPrefix}: SourceBlobs={blobs.Count()} at {DateTime.UtcNow.ToString("s")}.");
+            Console.WriteLine($"{gPrefix}: SourceBlobs={blobs.Count()} at {DateTime.UtcNow.ToString("s")}.");
 
             var sw = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
@@ -60,7 +70,7 @@ namespace BlobReaderWriter
                         foreach (var line in lineBatch.Item2)
                         {
                             Interlocked.Increment(ref totalLines);
-                            ReadWriteResource(line, targetContainer);
+                            ReadWriteResource(line, targetContainers);
                             if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                             {
                                 lock (swReport)
@@ -80,6 +90,7 @@ namespace BlobReaderWriter
             }
             else
             {
+                var targetContainer = targetContainers[0];
                 BatchExtensions.ExecuteInParallelBatches(blobs, Threads, 1, (thread, blobInt) =>
                 {
                     var blobIndex = blobInt.Item1;
@@ -106,10 +117,12 @@ namespace BlobReaderWriter
             Console.WriteLine($"{gPrefix}.Total: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
         }
 
-        private static void ReadWriteResource(string json, BlobContainerClient targetContainer)
+        private static void ReadWriteResource(string json, IList<BlobContainerClient> targetContainers)
         {
             var (resourceType, resourceId) = ParseJson(json);
             var blobName = $"{resourceType}_{resourceId}.ndjson";
+            var storageAccountId = GetStorageAccountIndex(resourceId, targetContainers.Count);
+            var targetContainer = targetContainers[storageAccountId];
             if (WritesEnabled)
             {
                 if (ReadFromTargetInsteadOfWrite)
@@ -309,6 +322,22 @@ namespace BlobReaderWriter
                 Console.WriteLine($"Unable to parse stroage reference or connect to storage account {connectionString}.");
                 throw;
             }
+        }
+
+        private static int GetStorageAccountIndex(string str, int numberOfAccounts)
+        {
+            if (numberOfAccounts == 1)
+            {
+                return 0;
+            }
+
+            var hashCode = 0;
+            foreach (var c in str) // Don't convert to LINQ. This is 10% faster.
+            {
+                hashCode = unchecked((hashCode * 251) + c);
+            }
+
+            return (hashCode & 255) % numberOfAccounts;
         }
     }
 }
