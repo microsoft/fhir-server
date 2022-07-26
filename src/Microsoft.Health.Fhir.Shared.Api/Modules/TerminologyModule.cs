@@ -12,6 +12,7 @@ using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Terminology;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -26,17 +27,19 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             FhirClient client = null;
             ZipSource zipSource = null;
+            ServiceProvider serviceProvider = services.BuildServiceProvider();
+            ILogger<TerminologyModule> terminologyLogger = serviceProvider.GetService<ILogger<TerminologyModule>>();
+
             try
             {
                 zipSource = ZipSource.CreateValidationSource(@"definitions.zip");
             }
-            catch (FileNotFoundException)
+            catch (FileNotFoundException ex)
             {
-                // Ask RB what to do since this does not get handled well
+                terminologyLogger.LogCritical(ex, "FHIR Definitions folder not found");
                 throw;
             }
 
-            // Force summaries to be loaded.
             zipSource.ListSummaries();
 
             Func<IServiceProvider, ExternalTerminologyService> externalTSResolver = (service) =>
@@ -73,9 +76,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         externalTerminologyService = new ExternalTerminologyService(client);
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Something went wrong during profile loading, what should we do?
+                    terminologyLogger.LogCritical(ex, "Failed to create External Terminology Service");
                     throw;
                 }
 
@@ -120,9 +123,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         ts = new FallbackTerminologyService(new LocalTerminologyService(resolver.AsAsync(), new ValueSetExpanderSettings() { ValueSetSource = resolver }), externalTerminologyService);
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Something went wrong during profile loading, what should we do?
+                    terminologyLogger.LogCritical(ex, "Failed to create Fallback Terminology Service");
                     throw;
                 }
 
