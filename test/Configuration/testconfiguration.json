@@ -9,7 +9,8 @@
         "Operations": {
             "Validate": {
                 "CacheDurationInSeconds": 14400,
-                "ExternalTerminologyServer": "http://tx.fhir.org/r4"
+                "ExternalTerminologyServer": "http://tx.fhir.org/r4",
+                "ProfileValidationTerminologyServer": "http://hapi.fhir.org/baseR4"
             }
         }
     }
