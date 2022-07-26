@@ -27,11 +27,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _fhirServer = (InProcTestFhirServer)fixture.TestFhirServer;
         }
 
-        // Many of these tests may fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
+        // Many of these tests may fail as CodeSystem resource definition changed STU3 -> R4 and the TS is on R4
 
         // $lookup POST tests start
         [SkippableFact]
-        public async void GivenValidParamaterInput_LookUpReturnTrue()
+        public async void GivenValidParamaterInputKnownCode_LookUpReturnTrue()
         {
             var fhirSource = Samples.GetJson("Parameter-LookUp-Correct");
             Parameters resultParam = await _client.LookUpPOSTdAsync("CodeSystem/$lookup", fhirSource);
@@ -46,8 +46,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact] // $lookup on a code not in a code system throws...
-        public async void GivenValidParamaterInput_LookUpThrowsException()
+        [SkippableFact]
+        public async void GivenValidParamaterInputUnknownCode_LookUpThrowsException()
         {
             var fhirSource = Samples.GetJson("Parameter-LookUp-Incorrect");
             await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTdAsync("CodeSystem/$lookup", fhirSource));
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "chol-mass")]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol")]
-        public async void GivenLookUpForKnownCode_ThenTrueParameterIsReturned(string path, string system, string code)
+        public async void GivenLookUpForKnownCode_LookUpReturnTrue(string path, string system, string code)
         {
             Parameters resultParam = await _client.LookUpGETdAsync(path, system, code);
             foreach (var paramComponenet in resultParam)
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/birthsex/$expand?offset=1", 2)]
         [InlineData("ValueSet/birthsex/$expand?offset=2", 3)]
         [InlineData("ValueSet/birthsex/$expand?offset=3", 4)]
-        public async void GivenExpandOnValidValueSetWithOffsetParameter_ExpandedValueSetReturned(string path, int offset)
+        public async void GivenExpandOnValidValueSetWithOffsetParameter_CorrectOffsetExpandedValueSetReturned(string path, int offset)
         {
             int codeCount = 5;
 
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/birthsex/$expand?count=1", 1)]
         [InlineData("ValueSet/birthsex/$expand?count=2", 2)]
         [InlineData("ValueSet/birthsex/$expand?count=3", 3)]
-        public async void GivenExpandOnValidValueSetWithCountParameter_ExpandedValueSetReturned(string path, int count)
+        public async void GivenExpandOnValidValueSetWithCountParameter_CorrectCountExpandedValueSetReturned(string path, int count)
         {
             ValueSet resultValueSet = await _client.ExpandGETAsync(path);
             Assert.Equal(count, resultValueSet.Expansion.Contains.Count);
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         // $expand POST tests Start
 
-        [SkippableFact] // $lookup on a code not in a code system throws...
+        [SkippableFact]
         public async void GivenValidParamaterInput_ReturnExpandedValueSet()
         {
             var fhirSource = Samples.GetJson("Parameter-Expand-Correct");
