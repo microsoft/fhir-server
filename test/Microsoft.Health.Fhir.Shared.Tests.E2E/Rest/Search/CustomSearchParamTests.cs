@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -428,6 +429,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
                 bool success = true;
+                StringBuilder errors = new StringBuilder();
                 do
                 {
                     success = true;
@@ -444,14 +446,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception ex)
                     {
-                        _output.WriteLine($"Failed to validate bundle: {ex}");
+                        string error = $"Failed to validate bundle: {ex}";
+
+                        errors.AppendLine(error);
+                        _output.WriteLine(error);
                         success = false;
                         await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
                 while (!success && retryCount < 3);
 
-                Assert.True(success);
+                Assert.True(success, $"There are bundle validation failures.: {errors.ToString()}");
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
