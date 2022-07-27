@@ -168,6 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsValid_ThenAnOkMessageIsReturned()
         {
+            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
             var fhirSource = Samples.GetJson("Profile-Patient-PassUsCore-Example");
 
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
@@ -179,6 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsNotValid_ThenAnErrorShouldBeReturned()
         {
+            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
             var fhirSource = Samples.GetJson("Profile-Patient-FailUsCore-Example");
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
             bool hasSeenCodeInvalid = false;
@@ -202,6 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Parameter-CodeSystem-Validate-Code-Correct")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenValidParamaterInput_ValidateCodeReturnTrue(string fileName)
         {
+            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
             var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
             foreach (var paramComponenet in resultParam)
@@ -220,6 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Parameter-CodeSystem-Validate-Code-Incorrect")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenValidParamaterInput_ValidateCodeReturnFalse(string fileName)
         {
+            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
             var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
             foreach (var paramComponenet in resultParam)
@@ -239,6 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("    ")]
         public async void GivenInValidParamaterInput_ValidateCodeThrowsBadRequest(string body)
         {
+            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
             await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", body));
         }
 
@@ -255,6 +260,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme-plasma", "")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenValidCodeFromKnownValueSet_ThenTrueParameterIsReturned(string path, string system, string code, string display = null)
         {
+            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
             Parameters resultParam = await _client.ValidateCodeGETdAsync(path, system, code, display);
             foreach (var paramComponenet in resultParam)
             {
@@ -276,6 +282,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme", "")] // Code should be "acme-plasma" May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenInValidCodeorDisplayFromKnownValueSet_ThenFalseParameterIsReturned(string path, string system, string code, string display = null)
         {
+            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
             Parameters resultParam = await _client.ValidateCodeGETdAsync(path, system, code, display);
             foreach (var paramComponenet in resultParam)
             {
@@ -295,6 +302,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "", "")]
         public async void GivenInvalidRequestParams_ValidateCodeThrowsExcept(string path, string system, string code, string display = null)
         {
+            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
             await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodeGETdAsync(path, system, code, display));
         }
 

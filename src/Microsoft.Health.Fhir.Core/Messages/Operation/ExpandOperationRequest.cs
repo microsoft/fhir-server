@@ -11,11 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
     public class ExpandOperationRequest : IRequest<ExpandOperationResponse>, IRequest
     {
-        public ExpandOperationRequest(
-            Resource valueSet,
-            string canonicalURL = null,
-            int offset = 0,
-            int count = 0)
+        public ExpandOperationRequest(Resource valueSet,  string canonicalURL = null, int offset = 0, int count = 0)
         {
             ValueSet = valueSet;
             if (!string.IsNullOrEmpty(canonicalURL))

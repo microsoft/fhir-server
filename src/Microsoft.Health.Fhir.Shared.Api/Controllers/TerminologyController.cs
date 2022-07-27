@@ -150,11 +150,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ExpandWithId)]
         [AuditEventType(AuditEventSubType.Expand)]
-        public async Task<Resource> ExpandWithIdGET(
-            [FromRoute] string typeParameter,
-            [FromRoute] string idParameter,
-            [FromQuery] int offset = 0,
-            [FromQuery] int count = 0)
+        public async Task<Resource> ExpandWithIdGET([FromRoute] string typeParameter, [FromRoute] string idParameter, [FromQuery] int offset = 0, [FromQuery] int count = 0)
         {
             Resource resource = null;
             if (typeParameter != "ValueSet")

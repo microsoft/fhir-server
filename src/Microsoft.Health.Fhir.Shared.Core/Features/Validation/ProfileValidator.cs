@@ -13,7 +13,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public sealed class ProfileValidator : IProfileValidator // , IDisposable
+    public sealed class ProfileValidator : IProfileValidator
     {
         private readonly FallbackTerminologyService _ts = null;
         private readonly Validator _validator = null;
@@ -49,17 +49,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             return outcomeIssues;
         }
-
-#pragma warning disable CA1063 // Implement IDisposable Correctly
-        /* public void Dispose()
-#pragma warning restore CA1063 // Implement IDisposable Correctly
-        {
-            if (_client != null)
-            {
-                _client.Dispose();
-            }
-
-            GC.SuppressFinalize(this);
-        }*/
     }
 }
