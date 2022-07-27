@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 "StructureDefinition-us-core-birthsex", "StructureDefinition-us-core-ethnicity", "StructureDefinition-us-core-patient",
                 "StructureDefinition-us-core-race", "StructureDefinition-us-core-organization", "StructureDefinition-us-core-careplan",
+                "StructureDefinition-us-core-genderIdentity",
             };
             foreach (var name in sd)
             {
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var valueSets = new List<string>()
             {
                 "ValueSet-detailed-ethnicity", "ValueSet-detailed-race", "ValueSet-omb-ethnicity-category",
-                "ValueSet-omb-race-category", "ValueSet-us-core-birthsex", "ValueSet-us-core-narrative-status",
+                "ValueSet-omb-race-category", "ValueSet-birthsex", "ValueSet-us-core-narrative-status",
             };
             foreach (var name in valueSets)
             {

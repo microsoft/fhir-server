@@ -3,7 +3,7 @@
     "id": "us-core-narrative-status",
     "text": {
         "status": "generated",
-        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>Narrative Status</h2><div><p>This value set limits the text status for the resource narrative.</p>\n</div><p><b>Copyright Statement:</b> HL7</p><p>This value set includes codes from the following code systems:</p><ul><li>Include these codes as defined in <a href=\"http://hl7.org/fhir/STU3/codesystem-narrative-status.html\"><code>http://hl7.org/fhir/narrative-status</code></a><table class=\"none\"><tr><td style=\"white-space:nowrap\"><b>Code</b></td><td><b>Display</b></td></tr><tr><td><a href=\"http://hl7.org/fhir/STU3/codesystem-narrative-status.html#narrative-status-additional\">additional</a></td><td>additional</td><td>The contents of the narrative may contain additional information not found in the structured data. Note that there is no computable way to determine what the extra information is, other than by human inspection</td></tr><tr><td><a href=\"http://hl7.org/fhir/STU3/codesystem-narrative-status.html#narrative-status-generated\">generated</a></td><td>generated</td><td>The contents of the narrative are entirely generated from the structured data in the content.</td></tr></table></li></ul></div>"
+        "div": "<div>PlaceHolder</div>"
     },
     "url": "http://hl7.org/fhir/us/core/ValueSet/us-core-narrative-status",
     "version": "2.0.0",

@@ -1,6 +1,6 @@
 {
     "FhirServer": {
-        "Cors": { 
+        "Cors": {
             "Origins": ["https://localhost:6001"],
             "Methods": ["*"],
             "Headers": ["*"],
@@ -8,7 +8,8 @@
         },
         "Operations": {
             "Validate": {
-                "CacheDurationInSeconds": 0
+                "CacheDurationInSeconds": 14400,
+                "ExternalTerminologyServer": "http://hapi.fhir.org/baseR4"
             }
         }
     }
