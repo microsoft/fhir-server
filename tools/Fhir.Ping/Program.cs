@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Ping
 {
     public static class Program
     {
-        private static readonly HttpClient HttpClient = new HttpClient();
+        private static readonly HttpClient HttpClient = new();
 
         public static void Main(string[] args)
         {
@@ -16,8 +16,7 @@ namespace Microsoft.Health.Fhir.Ping
             Console.WriteLine($"Delay={delay} Uri={uri}");
             while (true)
             {
-                var response = HttpClient.GetAsync(new Uri(uri)).Result;
-                Console.WriteLine($"response.StatusCode={response.StatusCode}");
+                Console.WriteLine($"response.StatusCode={HttpClient.GetAsync(new Uri(uri)).Result.StatusCode}");
                 Thread.Sleep(delay);
             }
         }
