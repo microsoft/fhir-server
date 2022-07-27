@@ -49,7 +49,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 {
                     IProvideProfilesForValidation profilesResolver = service.GetRequiredService<IProvideProfilesForValidation>();
                     IOptions<ValidateOperationConfiguration> options = service.GetRequiredService<IOptions<ValidateOperationConfiguration>>();
-                    var resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.CacheDurationInSeconds), profilesResolver);
 
                     if (!string.IsNullOrEmpty(options.Value.ExternalTerminologyServer))
                     {
