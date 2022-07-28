@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -427,9 +426,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // When there are multiple instances of the fhir-server running, it could take some time
                 // for the search parameter/reindex updates to propogate to all instances. Hence we are
                 // adding some retries below to account for that delay.
+                const int maxRetryCount = 10;
                 int retryCount = 0;
                 bool success = true;
-                StringBuilder errors = new StringBuilder();
                 do
                 {
                     success = true;
@@ -448,15 +447,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         string error = $"Failed to validate bundle: {ex}";
 
-                        errors.AppendLine(error);
                         _output.WriteLine(error);
                         success = false;
                         await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
-                while (!success && retryCount < 3);
+                while (!success && retryCount < maxRetryCount);
 
-                Assert.True(success, $"There are bundle validation failures.: {errors.ToString()}");
+                Assert.True(success, $"There are bundle validation failures. {maxRetryCount} attempts reached. Check test logs.");
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
