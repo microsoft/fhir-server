@@ -107,16 +107,7 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            HttpRequestMessage message = null;
-
-            if (resource.Id != null)
-            {
-                  message = new HttpRequestMessage(HttpMethod.Put, uri + "/" + resource.Id);
-            }
-            else
-            {
-                  message = new HttpRequestMessage(HttpMethod.Post, uri);
-            }
+            using var message = new HttpRequestMessage(HttpMethod.Post, uri);
 
             message.Headers.Accept.Add(_mediaType);
             message.Content = CreateStringContent(resource);
@@ -133,7 +124,36 @@ namespace Microsoft.Health.Fhir.Client
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            message.Dispose();
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<T>(response);
+        }
+
+        public Task<FhirResponse<T>> CreatePutAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            return CreatePutAsync(resource.TypeName, resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
+        }
+
+        public async Task<FhirResponse<T>> CreatePutAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Put, uri + "/" + resource.Id);
+
+            message.Headers.Accept.Add(_mediaType);
+            message.Content = CreateStringContent(resource);
+
+            if (!string.IsNullOrEmpty(conditionalCreateCriteria))
+            {
+                message.Headers.TryAddWithoutValidation(IfNoneExistHeaderName, conditionalCreateCriteria);
+            }
+
+            if (!string.IsNullOrEmpty(provenanceHeader))
+            {
+                message.Headers.TryAddWithoutValidation(ProvenanceHeader, provenanceHeader);
+            }
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 

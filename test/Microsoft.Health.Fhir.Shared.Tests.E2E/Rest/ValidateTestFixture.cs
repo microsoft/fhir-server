@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             foreach (var name in sd)
             {
-                await TestFhirClient.CreateAsync(Samples.GetJsonSample<StructureDefinition>(name), $"name={name}");
+                await TestFhirClient.CreatePutAsync(Samples.GetJsonSample<StructureDefinition>(name), $"name={name}");
             }
 
             var valueSets = new List<string>()
@@ -39,13 +39,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             foreach (var name in valueSets)
             {
-                await TestFhirClient.CreateAsync(Samples.GetJsonSample<ValueSet>(name), $"name={name}");
+                await TestFhirClient.CreatePutAsync(Samples.GetJsonSample<ValueSet>(name), $"name={name}");
             }
 
             var codeSystem = new List<string>() { "CodeSystem-careplan-category", "CodeSystem-Example" };
             foreach (var name in codeSystem)
             {
-                await TestFhirClient.CreateAsync(Samples.GetJsonSample<CodeSystem>(name), $"name={name}");
+                await TestFhirClient.CreatePutAsync(Samples.GetJsonSample<CodeSystem>(name), $"name={name}");
             }
         }
     }
