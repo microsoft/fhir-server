@@ -1,0 +1,100 @@
+{
+    "resourceType": "Patient",
+    "id": "child-example-with-overflow",
+    "meta": {
+        "profile": [
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+        ]
+    },
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>id</b>: child-example</p><p><b>meta</b>: </p><p><b>identifier</b>: Medical Record Number: 1032704 (USUAL)</p><p><b>active</b>: true</p><p><b>name</b>: Child Example </p><p><b>telecom</b>: ph: 555-555-5555(HOME)</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 2016-01-15</p><p><b>address</b>: 49 Meadow St Mounds OK 74047 US </p></div>"
+    },
+    "extension": [
+        {
+            "extension": [
+                {
+                    "url": "ombCategory",
+                    "valueCoding": {
+                        "system": "urn:oid:2.16.840.1.113883.6.238",
+                        "code": "2028-9",
+                        "display": "Asian"
+                    }
+                },
+                {
+                    "url": "text",
+                    "valueString": "Asian"
+                }
+            ],
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race"
+        },
+        {
+            "extension": [
+                {
+                    "url": "ombCategory",
+                    "valueCoding": {
+                        "system": "urn:oid:2.16.840.1.113883.6.238",
+                        "code": "2186-5",
+                        "display": "Not Hispanic or Latino"
+                    }
+                },
+                {
+                    "url": "text",
+                    "valueString": "Not Hispanic or Latino"
+                }
+            ],
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity"
+        },
+        {
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
+            "valueCode": "M"
+        }
+    ],
+    "identifier": [
+        {
+            "use": "usual",
+            "type": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "MR",
+                        "display": "Medical Record Number"
+                    }
+                ],
+                "text": "Medical Record Number"
+            },
+            "system": "http://hospital.smarthealthit.org",
+            "value": "IDID567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456X"
+        }
+    ],
+    "active": true,
+    "name": [
+        {
+            "family": "ABCD567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A",
+            "given": [
+                "Child"
+            ]
+        }
+    ],
+    "telecom": [
+        {
+            "system": "phone",
+            "value": "555-555-5555",
+            "use": "home"
+        }
+    ],
+    "gender": "male",
+    "birthDate": "2016-01-15",
+    "address": [
+        {
+            "use": "home",
+            "line": [
+                "49 Meadow St"
+            ],
+            "city": "Mounds",
+            "state": "OK",
+            "postalCode": "74047",
+            "country": "US"
+        }
+    ]
+}

@@ -200,6 +200,15 @@ CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE (
     Text2         NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL);
 
+CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE (
+    Offset        INT            NOT NULL,
+    SearchParamId SMALLINT       NOT NULL,
+    SystemId1     INT            NULL,
+    Code1         VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
+    Text2         NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextOverflow2 NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL);
+
 CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE (
     Offset        INT             NOT NULL,
     SearchParamId SMALLINT        NOT NULL,
@@ -885,7 +894,8 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam (
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     SystemId1           INT            NULL,
-    Code1               VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code1               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
     Text2               NVARCHAR (256) COLLATE Latin1_General_CI_AI NOT NULL,
     TextOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_CI_AI NULL,
     IsHistory           BIT            NOT NULL
@@ -2996,7 +3006,7 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpsertResource_7
-@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0, @comparedVersion INT=NULL
+@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0, @comparedVersion INT=NULL
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -3292,12 +3302,13 @@ SELECT DISTINCT @resourceTypeId,
                 HighValue2,
                 0
 FROM   @tokenQuantityCompositeSearchParams;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 Text2,
                 TextOverflow2,
                 0

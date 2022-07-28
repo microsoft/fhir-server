@@ -100,7 +100,7 @@ CREATE PROCEDURE dbo.UpsertResource_7
     @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY,
     @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY,
     @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
-    @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
+    @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY,
     @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
     @isResourceChangeCaptureEnabled bit = 0,
     @comparedVersion int = NULL
@@ -417,12 +417,13 @@ SELECT DISTINCT @resourceTypeId,
                 HighValue2,
                 0
 FROM   @tokenQuantityCompositeSearchParams;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 Text2,
                 TextOverflow2,
                 0
