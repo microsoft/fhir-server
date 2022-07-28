@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         public const short ImportOrchestratorTypeId = 2;
 
-        private const int DefaultPollingFrequencyInSeconds = 60;
+        private const int DefaultPollingFrequencyInSeconds = 3;
         private const long DefaultResourceSizePerByte = 64;
 
         private readonly IMediator _mediator;

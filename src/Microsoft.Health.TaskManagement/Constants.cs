@@ -13,8 +13,8 @@ namespace Microsoft.Health.JobManagement
 
         public const short DefaultMaxRetryCount = 3;
 
-        public const int DefaultJobHeartbeatTimeoutThresholdInSeconds = 600;
+        public const int DefaultJobHeartbeatTimeoutThresholdInSeconds = 120;
 
-        public const int DefaultJobHeartbeatIntervalInSeconds = 60;
+        public const int DefaultJobHeartbeatIntervalInSeconds = 10;
     }
 }
