@@ -196,6 +196,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Must provide ValueSet id or ValueSet Url, but not both..
+        /// </summary>
+        public static string ExpandInvalidIdParamterXORUrl {
+            get {
+                return ResourceManager.GetString("ExpandInvalidIdParamterXORUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide ValueSet Parameter Component..
+        /// </summary>
+        public static string ExpandMissingValueSetParameterComponent {
+            get {
+                return ResourceManager.GetString("ExpandMissingValueSetParameterComponent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to If ValueSet ID is not provided, ValueSet URL must be specified. .
+        /// </summary>
+        public static string ExpandMissingValueSetURL {
+            get {
+                return ResourceManager.GetString("ExpandMissingValueSetURL", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed while running health check..
         /// </summary>
         public static string FailedHealthCheckMessage {
@@ -399,6 +426,24 @@ namespace Microsoft.Health.Fhir.Api {
         public static string LockedForInitialImportMode {
             get {
                 return ResourceManager.GetString("LockedForInitialImportMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide System and Code.
+        /// </summary>
+        public static string LookupInvalidMissingSystemOrCode {
+            get {
+                return ResourceManager.GetString("LookupInvalidMissingSystemOrCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide &quot;coding&quot; parameter component..
+        /// </summary>
+        public static string LookupMissingCodingComponent {
+            get {
+                return ResourceManager.GetString("LookupMissingCodingComponent", resourceCulture);
             }
         }
         
@@ -723,6 +768,42 @@ namespace Microsoft.Health.Fhir.Api {
         public static string UrlResourceIdMismatch {
             get {
                 return ResourceManager.GetString("UrlResourceIdMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter must provide a &quot;coding&quot; and ValueSet/CodeSystem parameter components..
+        /// </summary>
+        public static string ValidateCodeInvalidParemeters {
+            get {
+                return ResourceManager.GetString("ValidateCodeInvalidParemeters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to $validate-code can only be called on a CodeSystem or ValueSet..
+        /// </summary>
+        public static string ValidateCodeInvalidResourceType {
+            get {
+                return ResourceManager.GetString("ValidateCodeInvalidResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide System and Code..
+        /// </summary>
+        public static string ValidateCodeMissingSystemOrCode {
+            get {
+                return ResourceManager.GetString("ValidateCodeMissingSystemOrCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide coding parameter componenet.
+        /// </summary>
+        public static string ValidateCodeParameterMissingCoding {
+            get {
+                return ResourceManager.GetString("ValidateCodeParameterMissingCoding", resourceCulture);
             }
         }
         

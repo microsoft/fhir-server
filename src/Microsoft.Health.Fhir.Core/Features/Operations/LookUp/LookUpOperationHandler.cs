@@ -12,17 +12,11 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Terminology
 {
     public class LookUpOperationHandler : IRequestHandler<LookUpOperationRequest, LookUpOperationResponse>
     {
-        public static readonly OperationOutcomeIssue ValidationPassed = new OperationOutcomeIssue(
-              OperationOutcomeConstants.IssueSeverity.Information,
-              OperationOutcomeConstants.IssueType.Informational,
-              Core.Resources.ValidationPassed);
-
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ITerminologyOperator _terminologyOperator;
 

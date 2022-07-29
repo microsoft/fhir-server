@@ -47,11 +47,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ValidateCodeGET = ResourceType + "/" + IdRouteSegment + "/" + ValidateCode;
         public const string ValidateCodePOST = ResourceType + "/" + ValidateCode;
 
-        public const string LookUp = ResourceType + "/" + "$lookup";
+        public const string LookUp = "CodeSystem" + "/" + "$lookup";
 
         public const string Expand = "$expand";
-        public const string ExpandWithId = ResourceType + "/" + IdRouteSegment + "/" + Expand;
-        public const string ExpandGET = ResourceType + "/" + Expand;
+        public const string ExpandWithId = "ValueSet" + "/" + IdRouteSegment + "/" + Expand;
+        public const string ExpandWithoutId = "ValueSet" + "/" + Expand;
 
         public const string Reindex = "$reindex";
         public const string ReindexSingleResource = ResourceTypeById + "/" + Reindex;

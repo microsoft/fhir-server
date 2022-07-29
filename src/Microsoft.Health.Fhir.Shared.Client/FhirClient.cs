@@ -129,37 +129,6 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<T>(response);
         }
 
-        public Task<FhirResponse<T>> CreatePutAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
-            where T : Resource
-        {
-            return CreatePutAsync(resource.TypeName, resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
-        }
-
-        public async Task<FhirResponse<T>> CreatePutAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
-            where T : Resource
-        {
-            using var message = new HttpRequestMessage(HttpMethod.Put, uri + "/" + resource.Id);
-
-            message.Headers.Accept.Add(_mediaType);
-            message.Content = CreateStringContent(resource);
-
-            if (!string.IsNullOrEmpty(conditionalCreateCriteria))
-            {
-                message.Headers.TryAddWithoutValidation(IfNoneExistHeaderName, conditionalCreateCriteria);
-            }
-
-            if (!string.IsNullOrEmpty(provenanceHeader))
-            {
-                message.Headers.TryAddWithoutValidation(ProvenanceHeader, provenanceHeader);
-            }
-
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
-
-            await EnsureSuccessStatusCodeAsync(response);
-
-            return await CreateResponseAsync<T>(response);
-        }
-
         public Task<FhirResponse<T>> ReadAsync<T>(ResourceType resourceType, string resourceId, CancellationToken cancellationToken = default)
             where T : Resource
         {
@@ -583,79 +552,49 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<OperationOutcome>(response);
         }
 
-        public async Task<Parameters> ValidateCodeGETdAsync(string path, string system, string code, string display, CancellationToken cancellationToken = default)
+        public async Task<Parameters> ValidateCodeGETAsync(string path, string system, string code, string display, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}?system={system}&code={code}&display={display}");
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            return (Parameters)_deserialize(content);
+            return (Parameters)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
         public async Task<Parameters> ValidateCodePOSTdAsync(string path, string parameter, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, path);
             message.Content = new StringContent(parameter, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            return (Parameters)_deserialize(content);
+            return (Parameters)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
         public async Task<Parameters> LookUpGETdAsync(string path, string system, string code, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}?system={system}&code={code}");
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            return (Parameters)_deserialize(content);
+            return (Parameters)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
         public async Task<Parameters> LookUpPOSTdAsync(string path, string parameter, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, path);
             message.Content = new StringContent(parameter, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            return (Parameters)_deserialize(content);
+            return (Parameters)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
         public async Task<ValueSet> ExpandGETAsync(string path, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, path);
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            return (ValueSet)_deserialize(content);
+            return (ValueSet)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
         public async Task<ValueSet> ExpandPOSTAsync(string path, string parameter, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, path);
             message.Content = new StringContent(parameter, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
-
-            string content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            return (ValueSet)_deserialize(content);
+            return (ValueSet)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
         private StringContent CreateStringContent(Resource resource)
@@ -709,6 +648,15 @@ namespace Microsoft.Health.Fhir.Client
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<Parameters>(response);
+        }
+
+        private async Task<string> TerminologyOperationHelper(HttpRequestMessage message, CancellationToken cancellationToken)
+        {
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await response.Content.ReadAsStringAsync(cancellationToken);
         }
     }
 }

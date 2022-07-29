@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
             }
             catch (ArgumentNullException)
             {
-                throw new BadRequestException("Cannot hit terminology service endpoint, please check that endpoint is correct / exists.");
+                throw new BadRequestException(Core.Resources.CouldNotAccessTerminologyEndpoint);
             }
 
             _externalTerminoilogy = externalTSResolver;
@@ -46,6 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
             result = _externalTerminoilogy.Lookup(param, useGet: false);
 
             CheckResult(result, param, attempted, (param, attempted) => TryLookUp(param, attempted));
+
+            var test = _externalTerminoilogy.Endpoint.Endpoint;
 
             return result.Result;
         }
@@ -79,13 +81,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
         {
             Task<Parameters> result = null;
 
-            if (param.Parameter[1].Resource.TypeName == "ValueSet")
+            foreach (var paramComponent in param.Parameter)
             {
-                result = _externalTerminoilogy.ValueSetValidateCode(param, useGet: false);
-            }
-            else
-            {
-                result = _externalTerminoilogy.CodeSystemValidateCode(param, useGet: false);
+                if (string.Equals(paramComponent.Name, "valueSet", StringComparison.OrdinalIgnoreCase))
+                {
+                    result = _externalTerminoilogy.ValueSetValidateCode(param, useGet: false);
+                }
+                else if (string.Equals(paramComponent.Name, "codeSystem", StringComparison.OrdinalIgnoreCase))
+                {
+                    result = _externalTerminoilogy.CodeSystemValidateCode(param, useGet: false);
+                }
             }
 
             CheckResult(result, param, attempted, (param, attempted) => TryValidateCode(param, attempted));

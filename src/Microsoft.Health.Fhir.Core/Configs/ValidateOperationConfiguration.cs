@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int CacheDurationInSeconds { get; set; } = 14400;
 
         /// <summary>
-        /// Url indicating an external terminology service that can be used for Terminology Operations
+        /// Url indicating an external terminology service that can be used for terminology operations
         /// </summary>
         public string ExternalTerminologyServer { get; set; } = null;
 

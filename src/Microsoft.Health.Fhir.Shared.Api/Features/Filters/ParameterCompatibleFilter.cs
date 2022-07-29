@@ -14,14 +14,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     {
         protected ParameterCompatibleFilter(bool allowParametersResource)
         {
-            AllowPramaterResource = allowParametersResource;
+            AllowParametersResource = allowParametersResource;
         }
 
-        protected bool AllowPramaterResource { get; }
+        protected bool AllowParametersResource { get; }
 
         protected Resource ParseResource(Resource resource)
         {
-            if (AllowPramaterResource && resource.TypeName == KnownResourceTypes.Parameters)
+            if (AllowParametersResource && resource.TypeName == KnownResourceTypes.Parameters)
             {
                 if (((Parameters)resource).Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)) == null)
                 {

@@ -6,6 +6,7 @@
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
@@ -19,21 +20,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private const string Success = "All OK";
         private readonly TestFhirClient _client;
-        private readonly InProcTestFhirServer _fhirServer;
+        private readonly TestFhirServer _server;
 
         public TerminologyOperationTests(ValidateTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
-            _fhirServer = (InProcTestFhirServer)fixture.TestFhirServer;
+            _server = fixture.TestFhirServer;
         }
 
         // Many of these tests may fail as CodeSystem resource definition changed STU3 -> R4 and the TS is on R4
 
         // $lookup POST tests start
         [SkippableFact]
-        public async void GivenValidParamaterInputKnownCode_LookUpReturnTrue()
+        public async void GivenValidParamaterInput_WhenKnownCode_ThenReturnTrue()
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             var fhirSource = Samples.GetJson("Parameter-LookUp-Correct");
             Parameters resultParam = await _client.LookUpPOSTdAsync("CodeSystem/$lookup", fhirSource);
             foreach (var paramComponenet in resultParam)
@@ -48,9 +49,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableFact]
-        public async void GivenValidParamaterInputUnknownCode_LookUpThrowsException()
+        public async void GivenLookUpValidParamaterInput_WhenUnknownCode_ThenThrowsException()
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             var fhirSource = Samples.GetJson("Parameter-LookUp-Incorrect");
             await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTdAsync("CodeSystem/$lookup", fhirSource));
         }
@@ -59,9 +60,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("UIUC#1")]
         [InlineData("")]
         [InlineData("    ")]
-        public async void GivenInValidParamaterInput_LookUpThrowsBadRequest(string body)
+        public async void GivenLookUp_WhenInValidParamaterInput_ThenThrowsBadRequest(string body)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTdAsync("CodeSystem/lookup", body));
         }
 
@@ -71,9 +72,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "chol-mass")]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol")]
-        public async void GivenLookUpForKnownCode_LookUpReturnTrue(string path, string system, string code)
+        public async void GivenLookUp_WhenKnownCode_ThenpReturnTrue(string path, string system, string code)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             Parameters resultParam = await _client.LookUpGETdAsync(path, system, code);
             foreach (var paramComponenet in resultParam)
             {
@@ -89,18 +90,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "drosophola")]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "TAATA-box")]
-        public async void GivenLookUpForUnknownCode_ThenThrowException(string path, string system, string code)
+        public async void GivenLookUp_WhenUnknownCode_ThenThrowException(string path, string system, string code)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpGETdAsync(path, system, code));
         }
 
         [SkippableTheory]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "")]
         [InlineData("CodeSystem/$lookup", "", "drosophola")]
-        public async void GivenInvalidRequestParams_LookUpThrowsExcept(string path, string system, string code)
+        public async void GivenLookUp_WhenInvalidRequestParams_ThenThrowsExcept(string path, string system, string code)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpGETdAsync(path, system, code));
         }
 
@@ -110,8 +111,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("ValueSet/birthsex/$expand")]
         [InlineData("ValueSet/us-core-narrative-status/$expand")]
-        public async void GivenExpandOnValidValueSet_ExpandedValueSetReturned(string path)
+        public async void GivenExpand_WhenValidValueSet_ThenExpandedValueSetReturned(string path)
         {
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("expand"));
             ValueSet resultValueSet = await _client.ExpandGETAsync(path);
             Assert.True(resultValueSet.Expansion != null);
         }
@@ -119,9 +121,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("ValueSet/birthsex/$expand?count=0")]
         [InlineData("ValueSet/birthsex/$expand?offset=0")]
-        public async void GivenExpandOnValidValueSetEmptyParameters_ExpandedValueSetReturned(string path)
+        public async void GivenExpand_WhenValidValueSetEmptyParameters_ThenExpandedValueSetReturned(string path)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("expand"));
             ValueSet resultValueSet = await _client.ExpandGETAsync(path);
             Assert.True(resultValueSet.Expansion != null);
         }
@@ -130,9 +132,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/birthsex/$expand?offset=1", 1)]
         [InlineData("ValueSet/birthsex/$expand?offset=2", 2)]
         [InlineData("ValueSet/birthsex/$expand?offset=3", 3)]
-        public async void GivenExpandOnValidValueSetWithOffsetParameter_CorrectOffsetExpandedValueSetReturned(string path, int offset)
+        public async void GivenExpand_WhenValidValueSetWithOffsetParameter_ThenCorrectOffsetExpandedValueSetReturned(string path, int offset)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("expand"));
             int codeCount = 3;
 
             ValueSet resultValueSet = await _client.ExpandGETAsync(path);
@@ -143,9 +145,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/birthsex/$expand?count=1", 1)]
         [InlineData("ValueSet/birthsex/$expand?count=2", 2)]
         [InlineData("ValueSet/birthsex/$expand?count=3", 3)]
-        public async void GivenExpandOnValidValueSetWithCountParameter_CorrectCountExpandedValueSetReturned(string path, int count)
+        public async void GivenExpand_WhenValidValueSetWithCountParameter_ThenCorrectCountExpandedValueSetReturned(string path, int count)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("expand"));
             ValueSet resultValueSet = await _client.ExpandGETAsync(path);
             Assert.Equal(count, resultValueSet.Expansion.Contains.Count);
         }
@@ -155,18 +157,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         // $expand POST tests Start
 
         [SkippableFact]
-        public async void GivenValidParamaterInput_ReturnExpandedValueSet()
+        public async void GivenExpand_WhenValidParamaterInput_ThenReturnExpandedValueSet()
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("expand"));
             var fhirSource = Samples.GetJson("Parameter-Expand-Correct");
             ValueSet resultValueSet = await _client.ExpandPOSTAsync("ValueSet/$expand", fhirSource);
             Assert.True(resultValueSet.Expansion != null);
         }
 
         [SkippableFact] // $lookup on a code not in a code system throws...
-        public async void GivenValidParamaterInput_LookUpThrows()
+        public async void GivenExpand_WhenValidParamaterInput_ThenExpandThrows()
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("expand"));
             var fhirSource = Samples.GetJson("Parameter-Expand-Incorrect");
             await Assert.ThrowsAsync<FhirException>(async () => await _client.ExpandPOSTAsync("ValueSet/$expand", fhirSource));
         }

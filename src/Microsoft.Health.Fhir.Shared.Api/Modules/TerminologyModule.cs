@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 throw;
             }
 
+            // Force summaries to load
             zipSource.ListSummaries();
 
             Func<IServiceProvider, ExternalTerminologyService> externalTSResolver = (service) =>
@@ -47,7 +48,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 ExternalTerminologyService externalTerminologyService = null;
                 try
                 {
-                    IProvideProfilesForValidation profilesResolver = service.GetRequiredService<IProvideProfilesForValidation>();
                     IOptions<ValidateOperationConfiguration> options = service.GetRequiredService<IOptions<ValidateOperationConfiguration>>();
 
                     if (!string.IsNullOrEmpty(options.Value.ExternalTerminologyServer))

@@ -10,8 +10,10 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
@@ -25,13 +27,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private const string Success = "All OK";
         private readonly TestFhirClient _client;
-        private readonly InProcTestFhirServer _fhirServer;
+        private readonly TestFhirServer _server;
 
         public ValidateTests(ValidateTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
-            _fhirServer = (InProcTestFhirServer)fixture.TestFhirServer;
+            _server = fixture.TestFhirServer;
         }
+
+        public OperationsConfiguration Value => throw new NotImplementedException();
 
         [Theory]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
@@ -168,7 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsValid_ThenAnOkMessageIsReturned()
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate"));
             var fhirSource = Samples.GetJson("Profile-Patient-PassUsCore-Example");
 
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
@@ -180,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsNotValid_ThenAnErrorShouldBeReturned()
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate"));
             var fhirSource = Samples.GetJson("Profile-Patient-FailUsCore-Example");
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
             bool hasSeenCodeInvalid = false;
@@ -202,9 +206,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("Parameter-ValueSet-Validate-Code-Correct")]
         [InlineData("Parameter-CodeSystem-Validate-Code-Correct")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
-        public async void GivenValidParamaterInput_ValidateCodeReturnTrue(string fileName)
+        public async void GivenValidateCode_WhenValidParamaterInput_ThenValidateCodeReturnTrue(string fileName)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
             foreach (var paramComponenet in resultParam)
@@ -221,9 +225,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("Parameter-ValueSet-Validate-Code-Incorrect")]
         [InlineData("Parameter-CodeSystem-Validate-Code-Incorrect")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
-        public async void GivenValidParamaterInput_ValidateCodeReturnFalse(string fileName)
+        public async void GivenValidateCode_WhenValidParamaterInput_ThenValidateCodeReturnFalse(string fileName)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
             foreach (var paramComponenet in resultParam)
@@ -241,9 +245,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("notAjson")]
         [InlineData("")]
         [InlineData("    ")]
-        public async void GivenInValidParamaterInput_ValidateCodeThrowsBadRequest(string body)
+        public async void GivenValidateCode_WhenInValidParamaterInput_ThenValidateCodeThrowsBadRequest(string body)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", body));
         }
 
@@ -258,10 +262,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "additional")]
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol (mmol/L)")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme-plasma", "")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
-        public async void GivenValidCodeFromKnownValueSet_ThenTrueParameterIsReturned(string path, string system, string code, string display = null)
+        public async void GivenValidCode_WhenKnownValueSet_ThenTrueParameterIsReturned(string path, string system, string code, string display = null)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
-            Parameters resultParam = await _client.ValidateCodeGETdAsync(path, system, code, display);
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
+            Parameters resultParam = await _client.ValidateCodeGETAsync(path, system, code, display);
             foreach (var paramComponenet in resultParam)
             {
                 if (paramComponenet.Key == "result")
@@ -280,10 +284,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "Addition")] // Code should be "additional"
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol")] // Display should "SChol (mmol/L)" May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme", "")] // Code should be "acme-plasma" May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
-        public async void GivenInValidCodeorDisplayFromKnownValueSet_ThenFalseParameterIsReturned(string path, string system, string code, string display = null)
+        public async void GivenValidateCode_WhenInValidCodeOrDisplayFromKnownValueSet_ThenFalseParameterIsReturned(string path, string system, string code, string display = null)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
-            Parameters resultParam = await _client.ValidateCodeGETdAsync(path, system, code, display);
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
+            Parameters resultParam = await _client.ValidateCodeGETAsync(path, system, code, display);
             foreach (var paramComponenet in resultParam)
             {
                 if (paramComponenet.Key == "result")
@@ -300,20 +304,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "", "generated", "generated")]
         [InlineData("CodeSystem/example/$validate-code", "", "chol-mmol", "SChol (mmol/L)")]
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "", "")]
-        public async void GivenInvalidRequestParams_ValidateCodeThrowsExcept(string path, string system, string code, string display = null)
+        public async void GivenValidateCode_WhenInvalidRequestParams_ThenThrowsExcept(string path, string system, string code, string display = null)
         {
-            Skip.If(string.IsNullOrEmpty(_fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"]));
-            await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodeGETdAsync(path, system, code, display));
-        }
-
-        [SkippableFact]
-        public async void GivenNoExternalTerminologyEndpoint_ThrowBadRequestException()
-        {
-            string endpoint = _fhirServer.Configuration["FhirServer:Operations:Validate:ExternalTerminologyServer"];
-            if (string.IsNullOrEmpty(endpoint))
-            {
-                await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodeGETdAsync("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "F", "Female"));
-            }
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
+            await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodeGETAsync(path, system, code, display));
         }
 
         // Validate-Code Get Tests End

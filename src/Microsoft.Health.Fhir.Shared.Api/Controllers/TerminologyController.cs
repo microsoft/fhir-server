@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
@@ -41,28 +40,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ValidateCodeGET)]
+        [ServiceFilter(typeof(ValidateCodeParametersFilter))]
         [AuditEventType(AuditEventSubType.ValidateCode)]
         public async Task<Parameters> ValidateCodeGET([FromRoute] string typeParameter, [FromRoute] string idParameter, [FromQuery] string system, [FromQuery] string code, [FromQuery] string display = null)
         {
-            Resource resource = null;
-
-            if (!(string.Equals(typeParameter, "CodeSystem", StringComparison.OrdinalIgnoreCase) || string.Equals(typeParameter, "ValueSet", StringComparison.OrdinalIgnoreCase)))
-            {
-                throw new BadRequestException("$validate-code can only be called on a CodeSystem or Valueset");
-            }
-
             // Read resource from database.
             RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
-            resource = _resourceDeserializer.Deserialize(response).ToPoco();
+            Resource resource = _resourceDeserializer.Deserialize(response).ToPoco();
 
-            if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(system))
-            {
-                return await RunValidateCodeGETAsync(resource, idParameter, code?.Trim(' '), system?.Trim(' '), display);
-            }
-            else
-            {
-                throw new BadRequestException("Must provide System and Code");
-            }
+            return await RunValidateCodeGETAsync(resource, idParameter, code?.Trim(' '), system?.Trim(' '), display);
         }
 
         private async Task<Parameters> RunValidateCodeGETAsync(Resource resource, string idParameter, string code, string system, string display)
@@ -74,23 +60,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ValidateCodePOST)]
         [AuditEventType(AuditEventSubType.ValidateCode)]
+        [ServiceFilter(typeof(ValidateCodeParametersFilter))]
         public async Task<Parameters> ValidateCodePOST([FromBody] Parameters parameters)
         {
-            if (parameters.Parameter.Count != 2)
-            {
-                throw new BadRequestException("Parameter must provide a coding and ValueSet/CodeSystem parameter components");
-            }
-
-            if (!string.Equals(parameters.Parameter[0].Name, "coding", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BadRequestException("Must provide coding parameter componenet");
-            }
-
-            if (!(string.Equals(parameters.Parameter[1].Resource.TypeName, "CodeSystem", StringComparison.OrdinalIgnoreCase) || string.Equals(parameters.Parameter[1].Resource.TypeName, "ValueSet", StringComparison.OrdinalIgnoreCase)))
-            {
-                throw new BadRequestException("$validate-code can only be called on a CodeSystem or Valueset");
-            }
-
             return await RunValidateCodePOSTAsync(parameters);
         }
 
@@ -102,33 +74,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.LookUp)]
+        [ServiceFilter(typeof(LookupParametersFilter))]
         [AuditEventType(AuditEventSubType.LookUp)]
-        public async Task<Parameters> LookupCodeGET([FromRoute] string typeParameter, [FromQuery] string system, [FromQuery] string code)
+        public async Task<Parameters> LookupCodeGET([FromQuery] string system, [FromQuery] string code)
         {
-            if (!string.Equals(typeParameter, "CodeSystem", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BadRequestException("Resource type must be CodeSystem");
-            }
-
-            if (string.IsNullOrWhiteSpace(system) || string.IsNullOrWhiteSpace(code))
-            {
-                throw new BadRequestException("Must provide System and Code");
-            }
-
             return await RunLookUpCodeAsync(system.Trim(' '), code.Trim(' '));
         }
 
         [HttpPost]
         [Route(KnownRoutes.LookUp)]
+        [ServiceFilter(typeof(LookupParametersFilter))]
         [AuditEventType(AuditEventSubType.LookUp)]
-        public async Task<Parameters> LookupCodePOST([FromBody] Resource resource)
+        public async Task<Parameters> LookupCodePOST([FromBody] Parameters parameters)
         {
-            if (!string.Equals(((Parameters)resource).Parameter[0].Name, "coding", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BadRequestException("Must provide coding parameter componenet");
-            }
-
-            return await RunLookUpCodeAsync(string.Empty, string.Empty, (Parameters)resource);
+            return await RunLookUpCodeAsync(string.Empty, string.Empty, parameters);
         }
 
         private async Task<Parameters> RunLookUpCodeAsync(string system, string code, Parameters parameter = null)
@@ -146,59 +105,36 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return response.ParameterOutcome;
         }
 
-        // TODO: add DateTIme date to supported parameters
+        // TODO: Add DateTime date to supported parameters
         [HttpGet]
         [Route(KnownRoutes.ExpandWithId)]
+        [ServiceFilter(typeof(ExpandParametersFilter))]
         [AuditEventType(AuditEventSubType.Expand)]
-        public async Task<Resource> ExpandWithIdGET([FromRoute] string typeParameter, [FromRoute] string idParameter, [FromQuery] int offset = 0, [FromQuery] int count = 0)
+        public async Task<Resource> ExpandWithIdGET([FromRoute] string idParameter, [FromQuery] int offset = 0, [FromQuery] int count = 0)
         {
-            Resource resource = null;
-            if (typeParameter != "ValueSet")
-            {
-                throw new BadRequestException("$expand operation is only done on valuesets");
-            }
-
-            if (string.IsNullOrEmpty(idParameter))
-            {
-                throw new BadRequestException("Must provide Valueset ID");
-            }
-
             // Read resource from database.
-            RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
-            resource = _resourceDeserializer.Deserialize(response).ToPoco();
+            RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey("ValueSet", idParameter), HttpContext.RequestAborted);
+            Resource resource = _resourceDeserializer.Deserialize(response).ToPoco();
 
             return await ExpandAsync(resource, offset: offset, count: count);
         }
 
         [HttpGet]
-        [Route(KnownRoutes.ExpandGET)]
+        [Route(KnownRoutes.ExpandWithoutId)]
+        [ServiceFilter(typeof(ExpandParametersFilter))]
         [AuditEventType(AuditEventSubType.Expand)]
-        public async Task<Resource> ExpandGET([FromRoute] string typeParameter, [FromQuery] string url = null, [FromQuery] int offset = 0, [FromQuery] int count = 0)
+        public async Task<Resource> ExpandGET([FromQuery] string url, [FromQuery] int offset = 0, [FromQuery] int count = 0)
         {
-            if (typeParameter != "ValueSet")
-            {
-                throw new BadRequestException("$expand operation is only done on valuesets");
-            }
-
-            if (string.IsNullOrEmpty(url))
-            {
-                throw new BadRequestException("Request must provide valueset canonicalURL");
-            }
-
             return await ExpandAsync(url: url, offset: offset, count: count);
         }
 
         [HttpPost]
-        [Route(KnownRoutes.ExpandGET)]
+        [Route(KnownRoutes.ExpandWithoutId)]
+        [ServiceFilter(typeof(ExpandParametersFilter))]
         [AuditEventType(AuditEventSubType.Expand)]
-        public async Task<Resource> ExpandPOST([FromBody] Resource resource)
+        public async Task<Resource> ExpandPOST([FromBody] Parameters parameters)
         {
-            if (!string.Equals(((Parameters)resource).Parameter[0].Name, "valueSet", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BadRequestException("Must provide valueSet parameter componenet");
-            }
-
-            ExpandOperationResponse response = await _mediator.Send<ExpandOperationResponse>(new ExpandOperationRequest((Parameters)resource));
+            ExpandOperationResponse response = await _mediator.Send<ExpandOperationResponse>(new ExpandOperationRequest(parameters));
             return response.ValueSetOutcome;
         }
 

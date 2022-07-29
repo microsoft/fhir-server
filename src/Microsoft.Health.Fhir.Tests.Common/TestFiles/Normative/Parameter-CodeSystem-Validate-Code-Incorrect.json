@@ -10,7 +10,7 @@
             }
         },
         {
-            "name": "resource",
+            "name": "codeSystem",
             "resource": {
                 "resourceType" : "CodeSystem",
                 "id" : "example",
