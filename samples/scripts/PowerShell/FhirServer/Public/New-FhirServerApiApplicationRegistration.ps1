@@ -41,7 +41,7 @@ function New-FhirServerApiApplicationRegistration {
     
     # Get current AzureAd context
     try {
-        Get-AzureADCurrentSessionInfo -ErrorAction Stop | Out-Null
+        Get-MgContext -ErrorAction Stop | Out-Null
     } 
     catch {
         throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
@@ -66,11 +66,11 @@ function New-FhirServerApiApplicationRegistration {
     }
 
     # Create the App Registration
-    $apiAppReg = New-AzureADApplication -DisplayName $FhirServiceAudience -IdentifierUris $FhirServiceAudience -AppRoles $desiredAppRoles
+    $apiAppReg = New-MgApplication -DisplayName $FhirServiceAudience -IdentifierUris $FhirServiceAudience -AppRoles $desiredAppRoles
     New-AzureAdServicePrincipal -AppId $apiAppReg.AppId | Out-Null
 
-    $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
-    $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
+    $aadEndpoint = (Get-MgContext).Environment.Endpoints["ActiveDirectory"]
+    $aadTenantId = (Get-MgContext).Tenant.Id.ToString()
 
     #Return Object
     @{
