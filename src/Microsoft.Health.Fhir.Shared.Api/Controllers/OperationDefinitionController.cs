@@ -120,6 +120,38 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.PurgeHistory);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.ValidateDefinition, Name = RouteNames.ValidateDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> ValidateOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.Validate);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.ValidateCodeDefinition, Name = RouteNames.ValidateCodeDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> ValidateCodeOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.ValidateCode);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.LookUpDefinition, Name = RouteNames.LookUpDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> LookupOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.Lookup);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.ExpandDefinition, Name = RouteNames.ExpandDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> ExpandOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.Expand);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -152,6 +184,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 case OperationsConstants.MemberMatch:
                 case OperationsConstants.PurgeHistory:
                     operationEnabled = true;
+                    break;
+                case OperationsConstants.Validate:
+                    operationEnabled = _operationConfiguration.Terminology.Validate.Enabled;
+                    break;
+                case OperationsConstants.ValidateCode:
+                    operationEnabled = _operationConfiguration.Terminology.ValidateCodeEnabled;
+                    break;
+                case OperationsConstants.Lookup:
+                    operationEnabled = _operationConfiguration.Terminology.LookupEnabled;
+                    break;
+                case OperationsConstants.Expand:
+                    operationEnabled = _operationConfiguration.Terminology.ExpandEnabled;
                     break;
                 default:
                     break;

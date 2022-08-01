@@ -1,10 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <None Remove="Data\OperationDefinition\expand.json" />
+    <None Remove="Data\OperationDefinition\lookup.json" />
     <None Remove="Data\OperationDefinition\member-match.json" />
+    <None Remove="Data\OperationDefinition\validate-code.json" />
+    <None Remove="Data\OperationDefinition\Validate.json" />
     <None Remove="Features\Security\roles.schema.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\OperationDefinition\convert-data.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\expand.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\validate-code.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\lookup.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\validate.json" />
     <EmbeddedResource Include="Data\OperationDefinition\member-match.json" />
     <EmbeddedResource Include="Data\OperationDefinition\purge-history.json" />
     <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />

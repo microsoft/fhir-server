@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Extensions
         {
             EnsureArg.IsNotNull(element, nameof(element));
 
-            return element.Predicate($"CapabilityStatement.rest.operation.contains({operation})");
+            return element.Predicate($"CapabilityStatement.rest.operation.where(name = '{operation}').exists()");
         }
     }
 }

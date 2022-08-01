@@ -64,14 +64,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddAnonymizedExportDetails);
             }
 
-            if (string.IsNullOrEmpty(_operationConfiguration.Validate.ExternalTerminologyServer))
-            {
-                AddTerminologyOperationsHelper(builder);
-            }
-
-            if (string.IsNullOrEmpty(_operationConfiguration.Validate.ProfileValidationTerminologyServer))
+            if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.Validate.ProfileValidationTerminologyServer) && _operationConfiguration.Terminology.Validate.Enabled)
             {
                 builder.Apply(AddValidateDetails);
+            }
+
+            if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.ExternalTerminologyServer) && _operationConfiguration.Terminology.ValidateCodeEnabled)
+            {
+                builder.Apply(AddValidateCodeDetails);
+            }
+
+            if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.ExternalTerminologyServer) && _operationConfiguration.Terminology.LookupEnabled)
+            {
+                builder.Apply(AddLookupDetails);
+            }
+
+            if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.ExternalTerminologyServer) && _operationConfiguration.Terminology.ExpandEnabled)
+            {
+                builder.Apply(AddExpandDetails);
             }
 
             builder.Apply(AddMemberMatchDetails);
@@ -83,9 +93,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             builder.Apply(AddExportDetails);
         }
 
-        private void AddTerminologyOperationsHelper(ICapabilityStatementBuilder builder)
+        private void AddValidateCodeDetailsHelper(ICapabilityStatementBuilder builder)
         {
-            builder.Apply(AddExportDetails);
+            builder.Apply(AddValidateCodeDetails);
+        }
+
+        private void AddLookupDetailsHelper(ICapabilityStatementBuilder builder)
+        {
+            builder.Apply(AddLookupDetails);
+        }
+
+        private void AddExpandDetailsHelper(ICapabilityStatementBuilder builder)
+        {
+            builder.Apply(AddExpandDetails);
         }
 
         public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
@@ -95,16 +115,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.GroupExport);
         }
 
-        public void AddTerminologyDetails(ListedCapabilityStatement capabilityStatement)
-        {
-            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ValidateCode);
-            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Expand);
-            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Lookup);
-        }
-
         public void AddValidateDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Validate);
+        }
+
+        public void AddValidateCodeDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ValidateCode);
+        }
+
+        public void AddLookupDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Lookup);
+        }
+
+        public void AddExpandDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Expand);
         }
 
         public static void AddPatientEverythingDetails(ListedCapabilityStatement capabilityStatement)

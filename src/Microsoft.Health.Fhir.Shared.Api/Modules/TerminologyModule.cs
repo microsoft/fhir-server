@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 ExternalTerminologyService externalTerminologyService = null;
                 try
                 {
-                    IOptions<ValidateOperationConfiguration> options = service.GetRequiredService<IOptions<ValidateOperationConfiguration>>();
+                    IOptions<TerminologyOperationConfiguration> options = service.GetRequiredService<IOptions<TerminologyOperationConfiguration>>();
 
                     if (!string.IsNullOrEmpty(options.Value.ExternalTerminologyServer))
                     {
@@ -60,10 +60,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
                             PreferredReturn = Prefer.ReturnRepresentation,
                         };
 
-                        if (!string.IsNullOrEmpty(options.Value.ApiKey))
+                        if (!string.IsNullOrEmpty(options.Value.Validate.ApiKey))
                         {
                             var handler = new AuthorizationMessageHandler();
-                            string encodedKey = Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes("apikey" + ":" + options.Value.ApiKey));
+                            string encodedKey = Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes("apikey" + ":" + options.Value.Validate.ApiKey));
                             handler.Authorization = new AuthenticationHeaderValue("Basic", encodedKey);
                             client = new FhirClient(options.Value.ExternalTerminologyServer, settings, handler);
                         }
@@ -91,10 +91,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 try
                 {
                     IProvideProfilesForValidation profilesResolver = service.GetRequiredService<IProvideProfilesForValidation>();
-                    IOptions<ValidateOperationConfiguration> options = service.GetRequiredService<IOptions<ValidateOperationConfiguration>>();
-                    var resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.CacheDurationInSeconds), profilesResolver);
+                    IOptions<TerminologyOperationConfiguration> options = service.GetRequiredService<IOptions<TerminologyOperationConfiguration>>();
+                    var resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.Validate.CacheDurationInSeconds), profilesResolver);
 
-                    if (!string.IsNullOrEmpty(options.Value.ProfileValidationTerminologyServer))
+                    if (!string.IsNullOrEmpty(options.Value.Validate.ProfileValidationTerminologyServer))
                     {
                         var settings = new FhirClientSettings
                         {
@@ -104,16 +104,16 @@ namespace Microsoft.Health.Fhir.Api.Modules
                             PreferredReturn = Prefer.ReturnRepresentation,
                         };
 
-                        if (!string.IsNullOrEmpty(options.Value.ApiKey))
+                        if (!string.IsNullOrEmpty(options.Value.Validate.ApiKey))
                         {
                             var handler = new AuthorizationMessageHandler();
-                            string encodedKey = Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes("apikey" + ":" + options.Value.ApiKey));
+                            string encodedKey = Convert.ToBase64String(ASCIIEncoding.ASCII.GetBytes("apikey" + ":" + options.Value.Validate.ApiKey));
                             handler.Authorization = new AuthenticationHeaderValue("Basic", encodedKey);
-                            client = new FhirClient(options.Value.ProfileValidationTerminologyServer, settings, handler);
+                            client = new FhirClient(options.Value.Validate.ProfileValidationTerminologyServer, settings, handler);
                         }
                         else
                         {
-                            client = new FhirClient(options.Value.ProfileValidationTerminologyServer, settings);
+                            client = new FhirClient(options.Value.Validate.ProfileValidationTerminologyServer, settings);
                         }
 
                         externalTerminologyService = new ExternalTerminologyService(client);

@@ -62,5 +62,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string MemberMatchOperationDefinition = "MemberMatchOperationDefinition";
 
         internal const string PurgeHistoryDefinition = "PurgeHistoryDefinition";
+
+        internal const string ValidateDefinition = "ValidateDefinition";
+
+        internal const string ValidateCodeDefinition = "ValidateCodeDefinition";
+
+        internal const string LookUpDefinition = "LookUpDefinition";
+
+        internal const string ExpandDefinition = "ExpandDefinition";
     }
 }

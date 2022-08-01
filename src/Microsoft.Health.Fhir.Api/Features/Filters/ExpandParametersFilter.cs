@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            bool typeParameterExists = context.ActionArguments.TryGetValue("typeParameter", out var typeParameter);
             context.ActionArguments.TryGetValue("parameters", out var parameters);
             context.ActionArguments.TryGetValue("idParameter", out var idParameter);
             context.ActionArguments.TryGetValue("url", out var url);

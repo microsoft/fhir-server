@@ -8,14 +8,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class ValidateOperationConfiguration
     {
         /// <summary>
+        /// Is validate operation enabled?
+        /// </summary>
+        public bool Enabled { get; set; } = false;
+
+        /// <summary>
         /// For how long we cache profile in memory.
         /// </summary>
         public int CacheDurationInSeconds { get; set; } = 14400;
-
-        /// <summary>
-        /// Url indicating an external terminology service that can be used for terminology operations
-        /// </summary>
-        public string ExternalTerminologyServer { get; set; } = null;
 
         /// <summary>
         /// Url indicating an external terminology service that can be used for validation purposes

@@ -47,8 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
 
             CheckResult(result, param, attempted, (param, attempted) => TryLookUp(param, attempted));
 
-            var test = _externalTerminoilogy.Endpoint.Endpoint;
-
             return result.Result;
         }
 
