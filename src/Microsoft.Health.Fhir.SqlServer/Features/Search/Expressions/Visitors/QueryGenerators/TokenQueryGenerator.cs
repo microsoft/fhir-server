@@ -52,16 +52,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (expression.Value.Length <= VLatest.TokenSearchParam.Code.Metadata.MaxLength)
                     {
                         context.StringBuilder.Append("(");
-                        AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
-                        context.StringBuilder.Append(" IS NULL AND ");
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
-                        context.StringBuilder.Append(")");
+                        context.StringBuilder.Append(" AND ");
+                        AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
+                        context.StringBuilder.Append(" IS NULL)");
                     }
                     else
                     {
                         context.StringBuilder.Append("(");
-                        AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
-                        context.StringBuilder.Append(" IS NOT NULL AND ");
+                        int substringLength;
+                        checked
+                        {
+                            substringLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength; // Throw overflow if code max lenght is ever too big to fit into int.
+                        }
+
+                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..substringLength]);
+                        context.StringBuilder.Append(" AND ");
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value);
                         context.StringBuilder.Append(")");
                     }
