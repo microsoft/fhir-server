@@ -9,10 +9,14 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.Core.Models;
@@ -29,13 +33,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly ResourceDeserializer _resourceDeserializer;
+        private readonly IOptions<OperationsConfiguration> _operationsConfig;
 
-        public TerminologyController(IMediator mediator, ResourceDeserializer resourceDeserializer)
+        public TerminologyController(IMediator mediator, ResourceDeserializer resourceDeserializer, IOptions<OperationsConfiguration> operationsConfig)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             _mediator = mediator;
             _resourceDeserializer = resourceDeserializer;
+            _operationsConfig = operationsConfig;
         }
 
         [HttpGet]
@@ -44,6 +50,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.ValidateCode)]
         public async Task<Parameters> ValidateCodeGET([FromRoute] string typeParameter, [FromRoute] string idParameter, [FromQuery] string system, [FromQuery] string code, [FromQuery] string display = null)
         {
+            CheckValidateCodeIsEnabled();
+
             // Read resource from database.
             RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
             Resource resource = _resourceDeserializer.Deserialize(response).ToPoco();
@@ -63,6 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(ValidateCodeParametersFilter))]
         public async Task<Parameters> ValidateCodePOST([FromBody] Parameters parameters)
         {
+            CheckValidateCodeIsEnabled();
             return await RunValidateCodePOSTAsync(parameters);
         }
 
@@ -78,6 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.LookUp)]
         public async Task<Parameters> LookupCodeGET([FromQuery] string system, [FromQuery] string code)
         {
+            CheckLookUpIsEnabled();
             return await RunLookUpCodeAsync(system.Trim(' '), code.Trim(' '));
         }
 
@@ -87,11 +97,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.LookUp)]
         public async Task<Parameters> LookupCodePOST([FromBody] Parameters parameters)
         {
+            CheckLookUpIsEnabled();
             return await RunLookUpCodeAsync(string.Empty, string.Empty, parameters);
         }
 
         private async Task<Parameters> RunLookUpCodeAsync(string system, string code, Parameters parameter = null)
         {
+            CheckExpandIsEnabled();
             LookUpOperationResponse response = null;
             if (parameter != null)
             {
@@ -112,6 +124,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Expand)]
         public async Task<Resource> ExpandWithIdGET([FromRoute] string idParameter, [FromQuery] int offset = 0, [FromQuery] int count = 0)
         {
+            CheckExpandIsEnabled();
+
             // Read resource from database.
             RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey("ValueSet", idParameter), HttpContext.RequestAborted);
             Resource resource = _resourceDeserializer.Deserialize(response).ToPoco();
@@ -125,6 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Expand)]
         public async Task<Resource> ExpandGET([FromQuery] string url, [FromQuery] int offset = 0, [FromQuery] int count = 0)
         {
+            CheckExpandIsEnabled();
             return await ExpandAsync(url: url, offset: offset, count: count);
         }
 
@@ -134,6 +149,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Expand)]
         public async Task<Resource> ExpandPOST([FromBody] Parameters parameters)
         {
+            CheckExpandIsEnabled();
             ExpandOperationResponse response = await _mediator.Send<ExpandOperationResponse>(new ExpandOperationRequest(parameters));
             return response.ValueSetOutcome;
         }
@@ -142,6 +158,30 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ExpandOperationResponse response = await _mediator.Send<ExpandOperationResponse>(new ExpandOperationRequest(valueSet, canonicalURL: url, offset: offset, count: count));
             return response.ValueSetOutcome;
+        }
+
+        private void CheckValidateCodeIsEnabled()
+        {
+            if (!_operationsConfig.Value.Terminology.ValidateCodeEnabled)
+            {
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.ValidateCode));
+            }
+        }
+
+        private void CheckLookUpIsEnabled()
+        {
+            if (!_operationsConfig.Value.Terminology.LookupEnabled)
+            {
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Lookup));
+            }
+        }
+
+        private void CheckExpandIsEnabled()
+        {
+            if (!_operationsConfig.Value.Terminology.ExpandEnabled)
+            {
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Expand));
+            }
         }
     }
 }

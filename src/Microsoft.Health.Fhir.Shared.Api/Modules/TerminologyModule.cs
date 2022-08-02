@@ -133,6 +133,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             Func<IServiceProvider, Validator> validatorResolver = service =>
             {
+                try
+                {
                 IProvideProfilesForValidation profilesResolver = service.GetRequiredService<IProvideProfilesForValidation>();
                 IOptions<ValidateOperationConfiguration> options = service.GetRequiredService<IOptions<ValidateOperationConfiguration>>();
                 var resolver = new MultiResolver(new CachedResolver(zipSource, options.Value.CacheDurationInSeconds), profilesResolver);
@@ -147,6 +149,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 };
 
                 return new Validator(ctx);
+                }
+                catch (Exception ex)
+                {
+                    terminologyLogger.LogCritical(ex, "Failed to create Validator Resolver");
+                    throw;
+                }
             };
 
             services.AddSingleton<FallbackTerminologyService>(tsResolver);

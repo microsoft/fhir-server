@@ -9,9 +9,6 @@
     <None Include="..\..\testauthenvironment.json" Link="testauthenvironment.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\configuration\*.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
@@ -36,6 +33,9 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.R5.Web\Microsoft.Health.Fhir.R5.Web.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <None Update="testconfiguration.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

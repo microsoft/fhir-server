@@ -1,0 +1,23 @@
+﻿{
+    "FhirServer": {
+        "Cors": {
+            "Origins": [ "https://localhost:6001" ],
+            "Methods": [ "*" ],
+            "Headers": [ "*" ],
+            "MaxAge": 1440
+        },
+        "Operations": {
+            "Terminology": {
+                "ExternalTerminologyServer": "http://tx.fhir.org/stu3",
+                "Validate": {
+                    "Enabled": false,
+                    "CacheDurationInSeconds": 14400,
+                    "ProfileValidationTerminologyServer": "http://hapi.fhir.org/stu3"
+                },
+                "ValidateCodeEnabled": false,
+                "LookupEnabled": false,
+                "ExpandEnabled": false
+            }
+        }
+    }
+}
