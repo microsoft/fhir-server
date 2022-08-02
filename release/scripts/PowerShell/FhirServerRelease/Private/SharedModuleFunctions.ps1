@@ -23,7 +23,7 @@ function Get-AzureAdApplicationByDisplayName {
         [string]$DisplayName
     )
 
-    Get-AzureAdApplication -Filter "DisplayName eq '$DisplayName'"
+    Get-MgApplication -Filter "DisplayName eq '$DisplayName'"
 }
 
 function Get-AzureAdApplicationByIdentifierUri {
@@ -33,7 +33,7 @@ function Get-AzureAdApplicationByIdentifierUri {
         [string]$FhirServiceAudience
     )
 
-    return Get-AzureAdApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
+    return Get-MgApplication -Filter "identifierUris/any(uri:uri eq '$FhirServiceAudience')"
 }
 
 function Get-AzureAdServicePrincipalByAppId {
@@ -43,7 +43,7 @@ function Get-AzureAdServicePrincipalByAppId {
         [string]$AppId
     )
 
-    return Get-AzureAdServicePrincipal -Filter "appId eq '$AppId'"
+    return Get-MgServicePrincipal -Filter "appId eq '$AppId'"
 }
 
 function Get-ServiceAudience {
@@ -99,8 +99,8 @@ function Get-UserUpn {
 }
 
 function Get-AzureADAuthorityUri {
-    $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
-    $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
+    $aadEndpoint = (Get-MgContext).Environment.Endpoints["ActiveDirectory"]
+    $aadTenantId = (Get-MgContext).Tenant.Id.ToString()
     "$aadEndpoint$aadTenantId"
 }
 
