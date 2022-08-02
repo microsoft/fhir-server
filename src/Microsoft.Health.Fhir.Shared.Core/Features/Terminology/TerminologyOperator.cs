@@ -152,6 +152,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
                     if (!attempted)
                     {
                         terminologyOperation(param, true);
+                        return;
                     }
                 }
 

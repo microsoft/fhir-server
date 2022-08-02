@@ -7,10 +7,16 @@
             "MaxAge": 1440 
         },
         "Operations": {
-            "Validate": {
-                "CacheDurationInSeconds": 14400,
+            "Terminology": {
                 "ExternalTerminologyServer": "http://tx.fhir.org/r4",
-                "ProfileValidationTerminologyServer": "http://hapi.fhir.org/baseR4"
+                "Validate": {
+                    "Enabled": true,
+                    "CacheDurationInSeconds": 14400,
+                    "ProfileValidationTerminologyServer": "http://hapi.fhir.org/baseR4"
+                },
+                "ValidateCodeEnabled": true,
+                "LookupEnabled": true,
+                "ExpandEnabled": true
             }
         }
     }
