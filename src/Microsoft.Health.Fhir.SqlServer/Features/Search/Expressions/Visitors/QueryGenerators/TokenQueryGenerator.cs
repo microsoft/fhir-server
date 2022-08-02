@@ -47,24 +47,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     return context;
 
                 case FieldName.TokenCode:
-                    /*context.StringBuilder.Append("(");
-                    context.StringBuilder.Append("(CodeOverflow IS NULL AND ");
-                    VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
-                    context.StringBuilder.Append(")");
-                    context.StringBuilder.Append(" OR ");
-                    context.StringBuilder.Append("(CodeOverflow IS NOT NULL AND ");
-                    VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value);
-                    context.StringBuilder.Append(")");
-                    context.StringBuilder.Append(")");*/
+                    // TODO: LegacyStringOverflowRewriter.Instance
+
                     if (expression.Value.Length <= VLatest.TokenSearchParam.Code.Metadata.MaxLength)
                     {
-                        context.StringBuilder.Append("(CodeOverflow IS NULL AND ");
+                        context.StringBuilder.Append("(");
+                        AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
+                        context.StringBuilder.Append(" IS NULL AND ");
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
                         context.StringBuilder.Append(")");
                     }
                     else
                     {
-                        context.StringBuilder.Append("(CodeOverflow IS NOT NULL AND ");
+                        context.StringBuilder.Append("(");
+                        AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
+                        context.StringBuilder.Append(" IS NOT NULL AND ");
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value);
                         context.StringBuilder.Append(")");
                     }
