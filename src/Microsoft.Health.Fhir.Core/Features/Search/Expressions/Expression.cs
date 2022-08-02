@@ -239,6 +239,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
+        /// Creates a <see cref="UnionExpression"/> that represents the union of multiple operations over <paramref name="expressions"/>.
+        /// </summary>
+        /// <param name="unionOperator">The union operator.</param>
+        /// <param name="expressions">The expressions.</param>
+        /// <returns>A <see cref="UnionExpression"/> with a set of expressions which results must be kept together.</returns>
+        public static UnionExpression Union(UnionOperator unionOperator, IReadOnlyList<Expression> expressions)
+        {
+            return new UnionExpression(unionOperator, expressions);
+        }
+
+        /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents starts with operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>

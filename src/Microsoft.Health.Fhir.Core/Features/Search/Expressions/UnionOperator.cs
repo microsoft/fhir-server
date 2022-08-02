@@ -3,12 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
-    public interface ICosmosExpressionRewriter : IExpressionVisitorWithInitialContext<object, Expression>
+    /// <summary>
+    /// Represents the union operator.
+    /// </summary>
+    public enum UnionOperator
     {
-        int Order { get; }
+        All = 0,
     }
 }

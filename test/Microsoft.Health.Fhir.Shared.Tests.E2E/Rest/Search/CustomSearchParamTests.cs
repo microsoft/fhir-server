@@ -426,6 +426,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // When there are multiple instances of the fhir-server running, it could take some time
                 // for the search parameter/reindex updates to propogate to all instances. Hence we are
                 // adding some retries below to account for that delay.
+                const int maxRetryCount = 10;
                 int retryCount = 0;
                 bool success = true;
                 do
@@ -444,14 +445,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception ex)
                     {
-                        _output.WriteLine($"Failed to validate bundle: {ex}");
+                        string error = $"Failed to validate bundle: {ex}";
+
+                        _output.WriteLine(error);
                         success = false;
                         await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
-                while (!success && retryCount < 3);
+                while (!success && retryCount < maxRetryCount);
 
-                Assert.True(success);
+                Assert.True(success, $"There are bundle validation failures. {maxRetryCount} attempts reached. Check test logs.");
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {

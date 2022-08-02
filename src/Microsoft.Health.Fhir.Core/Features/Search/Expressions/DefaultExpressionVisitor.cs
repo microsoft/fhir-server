@@ -25,22 +25,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public virtual TOutput VisitMultiary(MultiaryExpression expression, TContext context)
         {
-            TOutput result = default;
-            for (var i = 0; i < expression.Expressions.Count; i++)
-            {
-                var operand = expression.Expressions[i];
-                TOutput currentResult = operand.AcceptVisitor(this, context);
-                if (i == 0)
-                {
-                    result = currentResult;
-                }
-                else
-                {
-                    result = _outputAggregator(result, currentResult);
-                }
-            }
+            return VisitExpressionsContainer(expression, context);
+        }
 
-            return result;
+        public virtual TOutput VisitUnion(UnionExpression expression, TContext context)
+        {
+            return VisitExpressionsContainer(expression, context);
         }
 
         public virtual TOutput VisitNotExpression(NotExpression expression, TContext context) => expression.Expression.AcceptVisitor(this, context);
@@ -64,5 +54,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public virtual TOutput VisitSortParameter(SortExpression expression, TContext context) => default;
 
         public virtual TOutput VisitIn<T>(InExpression<T> expression, TContext context) => default;
+
+        private TOutput VisitExpressionsContainer(IExpressionsContainer expression, TContext context)
+        {
+            TOutput result = default;
+            for (var i = 0; i < expression.Expressions.Count; i++)
+            {
+                var operand = expression.Expressions[i];
+                TOutput currentResult = operand.AcceptVisitor(this, context);
+                if (i == 0)
+                {
+                    result = currentResult;
+                }
+                else
+                {
+                    result = _outputAggregator(result, currentResult);
+                }
+            }
+
+            return result;
+        }
     }
 }
