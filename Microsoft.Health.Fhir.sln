@@ -174,7 +174,7 @@ Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Microsoft.Health.Fhir.SqlSe
 EndProject
 Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Microsoft.Health.Fhir.SqlServer.Database.Distributed", "src\Microsoft.Health.Fhir.SqlServer.Database.Distributed\Microsoft.Health.Fhir.SqlServer.Database.Distributed.sqlproj", "{0DA0CD13-654C-4847-BD92-8B2248AF5528}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fhir.Ping", "tools\Fhir.Ping\Fhir.Ping.csproj", "{8D2AA626-9AFA-4DC2-B7C1-7FD9A1A212EA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fhir.Ping", "tools\Fhir.Ping\Fhir.Ping.csproj", "{8D2AA626-9AFA-4DC2-B7C1-7FD9A1A212EA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
