@@ -45,16 +45,16 @@ function Remove-AadTestAuthEnvironment {
 
     if ($application) {
         Write-Host "Removing API application $fhirServiceAudience"
-        Remove-MgApplication -ObjectId $application.ObjectId | Out-Null
+        Remove-AzureAdApplication -ObjectId $application.ObjectId | Out-Null
     }
 
     foreach ($user in $testAuthEnvironment.Users) {
         $upn = Get-UserUpn -EnvironmentName $EnvironmentName -UserId $user.Id -TenantDomain $tenantInfo.TenantDomain
-        $aadUser = Get-MgUser -Filter "userPrincipalName eq '$upn'"
+        $aadUser = Get-AzureAdUser -Filter "userPrincipalName eq '$upn'"
 
         if ($aadUser) {
             Write-Host "Removing user $upn"
-            Remove-MgUser -ObjectId $aadUser.Objectid | Out-Null
+            Remove-AzureAdUser -ObjectId $aadUser.Objectid | Out-Null
         }
     }
 
@@ -64,7 +64,7 @@ function Remove-AadTestAuthEnvironment {
         
         if ($aadClientApplication) {
             Write-Host "Removing application $displayName"
-            Remove-MgApplication -ObjectId $aadClientApplication.ObjectId | Out-Null
+            Remove-AzureAdApplication -ObjectId $aadClientApplication.ObjectId | Out-Null
         }
     }
 }
