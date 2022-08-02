@@ -12,8 +12,8 @@ steps:
     azurePowerShellVersion: latestVersion
     ScriptType: inlineScript
     Inline: |
-      Install-Module -Name Microsoft.Graph.Authentication -Force -Verbose -Scope CurrentUser
-      $module = Get-Module -Name Microsoft.Graph.Authentication
+      Install-Module -Name Microsoft.Graph -Force -Verbose -Scope CurrentUser
+      $module = Get-Module -Name Microsoft.Graph
       Write-Host $module.version
 
       $tenantId = "$(tenant-id)"
