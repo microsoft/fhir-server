@@ -45,7 +45,7 @@ function Add-AadTestAuthEnvironment {
         $tenantInfo = Get-AzureADCurrentSessionInfo -ErrorAction Stop
     }
     catch {
-        throw "Please log in to Microsoft Graph with Connect-MgGraph cmdlet before proceeding"
+        throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
     }
 
     # Get current Az context
