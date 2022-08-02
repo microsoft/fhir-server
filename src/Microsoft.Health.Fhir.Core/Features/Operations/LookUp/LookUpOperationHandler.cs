@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
 
             if (request.Parameter != null)
             {
-                Parameters parameterOutcome = _terminologyOperator.TryLookUp(request.Parameter, false);
+                Parameters parameterOutcome = _terminologyOperator.TryLookUp(request.Parameter);
                 return new LookUpOperationResponse(parameterOutcome);
             }
             else

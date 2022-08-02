@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
             }
             else
             {
-                parameterOutcome = _terminologyOperator.TryValidateCode((Parameters)request.Resource, false);
+                parameterOutcome = _terminologyOperator.TryValidateCode((Parameters)request.Resource);
             }
 
             return new ValidateCodeOperationResponse(parameterOutcome);

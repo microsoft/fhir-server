@@ -36,16 +36,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
 
             param.Add("coding", new Coding(system, code));
 
-            return TryLookUp(param, false);
+            return TryLookUp(param);
         }
 
-        public Parameters TryLookUp(Parameters param, bool attempted)
+        public Parameters TryLookUp(Parameters param)
         {
             Task<Parameters> result = null;
 
             result = _externalTerminoilogy.Lookup(param, useGet: false);
 
-            CheckResult(result, param, attempted, (param, attempted) => TryLookUp(param, attempted));
+            CheckResult(result, param, (param) => TryLookUp(param));
 
             return result.Result;
         }
@@ -72,10 +72,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
                 param.Add("codeSystem", (CodeSystem)resource);
             }
 
-            return TryValidateCode(param, false);
+            return TryValidateCode(param);
         }
 
-        public Parameters TryValidateCode(Parameters param, bool attempted)
+        public Parameters TryValidateCode(Parameters param)
         {
             Task<Parameters> result = null;
 
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
                 }
             }
 
-            CheckResult(result, param, attempted, (param, attempted) => TryValidateCode(param, attempted));
+            CheckResult(result, param, (param) => TryValidateCode(param));
 
             return result.Result;
         }
@@ -102,16 +102,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
 
             AddExpandParams(param, valueSet, canonicalURL, offset, count);
 
-            return TryExpand(param, false);
+            return TryExpand(param);
         }
 
-        public Resource TryExpand(Parameters param, bool attempted)
+        public Resource TryExpand(Parameters param)
         {
             Task<Resource> result = null;
 
             result = _externalTerminoilogy.Expand(param, useGet: false);
 
-            CheckResult(result, param, attempted, (param, attempted) => TryExpand(param, attempted));
+            CheckResult(result, param, (param) => TryExpand(param));
 
             return result.Result;
         }
@@ -139,23 +139,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
             }
         }
 
-        private static void CheckResult<T>(Task<T> result, Parameters param, bool attempted, Action<Parameters, bool> terminologyOperation)
+        private static void CheckResult<T>(Task<T> result, Parameters param, Action<Parameters> terminologyOperation)
         {
             try
             {
                 result.Wait();
             }
             catch (AggregateException ex)
-            {// If error is due to conformance statement compatibility issue, try again as that usually fixes the problem
-                if (string.Equals(ex.InnerException.Message, "Cannot read the conformance statement of the server to verify FHIR version compatibility", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!attempted)
-                    {
-                        terminologyOperation(param, true);
-                        return;
-                    }
-                }
-
+            {
                 throw new BadRequestException(ex.InnerException.Message);
             }
         }

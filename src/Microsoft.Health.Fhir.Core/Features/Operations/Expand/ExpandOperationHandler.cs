@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
 
             if (request.Parameter != null)
             {
-                parameterOutcome = _terminologyOperator.TryExpand(request.Parameter, false);
+                parameterOutcome = _terminologyOperator.TryExpand(request.Parameter);
             }
             else if (request.ValueSet != null)
             {
