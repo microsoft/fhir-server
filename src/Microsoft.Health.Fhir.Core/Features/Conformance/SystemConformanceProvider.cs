@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public sealed class SystemConformanceProvider
         : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IDisposable
     {
-        private readonly int _rebuildDelay = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+        private readonly int _rebuildDelay = 60 * 1000; // 4 hours in milliseconds
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
@@ -73,7 +73,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        BuildCapabilityStatement();
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles);
+
+                        using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
+                        {
+                            foreach (IProvideCapability provider in providerFactory.Value)
+                            {
+                                provider.Build(_builder);
+                            }
+                        }
+
+                        foreach (Action<ListedCapabilityStatement> postConfiguration in _configurationUpdates)
+                        {
+                            _builder.Apply(statement => postConfiguration(statement));
+                        }
+
+                        _listedCapabilityStatement = _builder.Build().ToResourceElement();
+
                         _rebuilder = new Thread(RebuildCapabilityStatement);
                         _rebuilder.Start();
                     }
@@ -99,14 +115,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     break;
                 }
 
-                await _defaultCapabilitySemaphore.WaitAsync(CancellationToken.None);
+                if (_builder != null)
+                {
+                    // Update search params;
+                    _builder.SyncSearchParameters();
+
+                    // Update supported profiles;
+                    _builder.SyncProfiles();
+                }
+
+                await _metadataSemaphore.WaitAsync(CancellationToken.None);
                 try
                 {
-                    BuildCapabilityStatement();
+                    _metadata = null;
                 }
                 finally
                 {
-                    _defaultCapabilitySemaphore.Release();
+                    _metadataSemaphore.Release();
                 }
             }
         }
@@ -135,25 +160,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
             _logger.LogInformation("SystemConformanceProvider: Rebuild capability statement notification handled");
+
+            if (_builder != null)
+            {
+                switch (notification.Part)
+                {
+                    case RebuildPart.SearchParameter:
+                        // Update search params;
+                        _builder.SyncSearchParameters();
+                        break;
+
+                    case RebuildPart.Profiles:
+                        // Update supported profiles;
+                        _builder.SyncProfiles(true);
+                        break;
+                }
+            }
+
             await _metadataSemaphore.WaitAsync(cancellationToken);
             try
             {
-                if (_builder != null)
-                {
-                    switch (notification.Part)
-                    {
-                        case RebuildPart.SearchParameter:
-                            // Update search params;
-                            _builder.SyncSearchParameters();
-                            break;
-
-                        case RebuildPart.Profiles:
-                            // Update supported profiles;
-                            _builder.SyncProfiles(true);
-                            break;
-                    }
-                }
-
                 _metadata = null;
             }
             finally
@@ -164,42 +190,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
         {
-            await _metadataSemaphore.WaitAsync(cancellationToken);
-            try
+            if (_metadata == null)
             {
-                if (_metadata == null)
-                {
-                    _ = await GetCapabilityStatementOnStartup(cancellationToken);
+                _ = await GetCapabilityStatementOnStartup(cancellationToken);
 
+                await _metadataSemaphore.WaitAsync(cancellationToken);
+                try
+                {
                     _metadata = _builder.Build().ToResourceElement();
                 }
-
-                return _metadata;
-            }
-            finally
-            {
-                _metadataSemaphore.Release();
-            }
-        }
-
-        private void BuildCapabilityStatement()
-        {
-            _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles);
-
-            using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
-            {
-                foreach (IProvideCapability provider in providerFactory.Value)
+                finally
                 {
-                    provider.Build(_builder);
+                    _metadataSemaphore.Release();
                 }
             }
 
-            foreach (Action<ListedCapabilityStatement> postConfiguration in _configurationUpdates)
-            {
-                _builder.Apply(statement => postConfiguration(statement));
-            }
-
-            _listedCapabilityStatement = _builder.Build().ToResourceElement();
+            // There is a chance that the RebuildCapabilityStatement handler sets metadata to null between when it is checked and returned, but the alternative was leading to deadlocks where the creation of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built. But the metadata builder was waiting on the rebuild handler.
+            return _metadata;
         }
     }
 }
