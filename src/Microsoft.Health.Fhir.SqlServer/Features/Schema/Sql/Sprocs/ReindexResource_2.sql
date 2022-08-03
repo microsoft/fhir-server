@@ -58,7 +58,7 @@ CREATE PROCEDURE dbo.ReindexResource_2
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
     @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
-    @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
+    @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY,
     @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
     @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY,
     @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
@@ -167,12 +167,13 @@ SELECT DISTINCT @resourceTypeId,
                 ReferenceResourceVersion,
                 0
 FROM   @referenceSearchParams;
-INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
+INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId,
                 Code,
+                CodeOverflow,
                 0
 FROM   @tokenSearchParams;
 INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
@@ -276,12 +277,13 @@ SELECT DISTINCT @resourceTypeId,
                 HighValue2,
                 0
 FROM   @tokenQuantityCompositeSearchParams;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 Text2,
                 TextOverflow2,
                 0
