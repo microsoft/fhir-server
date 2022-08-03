@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public sealed class SystemConformanceProvider
         : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IDisposable
     {
-        private readonly int _rebuildDelay = 60 * 1000; // 4 hours in milliseconds
+        private readonly int _rebuildDelay = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
