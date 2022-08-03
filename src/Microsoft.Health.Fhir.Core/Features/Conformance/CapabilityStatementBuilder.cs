@@ -338,6 +338,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public ICapabilityStatementBuilder SyncProfiles(bool disableCacheRefresh = false)
         {
             _statement.Profile.Clear();
+
+            if (!disableCacheRefresh)
+            {
+                _supportedProfiles.Refresh();
+            }
+
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
                 // Parameters is a non-persisted resource used to pass information into and back from an operation

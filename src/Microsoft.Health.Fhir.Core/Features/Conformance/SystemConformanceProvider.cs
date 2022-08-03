@@ -25,14 +25,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public sealed class SystemConformanceProvider
         : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IDisposable
     {
+        private readonly int _rebuildDelay = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
         private ResourceElement _listedCapabilityStatement;
         private ResourceElement _metadata;
         private ICapabilityStatementBuilder _builder;
-        private SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
-        private SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
+        private Thread _rebuilder;
+        private bool _runRebuilder = true;
+        private static SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
+        private static SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly IKnowSupportedProfiles _supportedProfiles;
@@ -70,22 +73,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles);
-
-                        using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
-                        {
-                            foreach (IProvideCapability provider in providerFactory.Value)
-                            {
-                                provider.Build(_builder);
-                            }
-                        }
-
-                        foreach (Action<ListedCapabilityStatement> postConfiguration in _configurationUpdates)
-                        {
-                            _builder.Apply(statement => postConfiguration(statement));
-                        }
-
-                        _listedCapabilityStatement = _builder.Build().ToResourceElement();
+                        BuildCapabilityStatement();
+                        _rebuilder = new Thread(RebuildCapabilityStatement);
+                        _rebuilder.Start();
                     }
                 }
                 finally
@@ -96,6 +86,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             }
 
             return _listedCapabilityStatement;
+        }
+
+        public async void RebuildCapabilityStatement()
+        {
+            while (_runRebuilder)
+            {
+                Thread.Sleep(_rebuildDelay);
+
+                if (!_runRebuilder)
+                {
+                    break;
+                }
+
+                await _defaultCapabilitySemaphore.WaitAsync(CancellationToken.None);
+                try
+                {
+                    BuildCapabilityStatement();
+                }
+                finally
+                {
+                    _defaultCapabilitySemaphore.Release();
+                }
+            }
         }
 
         public void ConfigureOptionalCapabilities(Action<ListedCapabilityStatement> builder)
@@ -116,6 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _defaultCapabilitySemaphore = null;
             _metadataSemaphore?.Dispose();
             _metadataSemaphore = null;
+            _runRebuilder = false;
         }
 
         public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
@@ -166,6 +180,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             {
                 _metadataSemaphore.Release();
             }
+        }
+
+        private void BuildCapabilityStatement()
+        {
+            _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles);
+
+            using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
+            {
+                foreach (IProvideCapability provider in providerFactory.Value)
+                {
+                    provider.Build(_builder);
+                }
+            }
+
+            foreach (Action<ListedCapabilityStatement> postConfiguration in _configurationUpdates)
+            {
+                _builder.Apply(statement => postConfiguration(statement));
+            }
+
+            _listedCapabilityStatement = _builder.Build().ToResourceElement();
         }
     }
 }

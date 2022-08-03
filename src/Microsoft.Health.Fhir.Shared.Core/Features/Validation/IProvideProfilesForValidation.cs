@@ -11,7 +11,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public interface IProvideProfilesForValidation : IResourceResolver, IKnowSupportedProfiles
     {
         IReadOnlySet<string> GetProfilesTypes();
-
-        void Refresh();
     }
 }
