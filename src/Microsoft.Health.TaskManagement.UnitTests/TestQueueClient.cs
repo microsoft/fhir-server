@@ -24,6 +24,8 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Func<TestQueueClient, long, CancellationToken, JobInfo> GetJobByIdFunc { get; set; }
 
+        public Func<TestQueueClient, long, CancellationToken, IEnumerable<JobInfo>> GetJobByGroupIdFunc { get; set; }
+
         public List<JobInfo> JobInfos
         {
             get { return jobInfos; }
@@ -123,6 +125,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Task<IEnumerable<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
         {
+            if (GetJobByGroupIdFunc != null)
+            {
+                return Task.FromResult(GetJobByGroupIdFunc(this, groupId, cancellationToken));
+            }
+
             IEnumerable<JobInfo> result = jobInfos.Where(t => t.GroupId == groupId);
             return Task.FromResult<IEnumerable<JobInfo>>(result);
         }
