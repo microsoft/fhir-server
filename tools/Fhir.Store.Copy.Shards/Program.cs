@@ -98,16 +98,37 @@ EXECUTE(@cmd)
         public static void Copy()
         {
             var tasks = new List<Task>();
+            var workingTasks = 0;
             for (var i = 0; i < Threads; i++)
             {
                 var thread = i;
                 tasks.Add(BatchExtensions.StartTask(() =>
                 {
+                    Interlocked.Increment(ref workingTasks);
                     Copy(thread);
+                    Interlocked.Decrement(ref workingTasks);
                 }));
             }
 
+            Console.WriteLine($"workingTasks={workingTasks}");
+
+            tasks.Add(BatchExtensions.StartTask(() =>
+            {
+                AdvanceVisibility(ref workingTasks);
+            }));
+
             Task.WaitAll(tasks.ToArray());
+        }
+
+        private static void AdvanceVisibility(ref int workingTasks)
+        {
+            var affected = 1;
+            while (workingTasks > 0 || affected > 0)
+            {
+                Console.WriteLine($"Target.AdvanceTransactionVisibility: workingTasks={workingTasks}");
+                affected = Target.AdvanceTransactionVisibility();
+                Thread.Sleep(1000);
+            }
         }
 
         private static void Copy(int thread)

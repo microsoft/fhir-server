@@ -144,5 +144,6 @@
     <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\PutJobHeartbeat.sql">
       <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutJobHeartbeat.sql</Link>
     </Build>
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\AdvanceTransactionVisibility.sql" />
   </ItemGroup>
 </Project>

@@ -59,5 +59,16 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 
             command.ExecuteNonQuery();
         }
+
+        public int AdvanceTransactionVisibility()
+        {
+            using var connection = GetConnection((ShardId?)null);
+            using var command = new SqlCommand("dbo.AdvanceTransactionVisibility", connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = 240 };
+            var affected = new SqlParameter("@AffectedRows", SqlDbType.Int);
+            affected.Direction = ParameterDirection.Output;
+            command.Parameters.Add(affected);
+            command.ExecuteNonQuery();
+            return (int)affected.Value;
+        }
     }
 }
