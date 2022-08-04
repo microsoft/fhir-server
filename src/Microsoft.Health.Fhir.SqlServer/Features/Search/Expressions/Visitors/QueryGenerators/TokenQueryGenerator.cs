@@ -47,8 +47,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     return context;
 
                 case FieldName.TokenCode:
-                    // TODO: LegacyStringOverflowRewriter.Instance
-
                     if (expression.Value.Length <= VLatest.TokenSearchParam.Code.Metadata.MaxLength)
                     {
                         context.StringBuilder.Append("(");

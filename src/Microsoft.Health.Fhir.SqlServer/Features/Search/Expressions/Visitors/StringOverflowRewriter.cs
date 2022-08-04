@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            // TODO: We decided to do token differently and then go back and do string same way as token. No need for StringOverflowRewritter.cs.
+            // TODO: We decided to do token differently and then go back and do string same way as token. No need for TokenOverflowRewritter.cs.
 
             switch (expression.StringOperator)
             {

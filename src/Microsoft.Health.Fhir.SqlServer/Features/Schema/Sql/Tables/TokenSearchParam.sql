@@ -31,7 +31,6 @@ ON dbo.TokenSearchParam
 )
 INCLUDE
 (
---TODO:    CodeOverflow, -- will not be needed when all servers are targeting at least this version.
     SystemId
 )
 WHERE IsHistory = 0
