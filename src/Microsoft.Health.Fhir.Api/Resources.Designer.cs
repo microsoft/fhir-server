@@ -232,6 +232,42 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to create External Terminology Service.
+        /// </summary>
+        public static string FailedToCreateExternalTerminologyService {
+            get {
+                return ResourceManager.GetString("FailedToCreateExternalTerminologyService", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to create Fallback Terminology Service.
+        /// </summary>
+        public static string FailedToCreateFallbackTerminologyService {
+            get {
+                return ResourceManager.GetString("FailedToCreateFallbackTerminologyService", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to create Validator Resolver.
+        /// </summary>
+        public static string FailedToCreateValidatorResolver {
+            get {
+                return ResourceManager.GetString("FailedToCreateValidatorResolver", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to FHIR definitions folder could not be found. Please check that the path is correct..
+        /// </summary>
+        public static string FHIRDefinitionNotFound {
+            get {
+                return ResourceManager.GetString("FHIRDefinitionNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
         public static string Forbidden {

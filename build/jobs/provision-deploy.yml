@@ -46,15 +46,15 @@ jobs:
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web
-     
-        $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
+
+        $deployPath = "$(System.DefaultWorkingDirectory)/test/Microsoft.Health.Fhir.${{parameters.version}}.Tests.E2E"
      
         $testConfig = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json"))
         $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
      
         $additionalProperties = $flattenedTestConfig
      
-        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
+        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"pp
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 

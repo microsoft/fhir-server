@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             }
             catch (FileNotFoundException ex)
             {
-                terminologyLogger.LogCritical(ex, "FHIR Definitions folder not found");
+                terminologyLogger.LogCritical(ex, Resources.FHIRDefinitionNotFound);
                 throw;
             }
 
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 }
                 catch (Exception ex)
                 {
-                    terminologyLogger.LogCritical(ex, "Failed to create External Terminology Service");
+                    terminologyLogger.LogCritical(ex, Resources.FailedToCreateExternalTerminologyService);
                     throw;
                 }
 
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 }
                 catch (Exception ex)
                 {
-                    terminologyLogger.LogCritical(ex, "Failed to create Fallback Terminology Service");
+                    terminologyLogger.LogCritical(ex, Resources.FailedToCreateFallbackTerminologyService);
                     throw;
                 }
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 }
                 catch (Exception ex)
                 {
-                    terminologyLogger.LogCritical(ex, "Failed to create Validator Resolver");
+                    terminologyLogger.LogCritical(ex, Resources.FailedToCreateValidatorResolver);
                     throw;
                 }
             };

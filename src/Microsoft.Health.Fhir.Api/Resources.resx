@@ -423,4 +423,20 @@
     <value>Must provide ValueSet id or ValueSet Url, but not both.</value>
     <comment>User provided either both ValueSet ID and ValueSet Url or neither</comment>
   </data>
+  <data name="FailedToCreateExternalTerminologyService" xml:space="preserve">
+    <value>Failed to create External Terminology Service</value>
+    <comment>Error message when the external terminology service could not be created.</comment>
+  </data>
+  <data name="FailedToCreateFallbackTerminologyService" xml:space="preserve">
+    <value>Failed to create Fallback Terminology Service</value>
+    <comment>Error message when the fallback terminology service could not be created.</comment>
+  </data>
+  <data name="FailedToCreateValidatorResolver" xml:space="preserve">
+    <value>Failed to create Validator Resolver</value>
+    <comment>Error message when the Validator Resolver could not be created.</comment>
+  </data>
+  <data name="FHIRDefinitionNotFound" xml:space="preserve">
+    <value>FHIR definitions folder could not be found. Please check that the path is correct.</value>
+    <comment>error message when zipSource fails due to incorrect path.</comment>
+  </data>
 </root>
