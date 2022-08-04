@@ -93,21 +93,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             builder.Apply(AddExportDetails);
         }
 
-        private void AddValidateCodeDetailsHelper(ICapabilityStatementBuilder builder)
-        {
-            builder.Apply(AddValidateCodeDetails);
-        }
-
-        private void AddLookupDetailsHelper(ICapabilityStatementBuilder builder)
-        {
-            builder.Apply(AddLookupDetails);
-        }
-
-        private void AddExpandDetailsHelper(ICapabilityStatementBuilder builder)
-        {
-            builder.Apply(AddExpandDetails);
-        }
-
         public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);

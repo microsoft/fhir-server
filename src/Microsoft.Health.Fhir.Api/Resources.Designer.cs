@@ -475,15 +475,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Must provide &quot;coding&quot; parameter component..
-        /// </summary>
-        public static string LookupMissingCodingComponent {
-            get {
-                return ResourceManager.GetString("LookupMissingCodingComponent", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to $member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid..
         /// </summary>
         public static string MemberMatchInvalidParameter {
@@ -597,6 +588,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string PageTitle {
             get {
                 return ResourceManager.GetString("PageTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide coding parameter componenet.
+        /// </summary>
+        public static string ParameterMissingCoding {
+            get {
+                return ResourceManager.GetString("ParameterMissingCoding", resourceCulture);
             }
         }
         
@@ -831,15 +831,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ValidateCodeMissingSystemOrCode {
             get {
                 return ResourceManager.GetString("ValidateCodeMissingSystemOrCode", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Must provide coding parameter componenet.
-        /// </summary>
-        public static string ValidateCodeParameterMissingCoding {
-            get {
-                return ResourceManager.GetString("ValidateCodeParameterMissingCoding", resourceCulture);
             }
         }
         

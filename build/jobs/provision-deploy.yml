@@ -54,7 +54,7 @@ jobs:
      
         $additionalProperties = $flattenedTestConfig
      
-        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"pp
+        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 

@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                 if (!hasCoding)
                 {
-                    throw new RequestNotValidException(Resources.ValidateCodeParameterMissingCoding);
+                    throw new RequestNotValidException(Resources.ParameterMissingCoding);
                 }
 
                 if (!hasValueSetOrCodeSystem)

@@ -39,12 +39,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     if (string.Equals(paramComponent.Name, "coding", StringComparison.OrdinalIgnoreCase))
                     {
                         hasCoding = true;
+                        break;
                     }
                 }
 
                 if (!hasCoding)
                 {
-                    throw new RequestNotValidException(Resources.LookupMissingCodingComponent);
+                    throw new RequestNotValidException(Resources.ParameterMissingCoding);
                 }
             }
         }

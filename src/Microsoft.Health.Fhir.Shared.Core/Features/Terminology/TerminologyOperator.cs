@@ -9,6 +9,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Terminology;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Terminology
 {
@@ -33,7 +34,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
         public Parameters TryLookUp(string system, string code)
         {
             Parameters param = new Parameters();
-
             param.Add("coding", new Coding(system, code));
 
             return TryLookUp(param);
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
                 param.Add("coding", new Coding(system, code));
             }
 
-            if (resource.TypeName == "ValueSet")
+            if (resource.TypeName == KnownResourceTypes.ValueSet)
             {
                 param.Add("valueSet", (ValueSet)resource);
             }
@@ -81,13 +81,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Terminology
 
             foreach (var paramComponent in param.Parameter)
             {
-                if (string.Equals(paramComponent.Name, "valueSet", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(paramComponent.Name, KnownResourceTypes.ValueSet, StringComparison.OrdinalIgnoreCase))
                 {
                     result = _externalTerminoilogy.ValueSetValidateCode(param, useGet: false);
+                    break;
                 }
-                else if (string.Equals(paramComponent.Name, "codeSystem", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(paramComponent.Name, KnownResourceTypes.CodeSystem, StringComparison.OrdinalIgnoreCase))
                 {
                     result = _externalTerminoilogy.CodeSystemValidateCode(param, useGet: false);
+                    break;
                 }
             }
 

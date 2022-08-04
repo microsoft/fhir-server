@@ -57,6 +57,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string ValueSet = "ValueSet";
 
+        public const string CodeSystem = "CodeSystem";
+
         public const string Coverage = "Coverage";
 
         public const string QuestionnaireResponse = "QuestionnaireResponse";

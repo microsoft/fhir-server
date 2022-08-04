@@ -399,10 +399,6 @@
     <value>Must provide System and Code</value>
     <comment>User tried $lookup without providing System and Code</comment>
   </data>
-  <data name="LookupMissingCodingComponent" xml:space="preserve">
-    <value>Must provide "coding" parameter component.</value>
-    <comment>User tried $lookup without providing "coding" Parameter Component</comment>
-  </data>
   <data name="ValidateCodeInvalidParemeters" xml:space="preserve">
     <value>Parameter must provide a "coding" and ValueSet/CodeSystem parameter components.</value>
     <comment>User tried to use $validate-code POST request without providing valid Parameters resource</comment>
@@ -415,7 +411,7 @@
     <value>Must provide System and Code.</value>
     <comment>User tried $validate-code without providing System or Code</comment>
   </data>
-  <data name="ValidateCodeParameterMissingCoding" xml:space="preserve">
+  <data name="ParameterMissingCoding" xml:space="preserve">
     <value>Must provide coding parameter componenet</value>
     <comment>User tried to use $validate-code POST request without providing "coding" Parameter Component</comment>
   </data>

@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private async Task<Parameters> RunLookUpCodeAsync(string system, string code, Parameters parameter = null)
         {
-            CheckExpandIsEnabled();
+            CheckLookUpIsEnabled();
             LookUpOperationResponse response = null;
             if (parameter != null)
             {
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             CheckExpandIsEnabled();
 
             // Read resource from database.
-            RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey("ValueSet", idParameter), HttpContext.RequestAborted);
+            RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(KnownResourceTypes.ValueSet, idParameter), HttpContext.RequestAborted);
             Resource resource = _resourceDeserializer.Deserialize(response).ToPoco();
 
             return await ExpandAsync(resource, offset: offset, count: count);

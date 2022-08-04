@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     if (string.Equals(paramComponent.Name, "valueSet", StringComparison.OrdinalIgnoreCase))
                     {
                         hasValueSet = true;
+                        break;
                     }
                 }
 
