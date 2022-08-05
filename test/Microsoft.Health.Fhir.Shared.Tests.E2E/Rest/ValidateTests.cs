@@ -141,6 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate"));
             var fhirSource = Samples.GetJson("Profile-Patient-uscore");
             var parser = new FhirJsonParser();
             var patient = parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
@@ -194,9 +195,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 if (issue.Code == OperationOutcome.IssueType.CodeInvalid)
                 {
                     hasSeenCodeInvalid = true;
+                    break;
                 }
-
-                break;
             }
 
             Assert.True(hasSeenCodeInvalid, "Resource has invalid code");
@@ -211,15 +211,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
+            bool passed = false;
             foreach (var paramComponenet in resultParam)
             {
                 if (paramComponenet.Key == "result")
                 {
                     Assert.Equal("true", paramComponenet.Value.ToString());
+                    passed = true;
+                    break;
                 }
-
-                break;
             }
+
+            Assert.True(passed);
         }
 
         [SkippableTheory]
@@ -230,15 +233,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
+            bool failed = false;
             foreach (var paramComponenet in resultParam)
             {
                 if (paramComponenet.Key == "result")
                 {
                     Assert.Equal("false", paramComponenet.Value.ToString());
+                    failed = true;
+                    break;
                 }
-
-                break;
             }
+
+            Assert.True(failed);
         }
 
         [SkippableTheory]
@@ -266,15 +272,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             Parameters resultParam = await _client.ValidateCodeGETAsync(path, system, code, display);
+            bool passed = false;
             foreach (var paramComponenet in resultParam)
             {
                 if (paramComponenet.Key == "result")
                 {
                     Assert.True(paramComponenet.Value.ToString() == "true");
+                    passed = true;
+                    break;
                 }
-
-                break;
             }
+
+            Assert.True(passed);
         }
 
         [SkippableTheory]
@@ -288,15 +297,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             Parameters resultParam = await _client.ValidateCodeGETAsync(path, system, code, display);
+            bool failed = false;
             foreach (var paramComponenet in resultParam)
             {
                 if (paramComponenet.Key == "result")
                 {
                     Assert.True(paramComponenet.Value.ToString() == "false");
+                    failed = true;
+                    break;
                 }
-
-                break;
             }
+
+            Assert.True(failed);
         }
 
         [SkippableTheory]

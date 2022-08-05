@@ -12,7 +12,7 @@
                 "Validate": {
                     "Enabled": false,
                     "CacheDurationInSeconds": 14400,
-                    "ProfileValidationTerminologyServer": "http://hapi.fhir.org/stu3"
+                    "ProfileValidationTerminologyServer": "http://hapi.fhir.org/baseDstu3"
                 },
                 "ValidateCodeEnabled": false,
                 "LookupEnabled": false,
