@@ -37,7 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint maximumNumberOfResourcesPerQuery = 100,
             uint numberOfPagesPerCommit = 10,
             string storageAccountContainerName = null,
-            int schemaVersion = 2)
+            int schemaVersion = 2,
+            int typeId = (int)JobType.ExportOrchestrator)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -59,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
             RollingFileSizeInMB = rollingFileSizeInMB;
             RestartCount = 0;
+            TypeId = typeId;
 
             AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
@@ -86,6 +88,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         protected ExportJobRecord()
         {
         }
+
+        [JsonProperty(JobRecordProperties.TypeId)]
+        public int TypeId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.RequestUri)]
         public Uri RequestUri { get; internal set; }

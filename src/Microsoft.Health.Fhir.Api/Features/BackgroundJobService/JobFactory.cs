@@ -13,8 +13,10 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 {
@@ -136,7 +138,16 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
         private IJob CreateExportOrchestratorJob(JobInfo jobInfo)
         {
-
+            ExportJobRecord exportData = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            if (exportData.TypeId == (int)JobType.ExportOrchestrator)
+            {
+                return new ExportOrchestratorJob(
+                    );
+            }
+            else
+            {
+                return null;
+            }
         }
 
         private IJob CreateExportProcesingJob(JobInfo jobInfo)
