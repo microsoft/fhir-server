@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             var fhirSource = Samples.GetJson(fileName);
-            Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
+            Parameters resultParam = await _client.ValidateCodePOSTAsync("ValueSet/$validate-code", fhirSource);
             bool passed = false;
             foreach (var paramComponenet in resultParam.Parameter)
             {
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             var fhirSource = Samples.GetJson(fileName);
-            Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
+            Parameters resultParam = await _client.ValidateCodePOSTAsync("ValueSet/$validate-code", fhirSource);
             bool failed = false;
             foreach (var paramComponenet in resultParam.Parameter)
             {
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenValidateCode_WhenInValidParamaterInput_ThenValidateCodeThrowsBadRequest(string body)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
-            await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", body));
+            await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodePOSTAsync("ValueSet/$validate-code", body));
         }
 
         // Validate-Code Post Tests End

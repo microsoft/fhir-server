@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             var fhirSource = Samples.GetJson("Parameter-LookUp-Correct");
-            Parameters resultParam = await _client.LookUpPOSTdAsync("CodeSystem/$lookup", fhirSource);
+            Parameters resultParam = await _client.LookUpPOSTAsync("CodeSystem/$lookup", fhirSource);
             bool passed = false;
             foreach (var paramComponenet in resultParam.Parameter)
             {
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             var fhirSource = Samples.GetJson("Parameter-LookUp-Incorrect");
-            await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTdAsync("CodeSystem/$lookup", fhirSource));
+            await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTAsync("CodeSystem/$lookup", fhirSource));
         }
 
         [SkippableTheory]
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenLookUp_WhenInValidParamaterInput_ThenThrowsBadRequest(string body)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
-            await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTdAsync("CodeSystem/lookup", body));
+            await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpPOSTAsync("CodeSystem/lookup", body));
         }
 
         // $lookup POST tests end

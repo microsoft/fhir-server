@@ -559,7 +559,7 @@ namespace Microsoft.Health.Fhir.Client
             return (Parameters)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
-        public async Task<Parameters> ValidateCodePOSTdAsync(string path, string parameter, CancellationToken cancellationToken = default)
+        public async Task<Parameters> ValidateCodePOSTAsync(string path, string parameter, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, path);
             message.Content = new StringContent(parameter, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
@@ -574,7 +574,7 @@ namespace Microsoft.Health.Fhir.Client
             return (Parameters)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
-        public async Task<Parameters> LookUpPOSTdAsync(string path, string parameter, CancellationToken cancellationToken = default)
+        public async Task<Parameters> LookUpPOSTAsync(string path, string parameter, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, path);
             message.Content = new StringContent(parameter, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
