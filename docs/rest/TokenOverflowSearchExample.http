@@ -1,0 +1,163 @@
+# Example of setting up new search parameters, running reindex, and using the new search parameters.
+
+@hostname = localhost:44348
+
+### 1. Test rest client
+https://{{hostname}}/metadata
+
+### 2. Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### 3. POST new patient A with token overflow
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\PatientAWithTokenOverflow.json
+
+### 4. Composite custom token-string search parameter (this test data requires R4 or higher).
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\CompositeCustomTokenStringSearchParameter.json
+
+### 5. POST new patient B with token overflow AND non-overflow portion equal to patient A, TOOO --- also use reindex header.
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\PatientBWithTokenOverflow.json
+
+### 6. POST new patient C with token overflow AND non-overflow portion equal to patients A and B.
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\PatientCWithTokenOverflow.json
+
+### 7. POST new patient D with NO token overflow AND token size equal to max non-overflow size AND equal to patients A, B and C.
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\PatientDWithNoTokenOverflow.json
+
+### At this point we are able to correctly select all patient using token value.
+
+### 8. Get patien A by token value.
+GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 9. Get patien B by token value.
+GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 10. Get patien C by token value.
+GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456C
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 11. Get patien D by token value.
+GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### At this point we are able to correctly select only patient B using composite search value.
+
+
+###  This creates a reindex job, you can do this now, or you can skip below to see if you can search
+# using the new search parameter before it is indexed
+# @name reindex
+POST https://{{hostname}}/$reindex
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "maximumConcurrency",
+      "valueInteger": "3"
+    },
+    {
+      "name": "targetDataStoreUsagePercentage",
+      "valueInteger": "80"
+    },
+    {
+      "name": "queryDelayIntervalInMilliseconds",
+      "valueInteger": "500"
+    },
+    {
+      "name": "maximumNumberOfResourcesPerQuery",
+      "valueInteger": "5"
+    }
+  ]
+}
+
+### Check the status of your reindex job
+GET {{reindex.response.headers.Content-Location}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Test your new search parameter to see what values it will return
+# This will extract and return the extracted values so you can see them
+# but it will not persist the extracted value to the DB
+GET https://{{hostname}}/Patient/{{patient.response.body.id}}/$reindex
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### if you want to test a single resource being indexed, use the same url as above
+# but with a POST to commit the new indices to the DB
+POST https://{{hostname}}/Patient/{{patient.response.body.id}}/$reindex
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+### Try searching by race
+# if you have not yet reindexed, this should not work :)
+GET https://{{hostname}}/Patient?race=2028-9
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### If you have not yet fully reindexed, but have used the POST to reindex
+# a single resource and you want to test it, use the following query
+# with the patient indices header
+GET https://{{hostname}}/Patient?race=2028-9
+Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true
+
+### A search query showing the Composite custom search parameter with Use/Postcode pair.
+# The usecase would be to evaluate multiple values together in chained search queries
+GET https://{{hostname}}/Patient?address-use-postcode=home$74047
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### A search query showing the Composite custom search parameter with Identifier/Name.Family pair.
+# The usecase would be to evaluate multiple values together in chained search queries
+GET https://{{hostname}}/Patient?identifier-name-family=IDID567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456X$ABCD567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### A search query showing the Composite custom search parameter with Identifier/Name.Family pair.
+# The usecase would be to evaluate multiple values together in chained search queries
+GET https://{{hostname}}/Patient?identifier-name-family=IDIDX$ABCDA 
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### A search query showing the Composite custom search parameter with Identifier/Name.Family pair.
+# The usecase would be to evaluate multiple values together in chained search queries
+GET https://{{hostname}}/Patient?identifier-name-family=IDID567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456X$ABCDA 
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### A search query showing the Composite custom search parameter with Identifier/Name.Family pair.
+# The usecase would be to evaluate multiple values together in chained search queries
+GET https://{{hostname}}/Patient?identifier-name-family=IDIDX$ABCD567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### A search query showing the Composite custom search parameter with Identifier/Name.Family pair.
+# The usecase would be to evaluate multiple values together in chained search queries
+GET https://{{hostname}}/Patient?identifier-name-family=ABCD567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456X$EFGH567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A
+Authorization: Bearer {{bearer.response.body.access_token}}
