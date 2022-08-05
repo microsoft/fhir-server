@@ -2,10 +2,10 @@
 
 @hostname = localhost:44348
 
-### 1. Test rest client
+### 1. Test rest client.
 https://{{hostname}}/metadata
 
-### 2. Get the bearer token, if authentication is enabled
+### 2. Get the bearer token, if authentication is enabled.
 # @name bearer
 POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
@@ -15,7 +15,7 @@ grant_type=client_credentials
 &client_secret=globalAdminServicePrincipal
 &scope=fhir-api
 
-### 3. POST new patient A with token overflow
+### 3. POST new patient A with token overflow.
 # @name patient
 POST https://{{hostname}}/Patient
 content-type: application/json
@@ -115,12 +115,12 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 GET {{reindex.response.headers.Content-Location}}
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### At this point we are able to correctly select all patients using composite search value, no need for x-ms-use-partial-indices header.
+### At this point we are able to correctly select all patients using composite token-string value, no need for x-ms-use-partial-indices header.
 
 ### 16. Get patient A by token-string value.
 GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$KirkA
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### 17. Try to get patient with incorrect token string combination, returns nothing.
+### 17. Try to get patient by using incorrect token-string combination, returns nothing.
 GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$KirkB
 Authorization: Bearer {{bearer.response.body.access_token}}
