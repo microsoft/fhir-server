@@ -8,11 +8,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class ValidateOperationConfiguration
     {
         /// <summary>
-        /// Is validate operation enabled?
-        /// </summary>
-        public bool Enabled { get; set; } = false;
-
-        /// <summary>
         /// For how long we cache profile in memory.
         /// </summary>
         public int CacheDurationInSeconds { get; set; } = 14400;

@@ -567,7 +567,7 @@ namespace Microsoft.Health.Fhir.Client
             return (Parameters)_deserialize(await TerminologyOperationHelper(message, cancellationToken));
         }
 
-        public async Task<Parameters> LookUpGETdAsync(string path, string system, string code, CancellationToken cancellationToken = default)
+        public async Task<Parameters> LookUpGETAsync(string path, string system, string code, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}?system={system}&code={code}");
 

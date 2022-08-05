@@ -43,8 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Expand = "expand";
 
-        public const string Validate = "validate";
-
         public const string BulkImportContentTypeHeaderValue = "application/json";
     }
 }

@@ -64,11 +64,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddAnonymizedExportDetails);
             }
 
-            if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.Validate.ProfileValidationTerminologyServer) && _operationConfiguration.Terminology.Validate.Enabled)
-            {
-                builder.Apply(AddValidateDetails);
-            }
-
             if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.ExternalTerminologyServer) && _operationConfiguration.Terminology.ValidateCodeEnabled)
             {
                 builder.Apply(AddValidateCodeDetails);
@@ -98,11 +93,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.PatientExport);
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.GroupExport);
-        }
-
-        public void AddValidateDetails(ListedCapabilityStatement capabilityStatement)
-        {
-            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Validate);
         }
 
         public void AddValidateCodeDetails(ListedCapabilityStatement capabilityStatement)

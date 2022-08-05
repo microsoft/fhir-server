@@ -138,10 +138,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     expression);
         }
 
-        [Fact]
+        [SkippableFact]
         public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
-            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate"));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code")); // Profile validation cannot occur without validate-code
             var fhirSource = Samples.GetJson("Profile-Patient-uscore");
             var parser = new FhirJsonParser();
             var patient = parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsValid_ThenAnOkMessageIsReturned()
         {
-            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate"));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code")); // Profile validation cannot occur without validate-code
             var fhirSource = Samples.GetJson("Profile-Patient-PassUsCore-Example");
 
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async void GivenAValidateResourceToUSCoreProfile_WhenTheResourceProfileIsNotValid_ThenAnErrorShouldBeReturned()
         {
-            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate"));
+            Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code")); // Profile validation cannot occur without validate-code
             var fhirSource = Samples.GetJson("Profile-Patient-FailUsCore-Example");
             OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", fhirSource, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
             bool hasSeenCodeInvalid = false;

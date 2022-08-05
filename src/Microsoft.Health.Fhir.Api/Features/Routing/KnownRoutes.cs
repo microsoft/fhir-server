@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Validate = "$validate";
         public const string ValidateResourceType = ResourceType + "/" + Validate;
         public const string ValidateResourceTypeById = ResourceTypeById + "/" + Validate;
-        public const string ValidateDefinition = OperationDefinition + "/" + OperationsConstants.Validate;
 
         public const string ValidateCode = "$validate-code";
         public const string ValidateCodeGET = ResourceType + "/" + IdRouteSegment + "/" + ValidateCode;

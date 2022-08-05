@@ -121,14 +121,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpGet]
-        [Route(KnownRoutes.ValidateDefinition, Name = RouteNames.ValidateDefinition)]
-        [AllowAnonymous]
-        public async Task<IActionResult> ValidateOperationDefinition()
-        {
-            return await GetOperationDefinitionAsync(OperationsConstants.Validate);
-        }
-
-        [HttpGet]
         [Route(KnownRoutes.ValidateCodeDefinition, Name = RouteNames.ValidateCodeDefinition)]
         [AllowAnonymous]
         public async Task<IActionResult> ValidateCodeOperationDefinition()
@@ -184,9 +176,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 case OperationsConstants.MemberMatch:
                 case OperationsConstants.PurgeHistory:
                     operationEnabled = true;
-                    break;
-                case OperationsConstants.Validate:
-                    operationEnabled = _operationConfiguration.Terminology.Validate.Enabled;
                     break;
                 case OperationsConstants.ValidateCode:
                     operationEnabled = _operationConfiguration.Terminology.ValidateCodeEnabled;

@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenLookUp_WhenKnownCode_ThenReturnTrue(string path, string system, string code)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
-            Parameters resultParam = await _client.LookUpGETdAsync(path, system, code);
+            Parameters resultParam = await _client.LookUpGETAsync(path, system, code);
             bool passed = false;
             foreach (var paramComponenet in resultParam.Parameter)
             {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenLookUp_WhenUnknownCode_ThenThrowException(string path, string system, string code)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
-            await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpGETdAsync(path, system, code));
+            await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpGETAsync(path, system, code));
         }
 
         [SkippableTheory]
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenLookUp_WhenInvalidRequestParams_ThenThrowsExcept(string path, string system, string code)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
-            await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpGETdAsync(path, system, code));
+            await Assert.ThrowsAsync<FhirException>(async () => await _client.LookUpGETAsync(path, system, code));
         }
 
         // $lookup GET tests end

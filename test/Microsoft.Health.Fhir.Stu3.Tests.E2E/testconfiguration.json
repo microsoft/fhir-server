@@ -10,7 +10,6 @@
             "Terminology": {
                 "ExternalTerminologyServer": "http://tx.fhir.org/stu3",
                 "Validate": {
-                    "Enabled": false,
                     "CacheDurationInSeconds": 14400,
                     "ProfileValidationTerminologyServer": "http://hapi.fhir.org/baseDstu3"
                 },
