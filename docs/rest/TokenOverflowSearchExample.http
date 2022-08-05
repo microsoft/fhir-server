@@ -56,27 +56,41 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### At this point we are able to correctly select all patient using token value.
 
-### 8. Get patien A by token value.
+### 8. Get patient A by token value.
 GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### 9. Get patien B by token value.
+### 9. Get patient B by token value.
 GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### 10. Get patien C by token value.
+### 10. Get patient C by token value.
 GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456C
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### 11. Get patien D by token value.
+### 11. Get patient D by token value.
 GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### At this point we are able to correctly select only patient B using composite search value.
 
+### 12. Get patient A by token-string value, returns nothing.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$KirkA
+Authorization: Bearer {{bearer.response.body.access_token}}
 
-###  This creates a reindex job, you can do this now, or you can skip below to see if you can search
-# using the new search parameter before it is indexed
+### 13. Get patient B by token-string value.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B$KirkB
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 14. Get patient C by token-string value, returns nothing.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456C$KirkC
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 15. Get patient D by token-string value, returns nothing.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456$KirkD
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###  16. Reindex DB.
 # @name reindex
 POST https://{{hostname}}/$reindex
 content-type: application/json
@@ -104,9 +118,27 @@ Authorization: Bearer {{bearer.response.body.access_token}}
   ]
 }
 
-### Check the status of your reindex job
+### 17. Check the status of your reindex job.
 GET {{reindex.response.headers.Content-Location}}
 Authorization: Bearer {{bearer.response.body.access_token}}
+
+### At this point we are able to correctly select all patients using composite search value.
+
+### 18. Repeat steps 12 - 15.
+
+### 19. Try to get patient with incorrect token string combination, returns nothing.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$KirkB
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+
+
+
+
+
+
+
+
 
 ### Test your new search parameter to see what values it will return
 # This will extract and return the extracted values so you can see them
