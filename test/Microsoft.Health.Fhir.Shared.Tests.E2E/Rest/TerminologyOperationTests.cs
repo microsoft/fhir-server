@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableTheory]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "chol-mass")]
         [InlineData("CodeSystem/$lookup", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol")]
-        public async void GivenLookUp_WhenKnownCode_ThenpReturnTrue(string path, string system, string code)
+        public async void GivenLookUp_WhenKnownCode_ThenReturnTrue(string path, string system, string code)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             Parameters resultParam = await _client.LookUpGETdAsync(path, system, code);
