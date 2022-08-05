@@ -212,9 +212,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
             bool passed = false;
-            foreach (var paramComponenet in resultParam)
+            foreach (var paramComponenet in resultParam.Parameter)
             {
-                if (paramComponenet.Key == "result")
+                if (paramComponenet.Name == "result")
                 {
                     Assert.Equal("true", paramComponenet.Value.ToString());
                     passed = true;
@@ -234,9 +234,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirSource = Samples.GetJson(fileName);
             Parameters resultParam = await _client.ValidateCodePOSTdAsync("ValueSet/$validate-code", fhirSource);
             bool failed = false;
-            foreach (var paramComponenet in resultParam)
+            foreach (var paramComponenet in resultParam.Parameter)
             {
-                if (paramComponenet.Key == "result")
+                if (paramComponenet.Name == "result")
                 {
                     Assert.Equal("false", paramComponenet.Value.ToString());
                     failed = true;
@@ -267,15 +267,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "generated", "Generated")]
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "additional")]
         [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol (mmol/L)")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
-        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme-plasma", "")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mass", "")] // May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
         public async void GivenValidCode_WhenKnownValueSet_ThenTrueParameterIsReturned(string path, string system, string code, string display = null)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             Parameters resultParam = await _client.ValidateCodeGETAsync(path, system, code, display);
             bool passed = false;
-            foreach (var paramComponenet in resultParam)
+            foreach (var paramComponenet in resultParam.Parameter)
             {
-                if (paramComponenet.Key == "result")
+                if (paramComponenet.Name == "result")
                 {
                     Assert.True(paramComponenet.Value.ToString() == "true");
                     passed = true;
@@ -287,20 +287,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [SkippableTheory]
-        [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "F", "IncorrectDisplay")]
+        [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "girl", "Female")]// Code should be "F"
         [InlineData("ValueSet/birthsex/$validate-code", "http://terminology.hl7.org/CodeSystem/v3-AdministrativeGender", "IncorrectCode", "")]
-        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "generated", "generate")] // Display should be "Generated"
+        [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "genrated", "Generated")] // Display should be "generated"
         [InlineData("ValueSet/us-core-narrative-status/$validate-code", "http://hl7.org/fhir/narrative-status", "Addition")] // Code should be "additional"
-        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mmol", "SChol")] // Display should "SChol (mmol/L)" May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
-        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme", "")] // Code should be "acme-plasma" May fail as CodeSystem resource changed STU3 -> R4 and the TS is on R4
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "chol-mol", "SChol")] // Code should ""chol-mmol""
+        [InlineData("CodeSystem/example/$validate-code", "http://hl7.org/fhir/CodeSystem/example", "acme", "")] // Code should be "acme-plasma"
         public async void GivenValidateCode_WhenInValidCodeOrDisplayFromKnownValueSet_ThenFalseParameterIsReturned(string path, string system, string code, string display = null)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
             Parameters resultParam = await _client.ValidateCodeGETAsync(path, system, code, display);
             bool failed = false;
-            foreach (var paramComponenet in resultParam)
+            foreach (var paramComponenet in resultParam.Parameter)
             {
-                if (paramComponenet.Key == "result")
+                if (paramComponenet.Name == "result")
                 {
                     Assert.True(paramComponenet.Value.ToString() == "false");
                     failed = true;

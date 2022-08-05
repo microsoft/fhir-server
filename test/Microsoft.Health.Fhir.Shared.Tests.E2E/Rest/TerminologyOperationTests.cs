@@ -38,11 +38,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var fhirSource = Samples.GetJson("Parameter-LookUp-Correct");
             Parameters resultParam = await _client.LookUpPOSTdAsync("CodeSystem/$lookup", fhirSource);
             bool passed = false;
-            foreach (var paramComponenet in resultParam)
+            foreach (var paramComponenet in resultParam.Parameter)
             {
-                if (paramComponenet.Key == "result")
+                if (paramComponenet.Name == "name")
                 {
-                    Assert.Equal("true", paramComponenet.Value.ToString());
                     passed = true;
                     break;
                 }
@@ -79,18 +78,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("lookup"));
             Parameters resultParam = await _client.LookUpGETdAsync(path, system, code);
-            bool failed = false;
-            foreach (var paramComponenet in resultParam)
+            bool passed = false;
+            foreach (var paramComponenet in resultParam.Parameter)
             {
-                if (paramComponenet.Key == "result")
+                if (paramComponenet.Name == "name")
                 {
-                    Assert.True(paramComponenet.Value.ToString() == "true");
-                    failed = true;
+                    passed = true;
                     break;
                 }
             }
 
-            Assert.True(failed);
+            Assert.True(passed);
         }
 
         [SkippableTheory]
