@@ -23,14 +23,14 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 < .\Data\PatientAWithTokenOverflow.json
 
-### 4. Composite custom token-string search parameter (this test data requires R4 or higher).
+### 4. Create composite custom token-string search parameter (this test data requires R4 or higher).
 POST https://{{hostname}}/SearchParameter
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 < .\Data\CompositeCustomTokenStringSearchParameter.json
 
-### 5. POST new patient B with token overflow AND non-overflow portion equal to patient A, TOOO --- also use reindex header.
+### 5. POST new patient B with token overflow AND non-overflow portion equal to patient A.
 # @name patient
 POST https://{{hostname}}/Patient
 content-type: application/json
@@ -38,59 +38,52 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 < .\Data\PatientBWithTokenOverflow.json
 
-### 6. POST new patient C with token overflow AND non-overflow portion equal to patients A and B.
+### 6. POST new patient C with NO token overflow AND token size equal to max non-overflow size AND equal to patients A and B.
 # @name patient
 POST https://{{hostname}}/Patient
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-< .\Data\PatientCWithTokenOverflow.json
-
-### 7. POST new patient D with NO token overflow AND token size equal to max non-overflow size AND equal to patients A, B and C.
-# @name patient
-POST https://{{hostname}}/Patient
-content-type: application/json
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-< .\Data\PatientDWithNoTokenOverflow.json
+< .\Data\PatientCWithNoTokenOverflow.json
 
 ### At this point we are able to correctly select all patient using token value.
 
-### 8. Get patient A by token value.
+### 7. Get patient A by token value.
 GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### 9. Get patient B by token value.
+### 8. Get patient B by token value.
 GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### 10. Get patient C by token value.
-GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456C
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-### 11. Get patient D by token value.
+### 9. Get patient C by token value.
 GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### At this point we are able to correctly select only patient B using composite search value.
+### At this point we can not get any patient by token-string value without using x-ms-use-partial-indices header.
 
-### 12. Get patient A by token-string value, returns nothing.
-GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$KirkA
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-### 13. Get patient B by token-string value.
+### 10. Get patient B by token-string value, returns OperationOutcome warning.
 GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B$KirkB
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### 14. Get patient C by token-string value, returns nothing.
-GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456C$KirkC
-Authorization: Bearer {{bearer.response.body.access_token}}
+### With x-ms-use-partial-indices header we get patients B and C but not A.
 
-### 15. Get patient D by token-string value, returns nothing.
-GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456$KirkD
+### 11. Get patient A by token-string value, returns nothing.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$KirkA
 Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true
 
-###  16. Reindex DB.
+### 12. Get patient B by token-string value.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B$KirkB
+Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true
+
+### 13. Get patient C by token-string value.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456$KirkC
+Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true
+
+###  14. Reindex DB.
 # @name reindex
 POST https://{{hostname}}/$reindex
 content-type: application/json
@@ -118,13 +111,15 @@ Authorization: Bearer {{bearer.response.body.access_token}}
   ]
 }
 
-### 17. Check the status of your reindex job.
+### 15. Check the status of your reindex job.
 GET {{reindex.response.headers.Content-Location}}
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### At this point we are able to correctly select all patients using composite search value.
+### At this point we are able to correctly select all patients using composite search value, no need for x-ms-use-partial-indices header.
 
-### 18. Repeat steps 12 - 15.
+### 11. Get patient A by token-string value.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$KirkA
+Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### 19. Try to get patient with incorrect token string combination, returns nothing.
 GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$KirkB
@@ -132,8 +127,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 
 
-
-
+END
 
 
 
