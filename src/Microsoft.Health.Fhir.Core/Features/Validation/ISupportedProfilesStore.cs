@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public interface IKnowSupportedProfiles
+    public interface ISupportedProfilesStore
     {
         /// <summary>
         /// Provide supported profiles for specified <paramref name="resourceType"/>.

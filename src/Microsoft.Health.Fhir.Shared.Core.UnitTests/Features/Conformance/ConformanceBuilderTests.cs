@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     {
         private readonly ICapabilityStatementBuilder _builder;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IKnowSupportedProfiles _supportedProfiles;
+        private readonly ISupportedProfilesStore _supportedProfiles;
 
         public ConformanceBuilderTests()
         {
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             configuration.Value.Returns(new CoreFeatureConfiguration());
 
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             versionConfig.ResourceTypeOverrides.Add("Patient", "no-version");
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
-            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             versionConfig.ResourceTypeOverrides.Add("blah", "no-version");
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
-            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             VersioningConfiguration versionConfig = new();
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
-            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,

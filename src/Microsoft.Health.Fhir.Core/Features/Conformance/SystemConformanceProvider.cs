@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private static SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
-        private readonly IKnowSupportedProfiles _supportedProfiles;
+        private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger _logger;
 
         public SystemConformanceProvider(
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders,
             IOptions<CoreFeatureConfiguration> configuration,
-            IKnowSupportedProfiles supportedProfiles,
+            ISupportedProfilesStore supportedProfiles,
             ILogger<SystemConformanceProvider> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
