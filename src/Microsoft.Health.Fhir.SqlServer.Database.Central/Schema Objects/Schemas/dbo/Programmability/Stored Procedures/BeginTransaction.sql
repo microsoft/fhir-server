@@ -17,8 +17,8 @@ BEGIN TRY
   SET @TransactionId = NEXT VALUE FOR dbo.TransactionIdSequence
 
   INSERT INTO dbo.Transactions 
-         (  Definition,        PartitionId,  TransactionId,                      HeartbeatDate)
-    SELECT @Definition, @TransactionId % 8, @TransactionId, isnull(@HeartbeatDate,getUTCdate())
+         (  Definition,  TransactionId,                      HeartbeatDate)
+    SELECT @Definition, @TransactionId, isnull(@HeartbeatDate,getUTCdate())
 
   IF @ReturnRecordSet = 1 EXECUTE dbo.GetTransactionById @TransactionId
 END TRY

@@ -6,7 +6,7 @@ GO
 GO
 CREATE TABLE dbo.Transactions
 (
-     PartitionId                  tinyint NOT NULL
+     PartitionId                  AS isnull(convert(tinyint, TransactionId % 8),0) PERSISTED
     ,TransactionId                bigint NOT NULL
     ,Definition                   varchar(2000) NULL
     ,IsCompleted                  bit NOT NULL CONSTRAINT DF_Transactions_IsCompleted DEFAULT 0 -- is set at the end of commit process
