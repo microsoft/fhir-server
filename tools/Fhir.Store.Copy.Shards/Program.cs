@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly bool QueueOnly = bool.Parse(ConfigurationManager.AppSettings["QueueOnly"]);
         private static readonly bool TransactionsOnly = bool.Parse(ConfigurationManager.AppSettings["TransactionsOnly"]);
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
+        private static readonly bool RunAdvanceVisibilityWatchDog = bool.Parse(ConfigurationManager.AppSettings["RunAdvanceVisibilityWatchDog"]);
         private static bool stop = false;
         [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1306:Field names should begin with lower-case letter", Justification = "Readability")]
         private static SqlService Target;
@@ -95,6 +96,20 @@ EXECUTE(@cmd)
             Target.ExecuteSqlWithRetries(shardId, cmd, c => c.ExecuteNonQuery(), 60);
         }
 
+        private static void WaitForSync(int thread)
+        {
+            Console.WriteLine($"Thread={thread} Starting WaitForSync...");
+            using var cmd = new SqlCommand(@"
+WHILE EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Copy.Shards.WaitForSync' AND Number = 1)
+BEGIN
+  WAITFOR DELAY '00:00:01'
+END
+              ");
+            cmd.CommandTimeout = 3600;
+            Target.ExecuteSqlWithRetries(null, cmd, c => c.ExecuteNonQuery(), 60);
+            Console.WriteLine($"Thread={thread} Completed WaitForSync.");
+        }
+
         public static void Copy()
         {
             var tasks = new List<Task>();
@@ -105,6 +120,7 @@ EXECUTE(@cmd)
                 tasks.Add(BatchExtensions.StartTask(() =>
                 {
                     Interlocked.Increment(ref workingTasks);
+                    WaitForSync(thread);
                     Copy(thread);
                     Interlocked.Decrement(ref workingTasks);
                 }));
@@ -112,10 +128,13 @@ EXECUTE(@cmd)
 
             Console.WriteLine($"workingTasks={workingTasks}");
 
-            tasks.Add(BatchExtensions.StartTask(() =>
+            if (RunAdvanceVisibilityWatchDog)
             {
-                AdvanceVisibility(ref workingTasks);
-            }));
+                tasks.Add(BatchExtensions.StartTask(() =>
+                {
+                    AdvanceVisibility(ref workingTasks);
+                }));
+            }
 
             Task.WaitAll(tasks.ToArray());
         }
@@ -127,13 +146,17 @@ EXECUTE(@cmd)
             {
                 Console.WriteLine($"Target.AdvanceTransactionVisibility: workingTasks={workingTasks}");
                 affected = Target.AdvanceTransactionVisibility();
-                Thread.Sleep(1000);
+                if (affected == 0)
+                {
+                    Thread.Sleep(1000);
+                }
             }
         }
 
         private static void Copy(int thread)
         {
             Console.WriteLine($"Copy.{thread}: started at {DateTime.UtcNow:s}");
+            var transactionsPerJob = TransactionsOnly ? 10000 : 1;
             var sw = Stopwatch.StartNew();
             var resourceTypeId = (short?)0;
             while (resourceTypeId.HasValue && !stop)
@@ -155,17 +178,16 @@ EXECUTE(@cmd)
                     {
                         if (!QueueOnly)
                         {
-                            transactionId = Target.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
-                            if (!TransactionsOnly)
+                            for (var t = 0; t < transactionsPerJob; t++)
                             {
-                                (resourceCount, totalCount) = CopyViaSql(thread, resourceTypeId.Value, jobId, minId, maxId, transactionId);
-                            }
-                            else
-                            {
-                                Target.PutShardTransaction(transactionId);
-                            }
+                                transactionId = Target.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
+                                if (!TransactionsOnly)
+                                {
+                                    (resourceCount, totalCount) = CopyViaSql(thread, resourceTypeId.Value, jobId, minId, maxId, transactionId);
+                                }
 
-                            Target.CommitTransaction(transactionId);
+                                Target.CommitTransaction(transactionId);
+                            }
                         }
 
                         Queue.CompleteJob(jobId, false, version, resourceCount, totalCount);

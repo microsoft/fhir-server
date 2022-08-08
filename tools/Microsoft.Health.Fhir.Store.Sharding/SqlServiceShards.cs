@@ -28,6 +28,13 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 null);
         }
 
+        public void PutShardTransaction(TransactionId transactionId, ShardId shardId)
+        {
+            using var cmd = new SqlCommand("dbo.PutShardTransaction") { CommandType = CommandType.StoredProcedure, CommandTimeout = 60 };
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId.Id);
+            ExecuteSqlWithRetries(shardId, cmd, c => c.ExecuteNonQuery(), 60);
+        }
+
         private Dictionary<ShardId, List<T>> ShardList<T>(IEnumerable<T> objects, Func<T, ShardletId> getShardletId)
         {
             // result shold be full list of shards with null values for empty lists
@@ -107,7 +114,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                     }
                     else
                     {
-                        PutShardTransaction(transactionId);
+                        PutShardTransaction(transactionId, shardId);
                     }
                 },
                 null);

@@ -26,7 +26,8 @@ BEGIN TRY
        ,@IsCompletedBefore = IsCompleted
        ,IsSuccess = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END
        ,FailureReason = @FailureReason
-    WHERE TransactionId = @TransactionId
+    WHERE PartitionId = @TransactionId % 8
+      AND TransactionId = @TransactionId
       AND (IsControlledByClient = 1 OR @IsWatchDog = 1)
   SET @Rows = @@rowcount
 
