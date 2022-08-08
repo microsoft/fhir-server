@@ -1,0 +1,60 @@
+{
+    "resourceType": "Observation",
+    "id": "weight",
+    "meta": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
+          "valueString": "Weight Example"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
+          "valueMarkdown": "This is a weight example for the *Vitalsigns Profile*."
+        }
+      ],
+      "profile": [
+        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-body-weight"
+      ]
+    },
+    "text": {
+      "status": "generated",
+      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"weight\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-us-core-body-weight.html\">US Core Body Weight Profile</a></p></div><p><b>status</b>: final</p><p><b>category</b>: Vital Signs <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-observation-category.html\">Observation Category Codes</a>#vital-signs)</span></p><p><b>code</b>: weight <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#29463-7 \"Body Weight\")</span></p><p><b>subject</b>: <a href=\"Patient-example.html\">Patient/example: Amy Shaw</a> \" SHAW\"</p><p><b>encounter</b>: <span>: GP Visit</span></p><p><b>effective</b>: 1999-07-02</p><p><b>value</b>: 20.09414 kg<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code kg = 'kg')</span></p></div>"
+    },
+    "status": "final",
+    "category": [
+      {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }
+        ],
+        "text": "Vital Signs"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "29463-7",
+          "display": "Body Weight"
+        }
+      ],
+      "text": "weight"
+    },
+    "subject": {
+      "reference": "Patient/example",
+      "display": "Amy Shaw"
+    },
+    "encounter": {
+      "display": "GP Visit"
+    },
+    "effectiveDateTime": "1999-07-02",
+    "valueQuantity": {
+      "value": 20.09414,
+      "unit": "kg",
+      "system": "http://unitsofmeasure.org",
+      "code": "kg"
+    }
+  }

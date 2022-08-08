@@ -1,0 +1,231 @@
+# This file includes US Core resource examples to load for the Inferno US Core v3.1.1 Test
+### REST Client
+@fhirurl= https://apurva-export.azurehealthcareapis.com
+@clientid= daa5eebf-37ba-4731-b667-821578cef349
+@clientsecret=
+@tenantid= 72f988bf-86f1-41af-91ab-2d7cd011db47
+@contentType = application/json
+
+### Get Metadata - Allows you to get the current capability statement
+# this will update as you add profiles to the database
+GET {{fhirurl}}/metadata
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+### Get access token
+# @name getAADToken
+POST https://login.microsoftonline.com/{{tenantid}}/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&resource={{fhirurl}}
+&client_id={{clientid}}
+&client_secret={{clientsecret}}
+
+### Capture access token from getToken request
+@token={{getAADToken.response.body.access_token}}
+
+### Load US Core Profiles
+
+### US Core Provenance
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Provenance.json
+
+### US Core Procedure
+POST {{fhirurl}}/Procedure
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Procedure.json
+
+### US Core Practitioner
+POST {{fhirurl}}/Practitioner
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Practitioner.json
+
+### US Core Organzation
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Organization.json
+
+### US Core Patient
+POST {{fhirurl}}/Patient
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Patient.json
+
+### US Core AllergyIntolerance
+POST {{fhirurl}}/AllergyIntolerance
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/AllergyIntolerance.json
+
+### US Core CarePlan
+POST {{fhirurl}}/CarePlan
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/CarePlan.json
+
+### US Core CareTeam
+POST {{fhirurl}}/CareTeam
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/CareTeam.json
+
+### US Core Condition
+POST {{fhirurl}}/Condition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Condition.json
+
+### US Core Implantable Device
+POST {{fhirurl}}/Device
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Implantable-Device.json
+
+### US Core DiagnosticReport-Lab.json
+POST {{fhirurl}}/DiagnosticReport
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/DiagnosticReport-Lab.json
+
+### US Core DiagnosticReport-Note.json
+POST {{fhirurl}}/DiagnosticReport
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/DiagnosticReport-Note.json
+
+### US Core DocumentReference.json
+POST {{fhirurl}}/DocumentReference
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/DocumentReference.json
+
+### US Core Encounter
+POST {{fhirurl}}/Encounter
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Encounter.json
+
+### US Core Observation Lab
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Observation-Lab.json
+
+### US Core Ped BMI for Age
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/pediatric-bmi-for-age.json
+
+### US Core Ped Weight for Height
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/pediatric-weight-for-height.json
+
+### US Core Pulse Ox
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/pulse-oximetry.json
+
+### US Core Smoking Status
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/smokingstatus.json
+
+### US Core Blood Pressure
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/bp.json
+
+### US Core Body Height
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/bodyheight.json
+
+### US Core Body Weight
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/bodyweight.json
+
+### US Core Heart Rate
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/heartrate.json
+
+### US Core Resp Rate
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/resprate.json
+
+### US Core Body Temp
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/bodytemp.json
+
+### US Core Goal
+POST {{fhirurl}}/Goal
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Goal.json
+
+### US Core Immunization
+POST {{fhirurl}}/Immunization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Immunization.json
+
+### US Core MedicationRequest
+POST {{fhirurl}}/MedicationRequest
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/MedicationRequest.json
+
+### US Core Ped Head Occipital-frontal Circum Percentile
+POST {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/ofc-percentile.json

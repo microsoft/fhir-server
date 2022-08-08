@@ -1,0 +1,65 @@
+{
+    "resourceType": "Observation",
+    "id": "pediatric-bmi-example",
+    "meta": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
+          "valueString": "Pediatric BMI Example"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
+          "valueMarkdown": "This is a pediatric BMI example for the *Pediatric BMI For Age Profile*."
+        }
+      ],
+      "profile": [
+        "http://hl7.org/fhir/us/core/StructureDefinition/pediatric-bmi-for-age"
+      ]
+    },
+    "text": {
+      "status": "generated",
+      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"pediatric-bmi-example\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-pediatric-bmi-for-age.html\">US Core Pediatric BMI for Age Observation Profile</a></p></div><p><b>status</b>: final</p><p><b>category</b>: Vital Signs <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-observation-category.html\">Observation Category Codes</a>#vital-signs)</span></p><p><b>code</b>: BMI <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#59576-9 \"Body mass index (BMI) [Percentile] Per age and sex\")</span></p><p><b>subject</b>: <a href=\"Patient-child-example.html\">Patient/child-example: Child Example</a> \" EXAMPLE\"</p><p><b>encounter</b>: <span>: GP Visit</span></p><p><b>effective</b>: 2019-05-04 12:12:29-0700</p><p><b>value</b>: 65 %<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code % = '%')</span></p><p><b>note</b>: CDC Males, 2-20 years Chart</p></div>"
+    },
+    "status": "final",
+    "category": [
+      {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }
+        ],
+        "text": "Vital Signs"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "59576-9",
+          "display": "Body mass index (BMI) [Percentile] Per age and sex"
+        }
+      ],
+      "text": "BMI"
+    },
+    "subject": {
+      "reference": "Patient/child-example",
+      "display": "Child Example"
+    },
+    "encounter": {
+      "display": "GP Visit"
+    },
+    "effectiveDateTime": "2019-05-04T12:12:29-07:00",
+    "valueQuantity": {
+      "value": 65,
+      "unit": "%",
+      "system": "http://unitsofmeasure.org",
+      "code": "%"
+    },
+    "note": [
+      {
+        "text": "CDC Males, 2-20 years Chart"
+      }
+    ]
+  }

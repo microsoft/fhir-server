@@ -1,0 +1,56 @@
+{
+    "resourceType": "Device",
+    "id": "udi-2",
+    "meta": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
+          "valueString": "Device Defib Example"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
+          "valueMarkdown": "This is a Device defib example for the *US Core Implantable Device Profile*."
+        }
+      ],
+      "profile": [
+        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-implantable-device"
+      ]
+    },
+    "text": {
+      "status": "generated",
+      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"udi-2\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-us-core-implantable-device.html\">US Core Implantable Device Profile</a></p></div><h3>UdiCarriers</h3><table class=\"grid\"><tr><td>-</td><td><b>DeviceIdentifier</b></td><td><b>CarrierHRF</b></td><td><b>EntryType</b></td></tr><tr><td>*</td><td>99863313444316</td><td>(01)99863313444316(17)220101(10)M320(21)AC221</td><td>rfid</td></tr></table><p><b>status</b>: active</p><p><b>manufacturer</b>: ACME Biomedical</p><p><b>expirationDate</b>: 2022-01-01</p><p><b>lotNumber</b>: M320</p><p><b>serialNumber</b>: AC221</p><h3>DeviceNames</h3><table class=\"grid\"><tr><td>-</td><td><b>Name</b></td><td><b>Type</b></td></tr><tr><td>*</td><td>ACME Defibrillator Analyzer, with Transcutaneous Pacemaker Input</td><td>udi-label-name</td></tr></table><p><b>modelNumber</b>: 1.0</p><p><b>type</b>: Implant <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#19257004 \"Defibrillator, device\")</span></p><p><b>patient</b>: <a href=\"Patient-example.html\">Patient/example: Amy Shaw</a> \" SHAW\"</p></div>"
+    },
+    "udiCarrier": [
+      {
+        "deviceIdentifier": "99863313444316",
+        "carrierHRF": "(01)99863313444316(17)220101(10)M320(21)AC221",
+        "entryType": "rfid"
+      }
+    ],
+    "status": "active",
+    "manufacturer": "ACME Biomedical",
+    "expirationDate": "2022-01-01",
+    "lotNumber": "M320",
+    "serialNumber": "AC221",
+    "deviceName": [
+      {
+        "name": "ACME Defibrillator Analyzer, with Transcutaneous Pacemaker Input",
+        "type": "udi-label-name"
+      }
+    ],
+    "modelNumber": "1.0",
+    "type": {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "19257004",
+          "display": "Defibrillator, device"
+        }
+      ],
+      "text": "Implant"
+    },
+    "patient": {
+      "reference": "Patient/example",
+      "display": "Amy Shaw"
+    }
+  }

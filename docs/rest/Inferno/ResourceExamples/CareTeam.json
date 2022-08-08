@@ -1,0 +1,99 @@
+{
+  "resourceType": "CareTeam",
+  "id": "example",
+  "meta": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
+        "valueString": "CareTeam Example"
+      },
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
+        "valueMarkdown": "This is a careteam example for the *US Core CareTeam Profile*."
+      }
+    ],
+    "profile": [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careteam"
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"example\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-us-core-careteam.html\">US Core CareTeam Profile</a></p></div><p><b>status</b>: active</p><p><b>name</b>: US-Core example CareTeam</p><p><b>subject</b>: <a href=\"Patient-example.html\">Patient/example: Amy V. Shaw</a> \" SHAW\"</p><blockquote><p><b>participant</b></p><p><b>role</b>: Cardiologist <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#17561000)</span></p><p><b>member</b>: <a href=\"Practitioner-practitioner-1.html\">Practitioner/practitioner-1: Ronald Bone, MD</a> \" BONE\"</p></blockquote><blockquote><p><b>participant</b></p><p><b>role</b>: Primary care provider <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#453231000124104)</span></p><p><b>member</b>: <a href=\"Practitioner-practitioner-2.html\">Practitioner/practitioner-2: Kathy Fielding, MD</a> \" KATHY\"</p></blockquote><blockquote><p><b>participant</b></p><p><b>role</b>: Patient (person) <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#116154003)</span></p><p><b>member</b>: <a href=\"Patient-example.html\">Patient/example: Amy V. Shaw</a> \" SHAW\"</p></blockquote><blockquote><p><b>participant</b></p><p><b>role</b>: Caregiver (person) <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#133932002)</span></p><p><b>member</b>: <a href=\"RelatedPerson-shaw-niece.html\">RelatedPerson/shaw-niece: Sarah van Putten</a> \" VAN PUTTEN\"</p></blockquote></div>"
+  },
+  "status": "active",
+  "name": "US-Core example CareTeam",
+  "subject": {
+    "reference": "Patient/example",
+    "display": "Amy V. Shaw"
+  },
+  "participant": [
+    {
+      "role": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "17561000",
+              "display": "Cardiologist"
+            }
+          ]
+        }
+      ],
+      "member": {
+        "reference": "Practitioner/practitioner-1",
+        "display": "Ronald Bone, MD"
+      }
+    },
+    {
+      "role": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "453231000124104",
+              "display": "Primary care provider"
+            }
+          ]
+        }
+      ],
+      "member": {
+        "reference": "Practitioner/practitioner-2",
+        "display": "Kathy Fielding, MD"
+      }
+    },
+    {
+      "role": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "116154003",
+              "display": "Patient (person)"
+            }
+          ]
+        }
+      ],
+      "member": {
+        "reference": "Patient/example",
+        "display": "Amy V. Shaw"
+      }
+    },
+    {
+      "role": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "133932002",
+              "display": "Caregiver (person)"
+            }
+          ]
+        }
+      ],
+      "member": {
+        "reference": "RelatedPerson/shaw-niece",
+        "display": "Sarah van Putten"
+      }
+    }
+  ]
+}

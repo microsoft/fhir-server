@@ -1,0 +1,65 @@
+{
+    "resourceType": "Observation",
+    "id": "pediatric-wt-example",
+    "meta": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
+          "valueString": "Pediatric Wt Example"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
+          "valueMarkdown": "This is a pediatric wt example for the *Pediatric Weight For Height Profile*."
+        }
+      ],
+      "profile": [
+        "http://hl7.org/fhir/us/core/StructureDefinition/pediatric-weight-for-height"
+      ]
+    },
+    "text": {
+      "status": "generated",
+      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"pediatric-wt-example\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-pediatric-weight-for-height.html\">US Core Pediatric Weight for Height Observation Profile</a></p></div><p><b>status</b>: final</p><p><b>category</b>: Vital Signs <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-observation-category.html\">Observation Category Codes</a>#vital-signs)</span></p><p><b>code</b>: BMI <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#77606-2 \"Weight-for-length Per age and sex\")</span></p><p><b>subject</b>: <a href=\"Patient-infant-example.html\">Patient/infant-example: Infant Example</a> \" EXAMPLE\"</p><p><b>encounter</b>: <span>: GP Visit</span></p><p><b>effective</b>: 2020-07-02</p><p><b>value</b>: 65 %<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code % = '%')</span></p><p><b>note</b>: WHO Males, 0-2 years Chart</p></div>"
+    },
+    "status": "final",
+    "category": [
+      {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+            "code": "vital-signs",
+            "display": "Vital Signs"
+          }
+        ],
+        "text": "Vital Signs"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "77606-2",
+          "display": "Weight-for-length Per age and sex"
+        }
+      ],
+      "text": "BMI"
+    },
+    "subject": {
+      "reference": "Patient/infant-example",
+      "display": "Infant Example"
+    },
+    "encounter": {
+      "display": "GP Visit"
+    },
+    "effectiveDateTime": "2020-07-02",
+    "valueQuantity": {
+      "value": 65,
+      "unit": "%",
+      "system": "http://unitsofmeasure.org",
+      "code": "%"
+    },
+    "note": [
+      {
+        "text": "WHO Males, 0-2 years Chart"
+      }
+    ]
+  }

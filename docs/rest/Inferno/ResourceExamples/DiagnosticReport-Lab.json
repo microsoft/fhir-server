@@ -1,0 +1,74 @@
+{
+    "resourceType": "DiagnosticReport",
+    "id": "cbc",
+    "meta": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
+          "valueString": "CBC Example"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
+          "valueMarkdown": "This is a CBC example for the *US Core DiagnosticReport Lab Profile*."
+        }
+      ],
+      "profile": [
+        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-lab"
+      ]
+    },
+    "text": {
+      "status": "generated",
+      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2><span title=\"Codes: {http://loinc.org 58410-2}\">CBC panel - Blood by Automated count</span> (<span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v2-0074 LAB}\">Laboratory</span>) </h2><table class=\"grid\"><tr><td>Subject</td><td><b>Amy V. Baxter </b> female, DoB: 1987-02-20 ( Medical Record Number: 1032702 (USUAL))</td></tr><tr><td>When For</td><td>2005-07-05</td></tr><tr><td>Reported</td><td>2005-07-06 11:45:33+1100</td></tr></table><p><b>Report Details</b></p><table class=\"grid\"><tr><td><b>Code</b></td><td><b>Value</b></td><td><b>Reference Range</b></td><td><b>When For</b></td></tr><tr><td><a href=\"Observation-neutrophils.html\"><span title=\"Codes: {http://loinc.org 770-8}\">Neutrophils %</span></a></td><td>40.0 %</td><td><span title=\"Codes: {http://terminology.hl7.org/CodeSystem/referencerange-meaning normal}\">Normal Range</span>: 37.0 % - 67.0 %</td><td>2005-07-05</td></tr><tr><td><a href=\"Observation-mchc.html\"><span title=\"Codes: {http://loinc.org 786-4}\">MCHC RBC Auto-mCnc</span></a></td><td>34.7 g/dL</td><td><span title=\"Codes: {http://terminology.hl7.org/CodeSystem/referencerange-meaning normal}\">Normal Range</span>: 30.0 g/dL - 34.0 g/dL</td><td>2005-07-05</td></tr><tr><td><a href=\"Observation-hemoglobin.html\"><span title=\"Codes: {http://loinc.org 718-7}\">Hgb Bld-mCnc</span></a></td><td>17.0 g/dL</td><td><span title=\"Codes: {http://terminology.hl7.org/CodeSystem/referencerange-meaning normal}\">Normal Range</span>: 16.5 g/dL - 21.5 g/dL</td><td>2005-07-05</td></tr><tr><td><a href=\"Observation-erythrocytes.html\"><span title=\"Codes: {http://loinc.org 789-8}\">RBC # Bld Auto</span></a></td><td>4.58 10*6/uL</td><td><span title=\"Codes: {http://terminology.hl7.org/CodeSystem/referencerange-meaning normal}\">Normal Range</span>: 4.1 10*6/uL - 6.1 10*6/uL</td><td>2005-07-05</td></tr></table></div>"
+    },
+    "status": "final",
+    "category": [
+      {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+            "code": "LAB",
+            "display": "Laboratory"
+          }
+        ]
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "58410-2",
+          "display": "CBC panel - Blood by Automated count"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "Patient/example",
+      "display": "Amy Shaw"
+    },
+    "effectiveDateTime": "2005-07-05",
+    "issued": "2005-07-06T11:45:33+11:00",
+    "performer": [
+      {
+        "reference": "Organization/acme-lab",
+        "display": "Acme Laboratory, Inc"
+      }
+    ],
+    "result": [
+      {
+        "reference": "Observation/neutrophils",
+        "display": "NEUTROPHILS"
+      },
+      {
+        "reference": "Observation/mchc",
+        "display": "MCHC"
+      },
+      {
+        "reference": "Observation/hemoglobin",
+        "display": "HEMOGLOBIN"
+      },
+      {
+        "reference": "Observation/erythrocytes",
+        "display": "ERYTHROCYTES"
+      }
+    ]
+  }

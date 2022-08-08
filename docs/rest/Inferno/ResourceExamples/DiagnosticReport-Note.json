@@ -1,0 +1,94 @@
+{
+    "resourceType": "DiagnosticReport",
+    "id": "cardiology-report",
+    "meta": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
+          "valueString": "DiagnosticReport Cardiology Report Example"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
+          "valueMarkdown": "This is a DiagnosticReport cardiology report example for the *US Core DiagnosticReport Note Profile*."
+        }
+      ],
+      "profile": [
+        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note"
+      ]
+    },
+    "text": {
+      "status": "generated",
+      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2><span title=\"Codes: {http://loinc.org 45033-8}\">Cardiovascular physiologic and EKG assessment panel</span> (<span title=\"Codes: {http://loinc.org LP29708-2}\">Cardiology</span>) </h2><table class=\"grid\"><tr><td>Subject</td><td><b>Amy V. Baxter </b> female, DoB: 1987-02-20 ( Medical Record Number: 1032702 (USUAL))</td></tr><tr><td>When For</td><td>2021-11-10 09:39:30+0000</td></tr></table><p><b>Report Details</b></p><table class=\"grid\"><tr><td><b>Code</b></td><td><b>Value</b></td><td><b>When For</b></td></tr><tr><td><a href=\"Observation-qrs-dur-ekg-lead.html\"><span title=\"Codes: {http://loinc.org 44973-6}\">QRS dur {EKG lead}</span></a></td><td>60 ms</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-pulse-intensity-palpation.html\"><span title=\"Codes: {http://loinc.org 44974-4}\">Pulse intensity Palpation</span></a></td><td><span title=\"Codes: {http://loinc.org LA11841-6}\">1+</span></td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-p-r-interval-ekg-lead.html\"><span title=\"Codes: {http://loinc.org 44976-9}\">P-R interval {EKG lead}</span></a></td><td>0.2 s</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-q-t-interval-ekg-lead.html\"><span title=\"Codes: {http://loinc.org 44975-1}\">Q-T interval {EKG lead}</span></a></td><td>0.4 s</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-jugular-vein-distension.html\"><span title=\"Codes: {http://loinc.org 69428-1}\">Jugular vein distension</span></a></td><td><span title=\"Codes: {http://loinc.org LA9634-2}\">Absent</span></td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-heart-rate-rhythm.html\"><span title=\"Codes: {http://loinc.org 8884-9}\">Heart rate rhythm</span></a></td><td>Regular (R)</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-ekg-lead.html\"><span title=\"Codes: {http://loinc.org 44967-8}\">EKG lead</span></a></td><td>II</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-ekg-impression.html\"><span title=\"Codes: {http://loinc.org 8601-7}\">EKG impression</span></a></td><td>Normal Sinus Rhythm (NSR)</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-capillary-refill-time-nail-bed.html\"><span title=\"Codes: {http://loinc.org 44963-7}\">Capillary refill Time Nail Bed</span></a></td><td>1 s</td><td>2021-11-10 04:48:57-0800</td></tr></table></div>"
+    },
+    "status": "final",
+    "category": [
+      {
+        "coding": [
+          {
+            "system": "http://loinc.org",
+            "code": "LP29708-2",
+            "display": "Cardiology"
+          }
+        ],
+        "text": "Cardiology"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "45033-8",
+          "display": "Cardiovascular physiologic and EKG assessment panel"
+        }
+      ],
+      "text": "Cardiovascular physiologic and EKG assessment panel"
+    },
+    "subject": {
+      "reference": "Patient/example"
+    },
+    "effectiveDateTime": "2021-11-10T21:39:30.000Z",
+    "result": [
+      {
+        "reference": "Observation/qrs-dur-ekg-lead"
+      },
+      {
+        "reference": "Observation/pulse-intensity-palpation"
+      },
+      {
+        "reference": "Observation/p-r-interval-ekg-lead"
+      },
+      {
+        "reference": "Observation/q-t-interval-ekg-lead"
+      },
+      {
+        "reference": "Observation/jugular-vein-distension"
+      },
+      {
+        "reference": "Observation/heart-rate-rhythm"
+      },
+      {
+        "reference": "Observation/ekg-lead"
+      },
+      {
+        "reference": "Observation/ekg-impression"
+      },
+      {
+        "reference": "Observation/capillary-refill-time-nail-bed"
+      }
+    ],
+    "media": [
+      {
+        "link": {
+          "reference": "Media/ekg-strip",
+          "display": "EKG Strip"
+        }
+      }
+    ],
+    "presentedForm": [
+      {
+        "contentType": "application/pdf",
+        "url": "http://example.org/pdfdownloads/cardiopanel-report-123.pdf",
+        "hash": "RVFILy4uQWdNRQo="
+      }
+    ]
+  }
