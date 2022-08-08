@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
-            versionConfig.ResourceTypeOverrides.Add("Patient", "no-version");
+            versionConfig.ResourceTypeOverrides.Add("patient", "no-version");
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
             var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
