@@ -1,10 +1,10 @@
 # Connecting to External Terminology Service on Azure
 
-In order to run a terminology service, you must ensure that the correct version of the FHIR [definitions folder](http://hl7.org/fhir/R4/downloads.html "definitions folder") is loaded into your FHIR server. The Definitions should be loaded already with the Azure FHIR OSS repository but may not be up to date and may have to be updated manually (Make sure definition version matches FHIR version). Data may have to be cleaned up as stated further down below.
+In order to run a terminology service, you must ensure that the correct version of the FHIR [definitions folder](http://hl7.org/fhir/R4/downloads.html "definitions folder") is loaded into your FHIR server. The Definitions should be loaded already with the Azure FHIR OSS repository, but may not be up to date and may have to be updated manually (Make sure definition version matches FHIR version). Data may have to be cleaned up as stated further down below.
 
 ## Connecting to external services
 
-As of date, there is no Microsoft Terminology Service; thus, we need to connect the FHIR service to an external terminology service. To do so, visit the [`appsettings.json`](http://https://github.com/microsoft/fhir-server/blob/feature/terminologyservice/src/Microsoft.Health.Fhir.Shared.Web/appsettings.json) file in the FHIR server repo and configure an external terminology service by adding an endpoint for ExternalTerminologyService and ProfileValidationTerminologyService. [here](https://confluence.hl7.org/display/FHIR/Public+Test+Servers) is a list of public test servers, some of which can terminology functionality.
+As of date, there is no Microsoft Terminology Service; thus, we need to connect the FHIR server to an external terminology service. To do so, visit the [`appsettings.json`](https://github.com/microsoft/fhir-server/blob/feature/terminologyservice/src/Microsoft.Health.Fhir.Shared.Web/appsettings.json) file in the FHIR server repo and configure an external terminology service by adding an endpoint for ExternalTerminologyService and ProfileValidationTerminologyService. [Here](https://confluence.hl7.org/display/FHIR/Public+Test+Servers) is a list of public test servers, some of which have terminology functionality.
 
 You may also need to enable each terminology operation in the `appsettings.json` file.
 
@@ -14,11 +14,11 @@ You may also need to enable each terminology operation in the `appsettings.json`
 [Microsoft Documentation on validate](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir/validation-against-profiles)
 
 
-To validate a FHIR resource you must provide a profile that you can validate the resource against. 
+To validate a FHIR resource, you must provide a profile that you can validate the resource against. 
 
 Specifically, if you are looking to validate against US Core Profiles, you should load those specific profiles to your FHIR server. You can find these profiles on the FHIR specification [here](http://hl7.org/fhir/us/core/history.html). To save storage, you can also just load the profiles that you are trying to validate against instead of loading all US Core profiles. Data may have to be cleaned and bundled up as stated further down below.
 
-Then, run a `POST` request to validate these FHIR resources with the following command against your FHIR server: `https://{LocalHost}/{ResourceType}/$validate?profile={USCoreProfile}`. (Profile paramater is optional.)
+Then, run a `POST` request to validate the FHIR resource with the following command against your FHIR server: `https://{LocalHost}/{ResourceType}/$validate?profile={USCoreProfile}` (Profile paramater is optional). The body of the request must contain the resource you are trying to validate.
 
 ## $validate-code 
 [FHIR Documentation on validate-code for ValueSet](https://www.hl7.org/fhir/valueset-operation-validate-code.html)
@@ -29,9 +29,7 @@ There are currently two ways to validate a code that is in a ValueSet or CodeSys
 
 You can use a `GET` request to validate a code that is part of a ValueSet or CodeSystem that is already loaded into a FHIR server: `https://{LocalHost}/{ValueSet or CodeSystem}/{ResourceID}/$validate-code?system={system}&code={code}&display={optionalDisplay}`
 
-If the ValueSet or CodeSystem is not in your FHIR server, then you can use a `POST` request to validate the code: `https://{LocalHost}/{ValueSet or CodeSystem}/$validate-code` and the body of the request must contain a parameters resource with a coding and ValueSet or CodeSystem.
-
-Example request could be: `https://{external_API_endpoint}/CodeSystem/example/$validate-code?system=http://hl7.org/fhir/CodeSystem/example&code={code}&display={display_code}.
+If the ValueSet or CodeSystem is not in your FHIR server, then you can use a `POST` request to validate the code: `https://{LocalHost}/{ValueSet or CodeSystem}/$validate-code` and the body of the request must contain a parameters resource with a code/coding along with a ValueSet or CodeSystem.
 
 ## $expand
 [FHIR Documentation on expand](https://www.hl7.org/fhir/valueset-operation-expand.html)
@@ -44,7 +42,7 @@ In the case that the ValueSet is already in the FHIR server you can use the foll
 If you wish to expand a ValueSet using a canonical URL, you must provide it in the URL parameter.
 `https://{LocalHost}/ValueSet/$expand?url={canonical ULR}`
 
-You can also use a `POST` request to expand a ValueSet where the body is a ValueSet resource.
+You can also use a `POST` request to expand a ValueSet where the body is a ValueSet resource:
 `https://{LocalHost}/ValueSet/$expand?`
 
 These requests can have "offset" and "count" as optional query parameters.
@@ -52,9 +50,10 @@ These requests can have "offset" and "count" as optional query parameters.
 ## $lookup
 [FHIR Documentation on lookup](https://www.hl7.org/fhir/codesystem-operation-lookup.html)
 
-If looking up a code using a `GET` request, you must provide the system and code in the query parameters.
+If looking up a code using a `GET` request, you must provide the system and code in the query parameters:
 `https://{LocalHost}/CodeSystem/$lookup?system={system}&code={code}`
-You can also use a `POST` request to look up a code by providing a parameters resource that contains a coding in the body of the request.
+
+You can also use a `POST` request to look up a code by providing a parameters resource that contains a coding in the body of the request:
 `https://{LocalHost}/CodeSystem/$lookup`
 
 ## Data Clean up
@@ -130,4 +129,6 @@ replace  - "div": `<div>PlaceHolder</div>`
             }
         }
 '''
+## Extra Information
 
+Intern Presentation on Terminology Service: https://microsoft-my.sharepoint.com/:p:/p/t-sadonchev/EdS_tgPIZV1Am0m7vog1zkABUdRqqLEybUhSy2MASVuARQ?e=PoRBey
