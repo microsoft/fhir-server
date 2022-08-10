@@ -2,11 +2,26 @@
 
 In order to run a terminology service, you must ensure that the correct version of the FHIR [definitions folder](http://hl7.org/fhir/R4/downloads.html "definitions folder") is loaded into your FHIR server. The Definitions should be loaded already with the Azure FHIR OSS repository, but may not be up to date and may have to be updated manually (Make sure definition version matches FHIR version). Data may have to be cleaned up as stated further down below.
 
-## Connecting to external services
+## Settings Up Configuration Settings
 
-As of date, there is no Microsoft Terminology Service; thus, we need to connect the FHIR server to an external terminology service. To do so, visit the [`appsettings.json`](https://github.com/microsoft/fhir-server/blob/feature/terminologyservice/src/Microsoft.Health.Fhir.Shared.Web/appsettings.json) file in the FHIR server repo and configure an external terminology service by adding an endpoint for ExternalTerminologyService and ProfileValidationTerminologyService. [Here](https://confluence.hl7.org/display/FHIR/Public+Test+Servers) is a list of public test servers, some of which have terminology functionality.
+[Here](https://confluence.hl7.org/display/FHIR/Public+Test+Servers) is a list of public test servers, some of which have terminology functionality.
+
+**Developer**
+
+As of date, there is no Microsoft Terminology Service; thus, we need to connect the FHIR server to an external terminology service. To do so, visit the [`appsettings.json`](https://github.com/microsoft/fhir-server/blob/feature/terminologyservice/src/Microsoft.Health.Fhir.Shared.Web/appsettings.json) file in the FHIR server repo and configure an external terminology service by adding an endpoint for ExternalTerminologyService and ProfileValidationTerminologyService.
 
 You may also need to enable each terminology operation in the `appsettings.json` file.
+
+**User**
+
+Open your FHIR Server resource through [Azure Portal](https://ms.portal.azure.com/#home) and under 'Settings' click on 'Configuration.'
+
+From there, find 'FhirServer__Operations__Terminology__ExternalTerminologyServer' and set to equal your terminology server endpoint.
+
+Do the same for 'FhirServer__Operations__Terminology__ProfileValidationTerminologyServer.'
+
+From there you can choose which terminology operations you want to enable through 'FhirServer__Operations__Terminology__ValidateCodeEnabled,' 'FhirServer__Operations__Terminology__LookupEnabled,' and 'FhirServer__Operations__Terminology__ExpandEnabled' by setting the value to true.
+
 
 ## $validate FHIR resource
 [FHIR Documentation on validate](https://www.hl7.org/fhir/validation.html)
@@ -66,7 +81,7 @@ find     - "div": `<div (.*)>(.*)</div>`
 
 replace  - "div": `<div>PlaceHolder</div>`
 
-## Bundling US-Core PRofiles
+## Bundling US-Core Profiles
 '''
 
         using Hl7.Fhir.Model;
@@ -129,6 +144,3 @@ replace  - "div": `<div>PlaceHolder</div>`
             }
         }
 '''
-## Extra Information
-
-Intern Presentation on Terminology Service: https://microsoft-my.sharepoint.com/:p:/p/t-sadonchev/EdS_tgPIZV1Am0m7vog1zkABUdRqqLEybUhSy2MASVuARQ?e=PoRBey
