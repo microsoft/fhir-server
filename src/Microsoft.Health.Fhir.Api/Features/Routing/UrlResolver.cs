@@ -308,6 +308,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.PurgeHistory:
                     routeName = RouteNames.PurgeHistoryDefinition;
                     break;
+                case OperationsConstants.ValidateCode:
+                    routeName = RouteNames.ValidateCodeDefinition;
+                    break;
+                case OperationsConstants.Lookup:
+                    routeName = RouteNames.LookUpDefinition;
+                    break;
+                case OperationsConstants.Expand:
+                    routeName = RouteNames.ExpandDefinition;
+                    break;
 
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));

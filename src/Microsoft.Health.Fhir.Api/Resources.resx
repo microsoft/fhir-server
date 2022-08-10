@@ -387,6 +387,54 @@
     <value>The configuration collection reference '{0}' is invalid.</value>
     <comment>{0} is the configuration collection reference</comment>
   </data>
+  <data name="ExpandMissingValueSetParameterComponent" xml:space="preserve">
+    <value>Must provide ValueSet Parameter Component.</value>
+    <comment>User tried $expand POST request without providing ValueSet Parameter Component</comment>
+  </data>
+  <data name="ExpandMissingValueSetURL" xml:space="preserve">
+    <value>If ValueSet ID is not provided, ValueSet URL must be specified. </value>
+    <comment>User tried $expand on ValueSet without ID and did not provide cannonical URL.</comment>
+  </data>
+  <data name="LookupInvalidMissingSystemOrCode" xml:space="preserve">
+    <value>Must provide System and Code</value>
+    <comment>User tried $lookup without providing System and Code</comment>
+  </data>
+  <data name="ValidateCodeInvalidParemeters" xml:space="preserve">
+    <value>Parameter must provide a "coding" and ValueSet/CodeSystem parameter components.</value>
+    <comment>User tried to use $validate-code POST request without providing valid Parameters resource</comment>
+  </data>
+  <data name="ValidateCodeInvalidResourceType" xml:space="preserve">
+    <value>$validate-code can only be called on a CodeSystem or ValueSet.</value>
+    <comment>User tried $validate-code on resource that is not a CodeSystem or ValueSet</comment>
+  </data>
+  <data name="ValidateCodeMissingSystemOrCode" xml:space="preserve">
+    <value>Must provide System and Code.</value>
+    <comment>User tried $validate-code without providing System or Code</comment>
+  </data>
+  <data name="ParameterMissingCoding" xml:space="preserve">
+    <value>Must provide coding parameter componenet</value>
+    <comment>User tried to use $validate-code POST request without providing "coding" Parameter Component</comment>
+  </data>
+  <data name="ExpandInvalidIdParamterXORUrl" xml:space="preserve">
+    <value>Must provide ValueSet id or ValueSet Url, but not both.</value>
+    <comment>User provided either both ValueSet ID and ValueSet Url or neither</comment>
+  </data>
+  <data name="FailedToCreateExternalTerminologyService" xml:space="preserve">
+    <value>Failed to create External Terminology Service</value>
+    <comment>Error message when the external terminology service could not be created.</comment>
+  </data>
+  <data name="FailedToCreateFallbackTerminologyService" xml:space="preserve">
+    <value>Failed to create Fallback Terminology Service</value>
+    <comment>Error message when the fallback terminology service could not be created.</comment>
+  </data>
+  <data name="FailedToCreateValidatorResolver" xml:space="preserve">
+    <value>Failed to create Validator Resolver</value>
+    <comment>Error message when the Validator Resolver could not be created.</comment>
+  </data>
+  <data name="FHIRDefinitionNotFound" xml:space="preserve">
+    <value>FHIR definitions folder could not be found. Please check that the path is correct.</value>
+    <comment>error message when zipSource fails due to incorrect path.</comment>
+  </data>
   <data name="FhirUserClaimCannotBeNull" xml:space="preserve">
     <value>fhirUser claim cannot be null or mising for SMART on FHIR user.</value>
   </data>

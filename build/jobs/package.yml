@@ -52,9 +52,23 @@ steps:
       artifactType: 'container'
 
   - task: PublishBuildArtifacts@1
-    displayName: 'publish test configuration jsons'
+    displayName: 'publish Stu3 test configuration jsons'
     inputs:
-      pathToPublish: './test/Configuration/'
+      pathToPublish: './test/Microsoft.Health.Fhir.Stu3.Tests.E2E/testconfiguration.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish R4 test configuration jsons'
+    inputs:
+      pathToPublish: './test/Microsoft.Health.Fhir.R4.Tests.E2E/testconfiguration.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish R5 test configuration jsons'
+    inputs:
+      pathToPublish: './test/Microsoft.Health.Fhir.R5.Tests.E2E/testconfiguration.json'
       artifactName: 'deploy'
       artifactType: 'container'
 

@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Url indicating an external terminology service that can be used for validation purposes
         /// </summary>
-        public string ExternalTerminologyServer { get; set; } = null;
+        public string ProfileValidationTerminologyServer { get; set; } = null;
 
         /// <summary>
         /// ApiKey for secure terminology servers

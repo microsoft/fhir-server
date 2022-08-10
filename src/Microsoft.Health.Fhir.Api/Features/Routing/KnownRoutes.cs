@@ -43,6 +43,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ValidateResourceType = ResourceType + "/" + Validate;
         public const string ValidateResourceTypeById = ResourceTypeById + "/" + Validate;
 
+        public const string ValidateCode = "$validate-code";
+        public const string ValidateCodeGET = ResourceType + "/" + IdRouteSegment + "/" + ValidateCode;
+        public const string ValidateCodePOST = ResourceType + "/" + ValidateCode;
+        public const string ValidateCodeDefinition = OperationDefinition + "/" + OperationsConstants.ValidateCode;
+
+        public const string LookUp = "CodeSystem" + "/" + "$lookup";
+        public const string LookUpDefinition = OperationDefinition + "/" + OperationsConstants.Lookup;
+
+        public const string Expand = "$expand";
+        public const string ExpandWithId = "ValueSet" + "/" + IdRouteSegment + "/" + Expand;
+        public const string ExpandWithoutId = "ValueSet" + "/" + Expand;
+        public const string ExpandDefinition = OperationDefinition + "/" + OperationsConstants.Expand;
+
         public const string Reindex = "$reindex";
         public const string ReindexSingleResource = ResourceTypeById + "/" + Reindex;
         public const string ReindexJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Reindex + "/" + IdRouteSegment;

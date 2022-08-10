@@ -304,6 +304,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cannot access terminology service endpoint, please check that endpoint is correct / exists..
+        /// </summary>
+        internal static string CouldNotAccessTerminologyEndpoint {
+            get {
+                return ResourceManager.GetString("CouldNotAccessTerminologyEndpoint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;seealso&apos; link id cannot be null when a &apos;seealso&apos; link is being processed..
         /// </summary>
         internal static string CurrentSeeAlsoLinkIdShouldNotBeNull {

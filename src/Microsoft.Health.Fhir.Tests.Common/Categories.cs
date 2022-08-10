@@ -88,6 +88,9 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Web = nameof(Web);
 
+        public const string Terminology = "Terminology";
+
+        public const string Xml = "Xml";
         public const string Xml = nameof(Xml);
     }
 }

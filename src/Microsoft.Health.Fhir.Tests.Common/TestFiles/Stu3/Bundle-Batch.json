@@ -185,7 +185,7 @@
             },
             "request": {
                 "method": "POST",
-                "url": "ValueSet/$lookup"
+                "url": "ValueSet/$invalid"
             }
         },
         {

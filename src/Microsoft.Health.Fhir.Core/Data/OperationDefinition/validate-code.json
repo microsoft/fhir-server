@@ -1,0 +1,48 @@
+﻿{
+    "resourceType": "OperationDefinition",
+    "id": "validate-code",
+    "url": "[base]/OperationDefinition/validate",
+    "version": "1.0.0",
+    "name": "validate-code",
+    "status": "active",
+    "kind": "operation",
+    "description": "Validate a code from valueset or codesystem",
+    "code": "validate-code",
+    "system": true,
+    "type": false,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "system",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Code system that a code belongs to.",
+            "type": "string"
+        },
+        {
+            "name": "code",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "FHIR code that is to be validated.",
+            "type": "string"
+        },
+        {
+            "name": "display",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Display of the code that is to be validated.",
+            "type": "string"
+        },
+        {
+            "name": "Parameters",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "FHIR parameter resource that contains a coding and ValueSet. (Used when doing a POST request)",
+            "type": "Parameter"
+        }
+    ]
+}

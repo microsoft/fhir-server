@@ -30,6 +30,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
                 var resource = ParseResource((Resource)parsedModel);
+                if (resource == null && AllowParametersResource)
+                {
+                    return;
+                }
+
                 ValidateType(resource, (string)actionModelType);
             }
         }

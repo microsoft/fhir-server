@@ -64,6 +64,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddAnonymizedExportDetails);
             }
 
+            if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.ExternalTerminologyServer) && _operationConfiguration.Terminology.ValidateCodeEnabled)
+            {
+                builder.Apply(AddValidateCodeDetails);
+            }
+
+            if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.ExternalTerminologyServer) && _operationConfiguration.Terminology.LookupEnabled)
+            {
+                builder.Apply(AddLookupDetails);
+            }
+
+            if (!string.IsNullOrEmpty(_operationConfiguration.Terminology.ExternalTerminologyServer) && _operationConfiguration.Terminology.ExpandEnabled)
+            {
+                builder.Apply(AddExpandDetails);
+            }
+
             builder.Apply(AddMemberMatchDetails);
             builder.Apply(AddPatientEverythingDetails);
         }
@@ -78,6 +93,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.PatientExport);
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.GroupExport);
+        }
+
+        public void AddValidateCodeDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ValidateCode);
+        }
+
+        public void AddLookupDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Lookup);
+        }
+
+        public void AddExpandDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Expand);
         }
 
         public static void AddPatientEverythingDetails(ListedCapabilityStatement capabilityStatement)

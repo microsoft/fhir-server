@@ -1,0 +1,40 @@
+﻿{
+    "resourceType": "OperationDefinition",
+    "id": "expand",
+    "url": "[base]/OperationDefinition/expand",
+    "version": "1.0.0",
+    "name": "expand",
+    "status": "active",
+    "kind": "operation",
+    "description": "expand a valueset",
+    "code": "expand",
+    "system": true,
+    "type": false,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "offset",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Offset of the codes displayed in the expanded valueset.",
+            "type": "int"
+        },
+        {
+            "name": "count",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Count of codes displayed in the expanded valueset.",
+            "type": "int"
+        },
+        {
+            "name": "ValueSet",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "ValueSet that is to be expanded. (Used when doing a POST request)",
+            "type": "ValueSet"
+        }
+    ]
+}

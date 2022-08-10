@@ -71,6 +71,12 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string Validate = "validate";
 
+        public const string ValidateCode = "validate-code";
+
+        public const string LookUp = "lookup";
+
+        public const string Expand = "expand";
+
         public const string Import = "import";
 
         public const string MemberMatch = "member-match";

@@ -52,6 +52,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\FhirPathPatchBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\ElementModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\FhirParametersExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Terminology\TerminologyOperator.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Features\Resources\Patch\FhirPathPatch\Operations\PatchOperationType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)\Features\Resources\Patch\FhirPathPatch\Operations\PatchOperationType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Operations\OperationAdd.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Operations\OperationBase.cs" />

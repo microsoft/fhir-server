@@ -12,17 +12,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     internal abstract class ParameterCompatibleFilter : ActionFilterAttribute
     {
-        private bool _allowParametersResource;
-
         protected ParameterCompatibleFilter(bool allowParametersResource)
         {
-            _allowParametersResource = allowParametersResource;
+            AllowParametersResource = allowParametersResource;
         }
+
+        protected bool AllowParametersResource { get; }
 
         protected Resource ParseResource(Resource resource)
         {
-            if (_allowParametersResource && resource.TypeName == KnownResourceTypes.Parameters)
+            if (AllowParametersResource && resource.TypeName == KnownResourceTypes.Parameters)
             {
+                if (((Parameters)resource).Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)) == null)
+                {
+                    return null;
+                }
+
                 resource = ((Parameters)resource).Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)).Resource;
             }
 

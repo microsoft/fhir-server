@@ -196,11 +196,74 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Must provide ValueSet id or ValueSet Url, but not both..
+        /// </summary>
+        public static string ExpandInvalidIdParamterXORUrl {
+            get {
+                return ResourceManager.GetString("ExpandInvalidIdParamterXORUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide ValueSet Parameter Component..
+        /// </summary>
+        public static string ExpandMissingValueSetParameterComponent {
+            get {
+                return ResourceManager.GetString("ExpandMissingValueSetParameterComponent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to If ValueSet ID is not provided, ValueSet URL must be specified. .
+        /// </summary>
+        public static string ExpandMissingValueSetURL {
+            get {
+                return ResourceManager.GetString("ExpandMissingValueSetURL", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed while running health check..
         /// </summary>
         public static string FailedHealthCheckMessage {
             get {
                 return ResourceManager.GetString("FailedHealthCheckMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to create External Terminology Service.
+        /// </summary>
+        public static string FailedToCreateExternalTerminologyService {
+            get {
+                return ResourceManager.GetString("FailedToCreateExternalTerminologyService", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to create Fallback Terminology Service.
+        /// </summary>
+        public static string FailedToCreateFallbackTerminologyService {
+            get {
+                return ResourceManager.GetString("FailedToCreateFallbackTerminologyService", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to create Validator Resolver.
+        /// </summary>
+        public static string FailedToCreateValidatorResolver {
+            get {
+                return ResourceManager.GetString("FailedToCreateValidatorResolver", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to FHIR definitions folder could not be found. Please check that the path is correct..
+        /// </summary>
+        public static string FHIRDefinitionNotFound {
+            get {
+                return ResourceManager.GetString("FHIRDefinitionNotFound", resourceCulture);
             }
         }
         
@@ -421,6 +484,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Must provide System and Code.
+        /// </summary>
+        public static string LookupInvalidMissingSystemOrCode {
+            get {
+                return ResourceManager.GetString("LookupInvalidMissingSystemOrCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to $member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid..
         /// </summary>
         public static string MemberMatchInvalidParameter {
@@ -534,6 +606,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string PageTitle {
             get {
                 return ResourceManager.GetString("PageTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide coding parameter componenet.
+        /// </summary>
+        public static string ParameterMissingCoding {
+            get {
+                return ResourceManager.GetString("ParameterMissingCoding", resourceCulture);
             }
         }
         
@@ -741,6 +822,33 @@ namespace Microsoft.Health.Fhir.Api {
         public static string UrlResourceIdMismatch {
             get {
                 return ResourceManager.GetString("UrlResourceIdMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter must provide a &quot;coding&quot; and ValueSet/CodeSystem parameter components..
+        /// </summary>
+        public static string ValidateCodeInvalidParemeters {
+            get {
+                return ResourceManager.GetString("ValidateCodeInvalidParemeters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to $validate-code can only be called on a CodeSystem or ValueSet..
+        /// </summary>
+        public static string ValidateCodeInvalidResourceType {
+            get {
+                return ResourceManager.GetString("ValidateCodeInvalidResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Must provide System and Code..
+        /// </summary>
+        public static string ValidateCodeMissingSystemOrCode {
+            get {
+                return ResourceManager.GetString("ValidateCodeMissingSystemOrCode", resourceCulture);
             }
         }
         

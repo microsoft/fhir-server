@@ -37,6 +37,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Import = "import";
 
+        public const string ValidateCode = "validate-code";
+
+        public const string Lookup = "lookup";
+
+        public const string Expand = "expand";
+
         public const string BulkImportContentTypeHeaderValue = "application/json";
     }
 }
