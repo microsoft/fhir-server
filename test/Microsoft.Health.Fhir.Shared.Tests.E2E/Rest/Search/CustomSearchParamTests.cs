@@ -379,6 +379,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var immunization = Samples.GetJsonSample<Immunization>("Immunization");
             FhirResponse<Immunization> expectedImmunization = await Client.CreateAsync(immunization);
 
+            _output.WriteLine($"Initial  expectedImmunization.expectedImmunization.Response.StatusCode: {expectedImmunization.Response.StatusCode}");
+
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
             try
@@ -433,6 +435,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 {
                     success = true;
                     retryCount++;
+
+                    _output.WriteLine($"expectedImmunization.expectedImmunization.Response.StatusCode: {expectedImmunization.Response.StatusCode}: Attempt {retryCount}");
+
                     try
                     {
                         await ExecuteAndValidateBundle(
