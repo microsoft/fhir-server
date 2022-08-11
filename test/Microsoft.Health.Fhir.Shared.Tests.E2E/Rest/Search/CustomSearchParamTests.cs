@@ -379,6 +379,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var immunization = Samples.GetJsonSample<Immunization>("Immunization");
             FhirResponse<Immunization> expectedImmunization = await Client.CreateAsync(immunization);
 
+            _output.WriteLine($"_fixture.HttpClient.BaseAddress: {_fixture.HttpClient.BaseAddress}");
             _output.WriteLine($"Initial expectedImmunization.Resource.Id: {expectedImmunization.Resource.Id}");
             _output.WriteLine($"Initial expectedSpecimen.Resource.Id: {expectedSpecimen.Resource.Id}");
 
