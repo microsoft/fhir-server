@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private ITestOutputHelper _output;
 
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
-            : base(fixture)
+            : base(fixture, output)
         {
             _fixture = fixture;
             _output = output;
