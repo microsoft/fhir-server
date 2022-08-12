@@ -1,10 +1,7 @@
 ﻿// -------------------------------------------------------------------------------------------------
-// <copyright file="SchemaManagerServiceCollectionBuilder.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
-
-namespace Microsoft.Health.Fhir.SchemaManager;
 
 using MediatR;
 using Microsoft.Extensions.Configuration;
@@ -16,6 +13,8 @@ using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Schema.Messages.Notifications;
 using Microsoft.Health.SqlServer.Registration;
+
+namespace Microsoft.Health.Fhir.SchemaManager;
 
 public static class SchemaManagerServiceCollectionBuilder
 {

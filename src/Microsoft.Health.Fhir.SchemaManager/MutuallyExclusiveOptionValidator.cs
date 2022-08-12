@@ -1,14 +1,13 @@
 ﻿// -------------------------------------------------------------------------------------------------
-// <copyright file="MutuallyExclusiveOptionValidator.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
-
-namespace Microsoft.Health.Fhir.SchemaManager;
 
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using EnsureThat;
+
+namespace Microsoft.Health.Fhir.SchemaManager;
 
 public static class MutuallyExclusiveOptionValidator
 {

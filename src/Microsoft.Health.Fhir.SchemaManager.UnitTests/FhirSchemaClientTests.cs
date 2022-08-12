@@ -1,18 +1,16 @@
 ﻿// -------------------------------------------------------------------------------------------------
-// <copyright file="FhirSchemaClientTests.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.SchemaManager.UnitTests;
-
-using Microsoft.Health.Fhir.SchemaManager;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Schema.Manager.Model;
 using NSubstitute;
 using Xunit;
+
+namespace Microsoft.Health.Fhir.SchemaManager.UnitTests;
 
 public class FhirSchemaClientTests
 {

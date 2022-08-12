@@ -1,10 +1,7 @@
 ﻿// -------------------------------------------------------------------------------------------------
-// <copyright file="ApplyCommand.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
-
-namespace Microsoft.Health.Fhir.SchemaManager;
 
 using System.CommandLine;
 using System.CommandLine.NamingConventionBinder;
@@ -14,6 +11,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SchemaManager.Properties;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Schema.Manager.Model;
+
+namespace Microsoft.Health.Fhir.SchemaManager;
 
 [SuppressMessage("Naming", "CA1710: Identifiers should have correct suffix", Justification = "Base class is also called Command.")]
 public class ApplyCommand : Command

@@ -1,9 +1,7 @@
 ﻿// -------------------------------------------------------------------------------------------------
-// <copyright file="FhirSchemaClient.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
-namespace Microsoft.Health.Fhir.SchemaManager;
 
 using System.Collections.ObjectModel;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -12,6 +10,8 @@ using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Schema.Manager.Model;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+
+namespace Microsoft.Health.Fhir.SchemaManager;
 
 public class FhirSchemaClient : ISchemaClient
 {
