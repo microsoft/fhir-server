@@ -158,34 +158,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string actualUrl;
 
-            if (_output != null)
-            {
-                _output.WriteLine($"bundle.SelfLink.AbsoluteUri: {bundle.SelfLink.AbsoluteUri}");
-                _output.WriteLine($"selfLink: {selfLink}");
-                _output.WriteLine($"bundle: {_fhirJsonSerializer.SerializeToString(bundle)}");
-            }
-
             // checking if continuation token is present in the link
             if (_continuationToken.IsMatch(bundle.SelfLink.AbsoluteUri))
             {
                 // avoiding url decode of continuation token
                 int tokenIndex = _continuationToken.Match(bundle.SelfLink.AbsoluteUri).Index;
                 actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri.Substring(0, tokenIndex)) + bundle.SelfLink.AbsoluteUri.Substring(tokenIndex);
-
-                if (_output != null)
-                {
-                    _output.WriteLine($"_continuationToken.IsMatch(bundle.SelfLink.AbsoluteUri): {_continuationToken.IsMatch(bundle.SelfLink.AbsoluteUri).ToString()}");
-                    _output.WriteLine($"actualUrl: {actualUrl}");
-                }
             }
             else
             {
                 actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri);
+            }
 
-                if (_output != null)
-                {
-                    _output.WriteLine($"else...actualUrl: {actualUrl}");
-                }
+            if (_output != null)
+            {
+                _output.WriteLine($"bundle.SelfLink.AbsoluteUri: {bundle.SelfLink.AbsoluteUri}");
+                _output.WriteLine($"actualUrl: {actualUrl}");
+                _output.WriteLine($"selfLink: {selfLink}");
+                _output.WriteLine($"bundle: {_fhirJsonSerializer.SerializeToString(bundle)}");
             }
 
             if (!invalidSortParameter)

@@ -432,21 +432,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 const int maxRetryCount = 10;
                 int retryCount = 0;
                 bool success = true;
+                await Task.Delay(TimeSpan.FromSeconds(10));
+
                 do
                 {
                     success = true;
                     retryCount++;
 
                     _output.WriteLine($"Attempt {retryCount}");
-                    _output.WriteLine($"expectedImmunization.Resource.Id: {expectedImmunization.Resource.Id}");
-                    _output.WriteLine($"expectedSpecimen.Resource.Id: {expectedSpecimen.Resource.Id}");
 
                     try
                     {
+                        _output.WriteLine($"expectedSpecimen.Resource.Id: {expectedSpecimen.Resource.Id}");
                         await ExecuteAndValidateBundle(
                             $"Specimen?{searchParam.Code}={expectedSpecimen.Resource.Id}",
                             expectedSpecimen.Resource);
 
+                        _output.WriteLine($"expectedImmunization.Resource.Id: {expectedImmunization.Resource.Id}");
                         await ExecuteAndValidateBundle(
                             $"Immunization?{searchParam.Code}={expectedImmunization.Resource.Id}",
                             expectedImmunization.Resource);
