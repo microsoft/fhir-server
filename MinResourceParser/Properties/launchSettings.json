@@ -12,8 +12,6 @@
     "MinResourceParser": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
-      "launchUrl": "swagger",
       "applicationUrl": "https://localhost:7118;http://localhost:5118",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"

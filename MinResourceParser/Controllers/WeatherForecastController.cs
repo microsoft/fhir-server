@@ -11,9 +11,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace MinResourceParser.Controllers
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class WeatherForecastController : ControllerBase
+    public class WeatherForecastController : Controller
     {
         private static readonly string[] Summaries = new[]
         {
@@ -29,7 +27,8 @@ namespace MinResourceParser.Controllers
             _logger = logger;
         }
 
-        [HttpPost(Name = "PostResource")]
+        [HttpPost]
+        [Route("PostResource")]
         public IEnumerable<WeatherForecast> Get([FromBody] Resource resource)
         {
             _resourceWrapperFactory.Create(new ResourceElement(resource.ToTypedElement()), false, true);

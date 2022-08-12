@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="searchParamaterInfos">A list of <see cref="SearchParameterInfo" /></param>
         /// <returns>A hash based on the search parameter uri and last updated value.</returns>
-        internal static string CalculateSearchParameterHash(this IEnumerable<SearchParameterInfo> searchParamaterInfos)
+        public static string CalculateSearchParameterHash(this IEnumerable<SearchParameterInfo> searchParamaterInfos)
         {
             EnsureArg.IsNotNull(searchParamaterInfos, nameof(searchParamaterInfos));
             EnsureArg.IsGt(searchParamaterInfos.Count(), 0, nameof(searchParamaterInfos));

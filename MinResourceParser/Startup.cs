@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -11,6 +12,8 @@ using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
+using MinResourceParser.Code;
 
 namespace MinResourceParser
 {
@@ -26,15 +29,21 @@ namespace MinResourceParser
         // This method gets called by the runtime. Use this method to add services to the container.
         public virtual void ConfigureServices(IServiceCollection services)
         {
+            services.AddMvc(options =>
+            {
+                options.EnableEndpointRouting = false;
+                options.RespectBrowserAcceptHeader = true;
+            });
+
             services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 
-            /* Replace this one
-            services.Add<SearchParameterDefinitionManager>()
+            services.AddSingleton<IModelInfoProvider, VersionSpecificModelInfoProvider>();
+
+            services.Add<MinimalSearchParameterDefinitionManager>()
                 .Singleton()
                 .AsSelf()
                 .AsService<ISearchParameterDefinitionManager>()
                 .AsService<IHostedService>();
-            */
 
             services.Add<SearchableSearchParameterDefinitionManager>()
                 .Singleton()
@@ -113,6 +122,7 @@ namespace MinResourceParser
                 app.UseForwardedHeaders();
             }
 
+            app.UseMvc();
             /*
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer();

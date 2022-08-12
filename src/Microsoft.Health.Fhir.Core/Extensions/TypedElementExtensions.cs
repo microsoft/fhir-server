@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
-    internal static class TypedElementExtensions
+    public static class TypedElementExtensions
     {
         public static TokenSearchValue ToTokenSearchValue(this ITypedElement coding)
         {
