@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     {
         private Regex _continuationToken = new Regex("[?&]ct");
         private ITestOutputHelper _output;
+        private readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
 
         protected SearchTestsBase(TFixture fixture, ITestOutputHelper output = null)
         {
@@ -94,6 +95,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             Bundle firstBundle = await Client.SearchAsync(searchUrl, customHeader);
 
+            if (_output != null)
+            {
+                _output.WriteLine($"firstBundle: {_fhirJsonSerializer.SerializeToString(firstBundle)}");
+            }
+
             var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources[0..pageSize] : expectedResources;
 
             ValidateBundle(firstBundle, selfLink, sort, invalidSortParameter, expectedFirstBundle);
@@ -156,6 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 _output.WriteLine($"bundle.SelfLink.AbsoluteUri: {bundle.SelfLink.AbsoluteUri}");
                 _output.WriteLine($"selfLink: {selfLink}");
+                _output.WriteLine($"bundle: {_fhirJsonSerializer.SerializeToString(bundle)}");
             }
 
             // checking if continuation token is present in the link
