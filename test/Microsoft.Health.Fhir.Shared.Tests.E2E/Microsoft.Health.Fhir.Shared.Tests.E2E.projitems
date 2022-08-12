@@ -78,6 +78,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CustomSearchParamTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenOverflowTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RequiresIsolatedDatabaseAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CanonicalSearchTestFixture.cs" />
