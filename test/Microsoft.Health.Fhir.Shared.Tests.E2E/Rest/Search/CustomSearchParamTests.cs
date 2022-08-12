@@ -379,7 +379,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var immunization = Samples.GetJsonSample<Immunization>("Immunization");
             FhirResponse<Immunization> expectedImmunization = await Client.CreateAsync(immunization);
 
-            _output.WriteLine($"_fixture.HttpClient.BaseAddress: {_fixture.HttpClient.BaseAddress}");
             _output.WriteLine($"Initial expectedImmunization.Resource.Id: {expectedImmunization.Resource.Id}");
             _output.WriteLine($"Initial expectedSpecimen.Resource.Id: {expectedSpecimen.Resource.Id}");
 
@@ -430,7 +429,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // When there are multiple instances of the fhir-server running, it could take some time
                 // for the search parameter/reindex updates to propogate to all instances. Hence we are
                 // adding some retries below to account for that delay.
-                const int maxRetryCount = 3;
+                const int maxRetryCount = 10;
                 int retryCount = 0;
                 bool success = true;
                 do
