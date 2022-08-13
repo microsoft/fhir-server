@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 // TODO: this truncation can break apart grapheme clusters.
                 indexedPrefix = searchValue.Code.Substring(0, _indexedCodeMaxLength);
-                overflow = searchValue.Code;
+                overflow = searchValue.Code.Substring(_indexedCodeMaxLength);
             }
             else
             {

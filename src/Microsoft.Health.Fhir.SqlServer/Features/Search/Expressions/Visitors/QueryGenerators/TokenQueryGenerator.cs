@@ -58,15 +58,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     else
                     {
                         context.StringBuilder.Append("(");
-                        int substringLength;
+                        int codeLength;
                         checked
                         {
-                            substringLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength; // Throw overflow if code max lenght is ever too big to fit into int.
+                            codeLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength; // Throw overflow if code max lenght is ever too big to fit into int.
                         }
 
-                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..substringLength]);
+                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..codeLength]);
                         context.StringBuilder.Append(" AND ");
-                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value);
+                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value[codeLength..]);
                         context.StringBuilder.Append(")");
                     }
 
