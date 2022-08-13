@@ -19,8 +19,15 @@ steps:
   inputs:
     command: test
     projects: '**/*UnitTests/*.csproj'
-    arguments: '--configuration $(buildConfiguration) --no-build'
+    arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[*.Tests.*]*,[*.UnitTests]*,[*.Web]*" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[Microsoft.Health.Fhir.*]*"'
     testRunTitle: 'Unit Tests'
+
+- ${{ if eq(parameters.packageArtifacts, 'true') }}:
+  - task: PublishCodeCoverageResults@1
+    displayName: 'Publish code coverage results'
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: $(Agent.TempDirectory)/**/coverage.cobertura.xml
 
 - ${{ if eq(parameters.packageArtifacts, 'true') }}:
   - template: package.yml
