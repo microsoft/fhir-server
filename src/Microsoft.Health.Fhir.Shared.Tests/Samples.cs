@@ -145,6 +145,13 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
         }
 
+        public static ResourceElement GetJsonSample2()
+        {
+            var fhirSource = "{\"resourceType\": \"Patient\", \"name\": [ { \"given\": [ \"Whatever\" ] } ], \"id\": \"patient-to-update\", \"gender\": \"male\", \"birthDate\": \"2017-09-05\" }";
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            return parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
+        }
+
         /// <summary>
         /// Gets back a resource from a json sample file.
         /// </summary>
