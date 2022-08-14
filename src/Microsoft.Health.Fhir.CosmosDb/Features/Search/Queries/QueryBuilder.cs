@@ -139,12 +139,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
-                _queryBuilder
-                    .Append("ORDER BY ")
+                _queryBuilder.Append("ORDER BY ");
+                var sortOption = searchOptions.Sort[0];
+
 #pragma warning disable CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
-                    .Append(SearchValueConstants.RootAliasName).Append('.').Append(KnownResourceWrapperProperties.LastModified)
+                _queryBuilder.Append(SearchValueConstants.RootAliasName).Append('.')
 #pragma warning restore CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
-                    .AppendLine(" DESC");
+                    .Append(KnownResourceWrapperProperties.LastModified).Append(' ')
+                    .AppendLine(sortOption.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
 
                 var query = new QueryDefinition(_queryBuilder.ToString());
                 _queryParameterManager.AddToQuery(query);

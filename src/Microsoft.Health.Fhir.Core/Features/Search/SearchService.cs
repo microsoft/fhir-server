@@ -30,7 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="searchOptionsFactory">The search options factory.</param>
         /// <param name="fhirDataStore">The data store</param>
-        /// <param name="modelInfoProvider">The model info provider</param>
         protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
@@ -76,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime before,
             int? count,
             string continuationToken,
+            string sort,
             CancellationToken cancellationToken,
             bool isAsyncOperation = false)
         {
@@ -160,6 +160,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (count.HasValue && count > 0)
             {
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
+            }
+
+            if (!string.IsNullOrEmpty(sort))
+            {
+                if (!string.Equals(sort.TrimStart('-'), KnownQueryParameterNames.LastUpdated, StringComparison.Ordinal))
+                {
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.SearchSortParameterNotSupported,
+                            sort));
+                }
+
+                queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, sort));
+            }
+            else
+            {
+                queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);

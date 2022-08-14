@@ -7,7 +7,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Client;
+using Microsoft.Health.Client.Authentication;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common

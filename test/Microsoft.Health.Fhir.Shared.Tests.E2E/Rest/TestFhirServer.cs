@@ -18,7 +18,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Client;
+using Microsoft.Health.Client.Authentication;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -122,14 +122,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ICredentialProvider credentialProvider;
             if (user == null)
             {
-                var credentialConfiguration = new OAuth2ClientCredentialConfiguration(
+                var credentialConfiguration = new OAuth2ClientCredentialOptions(
                     TokenUri,
                     resource,
                     scope,
                     clientApplication.ClientId,
                     clientApplication.ClientSecret);
 
-                var optionsMonitor = Substitute.For<IOptionsMonitor<OAuth2ClientCredentialConfiguration>>();
+                var optionsMonitor = Substitute.For<IOptionsMonitor<OAuth2ClientCredentialOptions>>();
                 optionsMonitor.CurrentValue.Returns(credentialConfiguration);
                 optionsMonitor.Get(default).ReturnsForAnyArgs(credentialConfiguration);
 
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
             else
             {
-                var credentialConfiguration = new OAuth2UserPasswordCredentialConfiguration(
+                var credentialConfiguration = new OAuth2UserPasswordCredentialOptions(
                     TokenUri,
                     resource,
                     scope,
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     user.UserId,
                     user.Password);
 
-                var optionsMonitor = Substitute.For<IOptionsMonitor<OAuth2UserPasswordCredentialConfiguration>>();
+                var optionsMonitor = Substitute.For<IOptionsMonitor<OAuth2UserPasswordCredentialOptions>>();
                 optionsMonitor.CurrentValue.Returns(credentialConfiguration);
                 optionsMonitor.Get(default).ReturnsForAnyArgs(credentialConfiguration);
 

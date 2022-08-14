@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         public const short ImportOrchestratorTypeId = 2;
 
-        private const int DefaultPollingFrequencyInSeconds = 3;
+        private const int DefaultPollingFrequencyInSeconds = 60;
         private const long DefaultResourceSizePerByte = 64;
 
         private readonly IMediator _mediator;
@@ -147,7 +147,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = taskCanceledEx.Message,
                 };
 
-                await CancelProcessingJobsAsync();
+                // Processing jobs has been cancelled by CancelImportRequestHandler
+                await WaitCancelledJobCompletedAsync();
                 await SendImportMetricsNotification(JobStatus.Cancelled);
             }
             catch (OperationCanceledException canceledEx)
@@ -160,7 +161,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = canceledEx.Message,
                 };
 
-                await CancelProcessingJobsAsync();
+                // Processing jobs has been cancelled by CancelImportRequestHandler
+                await WaitCancelledJobCompletedAsync();
                 await SendImportMetricsNotification(JobStatus.Cancelled);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
@@ -197,6 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = processingEx.Message,
                 };
 
+                // Cancel other processing jobs
                 await CancelProcessingJobsAsync();
                 await SendImportMetricsNotification(JobStatus.Failed);
             }
@@ -216,6 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = ex.Message,
                 };
 
+                // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync();
                 await SendImportMetricsNotification(JobStatus.Failed);
             }
@@ -317,9 +321,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task WaitRunningJobComplete(IProgress<string> progress, CancellationToken cancellationToken)
         {
             HashSet<long> completedJobIds = new HashSet<long>();
-            foreach (long jobId in _orchestratorJobResult.RunningJobIds)
+            List<JobInfo> runningJobs = new List<JobInfo>();
+            try
             {
-                JobInfo latestJobInfo = await _queueClient.GetJobByIdAsync(_jobInfo.QueueType, jobId, false, cancellationToken);
+                runningJobs.AddRange(await _queueClient.GetJobsByIdsAsync(_jobInfo.QueueType, _orchestratorJobResult.RunningJobIds.ToArray(), false, cancellationToken));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get running jobs.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
+
+            foreach (JobInfo latestJobInfo in runningJobs)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException();
+                }
 
                 if (latestJobInfo.Status != JobStatus.Created && latestJobInfo.Status != JobStatus.Running)
                 {
@@ -374,9 +392,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             string[] definitions = new string[] { JsonConvert.SerializeObject(importJobPayload) };
 
-            JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(_jobInfo.QueueType, definitions, _jobInfo.GroupId, false, false, cancellationToken)).First();
+            try
+            {
+                JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(_jobInfo.QueueType, definitions, _jobInfo.GroupId, false, false, cancellationToken)).First();
 
-            return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
+                return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to enqueue job.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
         }
 
         private async Task CancelProcessingJobsAsync()
@@ -390,10 +416,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _logger.LogWarning(ex, "failed to cancel job {GroupId}", _jobInfo.GroupId);
             }
 
-            await WaitRunningJobCompleteOrCancelledAsync();
+            await WaitCancelledJobCompletedAsync();
         }
 
-        private async Task WaitRunningJobCompleteOrCancelledAsync()
+        private async Task WaitCancelledJobCompletedAsync()
         {
             while (true)
             {
@@ -401,7 +427,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     IEnumerable<JobInfo> jobInfos = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Import, _jobInfo.GroupId, false, CancellationToken.None);
 
-                    if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || t.Id == _jobInfo.Id))
+                    if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || !t.CancelRequested || t.Id == _jobInfo.Id))
                     {
                         break;
                     }
