@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 
         internal int NumberOfShards => ShardletMap.Shards.Count;
 
-        private IList<ShardId> ShardIds { get; }
+        public IList<ShardId> ShardIds { get; }
 
         public SqlConnection GetConnection(ShardId? shardId = null, int connectionTimeoutSec = 600)
         {
