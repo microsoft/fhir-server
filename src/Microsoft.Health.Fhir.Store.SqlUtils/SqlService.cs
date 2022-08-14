@@ -65,6 +65,14 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
             return $"server={builder.DataSource};database={builder.InitialCatalog}";
         }
 
+        public static string GetCanonicalConnectionString(string connectionString)
+        {
+            connectionString = connectionString.Replace("Trust Server Certificate = True", string.Empty, StringComparison.OrdinalIgnoreCase);
+            var builder = new SqlConnectionStringBuilder(connectionString);
+            var security = builder.IntegratedSecurity ? $"Integrated Security={builder.IntegratedSecurity}" : $"user={builder.UserID};pwd={builder.Password}";
+            return $"server={builder.DataSource};database={builder.InitialCatalog};{security}";
+        }
+
         public static string ShowConnectionString(string connectionString)
         {
             var builder = new SqlConnectionStringBuilder(connectionString);

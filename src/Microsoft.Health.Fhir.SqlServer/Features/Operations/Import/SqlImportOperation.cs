@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
 
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None).Result;
-            var str = conn.SqlConnection.ConnectionString;
+            var str = Store.SqlUtils.SqlService.GetCanonicalConnectionString(conn.SqlConnection.ConnectionString);
             SqlService = new SqlService(str);
         }
 
