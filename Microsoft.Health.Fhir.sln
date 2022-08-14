@@ -176,6 +176,8 @@ Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Microsoft.Health.Fhir.SqlSe
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fhir.Ping", "tools\Fhir.Ping\Fhir.Ping.csproj", "{8D2AA626-9AFA-4DC2-B7C1-7FD9A1A212EA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Importer.Shards", "tools\Importer.Shards\Importer.Shards.csproj", "{16520F80-F2A3-471B-83FE-FB83BC44CF4B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -406,6 +408,10 @@ Global
 		{8D2AA626-9AFA-4DC2-B7C1-7FD9A1A212EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8D2AA626-9AFA-4DC2-B7C1-7FD9A1A212EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8D2AA626-9AFA-4DC2-B7C1-7FD9A1A212EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{16520F80-F2A3-471B-83FE-FB83BC44CF4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{16520F80-F2A3-471B-83FE-FB83BC44CF4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{16520F80-F2A3-471B-83FE-FB83BC44CF4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{16520F80-F2A3-471B-83FE-FB83BC44CF4B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -486,6 +492,7 @@ Global
 		{5944E5B3-5DDA-44B5-BA30-155B6BEC7F4B} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 		{0DA0CD13-654C-4847-BD92-8B2248AF5528} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 		{8D2AA626-9AFA-4DC2-B7C1-7FD9A1A212EA} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{16520F80-F2A3-471B-83FE-FB83BC44CF4B} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True
