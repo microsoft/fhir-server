@@ -176,7 +176,7 @@ Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Microsoft.Health.Fhir.SqlSe
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fhir.Ping", "tools\Fhir.Ping\Fhir.Ping.csproj", "{8D2AA626-9AFA-4DC2-B7C1-7FD9A1A212EA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Importer.Shards", "tools\Importer.Shards\Importer.Shards.csproj", "{16520F80-F2A3-471B-83FE-FB83BC44CF4B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Importer.Shards", "tools\Importer.Shards\Importer.Shards.csproj", "{16520F80-F2A3-471B-83FE-FB83BC44CF4B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -495,8 +495,8 @@ Global
 		{16520F80-F2A3-471B-83FE-FB83BC44CF4B} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -533,7 +533,6 @@ Global
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{8c3a5e1a-3ba8-4f50-a0ba-99a149edbee6}*SharedItemsImports = 5
 		src\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.projitems*{934ca8bb-b0a7-4187-bf4d-c937fbba1777}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems*{a4c416db-67b9-48ae-bc67-96bfced1bcf5}*SharedItemsImports = 13
-		src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems*{a898cc57-69d0-4454-bb70-784c138a05bf}*SharedItemsImports = 13
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems*{a898cc57-69d0-4454-bb70-784c138a05bf}*SharedItemsImports = 13
 		test\Microsoft.Health.Fhir.Shared.Tests.Smart\Microsoft.Health.Fhir.Shared.Tests.Smart.projitems*{a955963b-d766-492d-94fd-98a8b9ea8931}*SharedItemsImports = 13
 		src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems*{b956e6f9-92a6-43f2-934b-1eb20fa8bba3}*SharedItemsImports = 5
