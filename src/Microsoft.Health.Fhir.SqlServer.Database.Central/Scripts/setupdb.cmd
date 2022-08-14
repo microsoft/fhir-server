@@ -37,8 +37,8 @@ if not %errorlevel% == 0 echo ERROR executing PreDeployment.sql && exit /B %erro
 echo *** PreDeployment.sql applied.
 
 echo *** Deploying Microsoft.Health.Fhir.SqlServer.Database.dacpac...
-echo Running: sqlpackage.exe /Action:Publish /SourceFile:"%~dp0..\Microsoft.Health.Fhir.SqlServer.Database.dacpac" /TargetConnectionString:%StoreConnectionString% /p:AllowDropBlockingAssemblies=true /p:NoAlterStatementsToChangeClrTypes=true /p:AllowIncompatiblePlatform=true /p:IncludeCompositeObjects=true
-sqlpackage.exe /Action:Publish /SourceFile:"%~dp0..\Microsoft.Health.Fhir.SqlServer.Database.dacpac" /TargetConnectionString:%StoreConnectionString% /p:AllowDropBlockingAssemblies=true /p:NoAlterStatementsToChangeClrTypes=true /p:AllowIncompatiblePlatform=true /p:IncludeCompositeObjects=true
+echo Running: sqlpackage.exe /Action:Publish /SourceFile:"%~dp0..\Microsoft.Health.Fhir.SqlServer.Database.Central.dacpac" /TargetConnectionString:%StoreConnectionString% /p:AllowDropBlockingAssemblies=true /p:NoAlterStatementsToChangeClrTypes=true /p:AllowIncompatiblePlatform=true /p:IncludeCompositeObjects=true
+sqlpackage.exe /Action:Publish /SourceFile:"%~dp0..\Microsoft.Health.Fhir.SqlServer.Database.Central.dacpac" /TargetConnectionString:%StoreConnectionString% /p:AllowDropBlockingAssemblies=true /p:NoAlterStatementsToChangeClrTypes=true /p:AllowIncompatiblePlatform=true /p:IncludeCompositeObjects=true
 if not %errorlevel% == 0 echo ERROR deploying Microsoft.Health.Fhir.SqlServer.Database.dacpac && exit /B %errorlevel%
 echo *** Microsoft.Health.Fhir.SqlServer.Database.dacpac deployed.
 
