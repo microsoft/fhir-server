@@ -17,6 +17,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Store.Sharding;
 using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -161,15 +163,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogInformation("Start to import data to SQL data store.");
 
-                Task<ImportProcessingProgress> checkpointTask = Task.FromResult<ImportProcessingProgress>(null);
+                var checkpointTask = Task.FromResult<ImportProcessingProgress>(null);
 
                 long succeedCount = 0;
                 long failedCount = 0;
                 long? lastCheckpointIndex = null;
                 long currentIndex = -1;
-                Dictionary<string, DataTable> resourceParamsBuffer = new Dictionary<string, DataTable>();
-                List<string> importErrorBuffer = new List<string>();
-                Queue<Task<ImportProcessingProgress>> importTasks = new Queue<Task<ImportProcessingProgress>>();
+                var resourceParamsBuffer = new Dictionary<string, DataTable>();
+                var importErrorBuffer = new List<string>();
+                var importTasks = new Queue<Task<ImportProcessingProgress>>();
 
                 List<ImportResource> resourceBuffer = new List<ImportResource>();
                 await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
@@ -222,13 +224,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     if (shouldCreateCheckpoint)
                     {
                         // Create checkpoint for all tables not empty
-                        string[] tableNameNeedImport = resourceParamsBuffer.Where(r => r.Value.Rows.Count > 0).Select(r => r.Key).ToArray();
+                        // Import all in resourceParamsBuffer
+                        var tableNeedImport = resourceParamsBuffer.Keys.ToList();
 
-                        foreach (string tableName in tableNameNeedImport)
+                        foreach (var tableName in tableNeedImport)
                         {
-                            DataTable dataTable = resourceParamsBuffer[tableName];
+                            var table = resourceParamsBuffer[tableName];
                             resourceParamsBuffer.Remove(tableName);
-                            await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                            await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(table, cancellationToken), outputChannel);
                         }
 
                         // wait previous checkpoint task complete
@@ -243,12 +246,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     else
                     {
                         // import table >= MaxResourceCountInBatch
-                        string[] tableNameNeedImport =
-                                    resourceParamsBuffer.Where(r => r.Value.Rows.Count >= _importTaskConfiguration.SqlBatchSizeForImportParamsOperation).Select(r => r.Key).ToArray();
+                        string[] tableNameNeedImport = resourceParamsBuffer.Where(r => r.Value.Rows.Count >= _importTaskConfiguration.SqlBatchSizeForImportParamsOperation).Select(r => r.Key).ToArray();
 
                         foreach (string tableName in tableNameNeedImport)
                         {
-                            DataTable dataTable = resourceParamsBuffer[tableName];
+                            var dataTable = resourceParamsBuffer[tableName];
                             resourceParamsBuffer.Remove(tableName);
                             await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
                         }
@@ -288,7 +290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 string[] allTablesNotNull = resourceParamsBuffer.Where(r => r.Value.Rows.Count > 0).Select(r => r.Key).ToArray();
                 foreach (string tableName in allTablesNotNull)
                 {
-                    DataTable dataTable = resourceParamsBuffer[tableName];
+                    var dataTable = resourceParamsBuffer[tableName];
                     await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
                 }
 
@@ -313,30 +315,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             List<Task> runningTasks = new List<Task>();
 
-            foreach (TableBulkCopyDataGenerator generator in _generators)
+            foreach (var generator in _generators)
             {
-                if (!resourceParamsBuffer.ContainsKey(generator.TableName))
+                foreach (var shardId in SqlImportOperation.SqlService.ShardIds)
                 {
-                    resourceParamsBuffer[generator.TableName] = generator.GenerateDataTable();
-                }
-
-                while (runningTasks.Count >= _importTaskConfiguration.SqlMaxDatatableProcessConcurrentCount)
-                {
-                    Task completeTask = await Task.WhenAny(runningTasks);
-                    await completeTask;
-
-                    runningTasks.Remove(completeTask);
-                }
-
-                DataTable table = resourceParamsBuffer[generator.TableName];
-
-                runningTasks.Add(Task.Run(() =>
-                {
-                    foreach (SqlBulkCopyDataWrapper resourceWrapper in mergedResources)
+                    if (shardId == new ShardId(0))
                     {
-                        generator.FillDataTable(table, resourceWrapper);
+                        if (!resourceParamsBuffer.ContainsKey(generator.TableName))
+                        {
+                            resourceParamsBuffer[generator.TableName] = generator.GenerateDataTable();
+
+                            while (runningTasks.Count >= _importTaskConfiguration.SqlMaxDatatableProcessConcurrentCount)
+                            {
+                                Task completeTask = await Task.WhenAny(runningTasks);
+                                await completeTask;
+                                runningTasks.Remove(completeTask);
+                            }
+
+                            var table = resourceParamsBuffer[generator.TableName];
+
+                            runningTasks.Add(Task.Run(() =>
+                            {
+                                foreach (var resourceWrapper in mergedResources)
+                                {
+                                    generator.FillDataTable(table, resourceWrapper);
+                                }
+                            }));
+                        }
                     }
-                }));
+                }
             }
 
             while (runningTasks.Count > 0)
@@ -345,6 +352,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await completeTask;
 
                 runningTasks.Remove(completeTask);
+            }
+
+            // remove empty
+            foreach (var dt in resourceParamsBuffer)
+            {
+                if (dt.Value.Rows.Count == 0)
+                {
+                    resourceParamsBuffer.Remove(dt.Key);
+                }
             }
         }
 

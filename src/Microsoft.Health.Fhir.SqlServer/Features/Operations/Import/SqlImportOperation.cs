@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.Store.Sharding;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -52,7 +53,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _importTaskConfiguration = operationsConfig.Value.Import;
             _schemaInformation = schemaInformation;
             _logger = logger;
+
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None).Result;
+            var str = conn.SqlConnection.ConnectionString;
+            SqlService = new SqlService(str);
         }
+
+        public static SqlService SqlService { get; private set; }
 
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalUniqueIndexesForImport { get; private set; }
 
