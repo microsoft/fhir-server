@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 long succeedCount = 0;
                 long failedCount = 0;
                 long currentIndex = -1;
-                var resourceParamsBuffer = new Dictionary<string, DataTable>();
+                List<DataTable> tables = null;
                 var importErrorBuffer = new List<string>();
 
                 List<ImportResource> resourceBuffer = new List<ImportResource>();
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
 
                         importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
-                        resourceParamsBuffer = FillResourceParamsBuffer(mergedResources.ToArray());
+                        tables = FillResourceParamsBuffer(mergedResources.ToArray());
                         AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
 
                         succeedCount += mergedResources.Count();
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         resourceBuffer.Clear();
                     }
 
-                    ImportData(resourceParamsBuffer);
+                    ImportData(tables);
                 }
 
                 try
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
                     importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
 
-                    resourceParamsBuffer = FillResourceParamsBuffer(mergedResources.ToArray());
+                    tables = FillResourceParamsBuffer(mergedResources.ToArray());
 
                     AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
                     succeedCount += mergedResources.Count();
@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     resourceBuffer.Clear();
                 }
 
-                ImportData(resourceParamsBuffer);
+                ImportData(tables);
 
                 // Upload remain error logs
                 ImportProcessingProgress progress = await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
@@ -258,25 +258,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private Dictionary<string, DataTable> FillResourceParamsBuffer(SqlBulkCopyDataWrapper[] mergedResources)
+        private List<DataTable> FillResourceParamsBuffer(SqlBulkCopyDataWrapper[] mergedResources)
         {
-            var resourceParamsBuffer = new Dictionary<string, DataTable>();
+            var tables = new List<DataTable>();
             foreach (var generator in _generators)
             {
-                resourceParamsBuffer[generator.TableName] = generator.GenerateDataTable();
-                var table = resourceParamsBuffer[generator.TableName];
+                var table = generator.GenerateDataTable();
                 foreach (var resourceWrapper in mergedResources)
                 {
                     generator.FillDataTable(table, resourceWrapper);
                 }
 
-                if (table.Rows.Count == 0)
+                if (table.Rows.Count > 0)
                 {
-                    resourceParamsBuffer.Remove(generator.TableName);
+                    tables.Add(table);
+                }
+                else
+                {
+                    table.Dispose();
                 }
             }
 
-            return resourceParamsBuffer;
+            return tables;
         }
 
         private void AppendDuplicatedResouceErrorToBuffer(IEnumerable<SqlBulkCopyDataWrapper> mergedResources, List<string> importErrorBuffer)
@@ -308,9 +311,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             return progress;
         }
 
-        private void ImportData(Dictionary<string, DataTable> tables)
+        private void ImportData(List<DataTable> tables)
         {
-            foreach (var table in tables.Values)
+            foreach (var table in tables)
             {
                 try
                 {
