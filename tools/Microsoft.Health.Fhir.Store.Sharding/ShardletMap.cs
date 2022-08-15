@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             var builder = new SqlConnectionStringBuilder(connectionString);
             if (CentralStoreIntegratedSecurity)
             {
-                return $"server={builder.DataSource};database={builder.InitialCatalog};untegrated security=true";
+                return $"server={builder.DataSource};database={builder.InitialCatalog};integrated security=true";
             }
             else if (string.IsNullOrEmpty(builder.UserID))
             {
