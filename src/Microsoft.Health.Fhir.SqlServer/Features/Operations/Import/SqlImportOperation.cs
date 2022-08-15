@@ -34,6 +34,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
+        private static volatile bool _isSqlServiceInitialized = false;
+        private static object _sqlServiceInitializationLocker = new object();
 
         public SqlImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -54,9 +56,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _schemaInformation = schemaInformation;
             _logger = logger;
 
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None).Result;
-            var str = Store.SqlUtils.SqlService.GetCanonicalConnectionString(conn.SqlConnection.ConnectionString);
-            SqlService = new SqlService(str);
+            lock (_sqlServiceInitializationLocker)
+            {
+                if (!_isSqlServiceInitialized)
+                {
+                    using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None).Result;
+                    var str = Store.SqlUtils.SqlService.GetCanonicalConnectionString(conn.SqlConnection.ConnectionString);
+                    SqlService = new SqlService(str);
+                    _isSqlServiceInitialized = true;
+                }
+            }
         }
 
         public static SqlService SqlService { get; private set; }
