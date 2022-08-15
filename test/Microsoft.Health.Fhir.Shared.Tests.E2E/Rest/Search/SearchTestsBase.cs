@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             if (invalidSortParameter)
             {
                 Bundle.EntryComponent entry = Assert.Single(bundle.Entry, e => e.Resource.TypeName == KnownResourceTypes.OperationOutcome); // Exactly one OperationOutcome is returned.
-                Assert.Equal(bundle.Entry[0].Resource.TypeName, KnownResourceTypes.OperationOutcome); // OperationOutcome is the first resource.
+                Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry[0].Resource.TypeName); // OperationOutcome is the first resource.
                 entry.Resource.Id = null; // Set OperationOutcome id returned by the server to null before comparing with the expected resources.
             }
 
