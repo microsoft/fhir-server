@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
 
                         importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
-                        tables = FillResourceParamsBuffer(mergedResources.ToArray());
+                        tables = FillDataTables(mergedResources.ToArray());
                         AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
 
                         succeedCount += mergedResources.Count();
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
                     importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
 
-                    tables = FillResourceParamsBuffer(mergedResources.ToArray());
+                    tables = FillDataTables(mergedResources.ToArray());
 
                     AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
                     succeedCount += mergedResources.Count();
@@ -258,12 +258,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private List<DataTable> FillResourceParamsBuffer(SqlBulkCopyDataWrapper[] mergedResources)
+        private List<DataTable> FillDataTables(SqlBulkCopyDataWrapper[] mergedResources)
         {
             var tables = new List<DataTable>();
             foreach (var generator in _generators)
             {
-                var table = generator.GenerateDataTable();
+                using var table = generator.GenerateDataTable();
                 foreach (var resourceWrapper in mergedResources)
                 {
                     generator.FillDataTable(table, resourceWrapper);
@@ -272,10 +272,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 if (table.Rows.Count > 0)
                 {
                     tables.Add(table);
-                }
-                else
-                {
-                    table.Dispose();
                 }
             }
 
