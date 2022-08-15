@@ -46,7 +46,7 @@
     <PackageReference Include="Hl7.Fhir.Support.Poco" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="Hl7.FhirPath" Version="$(Hl7FhirVersion)" />
-    <PackageReference Include="Microsoft.Health.Fhir.Liquid.Converter" Version="5.0.3.4" />
+    <PackageReference Include="Microsoft.Health.Fhir.Liquid.Converter" Version="5.0.4.3" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.14" />
     <PackageReference Include="Polly" Version="7.2.3" />
