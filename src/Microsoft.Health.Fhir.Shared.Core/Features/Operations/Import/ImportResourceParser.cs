@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             return new ImportResource(id, index, resourceWapper)
             {
-                CompressedStream = GenerateCompressedRawResource(resourceWapper.RawResource.Data),
+                CompressedStream = GenerateCompressedRawResource("{}"),
             };
         }
 
