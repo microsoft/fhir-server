@@ -367,8 +367,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _orchestratorJobResult.RunningJobIds.ExceptWith(completedJobIds);
                 progress.Report(JsonConvert.SerializeObject(_orchestratorJobResult));
             }
-
-            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+            else
+            {
+                // Only wait if no completed job (optimized for small jobs)
+                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+            }
         }
 
         private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Models.InputResource input, CancellationToken cancellationToken)
