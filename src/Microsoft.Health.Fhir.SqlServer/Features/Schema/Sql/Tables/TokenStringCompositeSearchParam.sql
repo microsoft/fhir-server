@@ -34,13 +34,14 @@ ON dbo.TokenStringCompositeSearchParam
 INCLUDE
 (
     SystemId1,
+    CodeOverflow1, -- TODO
     TextOverflow2 -- will not be needed when all servers are targeting at least this version.
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1WithOverflow_Text2WithOverflow
+CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
 ON dbo.TokenStringCompositeSearchParam
 (
     ResourceTypeId,
@@ -53,6 +54,6 @@ INCLUDE
 (
     SystemId1
 )
-WHERE IsHistory = 0 AND CodeOverflow1 IS NOT NULL AND TextOverflow2 IS NOT NULL
+WHERE IsHistory = 0 AND TextOverflow2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)

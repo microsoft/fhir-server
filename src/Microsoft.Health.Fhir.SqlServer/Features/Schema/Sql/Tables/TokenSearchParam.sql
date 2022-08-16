@@ -33,7 +33,7 @@ INCLUDE
 (
     SystemId
 )
-WHERE IsHistory = 0
+WHERE IsHistory = 0 AND CodeOverflow IS NULL
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
