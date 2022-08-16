@@ -48,6 +48,7 @@
     <None Remove="TestFiles\Normative\Profile-CarePlan-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore.json" />
+    <None Remove="TestFiles\Normative\Profile-Patient-uscore-noGender.json" />
     <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
     <None Remove="TestFiles\Normative\Medication.json" />
@@ -267,6 +268,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noGender.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />

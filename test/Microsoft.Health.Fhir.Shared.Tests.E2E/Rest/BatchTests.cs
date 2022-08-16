@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using static Hl7.Fhir.Model.OperationOutcome;
 using Task = System.Threading.Tasks.Task;
 
@@ -168,6 +169,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
             Assert.Equal(expectedIssueType, issue.Code);
             Assert.Equal(expectedDiagnostics, issue.Diagnostics);
+        }
+
+        [Theory]
+        [InlineData("true", "201", true, true)]
+        [InlineData("true", "201", false, true)]
+        [InlineData("true", "201", false, false)]
+        [InlineData("true", "400", true, false)]
+        [InlineData("false", "201", true, false)]
+        [InlineData("false", "201", false, true)]
+        public async Task GivenABundle_WithProfileValidationFlag_ReturnsABundleResponse(string headerValue, string returnValue, bool profileValidation, bool withGender)
+        {
+            var resource = Samples.GetJsonSample("PatientWithMinimalData").ToPoco<Patient>();
+
+            if (profileValidation)
+            {
+                if (withGender)
+                {
+                    resource = Samples.GetJsonSample("Profile-Patient-uscore").ToPoco<Patient>();
+                }
+                else
+                {
+                    resource = Samples.GetJsonSample("Profile-Patient-uscore-noGender").ToPoco<Patient>();
+                }
+            }
+
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Bundle.BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = resource,
+                    },
+                },
+            };
+            _client.HttpClient.DefaultRequestHeaders.Remove(Core.Features.KnownHeaders.ProfileValidation);
+            _client.HttpClient.DefaultRequestHeaders.Add(Core.Features.KnownHeaders.ProfileValidation, headerValue);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle);
+            Assert.NotNull(fhirResponse);
+            Bundle bundleResource = fhirResponse.Resource;
+            Assert.Equal(returnValue, bundleResource.Entry[0].Response.Status);
         }
     }
 }
