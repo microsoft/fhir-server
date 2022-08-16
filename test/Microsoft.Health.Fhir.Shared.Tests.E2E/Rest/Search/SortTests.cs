@@ -771,7 +771,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "New York", "Williamas", tag, DateTime.Now.Subtract(TimeSpan.FromDays(40))),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, DateTime.Now.Subtract(TimeSpan.FromDays(30))));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private async Task<Patient[]> CreatePaginatedPatients(string tag)
@@ -791,7 +791,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private async Task<Patient[]> CreatePatientsWithSameBirthdate(string tag)
@@ -804,7 +804,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Seattle", "Alex", tag),
                 p => SetPatientInfo(p, "Portland", "Rock", tag));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
@@ -818,7 +818,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
@@ -833,7 +833,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
