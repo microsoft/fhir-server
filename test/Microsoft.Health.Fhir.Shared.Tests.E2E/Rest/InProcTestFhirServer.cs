@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
-            configuration["FhirServer:Operations:Import:PollingFrequencyInSeconds"] = "3";
+            configuration["FhirServer:Operations:Import:PollingFrequencyInSeconds"] = "2";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
