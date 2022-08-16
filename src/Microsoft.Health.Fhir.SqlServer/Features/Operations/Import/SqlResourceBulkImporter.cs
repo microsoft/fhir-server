@@ -17,8 +17,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
-////using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-////using Microsoft.Health.Fhir.Store.Sharding;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Store.Sharding;
 using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                     try
                     {
-                        var inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r));
+                        var inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r)).ToList();
                         var mergedResources = ImportData(inputResources);
 
                         var resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
@@ -214,8 +214,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 try
                 {
-                    var inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r));
-                    var mergedResources = ImportData(inputResources);
+                    var inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r)).ToList();
+                    var mergedResources = ImportDataSharded(inputResources);
 
                     var resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
                     importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
@@ -249,7 +249,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private IEnumerable<SqlBulkCopyDataWrapper> ImportData(IEnumerable<SqlBulkCopyDataWrapper> inputResources)
+        private IEnumerable<SqlBulkCopyDataWrapper> ImportData(IList<SqlBulkCopyDataWrapper> inputResources)
         {
             var mergedResources = _sqlImportOperation.BulkMergeResourceAsync(inputResources, CancellationToken.None).Result;
             var paramsTables = FillParamsDataTables(mergedResources.ToArray());
@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             return mergedResources;
         }
 
-        private List<DataTable> FillParamsDataTables(SqlBulkCopyDataWrapper[] mergedResources)
+        private List<DataTable> FillParamsDataTables(IList<SqlBulkCopyDataWrapper> mergedResources)
         {
             var tables = new List<DataTable>();
             foreach (var generator in _generators)
@@ -363,143 +363,85 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             return newTask;
         }
 
-        ////private static (int resourceCnt, int totalCnt) ImportDataSharded(TransactionId transactionId, DataTable resources)
-        ////{
-        ////    var sw = Stopwatch.StartNew();
-        ////    var st = DateTime.UtcNow;
-        ////    var shardletSequence = new Dictionary<ShardletId, short>();
-        ////    var surrIdMap = new Dictionary<long, (ShardletId ShardletId, short Sequence)>(); // map from surr id to shardlet resource index
+        private static Resource GetShardedResource(TransactionId transactionId, ShardletId shardletId, short sequence, SqlBulkCopyDataWrapper input)
+        {
+            var output = new Resource();
+            output.ResourceTypeId = input.ResourceTypeId;
+            output.ResourceId = input.Resource.ResourceId;
+            output.Version = int.Parse(input.Resource.Version);
+            output.IsHistory = input.Resource.IsHistory;
+            output.TransactionId = transactionId;
+            output.ShardletId = shardletId;
+            output.Sequence = sequence;
+            output.IsDeleted = input.Resource.IsDeleted;
+            output.RequestMethod = input.Resource.Request.Method;
+            output.SearchParamHash = input.Resource.SearchParameterHash;
+            return output;
+        }
 
-        ////    foreach (var resource in resources.Rows)
-        ////    {
-        ////        var shardletId = ShardletId.GetHashedShardletId(resource.ResourceId);
-        ////        if (!shardletSequence.TryGetValue(shardletId, out var sequence))
-        ////        {
-        ////            shardletSequence.Add(shardletId, 0);
-        ////        }
-        ////        else
-        ////        {
-        ////            sequence++;
-        ////            shardletSequence[shardletId] = sequence;
-        ////        }
+        private static List<T> Convert<T>(TransactionId transactionId, Dictionary<long, (ShardletId ShardletId, short Sequence)> surrIdMap, DataTable dataTable, Func<TransactionId, ShardletId, short, DataRow, T> create)
+        {
+            List<T> searchParams = null;
+            if (dataTable?.Rows.Count > 0)
+            {
+                searchParams = new List<T>();
+                foreach (var row in dataTable.Rows)
+                {
+                    var dataRow = (DataRow)row;
+                    (var shardletId, var sequence) = surrIdMap[(long)dataRow["ResourceSurrogateId"]];
+                    searchParams.Add(create(transactionId, shardletId, sequence, dataRow));
+                }
+            }
 
-        ////        if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
-        ////        {
-        ////            surrIdMap.Add(resource.ResourceSurrogateId, (shardletId, sequence));
-        ////        }
-        ////    }
+            return searchParams;
+        }
 
-        ////    resources = resources.Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1107:Code should not contain multiple statements on one line", Justification = "Short")]
+        private IEnumerable<SqlBulkCopyDataWrapper> ImportDataSharded(IList<SqlBulkCopyDataWrapper> inputResources)
+        {
+            var paramsTables = FillParamsDataTables(inputResources);
 
-        ////    var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (referenceSearchParams.Count == 0)
-        ////    {
-        ////        referenceSearchParams = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        referenceSearchParams = referenceSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
+            var transactionId = SqlImportOperation.SqlService.BeginTransaction();
 
-        ////    var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (tokenSearchParams.Count == 0)
-        ////    {
-        ////        tokenSearchParams = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        tokenSearchParams = tokenSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
+            var shardletSequence = new Dictionary<ShardletId, short>();
+            var surrIdMap = new Dictionary<long, (ShardletId ShardletId, short Sequence)>(); // map from surr id to shardlet resource index
 
-        ////    var compartmentAssignments = Source.GetData(_ => new CompartmentAssignment(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (compartmentAssignments.Count == 0)
-        ////    {
-        ////        compartmentAssignments = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        compartmentAssignments = compartmentAssignments.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
+            foreach (var resource in inputResources)
+            {
+                var shardletId = ShardletId.GetHashedShardletId(resource.Resource.ResourceId);
+                if (!shardletSequence.TryGetValue(shardletId, out var sequence))
+                {
+                    shardletSequence.Add(shardletId, 0);
+                }
+                else
+                {
+                    sequence++;
+                    shardletSequence[shardletId] = sequence;
+                }
 
-        ////    var tokenTexts = Source.GetData(_ => new TokenText(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (tokenTexts.Count == 0)
-        ////    {
-        ////        tokenTexts = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        tokenTexts = tokenTexts.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
+                if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
+                {
+                    surrIdMap.Add(resource.ResourceSurrogateId, (shardletId, sequence));
+                }
+            }
 
-        ////    var dateTimeSearchParams = Source.GetData(_ => new DateTimeSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (dateTimeSearchParams.Count == 0)
-        ////    {
-        ////        dateTimeSearchParams = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        dateTimeSearchParams = dateTimeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
+            var resources = inputResources.Select(_ => { (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; return GetShardedResource(transactionId, shardletId, sequence, _); }).ToList();
+            var referenceSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.ReferenceSearchParam"), (transactionId, shardletId, sequence, dataRow) => new ReferenceSearchParam(transactionId, shardletId, sequence, dataRow));
+            var tokenSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenSearchParam"), (transactionId, shardletId, sequence, dataRow) => new TokenSearchParam(transactionId, shardletId, sequence, dataRow));
+            var compartmentAssignments = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.CompartmentAssignment"), (transactionId, shardletId, sequence, dataRow) => new CompartmentAssignment(transactionId, shardletId, sequence, dataRow));
+            var tokenTexts = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenText"), (transactionId, shardletId, sequence, dataRow) => new TokenText(transactionId, shardletId, sequence, dataRow));
+            var dateTimeSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.DateTimeSearchParam"), (transactionId, shardletId, sequence, dataRow) => new DateTimeSearchParam(transactionId, shardletId, sequence, dataRow));
+            var tokenQuantityCompositeSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenQuantityCompositeSearchParam"), (transactionId, shardletId, sequence, dataRow) => new TokenQuantityCompositeSearchParam(transactionId, shardletId, sequence, dataRow));
+            var quantitySearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.QuantitySearchParam"), (transactionId, shardletId, sequence, dataRow) => new QuantitySearchParam(transactionId, shardletId, sequence, dataRow));
+            var stringSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.StringSearchParam"), (transactionId, shardletId, sequence, dataRow) => new StringSearchParam(transactionId, shardletId, sequence, dataRow));
+            var tokenTokenCompositeSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenTokenCompositeSearchParam"), (transactionId, shardletId, sequence, dataRow) => new TokenTokenCompositeSearchParam(transactionId, shardletId, sequence, dataRow));
+            var tokenStringCompositeSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenStringCompositeSearchParam"), (transactionId, shardletId, sequence, dataRow) => new TokenStringCompositeSearchParam(transactionId, shardletId, sequence, dataRow));
 
-        ////    var tokenQuantityCompositeSearchParams = Source.GetData(_ => new TokenQuantityCompositeSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (tokenQuantityCompositeSearchParams.Count == 0)
-        ////    {
-        ////        tokenQuantityCompositeSearchParams = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        tokenQuantityCompositeSearchParams = tokenQuantityCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
+            var rows = SqlImportOperation.SqlService.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
 
-        ////    var quantitySearchParams = Source.GetData(_ => new QuantitySearchParam(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (quantitySearchParams.Count == 0)
-        ////    {
-        ////        quantitySearchParams = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        quantitySearchParams = quantitySearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
+            SqlImportOperation.SqlService.CommitTransaction(transactionId);
 
-        ////    var stringSearchParams = Source.GetData(_ => new StringSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (stringSearchParams.Count == 0)
-        ////    {
-        ////        stringSearchParams = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        stringSearchParams = stringSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
-
-        ////    var tokenTokenCompositeSearchParams = Source.GetData(_ => new TokenTokenCompositeSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (tokenTokenCompositeSearchParams.Count == 0)
-        ////    {
-        ////        tokenTokenCompositeSearchParams = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        tokenTokenCompositeSearchParams = tokenTokenCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
-
-        ////    var tokenStringCompositeSearchParams = Source.GetData(_ => new TokenStringCompositeSearchParam(_, false), resourceTypeId, minId, maxId).ToList();
-        ////    if (tokenStringCompositeSearchParams.Count == 0)
-        ////    {
-        ////        tokenStringCompositeSearchParams = null;
-        ////    }
-        ////    else
-        ////    {
-        ////        tokenStringCompositeSearchParams = tokenStringCompositeSearchParams.Where(_ => surrIdMap.ContainsKey(_.ResourceSurrogateId)).Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
-        ////    }
-
-        ////    var rows = 0;
-        ////    if (WritesEnabled)
-        ////    {
-        ////        rows = Target.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
-        ////    }
-
-        ////    Console.WriteLine($"Copy.{thread}.{jobId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
-
-        ////    return (resources.Count, rows);
-        ////}
+            return inputResources;
+        }
     }
 }
