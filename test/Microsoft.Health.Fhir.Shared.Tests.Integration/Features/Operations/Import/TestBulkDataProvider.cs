@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, string.Empty, default(DateTimeOffset), default(DateTimeOffset), true));
+                TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, string.Empty, string.Empty, default(DateTimeOffset), default(DateTimeOffset), true));
             }
 
             return result;

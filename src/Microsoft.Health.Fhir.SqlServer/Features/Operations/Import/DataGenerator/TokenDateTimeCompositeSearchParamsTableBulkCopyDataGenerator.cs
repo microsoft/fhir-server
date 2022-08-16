@@ -16,20 +16,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 {
     internal class TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
     {
-        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> _searchParamGenerator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> _searchParamGenerator;
 
         internal TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator()
         {
         }
 
-        public TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> searchParamGenerator)
+        public TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));
 
             _searchParamGenerator = searchParamGenerator;
         }
 
-        internal static BulkTokenDateTimeCompositeSearchParamTableTypeV1RowComparer Comparer { get; } = new BulkTokenDateTimeCompositeSearchParamTableTypeV1RowComparer();
+        internal static BulkTokenDateTimeCompositeSearchParamTableTypeV2RowComparer Comparer { get; } = new BulkTokenDateTimeCompositeSearchParamTableTypeV2RowComparer();
 
         internal override string TableName
         {
@@ -44,20 +44,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             EnsureArg.IsNotNull(table, nameof(table));
             EnsureArg.IsNotNull(input, nameof(input));
 
-            IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
+            IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkTokenDateTimeCompositeSearchParamTableTypeV1Row searchParam in Distinct(searchParams))
+            foreach (BulkTokenDateTimeCompositeSearchParamTableTypeV2Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
         }
 
-        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkTokenDateTimeCompositeSearchParamTableTypeV1Row searchParam)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkTokenDateTimeCompositeSearchParamTableTypeV2Row searchParam)
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
 
             FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);
             FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.Name, searchParam.Code1);
+            FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.CodeOverflow1.Metadata.Name, searchParam.CodeOverflow1);
             FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.StartDateTime2.Metadata.Name, searchParam.StartDateTime2.DateTime);
             FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.Name, searchParam.EndDateTime2.DateTime);
             FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.Name, searchParam.IsLongerThanADay2);
@@ -73,20 +74,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.SystemId1.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.SystemId1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.StartDateTime2.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.StartDateTime2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
         }
 
-        internal static IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> Distinct(IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> input)
+        internal static IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> input)
         {
             return input.Distinct(Comparer);
         }
 
-        internal class BulkTokenDateTimeCompositeSearchParamTableTypeV1RowComparer : IEqualityComparer<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row>
+        internal class BulkTokenDateTimeCompositeSearchParamTableTypeV2RowComparer : IEqualityComparer<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row>
         {
-            public bool Equals(BulkTokenDateTimeCompositeSearchParamTableTypeV1Row x, BulkTokenDateTimeCompositeSearchParamTableTypeV1Row y)
+            public bool Equals(BulkTokenDateTimeCompositeSearchParamTableTypeV2Row x, BulkTokenDateTimeCompositeSearchParamTableTypeV2Row y)
             {
                 if (x.SearchParamId != y.SearchParamId)
                 {
@@ -94,6 +96,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                 }
 
                 if (!string.Equals(x.Code1, y.Code1, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.CodeOverflow1, y.CodeOverflow1, StringComparison.Ordinal))
                 {
                     return false;
                 }
@@ -121,11 +128,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                 return true;
             }
 
-            public int GetHashCode(BulkTokenDateTimeCompositeSearchParamTableTypeV1Row obj)
+            public int GetHashCode(BulkTokenDateTimeCompositeSearchParamTableTypeV2Row obj)
             {
                 int hashCode = obj.SearchParamId.GetHashCode();
 
                 hashCode ^= obj.Code1?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.CodeOverflow1?.GetHashCode(StringComparison.Ordinal) ?? 0;
                 hashCode ^= obj.SystemId1?.GetHashCode() ?? 0;
                 hashCode ^= obj.StartDateTime2.GetHashCode();
                 hashCode ^= obj.EndDateTime2.GetHashCode();

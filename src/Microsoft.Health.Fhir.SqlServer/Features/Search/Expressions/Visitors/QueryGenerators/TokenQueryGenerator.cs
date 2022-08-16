@@ -49,15 +49,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case FieldName.TokenCode:
                     if (expression.Value.Length <= VLatest.TokenSearchParam.Code.Metadata.MaxLength)
                     {
-                        context.StringBuilder.Append("(");
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
                         context.StringBuilder.Append(" AND ");
                         AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
-                        context.StringBuilder.Append(" IS NULL)");
+                        context.StringBuilder.Append(" IS NULL");
                     }
                     else
                     {
-                        context.StringBuilder.Append("(");
                         int codeLength;
                         checked
                         {
@@ -66,8 +64,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..codeLength]);
                         context.StringBuilder.Append(" AND ");
+                        AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
+                        context.StringBuilder.Append(" IS NOT NULL AND ");
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value[codeLength..]);
-                        context.StringBuilder.Append(")");
                     }
 
                     break;

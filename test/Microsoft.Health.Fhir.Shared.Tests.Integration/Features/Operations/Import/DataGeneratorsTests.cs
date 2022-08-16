@@ -309,30 +309,34 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             DateTimeOffset startDateTime = DateTimeOffset.Now;
             DateTimeOffset endDateTime = DateTimeOffset.Now.AddSeconds(1);
-            List<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row>()
+            List<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> input = new List<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row>()
             {
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", endDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, startDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, false),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, null, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, null, startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", endDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, startDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, false),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, startDateTime, endDateTime, true),
 
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", endDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, startDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, false),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, null, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, null, startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", endDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, startDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, false),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, startDateTime, endDateTime, true),
             };
 
-            Assert.Equal(9, TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(11, TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
         }
 
         [Fact]
