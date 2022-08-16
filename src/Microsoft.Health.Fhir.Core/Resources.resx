@@ -638,4 +638,8 @@
     <value>Search count returned {0} and exceeds the maximum defined limit of {1}.</value>
     <comment>{0} is the rows returned by the query, {1} is the defined limit of the bundle.Total field.</comment>
   </data>
+  <data name="InvalidInnerUnionExpression" xml:space="preserve">
+    <value>Inner '{0}' are not supported</value>
+    <comment>Union expression can't have other union expressions as children.</comment>
+  </data>
 </root>

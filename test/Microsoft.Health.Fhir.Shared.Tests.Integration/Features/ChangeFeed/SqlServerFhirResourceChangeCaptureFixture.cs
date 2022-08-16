@@ -11,7 +11,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
-using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Xunit;

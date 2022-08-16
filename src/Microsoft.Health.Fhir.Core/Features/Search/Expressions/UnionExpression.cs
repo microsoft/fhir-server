@@ -11,51 +11,41 @@ using EnsureThat;
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
-    /// Represents a multiary expression where <see cref="Expressions"/> are grouped by <see cref="MultiaryOperation"/>.
+    /// Represents a union operator.
     /// </summary>
-    public class MultiaryExpression : Expression, IExpressionsContainer
+    public class UnionExpression : Expression, IExpressionsContainer
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="MultiaryExpression"/> class.
-        /// </summary>
-        /// <param name="multiaryOperation">The multiary operator type.</param>
-        /// <param name="expressions">The expressions.</param>
-        public MultiaryExpression(MultiaryOperator multiaryOperation, IReadOnlyList<Expression> expressions)
+        public UnionExpression(UnionOperator unionOperator, IReadOnlyList<Expression> expressions)
         {
             EnsureArg.IsNotNull(expressions, nameof(expressions));
             EnsureArg.IsTrue(expressions.Any(), nameof(expressions));
             EnsureArg.IsTrue(expressions.All(o => o != null), nameof(expressions));
 
-            MultiaryOperation = multiaryOperation;
+            CheckForInvalidInnerUnionExpressions(expressions);
+
+            Operator = unionOperator;
             Expressions = expressions;
         }
 
-        /// <summary>
-        /// Gets the multiary operator type.
-        /// </summary>
-        public MultiaryOperator MultiaryOperation { get; }
+        public UnionOperator Operator { get; }
 
-        /// <summary>
-        /// Gets the expressions.
-        /// </summary>
         public IReadOnlyList<Expression> Expressions { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
-            return visitor.VisitMultiary(this, context);
+            return visitor.VisitUnion(this, context);
         }
 
         public override string ToString()
         {
-            return $"({MultiaryOperation} {string.Join(' ', Expressions)})";
+            return $"(Union ({Operator}) {Expressions} {string.Join(' ', Expressions)})";
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
         {
-            hashCode.Add(typeof(MultiaryExpression));
-            hashCode.Add(MultiaryOperation);
+            hashCode.Add(typeof(UnionExpression));
             foreach (Expression expression in Expressions)
             {
                 expression.AddValueInsensitiveHashCode(ref hashCode);
@@ -64,22 +54,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override bool ValueInsensitiveEquals(Expression other)
         {
-            if (other is not MultiaryExpression multiary ||
-                multiary.MultiaryOperation != MultiaryOperation ||
-                multiary.Expressions.Count != Expressions.Count)
+            if (other is not UnionExpression unionAll ||
+                unionAll.Expressions.Count != Expressions.Count)
             {
                 return false;
             }
 
             for (var i = 0; i < Expressions.Count; i++)
             {
-                if (!multiary.Expressions[i].ValueInsensitiveEquals(Expressions[i]))
+                if (!unionAll.Expressions[i].ValueInsensitiveEquals(Expressions[i]))
                 {
                     return false;
                 }
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Checks if the expressions used to initialize the <see cref="UnionExpression"/> are not other instances of <see cref="UnionExpression"/>.
+        /// </summary>
+        private static void CheckForInvalidInnerUnionExpressions(IReadOnlyList<Expression> expressions)
+        {
+            foreach (Expression expression in expressions)
+            {
+                if (expression is UnionExpression)
+                {
+                    throw new InvalidOperationException(string.Format(Core.Resources.InvalidInnerUnionExpression, nameof(UnionExpression)));
+                }
+
+                if (expression is MultiaryExpression multiaryExpression)
+                {
+                    CheckForInvalidInnerUnionExpressions(multiaryExpression.Expressions);
+                }
+            }
         }
     }
 }

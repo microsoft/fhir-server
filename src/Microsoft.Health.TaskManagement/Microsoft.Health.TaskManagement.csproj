@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
-    <PackageReference Include="FluentValidation" Version="11.1.0" />
+    <PackageReference Include="FluentValidation" Version="11.2.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="5.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
