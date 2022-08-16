@@ -13,6 +13,21 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class DateTimeSearchParam
     {
+        public DateTimeSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            SearchParamId = (short)input["SearchParamId"];
+            StartDateTime = (DateTime)input["StartDateTime"];
+            EndDateTime = (DateTime)input["EndDateTime"];
+            IsLongerThanADay = (bool)input["IsLongerThanADay"];
+            IsHistory = false;
+            IsMin = (bool)input["IsMin"];
+            IsMax = (bool)input["IsMax"];
+        }
+
         public DateTimeSearchParam(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)

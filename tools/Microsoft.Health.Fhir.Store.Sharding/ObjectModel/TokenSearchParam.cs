@@ -13,6 +13,28 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class TokenSearchParam
     {
+        public TokenSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            SearchParamId = (short)input["SearchParamId"];
+            var systemId = input["SystemId"];
+            if (systemId != DBNull.Value)
+            {
+                SystemId = (int)systemId;
+            }
+
+            var code = input["Code"];
+            if (code != DBNull.Value)
+            {
+                Code = (string)code;
+            }
+
+            IsHistory = false;
+        }
+
         public TokenSearchParam(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)

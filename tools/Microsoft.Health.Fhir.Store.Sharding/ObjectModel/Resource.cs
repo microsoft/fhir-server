@@ -13,6 +13,10 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class Resource
     {
+        public Resource()
+        {
+        }
+
         public Resource(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)
@@ -34,13 +38,13 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
 
-        public short ResourceTypeId { get; }
+        public short ResourceTypeId { get; set; }
 
-        public string ResourceId { get; }
+        public string ResourceId { get; set; }
 
-        public int Version { get; }
+        public int Version { get; set; }
 
-        public bool IsHistory { get; }
+        public bool IsHistory { get; set; }
 
         public long ResourceSurrogateId { get; set; } // not sharded schema
 
@@ -50,16 +54,16 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 
         public short Sequence { get; set; } // sharded schema
 
-        public bool IsDeleted { get; }
+        public bool IsDeleted { get; set; }
 
-        public string RequestMethod { get; }
+        public string RequestMethod { get; set; }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Correct")]
-        public byte[] RawResource { get; }
+        public byte[] RawResource { get; set; }
 
-        public bool IsRawResourceMetaSet { get; }
+        public bool IsRawResourceMetaSet { get; set; }
 
-        public string SearchParamHash { get; }
+        public string SearchParamHash { get; set; }
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]

@@ -13,6 +13,58 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class TokenQuantityCompositeSearchParam
     {
+        public TokenQuantityCompositeSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            SearchParamId = (short)input["SearchParamId"];
+            var systemId1 = input["SystemId1"];
+            if (systemId1 != DBNull.Value)
+            {
+                SystemId1 = (int)systemId1;
+            }
+
+            var code1 = input["Code1"];
+            if (code1 != DBNull.Value)
+            {
+                Code1 = (string)code1;
+            }
+
+            var systemId2 = input["SystemId2"];
+            if (systemId2 != DBNull.Value)
+            {
+                SystemId2 = (int)systemId2;
+            }
+
+            var quantityCodeId2 = input["QuantityCodeId2"];
+            if (quantityCodeId2 != DBNull.Value)
+            {
+                QuantityCodeId2 = (int)quantityCodeId2;
+            }
+
+            var singleValue2 = input["SingleValue2"];
+            if (singleValue2 != DBNull.Value)
+            {
+                SingleValue2 = (decimal)singleValue2;
+            }
+
+            var lowValue2 = input["LowValue2"];
+            if (lowValue2 != DBNull.Value)
+            {
+                LowValue2 = (decimal)lowValue2;
+            }
+
+            var highValue2 = input["HighValue2"];
+            if (highValue2 != DBNull.Value)
+            {
+                HighValue2 = (decimal)highValue2;
+            }
+
+            IsHistory = false;
+        }
+
         public TokenQuantityCompositeSearchParam(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)

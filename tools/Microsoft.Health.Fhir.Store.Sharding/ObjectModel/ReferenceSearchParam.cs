@@ -13,6 +13,30 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class ReferenceSearchParam
     {
+        public ReferenceSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            SearchParamId = (short)input["SearchParamId"];
+            var baseUri = input["BaseUri"];
+            if (baseUri != DBNull.Value)
+            {
+                BaseUri = (string)baseUri;
+            }
+
+            ReferenceResourceTypeId = (short)input["ReferenceResourceTypeId"];
+            ReferenceResourceId = (string)input["ReferenceResourceId"];
+            var referenceResourceVersion = input["ReferenceResourceVersion"];
+            if (referenceResourceVersion != DBNull.Value)
+            {
+                ReferenceResourceVersion = (int)referenceResourceVersion;
+            }
+
+            IsHistory = false;
+        }
+
         public ReferenceSearchParam(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)

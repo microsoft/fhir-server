@@ -13,6 +13,17 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class TokenText
     {
+        public TokenText(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            SearchParamId = (short)input["SearchParamId"];
+            Text = (string)input["Text"];
+            IsHistory = false;
+        }
+
         public TokenText(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)

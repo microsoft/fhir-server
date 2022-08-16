@@ -12,6 +12,17 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class CompartmentAssignment
     {
+        public CompartmentAssignment(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            CompartmentTypeId = (byte)input["CompartmentTypeId"];
+            ReferenceResourceId = (string)input["ReferenceResourceId"];
+            IsHistory = false;
+        }
+
         public CompartmentAssignment(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)

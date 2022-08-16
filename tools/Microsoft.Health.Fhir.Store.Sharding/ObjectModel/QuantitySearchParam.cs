@@ -13,6 +13,36 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class QuantitySearchParam
     {
+        public QuantitySearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            SearchParamId = (short)input["SearchParamId"];
+            var systemId = input["SystemId"];
+            if (systemId != DBNull.Value)
+            {
+                SystemId = (int)systemId;
+            }
+
+            var quantityCodeId = input["QuantityCodeId"];
+            if (quantityCodeId != DBNull.Value)
+            {
+                QuantityCodeId = (int)quantityCodeId;
+            }
+
+            var singleValue = input["SingleValue"];
+            if (singleValue != DBNull.Value)
+            {
+                SingleValue = (decimal)singleValue;
+            }
+
+            LowValue = (decimal)input["LowValue"];
+            HighValue = (decimal)input["HighValue"];
+            IsHistory = false;
+        }
+
         public QuantitySearchParam(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)

@@ -13,6 +13,34 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class StringSearchParam
     {
+        public StringSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            SearchParamId = (short)input["SearchParamId"];
+            Text = (string)input["Text"];
+            var textOverflow = input["TextOverflow"];
+            if (textOverflow != DBNull.Value)
+            {
+                TextOverflow = (string)textOverflow;
+            }
+
+            IsHistory = false;
+            var isMin = input["IsMin"];
+            if (isMin != DBNull.Value)
+            {
+                IsMin = (bool)isMin;
+            }
+
+            var isMax = input["IsMax"];
+            if (isMin != DBNull.Value)
+            {
+                IsMax = (bool)isMax;
+            }
+        }
+
         public StringSearchParam(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)

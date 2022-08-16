@@ -13,6 +13,30 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class TokenStringCompositeSearchParam
     {
+        public TokenStringCompositeSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        {
+            ResourceTypeId = (short)input["ResourceTypeId"];
+            TransactionId = transactionId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            SearchParamId = (short)input["SearchParamId"];
+            var systemId1 = input["SystemId1"];
+            if (systemId1 != DBNull.Value)
+            {
+                SystemId1 = (int)systemId1;
+            }
+
+            Code1 = (string)input["Code1"];
+            Text2 = (string)input["Text2"];
+            var textOverflow2 = input["TextOverflow2"];
+            if (textOverflow2 != DBNull.Value)
+            {
+                TextOverflow2 = (string)textOverflow2;
+            }
+
+            IsHistory = false;
+        }
+
         public TokenStringCompositeSearchParam(SqlDataReader reader, bool isSharded)
         {
             if (isSharded)
