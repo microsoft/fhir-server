@@ -439,7 +439,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     success = true;
                     retryCount++;
 
-                    _output.WriteLine($"Attempt {retryCount}");
+                    _output.WriteLine($"Attempt: {retryCount}");
 
                     try
                     {
