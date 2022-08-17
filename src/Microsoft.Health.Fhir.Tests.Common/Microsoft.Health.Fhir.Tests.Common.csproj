@@ -57,6 +57,7 @@
     <None Remove="TestFiles\Normative\PatientTokenOverflow.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenStringSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenTokenSearchParameter.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <None Remove="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
     <None Remove="TestFiles\Normative\SearchParameterInvalidBase.json" />
@@ -273,6 +274,7 @@
     <EmbeddedResource Include="TestFiles\Normative\PatientTokenOverflow.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenStringSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenTokenSearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidType.json" />

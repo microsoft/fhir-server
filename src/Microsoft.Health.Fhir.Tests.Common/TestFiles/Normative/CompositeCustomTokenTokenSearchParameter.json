@@ -1,13 +1,13 @@
 {
     "resourceType" : "SearchParameter",
-    "id" : "Patient-identifier-individual-birthdate",
+    "id" : "Patient-identifier-individual-phone",
     "extension" : [{
       "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
       "valueCode" : "trial-use"
     }],
-    "url" : "http://hl7.org/fhir/SearchParameter/Patient-identifier-individual-birthdate",
+    "url" : "http://hl7.org/fhir/SearchParameter/Patient-identifier-individual-phone",
     "version" : "1.0.0",
-    "name" : "Patient-identifier-individual-birthdate",
+    "name" : "Patient-identifier-individual-phone",
     "status" : "draft",
     "experimental" : false,
     "date" : "2019-11-01T09:29:23+11:00",
@@ -24,8 +24,8 @@
         "value" : "http://www.hl7.org/Special/committees/orders/index.cfm"
       }]
     }],
-    "description" : "Patient identifier and birth date parameter pair",
-    "code" : "Patient-identifier-individual-birthdate",
+    "description" : "Patient identifier and phone parameter pair",
+    "code" : "Patient-identifier-individual-phone",
     "base" : ["Patient"],
     "type" : "composite",
     "expression" : "Patient",
@@ -36,7 +36,7 @@
       "expression" : "identifier"
     },
     {
-      "definition" : "http://hl7.org/fhir/SearchParameter/individual-birthdate",
-      "expression" : "birthDate"
+      "definition" : "http://hl7.org/fhir/SearchParameter/individual-phone",
+      "expression" : "telecom"
     }]
 }

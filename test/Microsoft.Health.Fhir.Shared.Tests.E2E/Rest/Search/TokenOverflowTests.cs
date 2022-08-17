@@ -80,24 +80,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        private void LoadTestPatients(string id, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithNoTokenOverflow)
+        private void LoadTestPatients(string name, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithNoTokenOverflow)
         {
             Patient patient = Samples.GetJsonSample<Patient>("PatientTokenOverflow");
+
             patientAWithTokenOverflow = (Patient)patient.DeepCopy();
-            patientAWithTokenOverflow.Id = $"{id}A-test-patient-with-token-overflow";
-            patientAWithTokenOverflow.Name[0].Family = $"{id}A";
+            patientAWithTokenOverflow.Id = $"{name}A-test-patient-with-token-overflow";
+            patientAWithTokenOverflow.Name[0].Family = $"{name}A";
             patientAWithTokenOverflow.BirthDate = "2016-01-15";
-            patientAWithTokenOverflow.Identifier[0].Value = GetTokenValue(id, "A");
+            patientAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A");
+            patientAWithTokenOverflow.Telecom[0].Value = "555-555-5555";
+
             patientBWithTokenOverflow = (Patient)patient.DeepCopy();
-            patientBWithTokenOverflow.Id = $"{id}B-test-patient-with-token-overflow";
-            patientBWithTokenOverflow.Name[0].Family = $"{id}B";
+            patientBWithTokenOverflow.Id = $"{name}B-test-patient-with-token-overflow";
+            patientBWithTokenOverflow.Name[0].Family = $"{name}B";
             patientBWithTokenOverflow.BirthDate = "2016-01-16";
-            patientBWithTokenOverflow.Identifier[0].Value = GetTokenValue(id, "B");
+            patientBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B");
+            patientBWithTokenOverflow.Telecom[0].Value = "555-555-5556";
+
             patientCWithNoTokenOverflow = (Patient)patient.DeepCopy();
-            patientCWithNoTokenOverflow.Id = $"{id}-test-patient-with-no-token-overflow";
-            patientCWithNoTokenOverflow.Name[0].Family = $"{id}";
+            patientCWithNoTokenOverflow.Id = $"{name}C-test-patient-with-no-token-overflow";
+            patientCWithNoTokenOverflow.Name[0].Family = $"{name}";
             patientCWithNoTokenOverflow.BirthDate = "2016-01-17";
-            patientCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(id);
+            patientCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name);
+            patientCWithNoTokenOverflow.Telecom[0].Value = "555-555-5557";
         }
 
         [SkippableFact]
@@ -105,9 +111,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             try
             {
-                string id = "KirkT" + Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+                string name = "KirkT" + Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
 
-                LoadTestPatients(id, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithNoTokenOverflow);
+                LoadTestPatients(name, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithNoTokenOverflow);
 
                 // Create patients.
 
@@ -265,7 +271,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await TestCompositeTokenOverflow(
                 "KirkCTS",
                 "CompositeCustomTokenStringSearchParameter",
-                "identifier-name-family",
+                "Patient-identifier-individual-family",
                 patient => patient.Name[0].Family);
         }
 
@@ -275,18 +281,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await TestCompositeTokenOverflow(
                 "KirkCTD",
                 "CompositeCustomTokenDateTimeSearchParameter",
-                "identifier-birthDate",
+                "Patient-identifier-individual-birthdate",
                 patient => patient.BirthDate);
+        }
+
+        [SkippableFact]
+        public async Task CCCC_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        {
+            await TestCompositeTokenOverflow(
+                "KirkCTT",
+                "CompositeCustomTokenTokenSearchParameter",
+                "Patient-identifier-individual-phone",
+                patient => patient.Telecom[0].Value);
         }
 
         private async Task TestCompositeTokenOverflow(string resourceNamePrefix, string searchParameterTestFileName, string searchParameterName, GetOtherParameter getOtherParameter)
         {
             try
             {
-                string id = resourceNamePrefix + Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+                string rnd = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+                string name = resourceNamePrefix + rnd;
+                searchParameterName += name;
 
-                SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>(searchParameterTestFileName); // TODO: Randomize search param name?????????????????????????????????
-                LoadTestPatients(id, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithNoTokenOverflow);
+                SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>(searchParameterTestFileName);
+                searchParam.Name = searchParameterName;
+                searchParam.Url = "http://hl7.org/fhir/SearchParameter/" + searchParameterName;
+                searchParam.Code = searchParameterName;
+
+                LoadTestPatients(name, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithNoTokenOverflow);
 
                 // POST patient A.
                 FhirResponse<Patient> createdPatientA = await Client.CreateAsync(patientAWithTokenOverflow);
@@ -352,7 +374,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Contains(createdSearchParam.Resource.Url, param?.Value?.ToString());
 
                 reindexJobResult = await WaitForReindexStatus(reindexJobUri, "Completed");
-                _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with {id}.");
+                _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with name or id containing '{name}'.");
 
                 bool floatParse = float.TryParse(
                     reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
