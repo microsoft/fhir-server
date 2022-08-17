@@ -180,19 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("false", "201", false, true)]
         public async Task GivenABundle_WithProfileValidationFlag_ReturnsABundleResponse(string headerValue, string returnValue, bool profileValidation, bool withGender)
         {
-            var resource = Samples.GetJsonSample("PatientWithMinimalData").ToPoco<Patient>();
-
-            if (profileValidation)
-            {
-                if (withGender)
-                {
-                    resource = Samples.GetJsonSample("Profile-Patient-uscore").ToPoco<Patient>();
-                }
-                else
-                {
-                    resource = Samples.GetJsonSample("Profile-Patient-uscore-noGender").ToPoco<Patient>();
-                }
-            }
+            var resource = Samples.GetJsonSample("Profile-Patient-uscore-noGender").ToPoco<Patient>();
 
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -215,7 +203,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle);
             Assert.NotNull(fhirResponse);
             Bundle bundleResource = fhirResponse.Resource;
-            Assert.Equal(returnValue, bundleResource.Entry[0].Response.Status);
+
+            if (headerValue.Equals("true") && profileValidation)
+            {
+                if (!withGender)
+                {
+                    Assert.Equal(returnValue, bundleResource.Entry[0].Response.Status);
+                }
+            }
         }
     }
 }
