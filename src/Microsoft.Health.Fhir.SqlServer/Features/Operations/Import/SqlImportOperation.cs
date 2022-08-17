@@ -62,6 +62,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None).Result;
                     var str = Store.SqlUtils.SqlService.GetCanonicalConnectionString(conn.SqlConnection.ConnectionString);
+                    if (!str.Contains("integrated security", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using var cmd = new SqlCommand($"SELECT Char FROM dbo.Parameters WHERE Id = 'addition'", conn.SqlConnection);
+                        var pwd = cmd.ExecuteScalar();
+                        str += $";pwd={pwd};";
+                    }
+
                     SqlService = new SqlService(str);
                     _isSqlServiceInitialized = true;
                 }
