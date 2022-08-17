@@ -45,6 +45,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _output = output;
         }
 
+        private delegate string GetOtherParameter(Patient patient);
+
         public async Task InitializeAsync()
         {
             // await Client.DeleteAllResources(ResourceType.Patient, null);
@@ -84,14 +86,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             patientAWithTokenOverflow = (Patient)patient.DeepCopy();
             patientAWithTokenOverflow.Id = $"{id}A-test-patient-with-token-overflow";
             patientAWithTokenOverflow.Name[0].Family = $"{id}A";
+            patientAWithTokenOverflow.BirthDate = "2016-01-15";
             patientAWithTokenOverflow.Identifier[0].Value = GetTokenValue(id, "A");
             patientBWithTokenOverflow = (Patient)patient.DeepCopy();
             patientBWithTokenOverflow.Id = $"{id}B-test-patient-with-token-overflow";
             patientBWithTokenOverflow.Name[0].Family = $"{id}B";
+            patientBWithTokenOverflow.BirthDate = "2016-01-16";
             patientBWithTokenOverflow.Identifier[0].Value = GetTokenValue(id, "B");
             patientCWithNoTokenOverflow = (Patient)patient.DeepCopy();
             patientCWithNoTokenOverflow.Id = $"{id}-test-patient-with-no-token-overflow";
             patientCWithNoTokenOverflow.Name[0].Family = $"{id}";
+            patientCWithNoTokenOverflow.BirthDate = "2016-01-17";
             patientCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(id);
         }
 
@@ -142,6 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        /*
         [SkippableFact]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
         {
@@ -251,15 +257,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 throw;
             }
         }
+        */
 
         [SkippableFact]
         public async Task AAAA_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
         {
+            await TestCompositeTokenOverflow(
+                "KirkCTS",
+                "CompositeCustomTokenStringSearchParameter",
+                "identifier-name-family",
+                patient => patient.Name[0].Family);
+        }
+
+        [SkippableFact]
+        public async Task BBBB_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        {
+            await TestCompositeTokenOverflow(
+                "KirkCTD",
+                "CompositeCustomTokenDateTimeSearchParameter",
+                "identifier-birthDate",
+                patient => patient.BirthDate);
+        }
+
+        private async Task TestCompositeTokenOverflow(string resourceNamePrefix, string searchParameterTestFileName, string searchParameterName, GetOtherParameter getOtherParameter)
+        {
             try
             {
-                string id = "KirkCTD" + Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+                string id = resourceNamePrefix + Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
 
-                SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>("CompositeCustomTokenDateTimeSearchParameter");
+                SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>(searchParameterTestFileName); // TODO: Randomize search param name?????????????????????????????????
                 LoadTestPatients(id, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithNoTokenOverflow);
 
                 // POST patient A.
@@ -279,9 +305,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 EnsureSuccessStatusCode(createdPatientA.StatusCode, "Creating patient C.");
 
                 // Without x-ms-use-partial-indices header we cannot search for resources created after the search parameter was created.
-                Bundle bundle = await Client.SearchAsync($"Patient?identifier-name-family={patientBWithTokenOverflow.Identifier[0].Value}${patientBWithTokenOverflow.Name[0].Family}");
+                Bundle bundle = await Client.SearchAsync($"Patient?{searchParameterName}={patientBWithTokenOverflow.Identifier[0].Value}${getOtherParameter(patientBWithTokenOverflow)}");
                 OperationOutcome operationOutcome = GetAndValidateOperationOutcome(bundle);
-                string[] expectedDiagnostics = { string.Format(Core.Resources.SearchParameterNotSupported, "identifier-name-family", "Patient") };
+                string[] expectedDiagnostics = { string.Format(Core.Resources.SearchParameterNotSupported, searchParameterName, "Patient") };
                 OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
                 OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
                 ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, operationOutcome);
@@ -289,20 +315,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // With x-ms-use-partial-indices header we can search only for resources created after the search parameter was created.
 
                 await ExecuteAndValidateBundle(
-                    $"Patient?identifier-name-family={patientAWithTokenOverflow.Identifier[0].Value}${patientAWithTokenOverflow.Name[0].Family}",
+                    $"Patient?{searchParameterName}={patientAWithTokenOverflow.Identifier[0].Value}${getOtherParameter(patientAWithTokenOverflow)}",
                     false,
                     false,
                     new Tuple<string, string>("x-ms-use-partial-indices", "true"));
 
                 await ExecuteAndValidateBundle(
-                    $"Patient?identifier-name-family={patientBWithTokenOverflow.Identifier[0].Value}${patientBWithTokenOverflow.Name[0].Family}",
+                    $"Patient?{searchParameterName}={patientBWithTokenOverflow.Identifier[0].Value}${getOtherParameter(patientBWithTokenOverflow)}",
                     false,
                     false,
                     new Tuple<string, string>("x-ms-use-partial-indices", "true"),
                     createdPatientB);
 
                 await ExecuteAndValidateBundle(
-                    $"Patient?identifier-name-family={patientCWithNoTokenOverflow.Identifier[0].Value}${patientCWithNoTokenOverflow.Name[0].Family}",
+                    $"Patient?{searchParameterName}={patientCWithNoTokenOverflow.Identifier[0].Value}${getOtherParameter(patientCWithNoTokenOverflow)}",
                     false,
                     false,
                     new Tuple<string, string>("x-ms-use-partial-indices", "true"),
@@ -339,20 +365,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // After reindexing no need to use x-ms-use-partial-indices, all resources are searchable.
                 await ExecuteAndValidateBundle(
-                    $"Patient?identifier-name-family={patientAWithTokenOverflow.Identifier[0].Value}${patientAWithTokenOverflow.Name[0].Family}",
+                    $"Patient?{searchParameterName}={patientAWithTokenOverflow.Identifier[0].Value}${getOtherParameter(patientAWithTokenOverflow)}",
                     createdPatientA);
 
                 await ExecuteAndValidateBundle(
-                    $"Patient?identifier-name-family={patientBWithTokenOverflow.Identifier[0].Value}${patientBWithTokenOverflow.Name[0].Family}",
+                    $"Patient?{searchParameterName}={patientBWithTokenOverflow.Identifier[0].Value}${getOtherParameter(patientBWithTokenOverflow)}",
                     createdPatientB);
 
                 await ExecuteAndValidateBundle(
-                    $"Patient?identifier-name-family={patientCWithNoTokenOverflow.Identifier[0].Value}${patientCWithNoTokenOverflow.Name[0].Family}",
+                    $"Patient?{searchParameterName}={patientCWithNoTokenOverflow.Identifier[0].Value}${getOtherParameter(patientCWithNoTokenOverflow)}",
                     createdPatientC);
 
                 // Invlid composite search parameter returns nothing (we combine patients A and B).
                 await ExecuteAndValidateBundle(
-                    $"Patient?identifier-name-family={patientAWithTokenOverflow.Identifier[0].Value}${patientBWithTokenOverflow.Name[0].Family}");
+                    $"Patient?{searchParameterName}={patientAWithTokenOverflow.Identifier[0].Value}${getOtherParameter(patientBWithTokenOverflow)}");
             }
             catch (Exception e)
             {
