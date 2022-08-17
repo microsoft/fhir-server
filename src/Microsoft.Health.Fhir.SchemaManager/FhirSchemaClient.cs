@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.ObjectModel;
+using EnsureThat;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Exceptions;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -24,6 +25,10 @@ public class FhirSchemaClient : ISchemaClient
         ISchemaDataStore schemaDataStore,
         ISchemaManagerDataStore schemaManagerDataStore)
     {
+        EnsureArg.IsNotNull(scriptProvider, nameof(scriptProvider));
+        EnsureArg.IsNotNull(schemaDataStore, nameof(schemaDataStore));
+        EnsureArg.IsNotNull(schemaManagerDataStore, nameof(schemaManagerDataStore));
+
         _scriptProvider = scriptProvider;
         _schemaDataStore = schemaDataStore;
         _schemaManagerDataStore = schemaManagerDataStore;

@@ -1,7 +1,7 @@
-# FHIR Schema Manager
+# FHIR Schema Manager for SQL
 
 ### What is it?
-Schema Manager is a command line app that upgrades the schema in your database from one version to the next through migration scripts.
+Schema Manager is a command line app that upgrades the schema in SQL database from one version to the next through migration scripts.
 
 ------------
 
@@ -41,17 +41,17 @@ Example command line usage:
 
 ### Terminology
 
-**Current database version**
-- The maximum SchemaVersion version in the database.
+**Current schema version**
+- The highest schema version applied to the SQL Database at present. This value is stored in SchemaVersion table.
 
-**Current instance version**
-- The maximum SchemaVersion version in the database that falls at or below the SchemaVersionConstants.Max value. For example, if the current database version is 25, but SchemaVersionConstants.Max is 23, the instance's current version will be 23.
+**Current instance schema version**
+- The highest schema version applied to the SQL Database at present that falls at or below the SchemaVersionConstants.Max value. For example, if the current database version is 25, but SchemaVersionConstants.Max is 23, the instance's current version will be 23.
 
-**Available version**
-- Any version greater than the current database version.
+**Available schema version**
+- Any schema version greater than the current schema version.
 
-**Compatible version**
-- Any version from SchemaVersionConstants.Min to SchemaVersionConstants.Max (inclusive).
+**Compatible schema version**
+- Any schema version from SchemaVersionConstants.Min to SchemaVersionConstants.Max (inclusive).
 
 ------------
 
@@ -63,18 +63,20 @@ Schema Manager runs through the following steps:
 	1. Ensures the base schema exists.
 	2. Ensures instance schema records exist.
 		1. Since FHIR Server implements its own ISchemaClient (FhirSchemaClient), if there are no instance schema records, the upgrade continues uninterrupted. In healthcare-shared-components, this would throw an exception and cancel the upgrade.
-	3. Gets all available versions and compares them against all compatible versions.
+	3. Gets all available versions and compares them against all compatible schema versions.
 	4. Based on the current database schema version:
-		1. If there is no version (base schema only), the latest full migration script is applied.
-		2. If the current version is >= 1, each available version is applied one at a time until the database's schema version reaches the desired version input by the user (latest, next, or a specific version).
+		1. If there is no schema version (base schema only), the latest full migration script is applied.
+		2. If the current schema version is >= 1, each available achema version is applied one at a time until the database's schema version reaches the desired schema version input by the user (latest, next, or a specific schema version).
 
 ------------
 
 ### Caveats
 
-Schema Manager works under the assumption that it will be updated at the same time as any FHIR binaries. It's possible to end up with a database in a bad state when running Schema Manager with a different tag version than the FHIR binary. For example, you could have a database upgraded to schema version 25, but the binary only supports up to schema version 23.
+1. Schema Manager is deployed in a separate container than the FHIR service and it works under the assumption that it will be updated at the same time as any FHIR binaries. It's possible to end up with a database in a bad state when running Schema Manager with a different tag version than the FHIR binary. For example, Schema manager could have the latest schema version 25 which will upgrad the database to schema version 25, but the FHIR service could still be on older binary that only supports up to schema version 23. One way to avoid this is to ensure binaries for Schema manager and FHIR service are updated at the same time.
 
-Schema Manager is programmed to upgrade the database of an existing, running FHIR instance, or against a new database. If SchemaManager is run against an existing database with no running instances, SchemaManager will apply the latest SchemaVersion possible, and not take into account the compatibility from running instances. This is because the InstanceSchema table is only populated when FHIR services are running.
+2. Schema Manager is programmed to upgrade the database of an existing, running FHIR instance, or against a new database. 
+	1. If SchemaManager is run against an existing database with no running instances, SchemaManager will apply the latest SchemaVersion possible, and not take into account the compatibility from running instances. This is because the InstanceSchema table is only populated when FHIR services are running.
+	2. If SchemaManager is run against an existing database with previously running instances (assuming its not running right now) which will have the InstanceSchema table populated, SchemaManager will apply the (Current Schema Version + 1) SchemaVersion, and will fail when try to apply the next version (Current Schema Version + 2).
 
 ------------
 

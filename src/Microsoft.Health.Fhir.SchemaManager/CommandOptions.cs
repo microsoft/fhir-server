@@ -41,16 +41,16 @@ public static class CommandOptions
 
     public static Option AuthenticationTypeOption()
     {
-        var connectionStringOption = new Option<string>(
+        var authenticationTypeOption = new Option<string>(
             name: OptionAliases.AuthenticationType,
             description: Resources.AuthenticationTypeDescription)
         {
             Arity = ArgumentArity.ZeroOrOne,
         };
 
-        connectionStringOption.AddAlias(OptionAliases.AuthenticationTypeShort);
+        authenticationTypeOption.AddAlias(OptionAliases.AuthenticationTypeShort);
 
-        return connectionStringOption;
+        return authenticationTypeOption;
     }
 
     public static Option VersionOption()
@@ -59,7 +59,7 @@ public static class CommandOptions
             name: OptionAliases.Version,
             description: Resources.VersionOptionDescription)
         {
-            Arity = ArgumentArity.ExactlyOne,
+            Arity = ArgumentArity.ZeroOrOne,
         };
 
         versionOption.AddAlias(OptionAliases.VersionShort);

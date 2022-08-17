@@ -53,6 +53,7 @@ public class ApplyCommand : Command
             return Task.CompletedTask;
         }
 
+        // TODO: Consider passing force flag to ApplySchema method. This could be used to override some of the checks e.g. ValidateInstancesVersion
         return _schemaManager.ApplySchema(type, token);
     }
 
