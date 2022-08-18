@@ -433,7 +433,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 int retryCount = 0;
                 bool success = true;
 
-                // await Task.Delay(TimeSpan.FromSeconds(10));
+                await Task.Delay(TimeSpan.FromSeconds(20));
 
                 do
                 {
