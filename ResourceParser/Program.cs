@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Timers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -24,6 +25,7 @@ using ResourceParser.Code;
 
 namespace ResourceParser
 {
+#pragma warning disable CA1303 // Do not pass literals as localized parameters
     public static class Program
     {
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
@@ -37,11 +39,14 @@ namespace ResourceParser
         public static void Main(string[] args)
         {
             Startup();
+            Console.WriteLine("Finished startup");
 
             _requestContextAccessor.RequestContext = new FhirRequestContext("EXE", "http://null/", "https://null/", "null", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
 
-            string input = "{\"resourceType\": \"Patient\", \"gender\": \"male\"}";
+            // string input = "{\"resourceType\": \"Patient\", \"gender\": \"male\", \"id\": \"123\"}";
+            string input = args[0];
             Base resource = _fhirJsonParser.Parse(input);
+            Console.WriteLine("Creating resource wrapper");
             var resourceWrapper = _resourceWrapperFactory.Create(new ResourceElement(resource.ToTypedElement()), false, true);
             var output = _fhirJsonSerializer.SerializeToString(_fhirJsonParser.Parse(resourceWrapper.RawResource.ToITypedElement(_modelInfoProvider)));
             Console.Write(output);
@@ -60,10 +65,9 @@ namespace ResourceParser
 
             var filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(searchParameterDefinitionManager, modelInfoProvider);
 
-            var fhirTypedElementConverters = MakeConverters(fhirRequestContextAccessor, modelInfoProvider);
-            var fhirTypedElementToSearchValueConverterManager = new FhirTypedElementToSearchValueConverterManager(fhirTypedElementConverters);
-
             var codeSystemResolver = new CodeSystemResolver(modelInfoProvider);
+            var fhirTypedElementConverters = MakeConverters(fhirRequestContextAccessor, codeSystemResolver);
+            var fhirTypedElementToSearchValueConverterManager = new FhirTypedElementToSearchValueConverterManager(fhirTypedElementConverters);
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(referenceSearchValueParser);
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
@@ -86,8 +90,16 @@ namespace ResourceParser
             var resourceWrapperFactory = new ResourceWrapperFactory(rawResourceFactory, fhirRequestContextAccessor, searchIndexer, claimsExtractor, compartmentIndexer, searchParameterDefinitionManager, resourceDeserializer);
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            searchParameterDefinitionManager.StartAsync(CancellationToken.None);
-            codeSystemResolver.StartAsync(CancellationToken.None);
+            var definitionManagerTask = searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+            var resolverTask = codeSystemResolver.StartAsync(CancellationToken.None);
+            var comparmentTask = compartmentDefinitionManager.StartAsync(CancellationToken.None);
+
+            var startupTasks = System.Threading.Tasks.Task.WhenAll(definitionManagerTask, resolverTask, comparmentTask);
+            while (!startupTasks.IsCompleted)
+            {
+                Console.WriteLine("waiting...");
+                Thread.Sleep(5000);
+            }
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
             _resourceWrapperFactory = resourceWrapperFactory;
@@ -97,11 +109,10 @@ namespace ResourceParser
             _modelInfoProvider = modelInfoProvider;
         }
 
-        private static IEnumerable<ITypedElementToSearchValueConverter> MakeConverters(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, IModelInfoProvider modelInfoProvider)
+        private static IEnumerable<ITypedElementToSearchValueConverter> MakeConverters(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, ICodeSystemResolver codeSystemResolver)
         {
             var fhirTypedElementConverters = new List<ITypedElementToSearchValueConverter>();
             var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor);
-            var codeSystemResolver = new CodeSystemResolver(modelInfoProvider);
 
             fhirTypedElementConverters.Add(new AddressToStringSearchValueConverter());
             fhirTypedElementConverters.Add(new BooleanToTokenSearchValueConverter());
@@ -135,4 +146,5 @@ namespace ResourceParser
             return fhirTypedElementConverters;
         }
     }
+#pragma warning restore CA1303 // Do not pass literals as localized parameters
 }
