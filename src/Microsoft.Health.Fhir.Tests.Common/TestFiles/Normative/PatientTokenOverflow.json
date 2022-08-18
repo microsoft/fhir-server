@@ -96,5 +96,8 @@
             "postalCode": "74047",
             "country": "US"
         }
-    ]
+    ],
+    "managingOrganization": {
+        "reference": "Organization"
+    }
 }
