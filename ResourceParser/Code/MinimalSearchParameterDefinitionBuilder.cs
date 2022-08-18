@@ -13,11 +13,12 @@ using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
-namespace MinResourceParser.Code
+namespace ResourceParser.Code
 {
     public static class MinimalSearchParameterDefinitionBuilder
     {
@@ -79,7 +80,7 @@ namespace MinResourceParser.Code
                    resourceType == "DataElement" && (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty");
         }
 
-        internal static MinimalBundleWrapper ReadEmbeddedSearchParameters(
+        internal static BundleWrapper ReadEmbeddedSearchParameters(
             string embeddedResourceName,
             IModelInfoProvider modelInfoProvider,
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
@@ -93,7 +94,7 @@ namespace MinResourceParser.Code
             var data = reader.ReadToEnd();
             var rawResource = new RawResource(data, FhirResourceFormat.Json, true);
 
-            return new MinimalBundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
+            return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
         private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, IDictionary<string, SearchParameterInfo> uriDictionary)

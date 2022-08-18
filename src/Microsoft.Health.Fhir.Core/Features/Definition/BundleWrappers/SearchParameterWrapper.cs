@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 {
-    internal class SearchParameterWrapper
+    public class SearchParameterWrapper
     {
         private readonly Lazy<string> _url;
         private readonly Lazy<IReadOnlyList<ITypedElement>> _component;
@@ -49,7 +49,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 
         public string Description => _description.Value;
 
+#pragma warning disable CA1056 // URI-like properties should not be strings
         public string Url => _url.Value;
+#pragma warning restore CA1056 // URI-like properties should not be strings
 
         public string Type => _type.Value;
 

@@ -7,32 +7,30 @@ using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace MinResourceParser.Code
+namespace ResourceParser.Code
 {
     public class MinimalSearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
-        private readonly ILogger _logger;
 
         public MinimalSearchParameterDefinitionManager(
-            IModelInfoProvider modelInfoProvider,
-            ILogger<SearchParameterDefinitionManager> logger)
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _modelInfoProvider = modelInfoProvider;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
             UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
-            _logger = logger;
         }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
@@ -188,9 +186,5 @@ namespace MinResourceParser.Code
                 CalculateSearchParameterHash();
             }
         }
-#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
-#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
-#pragma warning restore CS8601 // Possible null reference assignment.
-#pragma warning restore CS8603 // Possible null reference return.
     }
 }

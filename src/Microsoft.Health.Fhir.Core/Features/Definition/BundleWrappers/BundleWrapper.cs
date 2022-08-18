@@ -13,7 +13,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 {
-    internal class BundleWrapper
+    public class BundleWrapper
     {
         private Lazy<IReadOnlyList<BundleEntryWrapper>> _entries;
 
