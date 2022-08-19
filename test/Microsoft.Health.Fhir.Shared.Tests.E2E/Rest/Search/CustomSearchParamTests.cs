@@ -429,12 +429,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 const int maxRetryCount = 10;
                 int retryCount = 0;
                 bool success = true;
+                await Task.Delay(TimeSpan.FromSeconds(20));
+
                 do
                 {
                     success = true;
                     retryCount++;
+
                     try
                     {
+                        _output.WriteLine($"Attempt {retryCount} of {maxRetryCount}");
+
                         await ExecuteAndValidateBundle(
                             $"Specimen?{searchParam.Code}={expectedSpecimen.Resource.Id}",
                             expectedSpecimen.Resource);
@@ -445,7 +450,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception ex)
                     {
-                        string error = $"Failed to validate bundle: {ex}";
+                        string error = $"Attempt {retryCount}: Failed to validate bundle: {ex}";
 
                         _output.WriteLine(error);
                         success = false;
