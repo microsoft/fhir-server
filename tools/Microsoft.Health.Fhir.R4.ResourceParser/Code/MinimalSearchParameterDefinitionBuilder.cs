@@ -18,7 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
-namespace ResourceParser.Code
+namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
 {
     public static class MinimalSearchParameterDefinitionBuilder
     {

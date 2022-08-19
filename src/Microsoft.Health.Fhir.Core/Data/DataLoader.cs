@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Data
 {
-    public static class DataLoader
+    internal static class DataLoader
     {
         private static readonly string _thisNamespace = typeof(DataLoader).Namespace;
         private static readonly Assembly _thisAssembly = typeof(DataLoader).Assembly;

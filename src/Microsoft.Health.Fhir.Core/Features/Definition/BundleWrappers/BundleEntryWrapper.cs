@@ -11,7 +11,7 @@ using Hl7.FhirPath;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 {
-    public class BundleEntryWrapper
+    internal class BundleEntryWrapper
     {
         private readonly Lazy<ITypedElement> _entry;
 

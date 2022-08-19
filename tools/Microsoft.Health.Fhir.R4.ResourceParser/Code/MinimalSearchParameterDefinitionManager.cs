@@ -15,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace ResourceParser.Code
+namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
 {
     public class MinimalSearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService
     {

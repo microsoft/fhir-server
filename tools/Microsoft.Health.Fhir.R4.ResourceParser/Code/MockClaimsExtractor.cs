@@ -3,21 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security;
 
-namespace ResourceParser.Code
+namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
 {
-    public class ExecutableRequestContextAccessor : RequestContextAccessor<IFhirRequestContext>
+    public class MockClaimsExtractor : IClaimsExtractor
     {
+#pragma warning disable CA1711 // Identifiers should not have incorrect suffix
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-        private IFhirRequestContext _context;
+        public Func<IReadOnlyCollection<KeyValuePair<string, string>>> ExtractImpl { get; set; }
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+#pragma warning restore CA1711 // Identifiers should not have incorrect suffix
 
-        public override IFhirRequestContext RequestContext
+        public IReadOnlyCollection<KeyValuePair<string, string>> Extract()
         {
-            get { return _context; }
-            set { _context = value; }
+            if (ExtractImpl == null)
+            {
+                return Array.Empty<KeyValuePair<string, string>>();
+            }
+
+            return ExtractImpl();
         }
     }
 }
