@@ -1,7 +1,7 @@
 ﻿/***************************************************************************
     Stored procedures for get NonCompleted Job Count Of SpecificQueueType
 ****************************************************************************/
---
+--  This stored proc is used for import functionality in Health-PaaS
 --  STORED PROCEDURE
 --      GetNonCompletedJobCountOfSpecificQueueType
 --
