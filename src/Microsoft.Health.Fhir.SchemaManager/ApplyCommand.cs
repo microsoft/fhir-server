@@ -46,15 +46,19 @@ public class ApplyCommand : Command
         _logger = logger;
     }
 
+    public async Task ExecuteAsync(MutuallyExclusiveType type, bool force, CancellationToken token = default)
+    {
+        await ApplyHandler(type, force, token);
+    }
+
     private Task ApplyHandler(MutuallyExclusiveType type, bool force, CancellationToken token = default)
     {
-        if (force && !EnsureForce())
+        if (force)
         {
-            return Task.CompletedTask;
+            _logger.LogInformation("Forcing the apply command");
         }
 
-        // TODO: Consider passing force flag to ApplySchema method. This could be used to override some of the checks e.g. ValidateInstancesVersion
-        return _schemaManager.ApplySchema(type, token);
+        return _schemaManager.ApplySchema(type, force, token);
     }
 
     private bool EnsureForce()

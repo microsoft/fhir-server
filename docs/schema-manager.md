@@ -32,10 +32,15 @@ Example command line usage:
 ### Important Database Tables
 
 **SchemaVersion**
-- This table holds all schema versions that have been applied to the database.
+- This table holds all schema versions that have been applied to the database. This table holds the value of (Version, Status). Version indicates the SchemaVersion that is applied to the database. Status indicates what happened during the specific schema version migration. If the migration failed then there will be an entry with (x, failed). If the migration is succesful then there will be an entry with (x, completed)
 
 **InstanceSchema**
-- Each FHIR instance reports the schema version it is at, as well as the versions it is compatible with, to the InstanceSchema database table.
+- Each FHIR instance reports the schema version it is at, as well as the versions it is compatible with, to the InstanceSchema database table. This table holds the value of (Name, CurrentVersion, MaxVersion, MinVersion, Timeout). 
+Name - Instance name specified as a guid
+CurrentVersion - The schema version on which the specific fhir instance is on
+MaxVersion - SchemaVersionConstant.Max
+MinVersoin - SchemaVersionConstant.Min
+Timeout - 
 
 ------------
 
@@ -45,7 +50,7 @@ Example command line usage:
 - The highest schema version applied to the SQL Database at present. This value is stored in SchemaVersion table.
 
 **Current instance schema version**
-- The highest schema version applied to the SQL Database at present that falls at or below the SchemaVersionConstants.Max value. For example, if the current database version is 25, but SchemaVersionConstants.Max is 23, the instance's current version will be 23.
+- The highest schema version applied to the SQL Database at present that falls at or below the SchemaVersionConstants.Max value.
 
 **Available schema version**
 - Any schema version greater than the current schema version.
