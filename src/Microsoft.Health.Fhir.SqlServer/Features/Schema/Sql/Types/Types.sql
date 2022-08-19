@@ -276,6 +276,24 @@ CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_1 AS TABLE
 )
 
 /*************************************************************
+    Token$Quantity Composite Search Param
+**************************************************************/
+
+CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    SystemId2 int NULL,
+    QuantityCodeId2 int NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NULL,
+    HighValue2 decimal(18,6) NULL
+)
+
+/*************************************************************
     Token$String Composite Search Param
 **************************************************************/
 
@@ -319,6 +337,31 @@ CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NULL,
+    HighValue2 decimal(18,6) NULL,
+    SingleValue3 decimal(18,6) NULL,
+    LowValue3 decimal(18,6) NULL,
+    HighValue3 decimal(18,6) NULL,
+    HasRange bit NOT NULL
+)
+
+/*************************************************************
+    Token$Number$Number Composite Search Param
+**************************************************************/
+
+-- See number search param for how we deal with null. We apply a similar pattern here,
+-- except that we pass in a HasRange bit though the TVP. The alternative would have
+-- for a computed column, but a computed column cannot be used in as a index filter
+-- (even if it is a persisted computed column).
+
+CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,

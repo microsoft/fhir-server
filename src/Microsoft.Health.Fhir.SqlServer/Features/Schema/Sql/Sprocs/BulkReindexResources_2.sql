@@ -59,9 +59,9 @@ CREATE PROCEDURE dbo.BulkReindexResources_2
     @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY,
     @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY,
     @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY,
-    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
+    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY,
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY,
-    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -368,12 +368,13 @@ FROM   @tokenDateTimeCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.SystemId1,
                 searchIndex.Code1,
+                searchIndex.CodeOverflow1,
                 searchIndex.SingleValue2,
                 searchIndex.SystemId2,
                 searchIndex.QuantityCodeId2,
@@ -398,12 +399,13 @@ FROM   @tokenStringCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.SystemId1,
                 searchIndex.Code1,
+                searchIndex.CodeOverflow1,
                 searchIndex.SingleValue2,
                 searchIndex.LowValue2,
                 searchIndex.HighValue2,

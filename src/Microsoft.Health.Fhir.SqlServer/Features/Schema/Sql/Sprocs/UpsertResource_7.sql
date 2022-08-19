@@ -99,9 +99,9 @@ CREATE PROCEDURE dbo.UpsertResource_7
     @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY,
     @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY,
     @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY,
-    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
+    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY,
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY,
-    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
+    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY,
     @isResourceChangeCaptureEnabled bit = 0,
     @comparedVersion int = NULL
 AS
@@ -408,12 +408,13 @@ SELECT DISTINCT @resourceTypeId,
                 IsLongerThanADay2,
                 0
 FROM   @tokenDateTimeCompositeSearchParams;
-INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 SingleValue2,
                 SystemId2,
                 QuantityCodeId2,
@@ -432,12 +433,13 @@ SELECT DISTINCT @resourceTypeId,
                 TextOverflow2,
                 0
 FROM   @tokenStringCompositeSearchParams;
-INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 SingleValue2,
                 LowValue2,
                 HighValue2,

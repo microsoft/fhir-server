@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, string.Empty, 0, 0, 0, 0, 0, 0, true));
+                TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, string.Empty, string.Empty, 0, 0, 0, 0, 0, 0, true));
             }
 
             return result;
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 0, string.Empty, 0, 0, 0, 0, 0));
+                TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 0, string.Empty, string.Empty, 0, 0, 0, 0, 0));
             }
 
             return result;
