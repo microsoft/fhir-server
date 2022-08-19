@@ -8,7 +8,8 @@
     ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow2 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     IsHistory bit NOT NULL,
 )
 

@@ -16,20 +16,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 {
     internal class ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
     {
-        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkReferenceTokenCompositeSearchParamTableTypeV1Row> _searchParamGenerator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkReferenceTokenCompositeSearchParamTableTypeV2Row> _searchParamGenerator;
 
         internal ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator()
         {
         }
 
-        public ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkReferenceTokenCompositeSearchParamTableTypeV1Row> searchParamGenerator)
+        public ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkReferenceTokenCompositeSearchParamTableTypeV2Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));
 
             _searchParamGenerator = searchParamGenerator;
         }
 
-        internal static BulkReferenceTokenCompositeSearchParamTableTypeV1RowComparer Comparer { get; } = new BulkReferenceTokenCompositeSearchParamTableTypeV1RowComparer();
+        internal static BulkReferenceTokenCompositeSearchParamTableTypeV2RowComparer Comparer { get; } = new BulkReferenceTokenCompositeSearchParamTableTypeV2RowComparer();
 
         internal override string TableName
         {
@@ -44,15 +44,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             EnsureArg.IsNotNull(table, nameof(table));
             EnsureArg.IsNotNull(input, nameof(input));
 
-            IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
+            IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeV2Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkReferenceTokenCompositeSearchParamTableTypeV1Row searchParam in Distinct(searchParams))
+            foreach (BulkReferenceTokenCompositeSearchParamTableTypeV2Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
         }
 
-        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkReferenceTokenCompositeSearchParamTableTypeV1Row searchParam)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkReferenceTokenCompositeSearchParamTableTypeV2Row searchParam)
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
             FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.BaseUri1.Metadata.Name, searchParam.BaseUri1);
@@ -61,6 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceVersion1.Metadata.Name, searchParam.ReferenceResourceVersion1);
             FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.SystemId2.Metadata.Name, searchParam.SystemId2);
             FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.Name, searchParam.Code2);
+            FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.CodeOverflow2.Metadata.Name, searchParam.CodeOverflow2);
 
             table.Rows.Add(newRow);
         }
@@ -77,17 +78,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceVersion1.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceVersion1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.SystemId2.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.SystemId2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.CodeOverflow2.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.CodeOverflow2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
         }
 
-        internal static IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeV1Row> Distinct(IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeV1Row> input)
+        internal static IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeV2Row> input)
         {
             return input.Distinct(Comparer);
         }
 
-        internal class BulkReferenceTokenCompositeSearchParamTableTypeV1RowComparer : IEqualityComparer<BulkReferenceTokenCompositeSearchParamTableTypeV1Row>
+        internal class BulkReferenceTokenCompositeSearchParamTableTypeV2RowComparer : IEqualityComparer<BulkReferenceTokenCompositeSearchParamTableTypeV2Row>
         {
-            public bool Equals(BulkReferenceTokenCompositeSearchParamTableTypeV1Row x, BulkReferenceTokenCompositeSearchParamTableTypeV1Row y)
+            public bool Equals(BulkReferenceTokenCompositeSearchParamTableTypeV2Row x, BulkReferenceTokenCompositeSearchParamTableTypeV2Row y)
             {
                 if (x.SearchParamId != y.SearchParamId)
                 {
@@ -124,10 +126,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                     return false;
                 }
 
+                if (!string.Equals(x.CodeOverflow2, y.CodeOverflow2, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
                 return true;
             }
 
-            public int GetHashCode(BulkReferenceTokenCompositeSearchParamTableTypeV1Row obj)
+            public int GetHashCode(BulkReferenceTokenCompositeSearchParamTableTypeV2Row obj)
             {
                 int hashCode = obj.SearchParamId.GetHashCode();
 
@@ -137,6 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                 hashCode ^= obj.ReferenceResourceVersion1?.GetHashCode() ?? 0;
                 hashCode ^= obj.SystemId2?.GetHashCode() ?? 0;
                 hashCode ^= obj.Code2?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.CodeOverflow2?.GetHashCode(StringComparison.Ordinal) ?? 0;
 
                 return hashCode.GetHashCode();
             }
