@@ -116,6 +116,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patientCWithNoTokenOverflow.ManagingOrganization.Reference = "Organization-C";
                 resourceCWithNoTokenOverflowOut = (T)(DomainResource)patientCWithNoTokenOverflow;
             }
+            else if (typeof(T) == typeof(ChargeItem))
+            {
+                ChargeItem chargeItem = Samples.GetJsonSample<ChargeItem>("TokenOverflowChargeItem");
+
+                ChargeItem chargeItemAWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                chargeItemAWithTokenOverflow.Id = $"{name}-A-test-chargeItem-with-token-overflow";
+#if R4 || R5
+                chargeItemAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A");
+#else
+                chargeItemAWithTokenOverflow.Identifier.Value = GetTokenValue(name, "A");
+#endif
+                chargeItemAWithTokenOverflow.Quantity.Value = 1;
+                resourceAWithTokenOverflowOut = (T)(DomainResource)chargeItemAWithTokenOverflow;
+
+                ChargeItem chargeItemBWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                chargeItemBWithTokenOverflow.Id = $"{name}-B-chargeItem-patient-with-token-overflow";
+#if R4 || R5
+                chargeItemBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B");
+#else
+                chargeItemBWithTokenOverflow.Identifier.Value = GetTokenValue(name, "B");
+#endif
+                chargeItemBWithTokenOverflow.Quantity.Value = 2;
+                resourceBWithTokenOverflowOut = (T)(DomainResource)chargeItemBWithTokenOverflow;
+
+                ChargeItem chargeItemCWithNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                chargeItemCWithNoTokenOverflow.Id = $"{name}-C-test-chargeItem-with-no-token-overflow";
+#if R4 || R5
+                chargeItemCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name);
+#else
+                chargeItemCWithNoTokenOverflow.Identifier.Value = GetTokenValue(name);
+#endif
+                chargeItemCWithNoTokenOverflow.Quantity.Value = 3;
+                resourceCWithNoTokenOverflowOut = (T)(DomainResource)chargeItemCWithNoTokenOverflow;
+            }
             else
             {
                 throw new Exception("Unsupported test resource type."); // Should never happen.
@@ -339,6 +373,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 "Patient-organization-Patient-identifier",
                 patient => patient.ManagingOrganization.Reference,
                 patient => patient.Identifier[0].Value);
+        }
+
+        [SkippableFact]
+        public async Task FFFF_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        {
+            await TestCompositeTokenOverflow<ChargeItem>(
+                "ChargeItem",
+                "Kirk-CRQ",
+                "CompositeCustomTokenQuantitySearchParameter",
+                "Patient-organization-Patient-identifier",
+#if R4 || R5
+                chargeItem => chargeItem.Identifier[0].Value,
+#else
+                chargeItem => chargeItem.Identifier.Value,
+#endif
+                chargeItem => chargeItem.Quantity.Value.ToString());
         }
 
         private async Task TestCompositeTokenOverflow<T>(

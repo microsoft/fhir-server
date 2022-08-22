@@ -54,9 +54,12 @@
     <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <None Remove="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
-    <None Remove="TestFiles\Normative\PatientTokenOverflow.json" />
+    <None Remove="TestFiles\Normative\TokenOverflowChargeItem.json" />
+    <None Remove="TestFiles\Normative\TokenOverflowPatient.json" />
+    <None Remove="TestFiles\Normative\TokenOverflowRiskAssessment.json" />
     <None Remove="TestFiles\Normative\CompositeCustomReferenceTokenSearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenQuantitySearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenStringSearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenOverflowTokenSearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenTokenOverflowSearchParameter.json" />
@@ -273,9 +276,12 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
-    <EmbeddedResource Include="TestFiles\Normative\PatientTokenOverflow.json" />
+    <EmbeddedResource Include="TestFiles\Normative\TokenOverflowChargeItem.json" />
+    <EmbeddedResource Include="TestFiles\Normative\TokenOverflowPatient.json" />
+    <EmbeddedResource Include="TestFiles\Normative\TokenOverflowRiskAssessment.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomReferenceTokenSearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenQuantitySearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenStringSearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenOverflowTokenSearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenTokenOverflowSearchParameter.json" />
