@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>38</LatestSchemaVersion>
+    <LatestSchemaVersion>39</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
   </PropertyGroup>
@@ -37,6 +37,10 @@
     <TSqlScript Include="Features\Schema\Sql\Scripts\Sequences.sql" />
     <TSqlScript Include="Features\Schema\Sql\Types\*.sql" />
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Features\Schema\Migrations\39.diff.sql" />
   </ItemGroup>
 
   <ItemGroup>
