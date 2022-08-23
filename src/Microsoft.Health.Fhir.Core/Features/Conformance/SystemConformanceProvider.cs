@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -35,13 +36,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly IKnowSupportedProfiles _supportedProfiles;
+        private readonly ILogger _logger;
 
         public SystemConformanceProvider(
             IModelInfoProvider modelInfoProvider,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders,
             IOptions<CoreFeatureConfiguration> configuration,
-            IKnowSupportedProfiles supportedProfiles)
+            IKnowSupportedProfiles supportedProfiles,
+            ILogger<SystemConformanceProvider> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
@@ -54,6 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _capabilityProviders = capabilityProviders;
             _configuration = configuration;
             _supportedProfiles = supportedProfiles;
+            _logger = logger;
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
@@ -116,6 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("SystemConformanceProvider: Rebuild capability statement notification handled");
             await _metadataSemaphore.WaitAsync(cancellationToken);
             try
             {

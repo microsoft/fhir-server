@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         private const int DefaultSqlLongRunningOperationTimeoutInSec = 60 * 60 * 2;
         private const int DefaultSqlBulkOperationTimeoutInSec = 60 * 10;
         private const bool DefaultSqlRebuildClustered = false;
+        private const int DefaultPollingFrequencyInSeconds = 60;
 
         /// <summary>
         /// Determines whether bulk import is enabled or not.
@@ -89,6 +90,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Concurrent count for data table process operation.
         /// </summary>
         public int SqlMaxDatatableProcessConcurrentCount { get; set; } = DefaultSqlMaxDatatableProcessConcurrentCount;
+
+        /// <summary>
+        /// How often polling for new import jobs happens.
+        /// </summary>
+        public int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
 
         /// <summary>
         /// Disable optional index during import data.

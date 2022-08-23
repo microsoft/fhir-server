@@ -67,13 +67,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Throws<ArgumentException>(() => _builder.ApplyToResource("foo", c => c.ConditionalCreate = true));
         }
 
-        [Fact]
-        public void GivenAConformanceBuilder_WhenVersionofResourceIsDifferentFromDefault_ThenResourceUsesResourceSpecificVersionLogic()
+        [Theory]
+        [InlineData("patient")]
+        [InlineData("Patient")]
+        [InlineData("PaTient")]
+        public void GivenAConformanceBuilder_WhenVersionofResourceIsDifferentFromDefault_ThenResourceUsesResourceSpecificVersionLogic(string resourceType)
         {
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
-            versionConfig.ResourceTypeOverrides.Add("Patient", "no-version");
+            versionConfig.ResourceTypeOverrides.Add(resourceType, "no-version");
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
             var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();

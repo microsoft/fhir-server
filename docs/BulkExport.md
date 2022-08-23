@@ -38,7 +38,7 @@ https://test-fhir-server/$export
 
 ## What is supported
 
-For more details on Bulk Export, see the [Azure API for FHIR Export Data page](https://docs.microsoft.com/en-us/azure/healthcare-apis/export-data). 
+For more details on Bulk Export, see the [Azure API for FHIR Export Data page](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir/export-data). 
 
 In addition to the query parameters specified in the Azure API For FHIR documentation, users can also use the \_format in FHIR Server. \_format allows a user to select a format for the file structure that the export job creates. Different formats can be defined in the appSettings by combining constants, folder level breaks ('/'), and known tags. The tags will be replaced with data when the job is run. The three supported tags are: 
 * **resourcename**: replaces with the resource type being exported

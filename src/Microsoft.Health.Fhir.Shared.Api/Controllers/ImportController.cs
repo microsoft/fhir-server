@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfImportIsEnabled();
 
-            ImportRequest importRequest = importTaskParameters.ExtractImportRequest();
+            ImportRequest importRequest = importTaskParameters?.ExtractImportRequest();
             ValidateImportRequestConfiguration(importRequest);
 
             if (!ImportConstants.InitialLoadMode.Equals(importRequest.Mode, StringComparison.Ordinal))

@@ -15,19 +15,20 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
     {
         private readonly string _capability;
 
-        public SearchResourceHistoryRequest(PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null)
+        public SearchResourceHistoryRequest(PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null, string sort = null)
         {
             Since = since;
             Before = before;
             At = at;
             Count = count;
             ContinuationToken = continuationToken;
+            Sort = sort;
 
             _capability = "CapabilityStatement.rest.interaction.where(code = 'history-system').exists()";
         }
 
-        public SearchResourceHistoryRequest(string resourceType, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null)
-            : this(since, before, at, count, continuationToken)
+        public SearchResourceHistoryRequest(string resourceType, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null, string sort = null)
+            : this(since, before, at, count, continuationToken, sort)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
@@ -36,8 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
             _capability = $"CapabilityStatement.rest.resource.where(type = '{resourceType}').interaction.where(code = 'history-type').exists()";
         }
 
-        public SearchResourceHistoryRequest(string resourceType, string resourceId, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null)
-            : this(resourceType, since, before, at, count, continuationToken)
+        public SearchResourceHistoryRequest(string resourceType, string resourceId, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null, string sort = null)
+            : this(resourceType, since, before, at, count, continuationToken, sort)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
@@ -60,6 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
         public int? Count { get; }
 
         public string ContinuationToken { get; }
+
+        public string Sort { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

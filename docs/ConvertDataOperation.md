@@ -1,6 +1,6 @@
 # Convert Data operation
 
-FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently, the $convert-data operation supports three types of conversions: **HL7v2 to FHIR**, **C-CDA to FHIR**, **JSON to FHIR**. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project that define mappings between the input data format and FHIR resource structure. 
+FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently, the $convert-data operation supports four types of conversions: **HL7v2 to FHIR**, **C-CDA to FHIR**, **JSON to FHIR** and **FHIR STU3 to R4**. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project that define mappings between the input data format and FHIR resource structure. 
 
 ## How to use $convert-data
 
@@ -22,10 +22,10 @@ Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameter
 
 | Parameter Name      | Description | Accepted values |
 | ----------- | ----------- | ----------- |
-| inputData      | Data to be converted. | For `Hl7v2`: string <br> For `Ccda`: XML <br> For `Json`: JSON |
-| inputDataType   | Data type of input. | ```Hl7v2```, ``Ccda``, ``Json`` |
-| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | For default templates:<br> For `Hl7v2`: ```microsofthealth/fhirconverter:default``` or ``microsofthealth/hl7v2templates:default`` <br> For `Ccda`: ``microsofthealth/ccdatemplates:default`` <br> For `Json`: ``microsofthealth/jsontemplates:default`` <br><br> For customized templates: <br> \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
-| rootTemplate | The root template to use while transforming the data. | For **HL7v2**:<br>```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04```<br> For **C-CDA**:<br>```CCD```, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` <br> For **JSON**:<br> `Stu3ChargeItem`, `ExamplePatient` |
+| inputData      | Data to be converted. | For `Hl7v2`: string <br> For `Ccda`: XML <br> For `Json`: JSON <br> For `Fhir`: JSON |
+| inputDataType   | Data type of input. | ```Hl7v2```, ``Ccda``, ``Json``, ``Fhir`` |
+| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | For default templates:<br> For `Hl7v2`: ```microsofthealth/fhirconverter:default``` or ``microsofthealth/hl7v2templates:default`` <br> For `Ccda`: ``microsofthealth/ccdatemplates:default`` <br> For `Json`: ``microsofthealth/jsontemplates:default``  <br> For `Fhir Stu3 to R4`: ``microsofthealth/stu3tor4templates:default`` <br><br> For customized templates: <br> \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
+| rootTemplate | The root template to use while transforming the data. | For **HL7v2**:<br>```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04```<br> For **C-CDA**:<br>```CCD```, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` <br> For **JSON**:<br> `Stu3ChargeItem`, `ExamplePatient` <br> For **FHIR**:<br> Name of the root template that is the same as resource name e.g., `Patient`, `Observation`, `Organization` |
 
 (*Note that the JSON templates are sample templates for use, not default templates that adhere to any pre-defined JSON message types. JSON does not have any standardized message types, unlike HL7v2 messages or C-CDA documents. Therefore, instead of default templates we provide you with some sample templates that you can use as a starting guide for your own customized templates.*)
 

@@ -150,16 +150,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitMultiary(MultiaryExpression expression, object context)
         {
-            foreach (var childExpression in expression.Expressions)
-            {
-                var handler = childExpression.AcceptVisitor(this, context);
-                if (handler != null)
-                {
-                    return handler;
-                }
-            }
+            return VisitExpressionsContainer(expression, context);
+        }
 
-            return null;
+        public SearchParamTableExpressionQueryGenerator VisitUnion(UnionExpression expression, object context)
+        {
+            return VisitExpressionsContainer(expression, context);
         }
 
         public SearchParamTableExpressionQueryGenerator VisitString(StringExpression expression, object context)
@@ -190,6 +186,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public SearchParamTableExpressionQueryGenerator VisitIn<T>(InExpression<T> expression, object context)
         {
             return InQueryGenerator.Instance;
+        }
+
+        private SearchParamTableExpressionQueryGenerator VisitExpressionsContainer(IExpressionsContainer expression, object context)
+        {
+            foreach (var childExpression in expression.Expressions)
+            {
+                var handler = childExpression.AcceptVisitor(this, context);
+                if (handler != null)
+                {
+                    return handler;
+                }
+            }
+
+            return null;
         }
     }
 }

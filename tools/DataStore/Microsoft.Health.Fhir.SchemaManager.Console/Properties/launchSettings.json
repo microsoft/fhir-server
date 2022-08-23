@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Microsoft.Health.Fhir.SchemaManager": {
+      "commandName": "Project",
+      "commandLineArgs": "apply --connection-string \"server=(local);Initial Catalog=Fhir_R5;TrustServerCertificate=True;Integrated Security=True\" --version 30",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

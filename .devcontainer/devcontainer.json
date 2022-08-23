@@ -8,7 +8,7 @@
 
 	// Use this environment variable if you need to bind mount your local source code into a new container.
 	"remoteEnv": {
-		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",
+		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
 	},
 	
 	// Set *default* container specific settings.json values on container create.
@@ -18,12 +18,19 @@
 	"extensions": [
 		"ms-azuretools.vscode-docker",
 		"ms-dotnettools.csharp",
-		"ms-azuretools.vscode-cosmosdb"
+		"ms-azuretools.vscode-cosmosdb",
+		"humao.rest-client"
 	],
 
 	// Install the certificate for the emulator
-	"postCreateCommand": "/tmp/fix-cert.sh",
+	"postCreateCommand": "/setup/fix-cert.sh",
 
 	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-	"remoteUser": "vscode"
+	"remoteUser": "vscode",
+
+	"portsAttributes": {
+		"44348": {
+			"protocol": "https"
+		}
+	}
 }
