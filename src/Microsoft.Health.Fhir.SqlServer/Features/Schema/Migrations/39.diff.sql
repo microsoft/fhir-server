@@ -7,5 +7,5 @@ IF  EXISTS (SELECT * FROM sys.objects WHERE name = N'CH_Resource_RawResource_Len
 GO
 
 ALTER TABLE dbo.Resource WITH NOCHECK
-    ADD CONSTRAINT CH_Resource_RawResource_Length CHECK (DATALENGTH(RawResource) > 0x0)
+    ADD CONSTRAINT CH_Resource_RawResource_Length CHECK (RawResource > 0x0)
 GO
