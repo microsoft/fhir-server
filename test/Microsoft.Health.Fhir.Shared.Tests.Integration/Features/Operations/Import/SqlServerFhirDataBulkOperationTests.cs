@@ -15,6 +15,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -42,11 +43,27 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             _fixture = fixture;
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+            operationsConfiguration.Value.Returns(new OperationsConfiguration()
+            {
+                Import = new ImportTaskConfiguration()
+                {
+                    DisableOptionalIndexesForImport = true,
+                },
+            });
 
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
+        }
+
+        [Fact]
+        public async Task GivenListOfIndexes_WhenIndexesDisabled_ThenIndexesShouldBeRebuilt()
+        {
+            IProgress<string> progress = new Progress<string>();
+            ImportOrchestratorJobResult importOrchestratorJobResult = new ImportOrchestratorJobResult();
+            await _sqlServerFhirDataBulkOperation.PreprocessAsync(progress, importOrchestratorJobResult, CancellationToken.None);
+
+            await _sqlServerFhirDataBulkOperation.PostprocessAsync(progress, importOrchestratorJobResult, CancellationToken.None);
         }
 
         [Fact]

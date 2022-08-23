@@ -54,5 +54,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Orchestrator job progress.
         /// </summary>
         public ImportOrchestratorJobProgress Progress { get; set; }
+
+        public RebuildIndexProgress IndexProgress { get; set; }
+
+        public Dictionary<string, int> AlreadyCompletePartitionIds { get; } = new Dictionary<string, int>();
     }
 }
