@@ -1,0 +1,44 @@
+{
+    "resourceType" : "SearchParameter",
+    "id" : "clinical-identifier-RiskAssessment-probability-RiskAssessment-probability",
+    "extension" : [{
+      "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+      "valueCode" : "trial-use"
+    }],
+    "url" : "http://hl7.org/fhir/SearchParameter/clinical-identifier-RiskAssessment-probability-RiskAssessment-probability",
+    "version" : "1.0.0",
+    "name" : "clinical-identifier-RiskAssessment-probability-RiskAssessment-probability",
+    "status" : "draft",
+    "experimental" : false,
+    "date" : "2019-11-01T09:29:23+11:00",
+    "publisher" : "Health Level Seven International (Orders and Observations)",
+    "contact" : [{
+      "telecom" : [{
+        "system" : "url",
+        "value" : "http://hl7.org/fhir"
+      }]
+    },
+    {
+      "telecom" : [{
+        "system" : "url",
+        "value" : "http://www.hl7.org/Special/committees/orders/index.cfm"
+      }]
+    }],
+    "description" : "Clinical identifier and RiskAssessment probability and RiskAssessment probability triplet",
+    "code" : "clinical-identifier-RiskAssessment-probability-RiskAssessment-probability",
+    "base": [ "RiskAssessment" ],
+    "type" : "composite",
+    "expression" : "RiskAssessment",
+    "xpathUsage" : "normal",
+    "multipleOr" : false,
+    "component" : [{
+      "definition" : "http://hl7.org/fhir/SearchParameter/clinical-identifier",
+      "expression" : "identifier"
+    },{
+      "definition" : "http://hl7.org/fhir/SearchParameter/RiskAssessment-probability",
+      "expression" : "prediction.probability"
+    },{
+      "definition" : "http://hl7.org/fhir/SearchParameter/RiskAssessment-probability",
+      "expression" : "prediction.probability"
+    }]
+}

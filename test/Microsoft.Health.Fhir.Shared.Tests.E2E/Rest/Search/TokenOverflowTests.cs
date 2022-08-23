@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Patient patient = Samples.GetJsonSample<Patient>("TokenOverflowPatient");
 
                 Patient patientAWithTokenOverflow = (Patient)patient.DeepCopy();
-                patientAWithTokenOverflow.Id = $"{name}-A-test-patient-with-token-overflow";
+                patientAWithTokenOverflow.Id = $"Patient-Id-{name}-A";
                 patientAWithTokenOverflow.Name[0].Family = $"{name}-A";
                 patientAWithTokenOverflow.BirthDate = "2016-01-15";
                 patientAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A");
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 resourceAWithTokenOverflowOut = (T)(DomainResource)patientAWithTokenOverflow;
 
                 Patient patientBWithTokenOverflow = (Patient)patient.DeepCopy();
-                patientBWithTokenOverflow.Id = $"{name}-B-test-patient-with-token-overflow";
+                patientBWithTokenOverflow.Id = $"Patient-Id-{name}-B";
                 patientBWithTokenOverflow.Name[0].Family = $"{name}-B";
                 patientBWithTokenOverflow.BirthDate = "2016-01-16";
                 patientBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B");
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 resourceBWithTokenOverflowOut = (T)(DomainResource)patientBWithTokenOverflow;
 
                 Patient patientCWithNoTokenOverflow = (Patient)patient.DeepCopy();
-                patientCWithNoTokenOverflow.Id = $"{name}-C-test-patient-with-no-token-overflow";
+                patientCWithNoTokenOverflow.Id = $"Patient-Id-{name}-C";
                 patientCWithNoTokenOverflow.Name[0].Family = $"{name}-C";
                 patientCWithNoTokenOverflow.BirthDate = "2016-01-17";
                 patientCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name);
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ChargeItem chargeItem = Samples.GetJsonSample<ChargeItem>("TokenOverflowChargeItem");
 
                 ChargeItem chargeItemAWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
-                chargeItemAWithTokenOverflow.Id = $"{name}-A-test-chargeItem-with-token-overflow";
+                chargeItemAWithTokenOverflow.Id = $"ChargeItem-Id-{name}-A";
 #if R4 || R5
                 chargeItemAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A");
 #else
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 resourceAWithTokenOverflowOut = (T)(DomainResource)chargeItemAWithTokenOverflow;
 
                 ChargeItem chargeItemBWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
-                chargeItemBWithTokenOverflow.Id = $"{name}-B-chargeItem-patient-with-token-overflow";
+                chargeItemBWithTokenOverflow.Id = $"ChargeItem-Id-{name}-B";
 #if R4 || R5
                 chargeItemBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B");
 #else
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 resourceBWithTokenOverflowOut = (T)(DomainResource)chargeItemBWithTokenOverflow;
 
                 ChargeItem chargeItemCWithNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
-                chargeItemCWithNoTokenOverflow.Id = $"{name}-C-test-chargeItem-with-no-token-overflow";
+                chargeItemCWithNoTokenOverflow.Id = $"ChargeItem-Id-{name}-C";
 #if R4 || R5
                 chargeItemCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name);
 #else
@@ -149,6 +149,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
                 chargeItemCWithNoTokenOverflow.Quantity.Value = 3;
                 resourceCWithNoTokenOverflowOut = (T)(DomainResource)chargeItemCWithNoTokenOverflow;
+            }
+            else if (typeof(T) == typeof(RiskAssessment))
+            {
+                RiskAssessment riskAssessment = Samples.GetJsonSample<RiskAssessment>("TokenOverflowRiskAssessment");
+
+                RiskAssessment riskAssessmentAWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                riskAssessmentAWithTokenOverflow.Id = $"RiskAssessment-Id-{name}-A";
+#if R4 || R5
+                riskAssessmentAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A");
+#else
+                riskAssessmentAWithTokenOverflow.Identifier.Value = GetTokenValue(name, "A");
+#endif
+                riskAssessmentAWithTokenOverflow.Prediction[0].Probability = new FhirDecimal(111.111M);
+                riskAssessmentAWithTokenOverflow.Prediction[1].Probability = new FhirDecimal(111.555M);
+                resourceAWithTokenOverflowOut = (T)(DomainResource)riskAssessmentAWithTokenOverflow;
+
+                RiskAssessment riskAssessmentBWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                riskAssessmentBWithTokenOverflow.Id = $"RiskAssessment-Id-{name}-B";
+#if R4 || R5
+                riskAssessmentBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B");
+#else
+                riskAssessmentBWithTokenOverflow.Identifier.Value = GetTokenValue(name, "B");
+#endif
+                riskAssessmentBWithTokenOverflow.Prediction[0].Probability = new FhirDecimal(222.111M);
+                riskAssessmentBWithTokenOverflow.Prediction[1].Probability = new FhirDecimal(222.555M);
+                resourceBWithTokenOverflowOut = (T)(DomainResource)riskAssessmentBWithTokenOverflow;
+
+                RiskAssessment riskAssessmentCWithNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                riskAssessmentCWithNoTokenOverflow.Id = $"RiskAssessment-Id-{name}-C";
+#if R4 || R5
+                riskAssessmentCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name);
+#else
+                riskAssessmentCWithNoTokenOverflow.Identifier.Value = GetTokenValue(name);
+#endif
+                riskAssessmentCWithNoTokenOverflow.Prediction[0].Probability = new FhirDecimal(333.111M);
+                riskAssessmentCWithNoTokenOverflow.Prediction[1].Probability = new FhirDecimal(333.555M);
+                resourceCWithNoTokenOverflowOut = (T)(DomainResource)riskAssessmentCWithNoTokenOverflow;
             }
             else
             {
@@ -380,7 +417,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             await TestCompositeTokenOverflow<ChargeItem>(
                 "ChargeItem",
-                "Kirk-CRQ",
+                "Kirk-CTQ",
                 "CompositeCustomTokenQuantitySearchParameter",
                 "Patient-organization-Patient-identifier",
 #if R4 || R5
@@ -389,6 +426,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 chargeItem => chargeItem.Identifier.Value,
 #endif
                 chargeItem => chargeItem.Quantity.Value.ToString());
+        }
+
+        [SkippableFact]
+        public async Task GGGG_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        {
+            await TestCompositeTokenOverflow<RiskAssessment>(
+                "RiskAssessment",
+                "Kirk-CTNN",
+                "CompositeCustomTokenNumberNumberSearchParameter",
+                "clinical-identifier-RiskAssessment-probability-RiskAssessment-probability",
+#if R4 || R5
+                riskAssessment => riskAssessment.Identifier[0].Value,
+#else
+                riskAssessment => riskAssessment.Identifier.Value,
+#endif
+                riskAssessment =>
+                {
+                    decimal number1 = ((FhirDecimal)riskAssessment.Prediction[0].Probability).Value ?? 0;
+                    decimal number2 = ((FhirDecimal)riskAssessment.Prediction[1].Probability).Value ?? 0;
+                    return $"{number1}${number2}";
+                });
         }
 
         private async Task TestCompositeTokenOverflow<T>(
@@ -404,9 +462,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 string rnd = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
                 string name = $"{resourceNamePrefix}-{rnd}";
-                searchParameterName = $"{searchParameterName}-{name}";
+                searchParameterName = $"Search-{name}"; // TODO:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11
 
                 SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>(searchParameterTestFileName);
+                searchParam.Id = $"SearchParameter-Id-{name}";
                 searchParam.Name = searchParameterName;
                 searchParam.Url = "http://hl7.org/fhir/SearchParameter/" + searchParameterName;
                 searchParam.Code = searchParameterName;

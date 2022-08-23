@@ -22,6 +22,11 @@
             "reference": "List/prognosis"
         }
     ],
+    "identifier": [
+        {
+            "value": "id"
+        }
+    ],
     "prediction": [
         {
             "outcome": {

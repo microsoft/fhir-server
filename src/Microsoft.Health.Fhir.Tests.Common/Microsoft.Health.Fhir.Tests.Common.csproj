@@ -59,6 +59,7 @@
     <None Remove="TestFiles\Normative\TokenOverflowRiskAssessment.json" />
     <None Remove="TestFiles\Normative\CompositeCustomReferenceTokenSearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenNumberNumberSearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenQuantitySearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenStringSearchParameter.json" />
     <None Remove="TestFiles\Normative\CompositeCustomTokenOverflowTokenSearchParameter.json" />
@@ -281,6 +282,7 @@
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowRiskAssessment.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomReferenceTokenSearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenNumberNumberSearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenQuantitySearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenStringSearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenOverflowTokenSearchParameter.json" />
