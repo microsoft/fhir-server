@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (_orchestratorJobResult.Progress == ImportOrchestratorJobProgress.InputResourcesValidated)
                 {
-                    await _importOrchestratorJobDataStoreOperation.PreprocessAsync(cancellationToken);
+                    await _importOrchestratorJobDataStoreOperation.PreprocessAsync(progress, _orchestratorJobResult, cancellationToken);
 
                     _orchestratorJobResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
                     _orchestratorJobResult.CurrentSequenceId = _orchestratorInputData.StartSequenceId;
@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             // Post-process operation cannot be cancelled.
             try
             {
-                await _importOrchestratorJobDataStoreOperation.PostprocessAsync(CancellationToken.None);
+                await _importOrchestratorJobDataStoreOperation.PostprocessAsync(progress, _orchestratorJobResult, CancellationToken.None);
 
                 _logger.LogInformation("Postprocess Completed");
             }

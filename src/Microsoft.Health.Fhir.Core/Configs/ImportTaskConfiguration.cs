@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         private const int DefaultSqlLongRunningOperationTimeoutInSec = 60 * 60 * 2;
         private const int DefaultSqlBulkOperationTimeoutInSec = 60 * 10;
         private const int DefaultPollingFrequencyInSeconds = 60;
+        private const bool DefaultSqlRebuildClustered = false;
 
         /// <summary>
         /// Determines whether bulk import is enabled or not.
@@ -104,5 +105,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Disable unique optional index during import data.
         /// </summary>
         public bool DisableUniqueOptionalIndexesForImport { get; set; }
+
+        /// <summary>
+        /// Default not rebuild clustered.
+        /// </summary>
+        public bool RebuildClustered { get; } = DefaultSqlRebuildClustered;
     }
 }
