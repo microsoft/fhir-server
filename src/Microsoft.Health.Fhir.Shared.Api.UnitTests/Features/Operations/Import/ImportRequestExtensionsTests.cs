@@ -41,8 +41,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
             ImportRequest input = new ImportRequest();
 
             ImportRequest output = input.ToParameters().ExtractImportRequest();
-            Assert.Equal(output.InputFormat, ImportRequestExtensions.DefaultInputFormat);
-            Assert.Equal(output.StorageDetail.Type, ImportRequestExtensions.DefaultStorageDetailType);
+            Assert.Equal(ImportRequestExtensions.DefaultInputFormat, output.InputFormat);
+            Assert.Equal(ImportRequestExtensions.DefaultStorageDetailType, output.StorageDetail.Type);
         }
     }
 }
