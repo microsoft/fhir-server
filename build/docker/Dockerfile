@@ -59,6 +59,10 @@ COPY ./src/Microsoft.Health.Fhir.Shared.Client/Microsoft.Health.Fhir.Shared.Clie
 
 COPY ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems \
      ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems
+
+COPY ./tools/Microsoft.Health.Fhir.Store.Sharding/Microsoft.Health.Fhir.Store.Sharding.csproj \
+     ./tools/Microsoft.Health.Fhir.Store.Sharding/Microsoft.Health.Fhir.Store.Sharding.csproj
+
 RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj
 
 # now copy over everything else and publish
