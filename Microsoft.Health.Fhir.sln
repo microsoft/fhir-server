@@ -33,6 +33,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		CustomAnalysisRules.ruleset = CustomAnalysisRules.ruleset
 		CustomAnalysisRules.Test.ruleset = CustomAnalysisRules.Test.ruleset
 		Directory.Build.props = Directory.Build.props
+		build\docker\Dockerfile = build\docker\Dockerfile
 		GitVersion.yml = GitVersion.yml
 		global.json = global.json
 		testauthenvironment.json = testauthenvironment.json
