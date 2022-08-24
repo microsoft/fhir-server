@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                ResourceTableBulkCopyDataGenerator.FillDataTable(result, resoureType, (resourceId ?? Guid.NewGuid().ToString()) + i.ToString(), startSurrogatedId + i, new byte[10], string.Empty);
+                ResourceTableBulkCopyDataGenerator.FillDataTable(result, resoureType, (resourceId ?? Guid.NewGuid().ToString()) + i.ToString(), startSurrogatedId + i, new byte[] { 0x01 }, string.Empty);
             }
 
             return result;

@@ -21,7 +21,7 @@ DECLARE @SP varchar(100) = 'GetCommandsForRebuildIndexes'
 BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
 
-  DECLARE @Commands TABLE (Tbl varchar(100), Ind varchar(100), Txt varchar(max), Pid int, Pages bigint)
+  DECLARE @Commands TABLE (Tbl varchar(100), Ind varchar(200), Txt varchar(max), Pid int, Pages bigint)
   DECLARE @ResourceTypes TABLE (ResourceTypeId smallint PRIMARY KEY)
   DECLARE @Indexes TABLE (Ind varchar(200) PRIMARY KEY, IndId int)
   DECLARE @Tables TABLE (name varchar(100) PRIMARY KEY, Supported bit)

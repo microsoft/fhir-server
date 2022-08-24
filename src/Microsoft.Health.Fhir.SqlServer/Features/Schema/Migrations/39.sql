@@ -1970,7 +1970,7 @@ BEGIN TRY
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
     DECLARE @Commands TABLE (
         Tbl   VARCHAR (100),
-        Ind   VARCHAR (100),
+        Ind   VARCHAR (200),
         Txt   VARCHAR (MAX),
         Pid   INT          ,
         Pages BIGINT       );
