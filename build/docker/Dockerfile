@@ -33,8 +33,8 @@ COPY ./src/Microsoft.Health.TaskManagement/Microsoft.Health.TaskManagement.cspro
 COPY ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj \
      ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj
 
-COPY ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.Store.Sharding.csproj \
-     ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.Store.Sharding.csproj
+COPY ./src/Microsoft.Health.Fhir.Store.Sharding/Microsoft.Health.Fhir.Store.Sharding.csproj \
+     ./src/Microsoft.Health.Fhir.Store.Sharding/Microsoft.Health.Fhir.Store.Sharding.csproj
 
 COPY ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj \
      ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj
