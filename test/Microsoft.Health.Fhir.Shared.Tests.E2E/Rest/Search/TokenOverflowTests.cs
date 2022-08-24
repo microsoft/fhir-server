@@ -37,7 +37,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _output = output;
         }
 
-        private delegate string GetOneParameter<T>(T patient);
+        // Delegate returns value to be used in the search parameter. If valid is set to false then syntactically correct value, but a value that is
+        // not used by the resources in the test must be returned. The goal is then to test if database select logic correctly returns no data (rows).
+        private delegate string GetOneParameter<T>(T resource, bool valid = true);
 
         public async Task InitializeAsync()
         {
@@ -79,102 +81,95 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Patient patient = Samples.GetJsonSample<Patient>("TokenOverflowPatient");
 
+                // IMPORTANT. It is important that the following values are same for all the resources in a test, so selection of returned resources
+                // from database is done based on proper functioning of the token overflow functionality only.
+                patient.Name[0].Family = $"{name}-A"; // Used in token-string tests.
+                patient.BirthDate = "2016-01-15"; // Used in token-datetime tests.
+                patient.Telecom[0].Value = "555-555-5555"; // Used in tokenoverflow-token and token-tokenoverflow tests.
+                patient.ManagingOrganization.Reference = "Test-Organization"; // Used in reference-token tests.
+
                 Patient patientAWithTokenOverflow = (Patient)patient.DeepCopy();
-                patientAWithTokenOverflow.Id = $"Patient-Id-{name}-A";
-                patientAWithTokenOverflow.Name[0].Family = $"{name}-A";
-                patientAWithTokenOverflow.BirthDate = "2016-01-15";
-                patientAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A");
-                patientAWithTokenOverflow.Telecom[0].Value = "555-555-5555";
-                patientAWithTokenOverflow.ManagingOrganization.Reference = "Organization-A";
+                patient.Id = $"Patient-Id-{name}-A";
+                patientAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A"); // Overflow A.
                 resourceAWithTokenOverflowOut = (T)(DomainResource)patientAWithTokenOverflow;
 
                 Patient patientBWithTokenOverflow = (Patient)patient.DeepCopy();
                 patientBWithTokenOverflow.Id = $"Patient-Id-{name}-B";
-                patientBWithTokenOverflow.Name[0].Family = $"{name}-B";
-                patientBWithTokenOverflow.BirthDate = "2016-01-16";
-                patientBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B");
-                patientBWithTokenOverflow.Telecom[0].Value = "555-555-5556";
-                patientBWithTokenOverflow.ManagingOrganization.Reference = "Organization-B";
+                patientBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B"); // Overflow B.
                 resourceBWithTokenOverflowOut = (T)(DomainResource)patientBWithTokenOverflow;
 
                 Patient patientCWithNoTokenOverflow = (Patient)patient.DeepCopy();
                 patientCWithNoTokenOverflow.Id = $"Patient-Id-{name}-C";
-                patientCWithNoTokenOverflow.Name[0].Family = $"{name}-C";
-                patientCWithNoTokenOverflow.BirthDate = "2016-01-17";
-                patientCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name);
-                patientCWithNoTokenOverflow.Telecom[0].Value = "555-555-5557";
-                patientCWithNoTokenOverflow.ManagingOrganization.Reference = "Organization-C";
+                patientCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name); // NO overflow.
                 resourceCWithNoTokenOverflowOut = (T)(DomainResource)patientCWithNoTokenOverflow;
             }
             else if (typeof(T) == typeof(ChargeItem))
             {
                 ChargeItem chargeItem = Samples.GetJsonSample<ChargeItem>("TokenOverflowChargeItem");
 
+                // IMPORTANT. It is important that the following value is same for all the resources in a test for the same reason as above.
+                chargeItem.Quantity.Value = 1; // Used in token quantity tests.
+
                 ChargeItem chargeItemAWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemAWithTokenOverflow.Id = $"ChargeItem-Id-{name}-A";
 #if R4 || R5
-                chargeItemAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A");
+                chargeItemAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A"); // Overflow A.
 #else
-                chargeItemAWithTokenOverflow.Identifier.Value = GetTokenValue(name, "A");
+                chargeItemAWithTokenOverflow.Identifier.Value = GetTokenValue(name, "A"); // Overflow A.
 #endif
-                chargeItemAWithTokenOverflow.Quantity.Value = 1;
                 resourceAWithTokenOverflowOut = (T)(DomainResource)chargeItemAWithTokenOverflow;
 
                 ChargeItem chargeItemBWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemBWithTokenOverflow.Id = $"ChargeItem-Id-{name}-B";
 #if R4 || R5
-                chargeItemBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B");
+                chargeItemBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B"); // Overflow B.
 #else
-                chargeItemBWithTokenOverflow.Identifier.Value = GetTokenValue(name, "B");
+                chargeItemBWithTokenOverflow.Identifier.Value = GetTokenValue(name, "B"); // Overflow B.
 #endif
-                chargeItemBWithTokenOverflow.Quantity.Value = 2;
                 resourceBWithTokenOverflowOut = (T)(DomainResource)chargeItemBWithTokenOverflow;
 
                 ChargeItem chargeItemCWithNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemCWithNoTokenOverflow.Id = $"ChargeItem-Id-{name}-C";
 #if R4 || R5
-                chargeItemCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name);
+                chargeItemCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name); // NO overflow.
 #else
-                chargeItemCWithNoTokenOverflow.Identifier.Value = GetTokenValue(name);
+                chargeItemCWithNoTokenOverflow.Identifier.Value = GetTokenValue(name); // NO overflow.
 #endif
-                chargeItemCWithNoTokenOverflow.Quantity.Value = 3;
                 resourceCWithNoTokenOverflowOut = (T)(DomainResource)chargeItemCWithNoTokenOverflow;
             }
             else if (typeof(T) == typeof(RiskAssessment))
             {
                 RiskAssessment riskAssessment = Samples.GetJsonSample<RiskAssessment>("TokenOverflowRiskAssessment");
 
+                // IMPORTANT. It is important that the following values are same for all the resources in a test for the same reason as above.
+                riskAssessment.Prediction[0].Probability = new FhirDecimal(111.111M); // Used in token-number-number tests.
+                riskAssessment.Prediction[1].Probability = new FhirDecimal(111.555M); // Used in token-number-number tests.
+
                 RiskAssessment riskAssessmentAWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentAWithTokenOverflow.Id = $"RiskAssessment-Id-{name}-A";
 #if R4 || R5
-                riskAssessmentAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A");
+                riskAssessmentAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A"); // Overflow A.
 #else
-                riskAssessmentAWithTokenOverflow.Identifier.Value = GetTokenValue(name, "A");
+                riskAssessmentAWithTokenOverflow.Identifier.Value = GetTokenValue(name, "A"); // Overflow A.
 #endif
-                riskAssessmentAWithTokenOverflow.Prediction[0].Probability = new FhirDecimal(111.111M);
-                riskAssessmentAWithTokenOverflow.Prediction[1].Probability = new FhirDecimal(111.555M);
                 resourceAWithTokenOverflowOut = (T)(DomainResource)riskAssessmentAWithTokenOverflow;
 
                 RiskAssessment riskAssessmentBWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentBWithTokenOverflow.Id = $"RiskAssessment-Id-{name}-B";
 #if R4 || R5
-                riskAssessmentBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B");
+                riskAssessmentBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B"); // Overflow B.
 #else
-                riskAssessmentBWithTokenOverflow.Identifier.Value = GetTokenValue(name, "B");
+                riskAssessmentBWithTokenOverflow.Identifier.Value = GetTokenValue(name, "B"); // Overflow B.
 #endif
-                riskAssessmentBWithTokenOverflow.Prediction[0].Probability = new FhirDecimal(222.111M);
-                riskAssessmentBWithTokenOverflow.Prediction[1].Probability = new FhirDecimal(222.555M);
                 resourceBWithTokenOverflowOut = (T)(DomainResource)riskAssessmentBWithTokenOverflow;
 
                 RiskAssessment riskAssessmentCWithNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentCWithNoTokenOverflow.Id = $"RiskAssessment-Id-{name}-C";
 #if R4 || R5
-                riskAssessmentCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name);
+                riskAssessmentCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name); // NO overflow.
 #else
-                riskAssessmentCWithNoTokenOverflow.Identifier.Value = GetTokenValue(name);
+                riskAssessmentCWithNoTokenOverflow.Identifier.Value = GetTokenValue(name); // NO overflow.
 #endif
-                riskAssessmentCWithNoTokenOverflow.Prediction[0].Probability = new FhirDecimal(333.111M);
-                riskAssessmentCWithNoTokenOverflow.Prediction[1].Probability = new FhirDecimal(333.555M);
                 resourceCWithNoTokenOverflowOut = (T)(DomainResource)riskAssessmentCWithNoTokenOverflow;
             }
             else
@@ -238,8 +233,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 "Patient",
                 "Kirk-CTS",
                 "CompositeCustomTokenStringSearchParameter",
-                patient => patient.Identifier[0].Value,
-                patient => patient.Name[0].Family);
+                (patient, valid) => patient.Identifier[0].Value,
+                (patient, valid) => valid ? patient.Name[0].Family : "INVALID"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
         [SkippableFact]
@@ -249,8 +244,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 "Patient",
                 "Kirk-CTD",
                 "CompositeCustomTokenDateTimeSearchParameter",
-                patient => patient.Identifier[0].Value,
-                patient => patient.BirthDate);
+                (patient, valid) => patient.Identifier[0].Value,
+                (patient, valid) => valid ? patient.BirthDate : "2000-01-01"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
         [SkippableFact]
@@ -260,8 +255,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 "Patient",
                 "Kirk-CToT",
                 "CompositeCustomTokenOverflowTokenSearchParameter",
-                patient => patient.Identifier[0].Value,
-                patient => patient.Telecom[0].Value);
+                (patient, valid) => patient.Identifier[0].Value,
+                (patient, valid) => valid ? patient.Telecom[0].Value : "111-111-1111"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
         [SkippableFact]
@@ -271,8 +266,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 "Patient",
                 "Kirk-CTTo",
                 "CompositeCustomTokenTokenOverflowSearchParameter",
-                patient => patient.Telecom[0].Value,
-                patient => patient.Identifier[0].Value);
+                (patient, valid) => valid ? patient.Telecom[0].Value : "111-111-1111", // IMPORTANT, must be a value that is not used by the resources.
+                (patient, valid) => patient.Identifier[0].Value);
         }
 
         [SkippableFact]
@@ -282,8 +277,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 "Patient",
                 "Kirk-CRT",
                 "CompositeCustomReferenceTokenSearchParameter",
-                patient => patient.ManagingOrganization.Reference,
-                patient => patient.Identifier[0].Value);
+                (patient, valid) => valid ? patient.ManagingOrganization.Reference : "INVALID-REFERENCE", // IMPORTANT, must be a value that is not used by the resources.
+                (patient, valid) => patient.Identifier[0].Value);
         }
 
         [SkippableFact]
@@ -294,11 +289,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 "Kirk-CTQ",
                 "CompositeCustomTokenQuantitySearchParameter",
 #if R4 || R5
-                chargeItem => chargeItem.Identifier[0].Value,
+                (chargeItem, valid) => chargeItem.Identifier[0].Value,
 #else
-                chargeItem => chargeItem.Identifier.Value,
+                (chargeItem, valid) => chargeItem.Identifier.Value,
 #endif
-                chargeItem => chargeItem.Quantity.Value.ToString());
+                (chargeItem, valid) => valid ? chargeItem.Quantity.Value.ToString() : "555"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
         [SkippableFact]
@@ -309,14 +304,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 "Kirk-CTNN",
                 "CompositeCustomTokenNumberNumberSearchParameter",
 #if R4 || R5
-                riskAssessment => riskAssessment.Identifier[0].Value,
+                (riskAssessment, valid) => riskAssessment.Identifier[0].Value,
 #else
-                riskAssessment => riskAssessment.Identifier.Value,
+                (riskAssessment, valid) => riskAssessment.Identifier.Value,
 #endif
-                riskAssessment =>
+                (riskAssessment, valid) =>
                 {
-                    decimal number1 = ((FhirDecimal)riskAssessment.Prediction[0].Probability).Value ?? 0;
-                    decimal number2 = ((FhirDecimal)riskAssessment.Prediction[1].Probability).Value ?? 0;
+                    decimal number1 = 000.999M; // IMPORTANT, must be a value that is not used by the resources.
+                    decimal number2 = 000.999M; // IMPORTANT, must be a value that is not used by the resources.
+                    if (valid)
+                    {
+                        number1 = ((FhirDecimal)riskAssessment.Prediction[0].Probability).Value ?? 0;
+                        number2 = ((FhirDecimal)riskAssessment.Prediction[1].Probability).Value ?? 0;
+                    }
+
                     return $"{number1}${number2}";
                 });
         }
@@ -441,9 +442,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithNoTokenOverflow)}${getParameter2(resourceCWithNoTokenOverflow)}",
                     createdResourceC); // Expected resource C.
 
-                // Invlid composite search parameter returns nothing (we combine search parameters for resources A and B).
+                // Invalid composite search parameter returns nothing, we send correct token but incorrect second parameter that is not used by the resources.
                 await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
+                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}");
             }
             catch (Exception e)
             {
