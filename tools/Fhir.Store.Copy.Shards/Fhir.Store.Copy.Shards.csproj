@@ -15,7 +15,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.Database.Distributed\Microsoft.Health.Fhir.SqlServer.Database.Distributed.sqlproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.SetupDb\Microsoft.Health.Fhir.SqlServer.SetupDb.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.SqlUtils\Microsoft.Health.Fhir.Store.SqlUtils.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
