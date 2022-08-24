@@ -41,10 +41,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public async Task InitializeAsync()
         {
-            // await Client.DeleteAllResources(ResourceType.Patient, null);// TODO:------------
+            await Client.DeleteAllResources(ResourceType.Patient, null); // TODO: do we delete resources in DB?
 
-            await Client.DeleteAllResources(ResourceType.Specimen, null);
-            await Client.DeleteAllResources(ResourceType.Immunization, null);
+            // await Client.DeleteAllResources(ResourceType.Specimen, null);
+            // await Client.DeleteAllResources(ResourceType.Immunization, null);
         }
 
         private string GetTokenValue(string prefix, string suffix = null)
@@ -183,6 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        // TODO: what do we skip Stu3 R5?
         [SkippableFact]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByToken_VerifyCorrectSerachResults()
         {
@@ -231,7 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        public async Task AAAA_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
         {
             await TestCompositeTokenOverflow<Patient>(
                 "Patient",
@@ -242,7 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        public async Task BBBB_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenDateTime_VerifyCorrectSerachResults()
         {
             await TestCompositeTokenOverflow<Patient>(
                 "Patient",
@@ -253,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        public async Task CCCC_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenOverflowToken_VerifyCorrectSerachResults()
         {
             await TestCompositeTokenOverflow<Patient>(
                 "Patient",
@@ -264,7 +265,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        public async Task DDDD_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenTokenOverflowString_VerifyCorrectSerachResults()
         {
             await TestCompositeTokenOverflow<Patient>(
                 "Patient",
@@ -275,7 +276,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        public async Task EEEE_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByReferenceToken_VerifyCorrectSerachResults()
         {
             await TestCompositeTokenOverflow<Patient>(
                 "Patient",
@@ -286,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        public async Task FFFF_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenQuantity_VerifyCorrectSerachResults()
         {
             await TestCompositeTokenOverflow<ChargeItem>(
                 "ChargeItem",
@@ -301,7 +302,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        public async Task GGGG_GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenNumberNumber_VerifyCorrectSerachResults()
         {
             await TestCompositeTokenOverflow<RiskAssessment>(
                 "RiskAssessment",
@@ -330,9 +331,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             try
             {
+                // Randomize various names and id-s so tests can be rerun without clearing the database.
                 string rnd = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
                 string name = $"{resourceNamePrefix}-{rnd}";
 
+                // Prepare search parameter settings.
                 string searchParameterName = $"Search-{name}";
                 SearchParameter searchParam = Samples.GetJsonSample<SearchParameter>(searchParameterTestFileName);
                 searchParam.Id = $"Id-{searchParameterName}";
@@ -340,9 +343,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 searchParam.Url = "http://hl7.org/fhir/SearchParameter/" + searchParameterName;
                 searchParam.Code = searchParameterName;
 
+                // Load test resources.
                 LoadTestResources<T>(name, out T resourceAWithTokenOverflow, out T resourceBWithTokenOverflow, out T resourceCWithNoTokenOverflow);
 
-                // POST resource A.
+                // First we create new resources and composite search parameter.
+
+                // POST resource A, BEFORE composite search parameter is created.
                 FhirResponse<T> createdResourceA = await Client.CreateAsync<T>(resourceAWithTokenOverflow);
                 EnsureSuccessStatusCode(createdResourceA.StatusCode, "Creating resource A.");
 
@@ -358,6 +364,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<T> createdResourceC = await Client.CreateAsync(resourceCWithNoTokenOverflow);
                 EnsureSuccessStatusCode(createdResourceA.StatusCode, "Creating resource C.");
 
+                // Before reindexing the database we test if we can access or not the created resources, with and without x-ms-use-partial-indices header.
+
                 // Without x-ms-use-partial-indices header we cannot search for resources created after the search parameter was created.
                 Bundle bundle = await Client.SearchAsync($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
                 OperationOutcome operationOutcome = GetAndValidateOperationOutcome(bundle);
@@ -372,23 +380,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
                     false,
                     false,
-                    new Tuple<string, string>("x-ms-use-partial-indices", "true"));
+                    new Tuple<string, string>("x-ms-use-partial-indices", "true")); // Nothing should be returned.
 
                 await ExecuteAndValidateBundle(
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
                     false,
                     false,
                     new Tuple<string, string>("x-ms-use-partial-indices", "true"),
-                    createdResourceB);
+                    createdResourceB); // Expected resource B.
 
                 await ExecuteAndValidateBundle(
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithNoTokenOverflow)}${getParameter2(resourceCWithNoTokenOverflow)}",
                     false,
                     false,
                     new Tuple<string, string>("x-ms-use-partial-indices", "true"),
-                    createdResourceC);
+                    createdResourceC); // Expected resource C.
 
-                // Reindex DB.
+                // Start reindexing DB.
 
                 Uri reindexJobUri;
 
@@ -417,18 +425,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.True(floatParse);
                 Assert.True(resourcesReindexed > 0.0);
 
+                // DB is now reindexed.
+
                 // After reindexing no need to use x-ms-use-partial-indices, all resources are searchable.
+                // Also, resources A and B have token overflow while C does not. Still all resources are correctly returned.
                 await ExecuteAndValidateBundle(
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
-                    createdResourceA);
+                    createdResourceA); // Expected resource A.
 
                 await ExecuteAndValidateBundle(
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
-                    createdResourceB);
+                    createdResourceB); // Expected resource B.
 
                 await ExecuteAndValidateBundle(
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithNoTokenOverflow)}${getParameter2(resourceCWithNoTokenOverflow)}",
-                    createdResourceC);
+                    createdResourceC); // Expected resource C.
 
                 // Invlid composite search parameter returns nothing (we combine search parameters for resources A and B).
                 await ExecuteAndValidateBundle(
