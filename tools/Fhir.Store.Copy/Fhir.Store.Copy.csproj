@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>Fhir.Store.Copy</AssemblyName>
+    <RootNamespace>Microsoft.Health.Fhir.Store.Copy</RootNamespace>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.10.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.SetupDb\Microsoft.Health.Fhir.SqlServer.SetupDb.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.SqlUtils\Microsoft.Health.Fhir.Store.SqlUtils.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
+    <ProjectReference Include="..\Fhir.Store.Copy.Database\Fhir.Store.Copy.Database.sqlproj" />
+  </ItemGroup>
+  
+  <PropertyGroup>
+    <PostBuildEvent>copy "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
+  </PropertyGroup>
+</Project>

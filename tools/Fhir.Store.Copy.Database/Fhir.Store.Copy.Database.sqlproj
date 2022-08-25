@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>Fhir.Store.Copy.Database</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{66c70207-6fed-4426-bd0e-1a9ec3b7d5ce}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql150DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <RootNamespace>Fhir.Store.Copy.Database</RootNamespace>
+    <AssemblyName>Fhir.Store.Copy.Database</AssemblyName>
+    <ModelCollation>1033, CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+    <TargetFrameworkProfile />
+    <NoWarn>1503</NoWarn>
+    <SuppressTSqlWarnings>71502</SuppressTSqlWarnings>
+    <TreatTSqlWarningsAsErrors>True</TreatTSqlWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <NoWarn>1503</NoWarn>
+    <SuppressTSqlWarnings>71502</SuppressTSqlWarnings>
+    <TreatTSqlWarningsAsErrors>True</TreatTSqlWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <NoWarn>1503</NoWarn>
+    <SuppressTSqlWarnings>71502</SuppressTSqlWarnings>
+    <TreatTSqlWarningsAsErrors>True</TreatTSqlWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.Database\Microsoft.Health.Fhir.SqlServer.Database.sqlproj">
+      <Name>Microsoft.Health.Fhir.SqlServer.Database</Name>
+      <Project>{cbfff5cf-d3bb-434e-8c01-384003b9dc13}</Project>
+      <Private>True</Private>
+      <SuppressMissingDependenciesErrors>False</SuppressMissingDependenciesErrors>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Scripts\setupdb.cmd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <PostDeploy Include="Scripts\Post-Deployment\Script.PostDeployment.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\DequeueStoreCopyWorkUnit.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutStoreCopyWorkUnitStatus.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\StoreCopyWorkQueue.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\ResourceList.sql" />
+    <None Include="Scripts\Pre-Deployment\PreDeployment.sql">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\MergeResources.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\ReferenceSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\TokenSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\CompartmentAssignmentList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\TokenTextList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\DateTimeSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\TokenQuantityCompositeSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\QuantitySearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\StringSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\TokenTokenCompositeSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\TokenStringCompositeSearchParamList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\ResourceSurrogateIdMaxSequence.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetResourceSurrogateIdMaxSequence.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\InsertResources.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Types\StringList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutStoreCopyWorkHeartBeat.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Scripts\" />
+    <Folder Include="Scripts\Post-Deployment\" />
+    <Folder Include="Schema Objects\" />
+    <Folder Include="Schema Objects\Schemas\" />
+    <Folder Include="Schema Objects\Schemas\dbo\" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\" />
+    <Folder Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\" />
+    <Folder Include="Schema Objects\Schemas\dbo\Tables\" />
+    <Folder Include="Scripts\Pre-Deployment\" />
+    <Folder Include="Schema Objects\Schemas\dbo\Types\" />
+  </ItemGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+</Project>

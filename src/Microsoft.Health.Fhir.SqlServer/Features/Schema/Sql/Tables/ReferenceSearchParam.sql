@@ -9,9 +9,9 @@
     ReferenceResourceVersion            int                     NULL,
     IsHistory                           bit                     NOT NULL,
 )
-
-ALTER TABLE dbo.ReferenceSearchParam SET ( LOCK_ESCALATION = AUTO )
-
+GO
+--ALTER TABLE dbo.ReferenceSearchParam SET ( LOCK_ESCALATION = AUTO )
+GO
 CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
 ON dbo.ReferenceSearchParam
 (
@@ -21,7 +21,7 @@ ON dbo.ReferenceSearchParam
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
 ON dbo.ReferenceSearchParam
 (
@@ -39,3 +39,4 @@ INCLUDE
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO
