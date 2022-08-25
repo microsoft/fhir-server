@@ -1855,7 +1855,7 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE OR ALTER PROCEDURE dbo.ExecuteCommandForRebuildIndexes
+CREATE OR ALTER PROCEDURE [dbo].[ExecuteCommandForRebuildIndexes]
 @Tbl VARCHAR (100), @Ind VARCHAR (100), @Cmd VARCHAR (MAX), @Pid INT
 WITH EXECUTE AS 'dbo'
 AS
@@ -1960,7 +1960,7 @@ BEGIN
 END
 
 GO
-CREATE OR ALTER PROCEDURE dbo.GetCommandsForRebuildIndexes
+CREATE OR ALTER PROCEDURE [dbo].[GetCommandsForRebuildIndexes]
 @RebuildClustered BIT
 WITH EXECUTE AS 'dbo'
 AS
@@ -2148,7 +2148,7 @@ WHERE  ParentTaskId = @importTaskId
        AND Status = 3;
 
 GO
-CREATE OR ALTER PROCEDURE dbo.GetIndexCommands
+CREATE OR ALTER PROCEDURE [dbo].[GetIndexCommands]
 @Tbl VARCHAR (100), @Ind VARCHAR (200), @AddPartClause BIT, @IncludeClustered BIT, @Txt VARCHAR (MAX)=NULL OUTPUT
 WITH EXECUTE AS 'dbo'
 AS
@@ -2435,7 +2435,7 @@ BEGIN
 END
 
 GO
-CREATE OR ALTER PROCEDURE dbo.GetPartitionedTables
+CREATE OR ALTER PROCEDURE [dbo].[GetPartitionedTables]
 @IncludeNotDisabled BIT, @IncludeNotSupported BIT
 WITH EXECUTE AS 'dbo'
 AS
@@ -2740,7 +2740,7 @@ WHERE  ResourceTypeId = @resourceTypeId
 COMMIT TRANSACTION;
 
 GO
-CREATE OR ALTER PROCEDURE dbo.InitializeIndexProperties
+CREATE OR ALTER PROCEDURE [dbo].[InitializeIndexProperties]
 WITH EXECUTE AS 'dbo'
 AS
 SET NOCOUNT ON;
@@ -3312,7 +3312,7 @@ IF @retryCount IS NULL
 EXECUTE dbo.GetTaskDetails @TaskId = @taskId;
 
 GO
-CREATE OR ALTER PROCEDURE dbo.SwitchPartitionsIn
+CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsIn]
 @Tbl VARCHAR (100)
 WITH EXECUTE AS 'dbo'
 AS
@@ -3391,7 +3391,7 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE OR ALTER PROCEDURE dbo.SwitchPartitionsInAllTables
+CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsInAllTables]
 WITH EXECUTE AS 'dbo'
 AS
 SET NOCOUNT ON;
@@ -3425,7 +3425,7 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE OR ALTER PROCEDURE dbo.SwitchPartitionsOut
+CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsOut]
 @Tbl VARCHAR (100), @RebuildClustered BIT
 WITH EXECUTE AS 'dbo'
 AS
@@ -3587,7 +3587,7 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE OR ALTER PROCEDURE dbo.SwitchPartitionsOutAllTables
+CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsOutAllTables]
 @RebuildClustered BIT
 WITH EXECUTE AS 'dbo'
 AS
