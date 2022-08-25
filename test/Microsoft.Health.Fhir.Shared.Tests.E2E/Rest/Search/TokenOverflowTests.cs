@@ -356,7 +356,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 // Randomize various names and id-s so tests can be rerun without clearing the database.
                 string rnd = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-                string name = $"{resourceNamePrefix}-{rnd}";
+                string name = $"{resourceNamePrefix}-{(singleReindex ? 'S' : 'F')}-{rnd}";
 
                 // Prepare search parameter settings.
                 string searchParameterName = $"Search-{name}";
