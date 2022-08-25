@@ -35,14 +35,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task My_GivenAResource_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
-        {
-            var resource = Samples.GetJsonSample2();
-            using FhirResponse<Patient> response = await _client.CreateAsync(resource.ToPoco<Patient>());
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
             using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
