@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             return cnt > 0;
         }
 
-        private void DequeueJob(out long groupId, out long jobId, out long version, out string definition)
+        public void DequeueJob(out long groupId, out long jobId, out long version, out string definition)
         {
             definition = null;
             groupId = -1L;

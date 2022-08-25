@@ -40,6 +40,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer.Shards.Import\Microsoft.Health.Fhir.SqlServer.Shards.Import.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
