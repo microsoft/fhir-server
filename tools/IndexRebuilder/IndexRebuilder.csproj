@@ -20,6 +20,8 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <PostBuildEvent>copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
+    <PostBuildEvent>
+      if exist "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" *
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>

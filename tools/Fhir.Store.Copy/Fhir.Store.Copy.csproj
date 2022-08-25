@@ -18,10 +18,11 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.SetupDb\Microsoft.Health.Fhir.SqlServer.SetupDb.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.SqlUtils\Microsoft.Health.Fhir.Store.SqlUtils.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
-    <ProjectReference Include="..\Fhir.Store.Copy.Database\Fhir.Store.Copy.Database.sqlproj" />
   </ItemGroup>
   
   <PropertyGroup>
-    <PostBuildEvent>copy "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
+    <PostBuildEvent>
+      if exist "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" copy "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" *
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>
