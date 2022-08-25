@@ -730,8 +730,10 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE TABLE dbo.IndexProperties 
-  (
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'IndexProperties')
+BEGIN
+    CREATE TABLE dbo.IndexProperties
+    (
      TableN     varchar(100)     NOT NULL
     ,IndexName     varchar(200)     NOT NULL
     ,PropertyName  varchar(100)     NOT NULL
@@ -739,7 +741,9 @@ CREATE TABLE dbo.IndexProperties
     ,CreateDate    datetime         NOT NULL CONSTRAINT DF_IndexProperties_CreateDate DEFAULT getUTCdate()
     
      CONSTRAINT PKC_IndexProperties_TableName_IndexName_PropertyName PRIMARY KEY CLUSTERED (TableN, IndexName, PropertyName)
-  )
+    )
+    ON [PRIMARY]
+END
 GO
 
 GO
