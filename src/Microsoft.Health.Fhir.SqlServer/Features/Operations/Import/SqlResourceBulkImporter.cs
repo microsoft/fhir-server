@@ -17,8 +17,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.Store.Sharding;
 using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -163,10 +161,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogInformation("Start to import data to SQL data store.");
 
+                Task<ImportProcessingProgress> checkpointTask = Task.FromResult<ImportProcessingProgress>(null);
+
                 long succeedCount = 0;
                 long failedCount = 0;
+                long? lastCheckpointIndex = null;
                 long currentIndex = -1;
-                var importErrorBuffer = new List<string>();
+                Dictionary<string, DataTable> resourceParamsBuffer = new Dictionary<string, DataTable>();
+                List<string> importErrorBuffer = new List<string>();
+                Queue<Task<ImportProcessingProgress>> importTasks = new Queue<Task<ImportProcessingProgress>>();
 
                 List<ImportResource> resourceBuffer = new List<ImportResource>();
                 await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
@@ -177,6 +180,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         throw new OperationCanceledException();
                     }
 
+                    lastCheckpointIndex = lastCheckpointIndex ?? resource.Index - 1;
                     currentIndex = resource.Index;
 
                     resourceBuffer.Add(resource);
@@ -187,15 +191,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                     try
                     {
-                        var inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r)).ToList();
-                        var mergedResources = ImportData(inputResources);
+                        // Handle resources in buffer
+                        IEnumerable<ImportResource> resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
+                        IEnumerable<SqlBulkCopyDataWrapper> inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r));
+                        IEnumerable<SqlBulkCopyDataWrapper> mergedResources = await _sqlImportOperation.BulkMergeResourceAsync(inputResources, cancellationToken);
+                        IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
 
-                        var resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
                         importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
-                        var duplicateResources = inputResources.Except(mergedResources);
-                        AppendDuplicatedResouceErrorToBuffer(duplicateResources, importErrorBuffer);
+                        await FillResourceParamsBuffer(mergedResources.ToArray(), resourceParamsBuffer);
+                        AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
+
                         succeedCount += mergedResources.Count();
-                        failedCount += resourcesWithError.Count() + duplicateResources.Count();
+                        failedCount += resourcesWithError.Count() + duplicateResourcesNotMerged.Count();
                     }
                     finally
                     {
@@ -210,19 +217,58 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                         resourceBuffer.Clear();
                     }
+
+                    bool shouldCreateCheckpoint = resource.Index - lastCheckpointIndex >= _importTaskConfiguration.SqlImportBatchSizeForCheckpoint;
+                    if (shouldCreateCheckpoint)
+                    {
+                        // Create checkpoint for all tables not empty
+                        string[] tableNameNeedImport = resourceParamsBuffer.Where(r => r.Value.Rows.Count > 0).Select(r => r.Key).ToArray();
+
+                        foreach (string tableName in tableNameNeedImport)
+                        {
+                            DataTable dataTable = resourceParamsBuffer[tableName];
+                            resourceParamsBuffer.Remove(tableName);
+                            await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                        }
+
+                        // wait previous checkpoint task complete
+                        await checkpointTask;
+
+                        // upload error logs for import errors
+                        string[] importErrors = importErrorBuffer.ToArray();
+                        importErrorBuffer.Clear();
+                        lastCheckpointIndex = resource.Index;
+                        checkpointTask = await EnqueueTaskAsync(importTasks, () => UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrors, currentIndex, cancellationToken), outputChannel);
+                    }
+                    else
+                    {
+                        // import table >= MaxResourceCountInBatch
+                        string[] tableNameNeedImport =
+                                    resourceParamsBuffer.Where(r => r.Value.Rows.Count >= _importTaskConfiguration.SqlBatchSizeForImportParamsOperation).Select(r => r.Key).ToArray();
+
+                        foreach (string tableName in tableNameNeedImport)
+                        {
+                            DataTable dataTable = resourceParamsBuffer[tableName];
+                            resourceParamsBuffer.Remove(tableName);
+                            await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                        }
+                    }
                 }
 
                 try
                 {
-                    var inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r)).ToList();
-                    var mergedResources = ImportDataSharded(inputResources);
-
-                    var resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
+                    // Handle resources in buffer
+                    IEnumerable<ImportResource> resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
+                    IEnumerable<SqlBulkCopyDataWrapper> inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r));
+                    IEnumerable<SqlBulkCopyDataWrapper> mergedResources = await _sqlImportOperation.BulkMergeResourceAsync(inputResources, cancellationToken);
+                    IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
                     importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
-                    var duplicateResources = inputResources.Except(mergedResources);
-                    AppendDuplicatedResouceErrorToBuffer(duplicateResources, importErrorBuffer);
+
+                    await FillResourceParamsBuffer(mergedResources.ToArray(), resourceParamsBuffer);
+
+                    AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
                     succeedCount += mergedResources.Count();
-                    failedCount += resourcesWithError.Count() + duplicateResources.Count();
+                    failedCount += resourcesWithError.Count() + duplicateResourcesNotMerged.Count();
                 }
                 finally
                 {
@@ -238,6 +284,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     resourceBuffer.Clear();
                 }
 
+                // Import all remain tables
+                string[] allTablesNotNull = resourceParamsBuffer.Where(r => r.Value.Rows.Count > 0).Select(r => r.Key).ToArray();
+                foreach (string tableName in allTablesNotNull)
+                {
+                    DataTable dataTable = resourceParamsBuffer[tableName];
+                    await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                }
+
+                // Wait all table import task complete
+                while (importTasks.Count > 0)
+                {
+                    await importTasks.Dequeue();
+                }
+
                 // Upload remain error logs
                 ImportProcessingProgress progress = await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
                 await outputChannel.Writer.WriteAsync(progress, cancellationToken);
@@ -249,32 +309,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private IEnumerable<SqlBulkCopyDataWrapper> ImportData(IList<SqlBulkCopyDataWrapper> inputResources)
+        private async Task FillResourceParamsBuffer(SqlBulkCopyDataWrapper[] mergedResources, Dictionary<string, DataTable> resourceParamsBuffer)
         {
-            var mergedResources = _sqlImportOperation.BulkMergeResourceAsync(inputResources, CancellationToken.None).Result;
-            var paramsTables = FillParamsDataTables(mergedResources.ToArray());
-            ImportParamsDataTables(paramsTables);
-            return mergedResources;
-        }
+            List<Task> runningTasks = new List<Task>();
 
-        private List<DataTable> FillParamsDataTables(IList<SqlBulkCopyDataWrapper> mergedResources)
-        {
-            var tables = new List<DataTable>();
-            foreach (var generator in _generators)
+            foreach (TableBulkCopyDataGenerator generator in _generators)
             {
-                using var table = generator.GenerateDataTable();
-                foreach (var resourceWrapper in mergedResources)
+                if (!resourceParamsBuffer.ContainsKey(generator.TableName))
                 {
-                    generator.FillDataTable(table, resourceWrapper);
+                    resourceParamsBuffer[generator.TableName] = generator.GenerateDataTable();
                 }
 
-                if (table.Rows.Count > 0)
+                while (runningTasks.Count >= _importTaskConfiguration.SqlMaxDatatableProcessConcurrentCount)
                 {
-                    tables.Add(table);
+                    Task completeTask = await Task.WhenAny(runningTasks);
+                    await completeTask;
+
+                    runningTasks.Remove(completeTask);
                 }
+
+                DataTable table = resourceParamsBuffer[generator.TableName];
+
+                runningTasks.Add(Task.Run(() =>
+                {
+                    foreach (SqlBulkCopyDataWrapper resourceWrapper in mergedResources)
+                    {
+                        generator.FillDataTable(table, resourceWrapper);
+                    }
+                }));
             }
 
-            return tables;
+            while (runningTasks.Count > 0)
+            {
+                Task completeTask = await Task.WhenAny(runningTasks);
+                await completeTask;
+
+                runningTasks.Remove(completeTask);
+            }
         }
 
         private void AppendDuplicatedResouceErrorToBuffer(IEnumerable<SqlBulkCopyDataWrapper> mergedResources, List<string> importErrorBuffer)
@@ -304,22 +375,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             // Return progress for checkpoint progress
             return progress;
-        }
-
-        private void ImportParamsDataTables(List<DataTable> tables)
-        {
-            foreach (var table in tables)
-            {
-                try
-                {
-                    _sqlImportOperation.BulkCopyDataAsync(table, CancellationToken.None).Wait();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogInformation(ex, "Failed to import table: {Table}", table.TableName);
-                    throw;
-                }
-            }
         }
 
         private async Task<ImportProcessingProgress> ImportDataTableAsync(DataTable table, CancellationToken cancellationToken)
@@ -361,87 +416,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             importTasks.Enqueue(newTask);
 
             return newTask;
-        }
-
-        private static Resource GetShardedResource(TransactionId transactionId, ShardletId shardletId, short sequence, SqlBulkCopyDataWrapper input)
-        {
-            var output = new Resource();
-            output.ResourceTypeId = input.ResourceTypeId;
-            output.ResourceId = input.Resource.ResourceId;
-            output.Version = int.Parse(input.Resource.Version);
-            output.IsHistory = input.Resource.IsHistory;
-            output.TransactionId = transactionId;
-            output.ShardletId = shardletId;
-            output.Sequence = sequence;
-            output.IsDeleted = input.Resource.IsDeleted;
-            output.RequestMethod = input.Resource.Request.Method;
-            output.SearchParamHash = input.Resource.SearchParameterHash;
-            return output;
-        }
-
-        private static List<T> Convert<T>(TransactionId transactionId, Dictionary<long, (ShardletId ShardletId, short Sequence)> surrIdMap, DataTable dataTable, Func<TransactionId, ShardletId, short, DataRow, T> create)
-        {
-            List<T> searchParams = null;
-            if (dataTable?.Rows.Count > 0)
-            {
-                searchParams = new List<T>();
-                foreach (var row in dataTable.Rows)
-                {
-                    var dataRow = (DataRow)row;
-                    (var shardletId, var sequence) = surrIdMap[(long)dataRow["ResourceSurrogateId"]];
-                    searchParams.Add(create(transactionId, shardletId, sequence, dataRow));
-                }
-            }
-
-            return searchParams;
-        }
-
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1107:Code should not contain multiple statements on one line", Justification = "Short")]
-        private IEnumerable<SqlBulkCopyDataWrapper> ImportDataSharded(IList<SqlBulkCopyDataWrapper> inputResources)
-        {
-            var paramsTables = FillParamsDataTables(inputResources);
-
-            var transactionId = SqlImportOperation.SqlService.BeginTransaction();
-
-            var shardletSequence = new Dictionary<ShardletId, short>();
-            var surrIdMap = new Dictionary<long, (ShardletId ShardletId, short Sequence)>(); // map from surr id to shardlet resource index
-
-            foreach (var resource in inputResources)
-            {
-                var shardletId = ShardletId.GetHashedShardletId(resource.Resource.ResourceId);
-                if (!shardletSequence.TryGetValue(shardletId, out var sequence))
-                {
-                    shardletSequence.Add(shardletId, 0);
-                }
-                else
-                {
-                    sequence++;
-                    shardletSequence[shardletId] = sequence;
-                }
-
-                if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
-                {
-                    surrIdMap.Add(resource.ResourceSurrogateId, (shardletId, sequence));
-                }
-            }
-
-            var resources = inputResources.Select(_ => { (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; return GetShardedResource(transactionId, shardletId, sequence, _); }).ToList();
-            var referenceSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.ReferenceSearchParam"), (transactionId, shardletId, sequence, dataRow) => new ReferenceSearchParam(transactionId, shardletId, sequence, dataRow));
-            var tokenSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenSearchParam"), (transactionId, shardletId, sequence, dataRow) => new TokenSearchParam(transactionId, shardletId, sequence, dataRow));
-            var compartmentAssignments = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.CompartmentAssignment"), (transactionId, shardletId, sequence, dataRow) => new CompartmentAssignment(transactionId, shardletId, sequence, dataRow));
-            var tokenTexts = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenText"), (transactionId, shardletId, sequence, dataRow) => new TokenText(transactionId, shardletId, sequence, dataRow));
-            var dateTimeSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.DateTimeSearchParam"), (transactionId, shardletId, sequence, dataRow) => new DateTimeSearchParam(transactionId, shardletId, sequence, dataRow));
-            var tokenQuantityCompositeSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenQuantityCompositeSearchParam"), (transactionId, shardletId, sequence, dataRow) => new TokenQuantityCompositeSearchParam(transactionId, shardletId, sequence, dataRow));
-            var quantitySearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.QuantitySearchParam"), (transactionId, shardletId, sequence, dataRow) => new QuantitySearchParam(transactionId, shardletId, sequence, dataRow));
-            var stringSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.StringSearchParam"), (transactionId, shardletId, sequence, dataRow) => new StringSearchParam(transactionId, shardletId, sequence, dataRow));
-            var tokenTokenCompositeSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenTokenCompositeSearchParam"), (transactionId, shardletId, sequence, dataRow) => new TokenTokenCompositeSearchParam(transactionId, shardletId, sequence, dataRow));
-            var tokenStringCompositeSearchParams = Convert(transactionId, surrIdMap, paramsTables.FirstOrDefault(_ => _.TableName == "dbo.TokenStringCompositeSearchParam"), (transactionId, shardletId, sequence, dataRow) => new TokenStringCompositeSearchParam(transactionId, shardletId, sequence, dataRow));
-
-            var rows = SqlImportOperation.SqlService.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
-
-            SqlImportOperation.SqlService.CommitTransaction(transactionId);
-
-            return inputResources;
         }
     }
 }

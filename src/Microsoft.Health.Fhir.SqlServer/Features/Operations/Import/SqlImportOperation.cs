@@ -18,7 +18,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.Store.Sharding;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -34,8 +33,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
-        private static volatile bool _isSqlServiceInitialized = false;
-        private static object _sqlServiceInitializationLocker = new object();
 
         public SqlImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -55,27 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _importTaskConfiguration = operationsConfig.Value.Import;
             _schemaInformation = schemaInformation;
             _logger = logger;
-
-            lock (_sqlServiceInitializationLocker)
-            {
-                if (!_isSqlServiceInitialized)
-                {
-                    using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None).Result;
-                    var str = Store.SqlUtils.SqlService.GetCanonicalConnectionString(conn.SqlConnection.ConnectionString);
-                    if (!str.Contains("integrated security", StringComparison.OrdinalIgnoreCase))
-                    {
-                        using var cmd = new SqlCommand($"SELECT Char FROM dbo.Parameters WHERE Id = 'addition'", conn.SqlConnection);
-                        var pwd = cmd.ExecuteScalar();
-                        str += $";pwd={pwd};";
-                    }
-
-                    SqlService = new SqlService(str);
-                    _isSqlServiceInitialized = true;
-                }
-            }
         }
-
-        public static SqlService SqlService { get; private set; }
 
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalUniqueIndexesForImport { get; private set; }
 
