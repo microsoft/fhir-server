@@ -226,10 +226,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
-        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults()
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults(bool singleReindex)
         {
             await TestCompositeTokenOverflow<Patient>(
+                singleReindex,
                 "Patient",
                 "Kirk-CTS",
                 "CompositeCustomTokenStringSearchParameter",
@@ -237,10 +240,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.Name[0].Family : "INVALID"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [SkippableFact]
-        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenDateTime_VerifyCorrectSerachResults()
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenDateTime_VerifyCorrectSerachResults(bool singleReindex)
         {
             await TestCompositeTokenOverflow<Patient>(
+                singleReindex,
                 "Patient",
                 "Kirk-CTD",
                 "CompositeCustomTokenDateTimeSearchParameter",
@@ -248,10 +254,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.BirthDate : "2000-01-01"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [SkippableFact]
-        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenOverflowToken_VerifyCorrectSerachResults()
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenOverflowToken_VerifyCorrectSerachResults(bool singleReindex)
         {
             await TestCompositeTokenOverflow<Patient>(
+                singleReindex,
                 "Patient",
                 "Kirk-CToT",
                 "CompositeCustomTokenOverflowTokenSearchParameter",
@@ -259,10 +268,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.Telecom[0].Value : "111-111-1111"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [SkippableFact]
-        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenTokenOverflowString_VerifyCorrectSerachResults()
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenTokenOverflowString_VerifyCorrectSerachResults(bool singleReindex)
         {
             await TestCompositeTokenOverflow<Patient>(
+                singleReindex,
                 "Patient",
                 "Kirk-CTTo",
                 "CompositeCustomTokenTokenOverflowSearchParameter",
@@ -270,10 +282,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => patient.Identifier[0].Value);
         }
 
-        [SkippableFact]
-        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByReferenceToken_VerifyCorrectSerachResults()
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByReferenceToken_VerifyCorrectSerachResults(bool singleReindex)
         {
             await TestCompositeTokenOverflow<Patient>(
+                singleReindex,
                 "Patient",
                 "Kirk-CRT",
                 "CompositeCustomReferenceTokenSearchParameter",
@@ -281,10 +296,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => patient.Identifier[0].Value);
         }
 
-        [SkippableFact]
-        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenQuantity_VerifyCorrectSerachResults()
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenQuantity_VerifyCorrectSerachResults(bool singleReindex)
         {
             await TestCompositeTokenOverflow<ChargeItem>(
+                singleReindex,
                 "ChargeItem",
                 "Kirk-CTQ",
                 "CompositeCustomTokenQuantitySearchParameter",
@@ -296,10 +314,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (chargeItem, valid) => valid ? chargeItem.Quantity.Value.ToString() : "555"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [SkippableFact]
-        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenNumberNumber_VerifyCorrectSerachResults()
+        [SkippableTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenNumberNumber_VerifyCorrectSerachResults(bool singleReindex)
         {
             await TestCompositeTokenOverflow<RiskAssessment>(
+                singleReindex,
                 "RiskAssessment",
                 "Kirk-CTNN",
                 "CompositeCustomTokenNumberNumberSearchParameter",
@@ -323,6 +344,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         private async Task TestCompositeTokenOverflow<T>(
+            bool singleReindex,
             string resourceTypeName,
             string resourceNamePrefix,
             string searchParameterTestFileName,
@@ -397,54 +419,89 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     new Tuple<string, string>("x-ms-use-partial-indices", "true"),
                     createdResourceC); // Expected resource C.
 
-                // Start reindexing DB.
+                // Start reindexing resources.
 
-                Uri reindexJobUri;
+                if (singleReindex == false)
+                {
+                    Uri reindexJobUri;
 
-                // Start a reindex job
-                (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
+                    // Start a reindex job
+                    (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
 
-                await WaitForReindexStatus(reindexJobUri, "Completed");
+                    await WaitForReindexStatus(reindexJobUri, "Completed");
 
-                FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
-                _output.WriteLine("ReindexJobDocument:");
-                var serializer = new FhirJsonSerializer();
-                _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
+                    FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
+                    Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
+                    _output.WriteLine("ReindexJobDocument:");
+                    var serializer = new FhirJsonSerializer();
+                    _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
-                Assert.Contains(createdSearchParam.Resource.Url, param?.Value?.ToString());
+                    Assert.Contains(createdSearchParam.Resource.Url, param?.Value?.ToString());
 
-                reindexJobResult = await WaitForReindexStatus(reindexJobUri, "Completed");
-                _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with name or id containing '{name}'.");
+                    reindexJobResult = await WaitForReindexStatus(reindexJobUri, "Completed");
+                    _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with name or id containing '{name}'.");
 
-                bool floatParse = float.TryParse(
-                    reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
-                    out float resourcesReindexed);
+                    bool floatParse = float.TryParse(
+                        reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
+                        out float resourcesReindexed);
 
-                _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
+                    _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
 
-                Assert.True(floatParse);
-                Assert.True(resourcesReindexed > 0.0);
+                    Assert.True(floatParse);
+                    Assert.True(resourcesReindexed > 0.0);
+                }
+                else
+                {
+                    // Single resources are reindexed immediately.
 
-                // DB is now reindexed.
+                    FhirResponse<Parameters> responseA;
+                    (responseA, _) = await Client.PostReindexJobAsync(new Parameters(), $"{resourceTypeName}/{createdResourceA.Resource.Id}/");
+                    EnsureSuccessStatusCode(createdResourceA.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceA.Resource.Id}.");
+                    Assert.True(responseA.Resource.Parameter.Count > 0);
 
-                // After reindexing no need to use x-ms-use-partial-indices, all resources are searchable.
+                    FhirResponse<Parameters> responseB;
+                    (responseB, _) = await Client.PostReindexJobAsync(new Parameters(), $"{resourceTypeName}/{createdResourceB.Resource.Id}/");
+                    EnsureSuccessStatusCode(createdResourceA.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceB.Resource.Id}.");
+                    Assert.True(responseB.Resource.Parameter.Count > 0);
+
+                    FhirResponse<Parameters> responseC;
+                    (responseC, _) = await Client.PostReindexJobAsync(new Parameters(), $"{resourceTypeName}/{createdResourceC.Resource.Id}/");
+                    EnsureSuccessStatusCode(createdResourceA.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceC.Resource.Id}.");
+                    Assert.True(responseC.Resource.Parameter.Count > 0);
+                }
+
+                // Resources are now reindexed.
+
+                // After reindexing, if full database is reindexed no need to use x-ms-use-partial-indices, all resources are searchable.
+                // Otherwise, must use x-ms-use-partial-indices header.
                 // Also, resources A and B have token overflow while C does not. Still all resources are correctly returned.
                 await ExecuteAndValidateBundle(
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
+                    false,
+                    false,
+                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
                     createdResourceA); // Expected resource A.
 
                 await ExecuteAndValidateBundle(
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
+                    false,
+                    false,
+                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
                     createdResourceB); // Expected resource B.
 
                 await ExecuteAndValidateBundle(
                     $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithNoTokenOverflow)}${getParameter2(resourceCWithNoTokenOverflow)}",
+                    false,
+                    false,
+                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
                     createdResourceC); // Expected resource C.
 
-                // Invalid composite search parameter returns nothing, we send correct token but incorrect second parameter that is not used by the resources.
+                // Invalid composite search parameter returns nothing, we send correct token but incorrect second parameter that is not used by any of the resources.
                 await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}");
+                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}",
+                    false,
+                    false,
+                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
             }
             catch (Exception e)
             {
