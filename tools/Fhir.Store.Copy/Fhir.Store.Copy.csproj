@@ -20,9 +20,4 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
   </ItemGroup>
   
-  <PropertyGroup>
-    <PostBuildEvent>
-      if exist "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" copy "..\..\..\..\Fhir.Store.Copy.Database\bin\$(Configuration)\*.dacpac" *
-    </PostBuildEvent>
-  </PropertyGroup>
 </Project>

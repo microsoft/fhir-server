@@ -18,10 +18,5 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj" />
   </ItemGroup>
-
-  <PropertyGroup>
-    <PostBuildEvent>
-      if exist "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" *
-    </PostBuildEvent>
-  </PropertyGroup>
+  
 </Project>
