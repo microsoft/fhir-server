@@ -454,9 +454,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test1", "test"),
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", "test1"),
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, null, "test", "test"),
-                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, null, null),
-                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", null),
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, null, "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", null),
 
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", "test"),
                 new BulkTokenSearchParamTableTypeV2Row(0, 1, 1, "test", "test"),
@@ -464,12 +463,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test1", "test"),
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", "test1"),
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, null, "test", "test"),
-                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, null, null),
-                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", null),
                 new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, null, "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", null),
             };
 
-            Assert.Equal(9, TokenSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(8, TokenSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
         }
 
         [Fact]
