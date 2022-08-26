@@ -45,6 +45,9 @@ COPY ./src/Microsoft.Health.Fhir.Store.SqlUtils/Microsoft.Health.Fhir.Store.SqlU
 COPY ./src/Microsoft.Health.Fhir.SqlServer.Shards.Import/Microsoft.Health.Fhir.SqlServer.Shards.Import.csproj \
      ./src/Microsoft.Health.Fhir.SqlServer.Shards.Import/Microsoft.Health.Fhir.SqlServer.Shards.Import.csproj
 
+COPY ./tools/Microsoft.Health.Fhir.R4.ResourceParser/Microsoft.Health.Fhir.R4.ResourceParser.csproj \
+     ./tools/Microsoft.Health.Fhir.R4.ResourceParser/Microsoft.Health.Fhir.R4.ResourceParser.csproj.csproj
+
 COPY ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj \
      ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj
 
