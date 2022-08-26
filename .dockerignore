@@ -23,4 +23,5 @@ Dockerfile*
 
 # Other required exceptions
 !tools/FhirAnalyzer
+!tools/Microsoft.Health.Fhir.R4.ResourceParser
 !THIRDPARTYNOTICES.md
