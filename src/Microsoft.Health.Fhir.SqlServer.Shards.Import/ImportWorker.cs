@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+#pragma warning disable CS8603 // Possible null reference return.
 using System.Data.SqlClient;
+using Azure.Storage.Blobs;
 using Microsoft.Health.Fhir.Store.Sharding;
 using Microsoft.Health.Fhir.Store.Utils;
 
@@ -12,8 +14,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Shards.Import
 {
     public class ImportWorker
     {
-        private int _threads = Environment.ProcessorCount * 2;
+        private int _threads = 1;
         private int _maxRetries = 10;
+        private R4.ResourceParser.ResourceWrapperParser _parser = new();
+        private string _blobStoreConnectionString = string.Empty;
+        private string _blobContainer = string.Empty;
 
         public ImportWorker(string connectionString)
         {
@@ -61,17 +66,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Shards.Import
             }
         }
 
-        private (int resourceCount, int totalCount) ImportBlob(string blobLocation, TransactionId transactionId)
+        private (int resourceCount, int insertedCount) ImportBlob(string blobName, TransactionId transactionId)
         {
             // read blob and save in batches
-            var str = blobLocation;
-            SqlService.LogEvent($"ImportBlob", "Run", str);
-            ////var resourceWrapper = _resourceWrapperFactory.Create(str.Tofalse, false);
-            ////var resource = parser.Parse<Resource>(str);
-            ////var resourceElement = resource.ToResourceElement();
-            ////var wrapper = wrapperFactory.Create(resourceElement, false, true);
+            var lines = 0;
+            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlob(blobName), 4, 100000, (thread, lineBatch) =>
+            {
+                foreach (var line in lineBatch.Item2)
+                {
+                    var resourceWrapper = _parser.CreateResourceWrapper(line);
+                    Interlocked.Increment(ref lines);
+                }
+            });
 
-            return (0, 0);
+            return (lines, lines);
+        }
+
+        private IEnumerable<string> GetLinesInBlob(string blobName)
+        {
+            using var reader = new StreamReader(GetContainer(_blobStoreConnectionString, _blobContainer).GetBlobClient(blobName).Download().Value.Content);
+            while (!reader.EndOfStream)
+            {
+                yield return reader.ReadLine();
+            }
         }
 
         private void Import(int thread)
@@ -137,6 +154,20 @@ END
             SqlService.ExecuteSqlWithRetries(null, cmd, c => c.ExecuteNonQuery(), 60);
             Console.WriteLine($"Thread={thread} Completed WaitForSync.");
         }
+
+        private static BlobContainerClient GetContainer(string connectionString, string containerName)
+        {
+            var blobServiceClient = new BlobServiceClient(connectionString);
+            var blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
+
+            if (!blobContainerClient.Exists())
+            {
+                throw new ArgumentException($"{containerName} container does not exist.");
+            }
+
+            return blobContainerClient;
+        }
     }
 }
+#pragma warning restore CS8603 // Possible null reference return.
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
