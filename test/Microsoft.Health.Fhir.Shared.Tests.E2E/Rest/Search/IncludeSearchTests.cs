@@ -1352,6 +1352,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             };
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenARevIncludeIterateSearchExpressionWithInvalidTargetResourceType_WhenSearched_ShouldThrowResourceNotSupportedException()
+        {
+            string query = $"_include=Observation:subject:NotAResourceType";
+
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+
+            string[] expectedDiagnostics = { string.Format(Core.Resources.ResourceNotSupported, "NotAResourceType") };
+            IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
+            IssueType[] expectedCodeTypes = { IssueType.NotSupported };
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
+        }
+
         // This will not work for circular reference
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {

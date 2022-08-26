@@ -416,6 +416,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
                     }
 
+                    if (expression.TargetResourceType != null &&
+                        !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))
+                    {
+                        throw new ResourceNotSupportedException(expression.TargetResourceType);
+                    }
+
                     // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
                     // See https://www.hl7.org/fhir/search.html#revinclude.
                     if (expression.Iterate && expression.CircularReference)
