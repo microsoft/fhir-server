@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         private RequestDelegate _next;
         private ImportTaskConfiguration _importTaskConfiguration;
         private readonly HashSet<(string method, string pathRegex)> _excludedEndpoints;
+        private readonly HashSet<(string method, string pathRegex)> _filteredEndpoints;
 
         // hard-coding these to minimize resource consumption for locked message
         private const string LockedContentType = "application/json; charset=utf-8";
@@ -38,7 +39,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             {
                 (HttpMethods.Get, ".*"), // Exclude all read operations
                 (HttpMethods.Post, ".*/\\$import"),
-                (HttpMethods.Delete, ".*/_operations/import/.+"),
+                (HttpMethods.Delete, ".*/_operations/.+/.+"), // Allow the cancelation of any long running job
+            };
+
+            _filteredEndpoints = new HashSet<(string method, string pathRegex)>()
+            {
+                (HttpMethods.Get, ".*/\\$reindex"), // New long running jobs shouldn't be started while import is running
+                (HttpMethods.Get, ".*/\\$export"),
             };
         }
 
@@ -71,6 +78,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         private bool IsExcludedEndpoint(string method, string path)
         {
             return _excludedEndpoints.Any(endpoint =>
+                                            endpoint.method.Equals(method, StringComparison.OrdinalIgnoreCase) &&
+                                            Regex.IsMatch(path, endpoint.pathRegex, RegexOptions.IgnoreCase)) &&
+                   !_filteredEndpoints.Any(endpoint =>
                                             endpoint.method.Equals(method, StringComparison.OrdinalIgnoreCase) &&
                                             Regex.IsMatch(path, endpoint.pathRegex, RegexOptions.IgnoreCase));
         }
