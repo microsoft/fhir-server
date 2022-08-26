@@ -112,22 +112,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Shards.Import
             var version = 0L;
             var jobId = 0L;
             var transactionId = new TransactionId(0);
-            var blobLocation = string.Empty;
+            var blobName = string.Empty;
         retry:
             try
             {
-                SqlService.DequeueJob(out var _, out jobId, out version, out blobLocation);
+                SqlService.DequeueJob(out var _, out jobId, out version, out blobName);
                 if (jobId != -1)
                 {
                     transactionId = SqlService.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
-                    var (resourceCount, totalCount) = ImportBlob(blobLocation, transactionId);
+                    var (resourceCount, totalCount) = ImportBlob(blobName, transactionId);
                     SqlService.CommitTransaction(transactionId);
                     SqlService.CompleteJob(jobId, false, version, resourceCount, totalCount);
+                }
+                else
+                {
+                    Thread.Sleep(10000);
                 }
             }
             catch (Exception e)
             {
-                SqlService.LogEvent($"Copy", "Error", $"{thread}.{blobLocation}", text: e.ToString());
+                SqlService.LogEvent($"Copy", "Error", $"{thread}.{blobName}", text: e.ToString());
                 retries++;
                 var isRetryable = e.IsRetryable();
                 if (isRetryable)
