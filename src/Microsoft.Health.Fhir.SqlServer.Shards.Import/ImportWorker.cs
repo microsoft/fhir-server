@@ -26,6 +26,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Shards.Import
             if (IsSharded(connStr))
             {
                 SqlService = new SqlService(connStr);
+                _blobStoreConnectionString = GetBlobStoreConnectionString();
+                if (_blobStoreConnectionString == null)
+                {
+                    throw new ArgumentException("_blobStoreConnectionString == null");
+                }
+
+                _blobContainer = GetBlobContainer();
+                if (_blobContainer == null)
+                {
+                    throw new ArgumentException("_blobContainer == null");
+                }
+
                 var tasks = new List<Task>();
                 for (var i = 0; i < _threads; i++)
                 {
@@ -36,6 +48,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Shards.Import
                         Import(thread);
                     }));
                 }
+
+                Task.WaitAll(tasks.ToArray()); // we should never get here
             }
         }
 
@@ -70,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Shards.Import
         {
             // read blob and save in batches
             var lines = 0;
-            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlob(blobName), 4, 100000, (thread, lineBatch) =>
+            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlob(blobName), 1, 1000, (thread, lineBatch) =>
             {
                 foreach (var line in lineBatch.Item2)
                 {
@@ -166,6 +180,22 @@ END
             }
 
             return blobContainerClient;
+        }
+
+        private string GetBlobStoreConnectionString()
+        {
+            using var conn = SqlService.GetConnection(null);
+            using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'BlobStoreConnectionString'", conn);
+            var str = cmd.ExecuteScalar();
+            return str == DBNull.Value ? null : (string)str;
+        }
+
+        private string GetBlobContainer()
+        {
+            using var conn = SqlService.GetConnection(null);
+            using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'BlobContainer'", conn);
+            var str = cmd.ExecuteScalar();
+            return str == DBNull.Value ? null : (string)str;
         }
     }
 }
