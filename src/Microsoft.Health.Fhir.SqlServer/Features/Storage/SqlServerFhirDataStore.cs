@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (ImportWorker == null || ImportWorker.SqlService == null)
             {
-                ImportWorker = new Shards.Import.ImportWorker(config.Value.ConnectionString);
+                ImportWorker = new Shards.Import.ImportWorker(config.Value.ConnectionString, model);
             }
         }
 

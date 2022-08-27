@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.SqlServer.Server;
 
 namespace Microsoft.Health.Fhir.Store.Sharding
@@ -15,6 +16,20 @@ namespace Microsoft.Health.Fhir.Store.Sharding
     {
         public Resource()
         {
+        }
+
+        public Resource(ResourceWrapper wrapper, short resourceTypeId, ShardletId shardletId, short sequence)
+        {
+            ResourceTypeId = resourceTypeId;
+            ResourceId = wrapper.ResourceId;
+            ShardletId = shardletId;
+            Sequence = sequence;
+            Version = int.Parse(wrapper.Version);
+            IsHistory = wrapper.IsHistory;
+            IsDeleted = wrapper.IsDeleted;
+            RequestMethod = wrapper.Request.Method;
+            IsRawResourceMetaSet = false;
+            SearchParamHash = wrapper.SearchParameterHash;
         }
 
         public Resource(SqlDataReader reader, bool isSharded)
