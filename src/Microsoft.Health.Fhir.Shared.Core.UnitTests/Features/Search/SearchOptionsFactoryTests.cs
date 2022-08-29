@@ -473,7 +473,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var queryParameters = new[]
             {
-                Tuple.Create("_text", "mobile"),
+                Tuple.Create(KnownQueryParameterNames.Text, "mobile"),
             };
 
             SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
