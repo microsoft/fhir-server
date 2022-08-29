@@ -124,9 +124,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
 
         [Theory]
         [InlineData("/Patient", "Post")]
-        [InlineData("/$export", "Get")]
         [InlineData("/$reindex", "Get")]
-        [InlineData("/Patient/$export", "Get")]
         [InlineData("/Observation", "Delete")]
         public async Task GivenLockedRequests_WhenInitialImportModeEnabled_Then423ShouldBeReturned(string path, string method)
         {
@@ -141,6 +139,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
 
         [Theory]
         [InlineData("/Patient", "Get")]
+        [InlineData("/$export", "Get")]
+        [InlineData("/Patient/$export", "Get")]
         [InlineData("/_operations/export/123", "Get")]
         [InlineData("/_operations/export/123", "Delete")]
         [InlineData("/_operations/reindex/123", "Get")]

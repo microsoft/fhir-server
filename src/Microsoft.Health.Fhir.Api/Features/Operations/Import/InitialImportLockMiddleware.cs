@@ -45,7 +45,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             _filteredEndpoints = new HashSet<(string method, string pathRegex)>()
             {
                 (HttpMethods.Get, ".*/\\$reindex"), // New long running jobs shouldn't be started while import is running
-                (HttpMethods.Get, ".*/\\$export"),
             };
         }
 
