@@ -1044,7 +1044,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenASearchRequestWithParameter_TextAndLenientHandling_WhenHandled_ReturnsSearchResults()
+        public async Task GivenASearchRequestWithParameter_TextAndLenientHandling_WhenHandled_ReturnsSearchResultsWithWarning()
         {
             string[] expectedDiagnostics =
             {
@@ -1054,6 +1054,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning};
 
             Bundle bundle = await Client.SearchAsync("Patient?_text=mobile", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithParameter_TextAndNoHandling_WhenHandled_ReturnsSearchResultsWithWarning()
+        {
+            string[] expectedDiagnostics =
+            {
+                string.Format(Core.Resources.SearchParameterNotSupported, "_text", "Patient"),
+            };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchAsync("Patient?_text=mobile");
             OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
