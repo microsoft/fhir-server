@@ -1043,6 +1043,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
         }
 
+        [Fact]
+        public async Task GivenASearchRequestWithParameter_TextAndLenientHandling_WhenHandled_ReturnsSearchResults()
+        {
+            string[] expectedDiagnostics =
+            {
+                string.Format(Core.Resources.SearchParameterNotSupported, "_text", "Patient"),
+            };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported};
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning};
+
+            Bundle bundle = await Client.SearchAsync("Patient?_text=mobile", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithParameter_TextAndStrictHandling_WhenHandled_ReturnsBadRequest()
+        {
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+                Client.SearchAsync("Patient?_text=mobile", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
         private async Task<Observation[]> CreateObservationWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;
