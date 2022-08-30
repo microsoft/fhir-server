@@ -1044,7 +1044,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenASearchRequestWithParameter_TextAndLenientHandling_WhenHandled_ReturnsSearchResultsWithWarning()
+        public async Task GivenASearchRequestWithParameterTextAndLenientHandling_WhenHandled_ReturnsSearchResultsWithWarning()
         {
             string[] expectedDiagnostics =
             {
@@ -1059,7 +1059,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenASearchRequestWithParameter_TextAndNoHandling_WhenHandled_ReturnsSearchResultsWithWarning()
+        public async Task GivenASearchRequestWithParameterTextAndNoHandling_WhenHandled_ReturnsSearchResultsWithWarning()
         {
             string[] expectedDiagnostics =
             {
@@ -1074,7 +1074,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenASearchRequestWithParameter_TextAndStrictHandling_WhenHandled_ReturnsBadRequest()
+        public async Task GivenASearchRequestWithParameterTextAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
                 Client.SearchAsync("Patient?_text=mobile", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
