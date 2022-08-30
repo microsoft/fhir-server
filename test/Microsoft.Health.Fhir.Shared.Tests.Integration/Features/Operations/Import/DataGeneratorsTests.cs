@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Reflection;
+using Hl7.FhirPath.Sprache;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -18,6 +19,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 {
     public class DataGeneratorsTests
     {
+        private delegate void AddRow<TR>(DataTable result, short resourceTypeId, long resourceSurrogateId, TR inputRow);
+
         [Fact]
         public void GivenDateTimeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
@@ -279,6 +282,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             };
 
             Assert.Equal(16, ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -341,6 +352,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             };
 
             Assert.Equal(11, TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -394,6 +413,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             };
 
             Assert.Equal(21, TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -441,6 +468,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             };
 
             Assert.Equal(18, TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -468,6 +503,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             };
 
             Assert.Equal(8, TokenSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -503,6 +546,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             };
 
             Assert.Equal(12, TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenStringCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -542,6 +593,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             };
 
             Assert.Equal(14, TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -647,6 +706,68 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             {
                 Column column = (Column)field.GetValue(tableDefination);
                 Assert.Equal(realColumnRecords[column.Metadata.Name], column.Metadata.SqlDbType.GetGeneralType().ToString());
+            }
+        }
+
+        private void ValidateDataTableData<TR, TG>(List<TR> input, short resourceTypeId, long resourceSurrogateId, TG generator, AddRow<TR> fillDataTable)
+            where TG : TableBulkCopyDataGenerator
+        {
+            DataTable result = generator.GenerateDataTable();
+            for (int i = 0; i < input.Count; i++)
+            {
+                TR inputRow = input[i];
+                checked
+                {
+                    fillDataTable(result, (short)(resourceTypeId + i), resourceSurrogateId + i, inputRow);
+                }
+            }
+
+            Assert.Equal(input.Count, result.Rows.Count);
+
+            PropertyInfo[] columnProperties = typeof(TR).GetProperties(BindingFlags.Instance | BindingFlags.NonPublic);
+
+            IEnumerable<string> inCols = columnProperties.Select(x => x.Name);
+            IEnumerable<string> resultCols = result.Columns.Cast<DataColumn>().Select(x => x.ColumnName);
+            IEnumerable<string> intersectCols = inCols.Intersect(resultCols);
+            HashSet<string> inColsOnly = new HashSet<string>(inCols.Except(intersectCols));
+            HashSet<string> resultColsOnly = new HashSet<string>(resultCols.Except(intersectCols));
+            Assert.True(inColsOnly.SetEquals(new string[] { "Offset" }));
+            Assert.True(resultColsOnly.SetEquals(new string[] { "IsHistory", "ResourceTypeId", "ResourceSurrogateId"}));
+
+            for (int i = 0; i < input.Count; i++)
+            {
+                TR inputRow = input[i];
+                DataRow resultRow = result.Rows[i];
+                foreach (PropertyInfo propertyInfo in columnProperties)
+                {
+                    string name = propertyInfo.Name;
+                    if (name != "Offset")
+                    {
+                        object inputValue = propertyInfo.GetValue(inputRow);
+                        object resultValue = resultRow[name];
+                        if (inputValue == null)
+                        {
+                            Assert.Equal(typeof(DBNull), resultValue.GetType());
+                        }
+                        else
+                        {
+                            if (resultValue.GetType() == typeof(DateTime))
+                            {
+                                resultValue = (DateTimeOffset)(DateTime)resultValue;
+                            }
+
+                            Assert.Equal(inputValue, resultValue);
+                        }
+                    }
+                    else
+                    {
+                        Assert.Equal(0, propertyInfo.GetValue(inputRow));
+                    }
+                }
+
+                Assert.Equal(false, resultRow["IsHistory"]);
+                Assert.Equal(resourceTypeId + i, (short)resultRow["ResourceTypeId"]);
+                Assert.Equal(resourceSurrogateId + i, resultRow["ResourceSurrogateId"]);
             }
         }
     }
