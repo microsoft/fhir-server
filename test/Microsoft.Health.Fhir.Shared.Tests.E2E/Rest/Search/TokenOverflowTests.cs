@@ -24,16 +24,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [CollectionDefinition(Categories.CustomSearch, DisableParallelization = true)]
     [Collection(Categories.CustomSearch)]
     [Trait(Traits.Category, Categories.CustomSearch)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class TokenOverflowTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
     {
-        private readonly HttpIntegrationTestFixture _fixture;
-        private ITestOutputHelper _output;
+        private readonly ITestOutputHelper _output;
 
         public TokenOverflowTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
         {
-            _fixture = fixture;
             _output = output;
         }
 
@@ -43,10 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public async Task InitializeAsync()
         {
-            await Client.DeleteAllResources(ResourceType.Patient, null); // TODO: do we delete resources in DB?
-
-            // await Client.DeleteAllResources(ResourceType.Specimen, null);
-            // await Client.DeleteAllResources(ResourceType.Immunization, null);
+            await Task.CompletedTask;
         }
 
         private string GetTokenValue(string prefix, string suffix = null)
@@ -178,8 +173,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        // TODO: what do we skip Stu3 R5?
-        [SkippableFact]
+        [Fact]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByToken_VerifyCorrectSerachResults()
         {
             try
@@ -226,7 +220,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenString_VerifyCorrectSerachResults(bool singleReindex)
@@ -240,7 +234,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.Name[0].Family : "INVALID"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenDateTime_VerifyCorrectSerachResults(bool singleReindex)
@@ -254,7 +248,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.BirthDate : "2000-01-01"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenOverflowToken_VerifyCorrectSerachResults(bool singleReindex)
@@ -268,7 +262,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => valid ? patient.Telecom[0].Value : "111-111-1111"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenTokenOverflowString_VerifyCorrectSerachResults(bool singleReindex)
@@ -282,7 +276,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => patient.Identifier[0].Value);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByReferenceToken_VerifyCorrectSerachResults(bool singleReindex)
@@ -296,7 +290,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => patient.Identifier[0].Value);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenQuantity_VerifyCorrectSerachResults(bool singleReindex)
@@ -314,7 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (chargeItem, valid) => valid ? chargeItem.Quantity.Value.ToString() : "555"); // IMPORTANT, must be a value that is not used by the resources.
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenNumberNumber_VerifyCorrectSerachResults(bool singleReindex)
