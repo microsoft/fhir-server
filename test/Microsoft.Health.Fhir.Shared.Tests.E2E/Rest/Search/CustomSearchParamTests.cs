@@ -363,8 +363,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        [SkippableFact] // [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToSameListOfResourceTypes_ThenSearchParametersMarkedFullyIndexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -391,7 +390,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
-                _output.WriteLine($"SearchParameter is posted {searchParam.Url}");
+                _output.WriteLine($"SearchParameter Response.StatusCode is {searchParamPosted.Response.StatusCode} and posted Url is {searchParam.Url}");
 
                 Uri reindexJobUri;
 
