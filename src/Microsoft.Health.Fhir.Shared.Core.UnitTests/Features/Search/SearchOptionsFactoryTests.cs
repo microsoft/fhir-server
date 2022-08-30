@@ -469,7 +469,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchParameter_Text_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        public void GivenSearchParameterText_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
             {
