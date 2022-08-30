@@ -11,9 +11,6 @@
             "value": "654321"
         }
     ],
-    "definitionUri": [
-        "http://www.kbv.de/tools/ebm/html/01520_2904360860826220813632.html"
-    ],
     "status": "billable",
     "code": {
         "coding": [
@@ -32,36 +29,6 @@
         "start": "2017-01-25T08:00:00+01:00",
         "end": "2017-01-25T12:35:00+01:00"
     },
-    "performer": [
-        {
-            "function": {
-                "coding": [
-                    {
-                        "system": "http://snomed.info/sct",
-                        "code": "17561000",
-                        "display": "Cardiologist"
-                    }
-                ]
-            },
-            "actor": {
-                "reference": "Practitioner/example"
-            }
-        },
-        {
-            "function": {
-                "coding": [
-                    {
-                        "system": "http://snomed.info/sct",
-                        "code": "224542009",
-                        "display": "Coronary Care Nurse"
-                    }
-                ]
-            },
-            "actor": {
-                "reference": "Practitioner/example"
-            }
-        }
-    ],
     "performingOrganization": {
         "identifier": {
             "system": "http://myhospital/NamingSystem/departments",

@@ -348,6 +348,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             try
             {
+                // Stu3 composite search parameter files are slightly different.
+#if Stu3
+                searchParameterTestFileName += "Stu3";
+#endif
+
                 // Randomize various names and id-s so tests can be rerun without clearing the database.
                 string rnd = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
                 string name = $"{resourceNamePrefix}-{(singleReindex ? 'S' : 'F')}-{rnd}";
