@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     {
         private readonly HttpIntegrationTestFixture _fixture;
         private ITestOutputHelper _output;
+        private const int MaxRetryCount = 10;
 
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
@@ -108,6 +109,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
                 bool success = true;
+                await Task.Delay(TimeSpan.FromSeconds(20));
+
                 do
                 {
                     success = true;
@@ -120,12 +123,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception ex)
                     {
-                        _output.WriteLine($"Failed to validate bundle: {ex}");
+                        string error = $"Attempt {retryCount} of {MaxRetryCount}: Failed to validate bundle: {ex}";
+                        _output.WriteLine(error);
                         success = false;
                         await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
-                while (!success && retryCount < 10);
+                while (!success && retryCount < MaxRetryCount);
 
                 Assert.True(success);
             }
@@ -306,6 +310,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
                 bool success = true;
+                await Task.Delay(TimeSpan.FromSeconds(20));
+
                 do
                 {
                     success = true;
@@ -335,7 +341,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     bundle = await Client.SearchAsync(searchUrl);
                     Assert.DoesNotContain(searchParam.Code, bundle.SelfLink.ToString());
                 }
-                while (!success && retryCount < 10);
+                while (!success && retryCount < MaxRetryCount);
 
                 Assert.True(success);
             }
@@ -426,13 +432,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // When there are multiple instances of the fhir-server running, it could take some time
                 // for the search parameter/reindex updates to propogate to all instances. Hence we are
                 // adding some retries below to account for that delay.
-                const int maxRetryCount = 10;
                 int retryCount = 0;
                 bool success = true;
+                await Task.Delay(TimeSpan.FromSeconds(20));
+
                 do
                 {
                     success = true;
                     retryCount++;
+
                     try
                     {
                         await ExecuteAndValidateBundle(
@@ -445,16 +453,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception ex)
                     {
-                        string error = $"Failed to validate bundle: {ex}";
+                        string error = $"Attempt {retryCount} of {MaxRetryCount}: Failed to validate bundle: {ex}";
 
                         _output.WriteLine(error);
                         success = false;
                         await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
-                while (!success && retryCount < maxRetryCount);
+                while (!success && retryCount < MaxRetryCount);
 
-                Assert.True(success, $"There are bundle validation failures. {maxRetryCount} attempts reached. Check test logs.");
+                Assert.True(success, $"There are bundle validation failures. {retryCount} attempts reached. Check test logs.");
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
@@ -525,7 +533,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception exp)
                     {
-                        _output.WriteLine("CustomSearchParameter test experienced issue attempted to clean up SearchParameter {0}.  The exception message is {1}", searchParam.Url, exp.Message);
+                        _output.WriteLine($"Attempt {retryCount} of {MaxRetryCount}: CustomSearchParameter test experienced issue attempted to clean up SearchParameter {searchParam.Url}.  The exception is {exp}");
                         var fhirException = exp as FhirException;
                         if (fhirException != null && fhirException.OperationOutcome?.Issue != null)
                         {
@@ -539,7 +547,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         await Task.Delay(10000);
                     }
                 }
-                while (!success && retryCount < 5);
+                while (!success && retryCount < MaxRetryCount);
 
                 Assert.True(success);
                 var ex = await Assert.ThrowsAsync<FhirException>(() => Client.ReadAsync<SearchParameter>(ResourceType.SearchParameter, searchParam.Id));

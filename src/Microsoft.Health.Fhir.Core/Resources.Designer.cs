@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
+        ///   Looks up a localized string similar to Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
         /// </summary>
         internal static string ChangesToSearchParametersNotAllowedWhileReindexing {
             get {
