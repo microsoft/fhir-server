@@ -468,6 +468,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(_coreFeatures.DefaultIncludeCountPerSearch, options.IncludeCount);
         }
 
+        [Fact]
+        public void GivenSearchParameterText_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        {
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Text, "mobile"),
+            };
+
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            Assert.NotNull(options);
+            Assert.Equal(1, options.UnsupportedSearchParams.Count);
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
