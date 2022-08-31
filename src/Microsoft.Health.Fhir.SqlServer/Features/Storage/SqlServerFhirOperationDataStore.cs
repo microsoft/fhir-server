@@ -18,9 +18,11 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Newtonsoft.Json;
 
@@ -29,17 +31,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     internal class SqlServerFhirOperationDataStore : IFhirOperationDataStore
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly SchemaInformation _schemaInformation;
         private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
 
         public SqlServerFhirOperationDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            SchemaInformation schemaInformation,
             ILogger<SqlServerFhirOperationDataStore> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _schemaInformation = schemaInformation;
             _logger = logger;
 
             _jsonSerializerSettings = new JsonSerializerSettings
@@ -135,7 +141,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
             if (jobRecord.Status == OperationStatus.Running)
             {
-                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, jobId, version, null, jobStr); // this does not change version
+                if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
+                {
+                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, jobId, version, null, jobStr, false); // this does not change version
+                }
+                else
+                {
+                    V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, jobId, version, null, jobStr);
+                }
             }
             else if (jobRecord.Status == OperationStatus.Canceled)
             {

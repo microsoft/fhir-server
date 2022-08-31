@@ -6,6 +6,8 @@ This document describes how to perform SQL Server schema migration on the FHIR S
  The database schemas will evolve with each release of new features and editions of FHIR. The corresponding FHIR Server for Azure would need to be upgraded to the next/latest version of the schema, which may require migration of the SQL Server schema.
 
 
+## FHIR Schema Manager
+Please refer to [Schema Manager Guide](https://github.com/microsoft/fhir-server/blob/main/docs/schema-manager.md) which is a command line app that upgrades the schema in SQL database from one version to the next through migration scripts.
 
 ## Methods for upgrading
 1. Automatic schema upgrade

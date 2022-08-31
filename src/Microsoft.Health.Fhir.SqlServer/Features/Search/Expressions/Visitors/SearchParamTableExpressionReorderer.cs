@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.SearchParamTableExpressions.Count == 1)
+            if (expression.SearchParamTableExpressions.Count <= 1)
             {
                 return expression;
             }

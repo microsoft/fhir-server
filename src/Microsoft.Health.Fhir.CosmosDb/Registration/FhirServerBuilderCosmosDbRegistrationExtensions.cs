@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -23,7 +24,6 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
@@ -225,7 +225,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<CompartmentSearchRewriter>()
                 .Singleton()
-                .AsService<ICosmosExpressionRewriter>();
+                .AsSelf();
 
             return fhirServerBuilder;
         }
@@ -241,10 +241,12 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerBuilder.Services.Add<CosmosDbSortingValidator>()
                 .Singleton()
+                .AsSelf()
                 .AsImplementedInterfaces();
 
             fhirServerBuilder.Services.Add<CosmosDbSearchParameterValidator>()
                 .Singleton()
+                .AsSelf()
                 .AsImplementedInterfaces();
 
             return fhirServerBuilder;

@@ -9,6 +9,7 @@ using EnsureThat;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
@@ -114,6 +115,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<ReindexJobSqlThrottlingController>()
                 .Singleton()
+                .AsSelf()
                 .AsImplementedInterfaces();
 
             services.Add<SqlQueueClient>()
@@ -223,6 +225,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsSelf()
                 .AsService(typeof(IRequestExceptionAction<,>));
+
+            services.Add<CompartmentSearchRewriter>()
+                .Singleton()
+                .AsSelf();
 
             return fhirServerBuilder;
         }

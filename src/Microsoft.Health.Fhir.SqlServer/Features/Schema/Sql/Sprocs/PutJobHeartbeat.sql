@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.PutJobHeartbeat
 GO
-CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CurrentResult varchar(max) = NULL
+CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CurrentResult varchar(max) = NULL, @CancelRequested bit = 0 OUTPUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobHeartbeat'
@@ -14,7 +14,8 @@ SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='
 BEGIN TRY
   IF @CurrentResult IS NULL
     UPDATE dbo.JobQueue
-      SET HeartbeatDate = getUTCdate()
+      SET @CancelRequested = CancelRequested
+         ,HeartbeatDate = getUTCdate()
          ,Data = isnull(@Data,Data)
       WHERE QueueType = @QueueType
         AND PartitionId = @PartitionId
@@ -23,7 +24,8 @@ BEGIN TRY
         AND Version = @Version
   ELSE
     UPDATE dbo.JobQueue
-      SET HeartbeatDate = getUTCdate()
+      SET @CancelRequested = CancelRequested
+         ,HeartbeatDate = getUTCdate()
          ,Data = isnull(@Data,Data)
          ,Result = @CurrentResult
       WHERE QueueType = @QueueType

@@ -19,7 +19,7 @@
 POST {{baseUrl}}/Patient HTTP/1.1
 content-type: {{contentType}}
 
-< .\Data\ReindexPatient.json
+< ./Data/ReindexPatient.json
 
 ### Records the patient id
 @patientId = {{patient.response.body.id}}
@@ -31,7 +31,7 @@ content-type: {{contentType}}
 POST {{baseUrl}}/Observation HTTP/1.1
 content-type: {{contentType}}
 
-< .\Data\ReindexObservation.json
+< ./Data/ReindexObservation.json
 
 ### Records the observation id
 @observationId = {{observation.response.body.id}}
@@ -42,7 +42,7 @@ content-type: {{contentType}}
 POST {{baseUrl}}/SearchParameter HTTP/1.1
 content-type: {{contentType}}
 
-< .\Data\ReindexSearchParameter.json
+< ./Data/ReindexSearchParameter.json
 
 ###
 # Trigger a reindexing operation.
