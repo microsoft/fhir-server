@@ -94,7 +94,7 @@
     <None Remove="TestFiles\Patient-f001.json" />
     <None Remove="TestFiles\Patient.json" />
     <None Remove="TestFiles\Patient.xml" />
-    <None Remove="TestFiles\R4\Bundle-ChainingAndSortSearchValidation.json" />
+    <None Remove="TestFiles\R4\Bundle-ChainingSortAndSearchValidation.json" />
     <None Remove="TestFiles\R4\conversion_templates.tar.gz" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
@@ -149,7 +149,7 @@
     <None Remove="TestFiles\Normative\PatientWithMinimalData.json" />
     <None Remove="TestFiles\Normative\Weight.json" />
     <None Remove="TestFiles\Normative\WeightInGrams.json" />
-    <None Remove="TestFiles\R5\Bundle-ChainingAndSortSearchValidation.json" />
+    <None Remove="TestFiles\R5\Bundle-ChainingSortAndSearchValidation.json" />
     <None Remove="TestFiles\R5\CarePlan.json" />
     <None Remove="TestFiles\R5\Condition-For-Patient-f001.json" />
     <None Remove="TestFiles\R5\Device-d1.json" />
@@ -187,7 +187,7 @@
     <None Remove="TestFiles\R4\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
     <None Remove="TestFiles\Stu3\Bundle-Batch.json" />
-    <None Remove="TestFiles\Stu3\Bundle-ChainingAndSortSearchValidation.json" />
+    <None Remove="TestFiles\Stu3\Bundle-ChainingSortAndSearchValidation.json" />
     <None Remove="TestFiles\Stu3\Bundle-Transaction.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionForRollBack.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithAllValidRoutes.json" />
@@ -279,7 +279,7 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\Specimen.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-ChainingAndSortSearchValidation.json" />
+    <EmbeddedResource Include="TestFiles\R4\Bundle-ChainingSortAndSearchValidation.json" />
     <EmbeddedResource Include="TestFiles\R4\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
@@ -354,7 +354,7 @@
     <EmbeddedResource Include="TestFiles\R5\Appointment.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
-    <EmbeddedResource Include="TestFiles\R5\Bundle-ChainingAndSortSearchValidation.json" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-ChainingSortAndSearchValidation.json" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R5\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\R5\Condition-For-Patient-f001.json" />
@@ -391,7 +391,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-Batch.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\Bundle-ChainingAndSortSearchValidation.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-ChainingSortAndSearchValidation.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionForRollBack.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithInvalidProcessingRoutes.json" />

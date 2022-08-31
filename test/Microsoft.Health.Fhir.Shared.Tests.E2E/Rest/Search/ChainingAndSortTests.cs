@@ -4,8 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -31,24 +34,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAChainedSearchPattern_WhenSearched_ThenCompareTheResultsWithDifferentVariationsOfSortingExpressions()
         {
-            string requestBundleAsString = Samples.GetJson("Bundle-ChainingAndSortSearchValidation");
-            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
-            var requestBundle = parser.Parse<Bundle>(requestBundleAsString);
+            await IngestBundleWithTestDataAsync(CancellationToken.None);
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle);
-            Assert.NotNull(fhirResponse);
-            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-
-            // Ensure all records were ingested.
-            Assert.Equal(requestBundle.Entry.Count, fhirResponse.Resource.Entry.Count);
-            foreach (Bundle.EntryComponent component in fhirResponse.Resource.Entry)
-            {
-                Assert.NotNull(component.Response.Status);
-                HttpStatusCode httpStatusCode = (HttpStatusCode)Convert.ToInt32(component.Response.Status);
-                Assert.True(httpStatusCode == HttpStatusCode.OK || httpStatusCode == HttpStatusCode.Created);
-            }
-
-            const int totalNumberOfHealthcareServices = 15;             // Total number of healthcare services ingested.
             const int expectedNumberOfEntriesInFirstPage = 10;          // Max number of entries in the first page.
             const int expectedNumberOfLinks = 2;                        // Expected number of pages/links.
             const int totalNumberOfFilteredHealthcareServices = 13;     // Expected number of health care services when filters are applied.
@@ -57,7 +44,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundleAllHealthcaseServices = await _client.SearchAsync(ResourceType.HealthcareService, "_total=accurate");
             Assert.Equal(expectedNumberOfEntriesInFirstPage, bundleAllHealthcaseServices.Entry.Count);
             Assert.Equal(expectedNumberOfLinks, bundleAllHealthcaseServices.Link.Count);
-            Assert.Equal(totalNumberOfHealthcareServices, bundleAllHealthcaseServices.Total.Value);
 
             string commonQuery = "name:missing=false&_has:PractitionerRole:service:practitioner=2ec3586b-9454-4c7f-8eaf-7a0e64cecf17&active:not=false&location:missing=false&_has:PractitionerRole:service:active=true";
 
@@ -94,6 +80,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(expectedNumberOfEntriesInFirstPage, bundleWithSortAndTotalAccurate.Entry.Count);
             Assert.Equal(expectedNumberOfLinks, bundleWithSortAndTotalAccurate.Link.Count);
             Assert.Equal(totalNumberOfFilteredHealthcareServices, bundleWithSortAndTotalAccurate.Total.Value);
+        }
+
+        private async Task IngestBundleWithTestDataAsync(CancellationToken cancellationToken)
+        {
+            string requestBundleAsString = Samples.GetJson("Bundle-ChainingSortAndSearchValidation");
+            var parser = new FhirJsonParser();
+            var requestBundle = parser.Parse<Bundle>(requestBundleAsString);
+
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, cancellationToken);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+            // Set of Healthcare Services created along the initialization.
+            var healthcareServiceIds = new List<string>();
+
+            // Ensure all records were ingested.
+            Assert.Equal(requestBundle.Entry.Count, fhirResponse.Resource.Entry.Count);
+            foreach (Bundle.EntryComponent component in fhirResponse.Resource.Entry)
+            {
+                Assert.NotNull(component.Response.Status);
+                HttpStatusCode httpStatusCode = (HttpStatusCode)Convert.ToInt32(component.Response.Status);
+                Assert.True(httpStatusCode == HttpStatusCode.OK || httpStatusCode == HttpStatusCode.Created);
+
+                if (component.Resource.TypeName == ResourceType.HealthcareService.ToString())
+                {
+                    healthcareServiceIds.Add(component.Resource.Id);
+                }
+            }
+
+            const int totalNumberOfHealthcareServices = 15; // Total number of healthcare services ingested.
+            Assert.Equal(totalNumberOfHealthcareServices, healthcareServiceIds.Count);
         }
     }
 }
