@@ -138,6 +138,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // Query parameter with empty value is not supported.
                     unsupportedSearchParameters.Add(query);
                 }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.Text, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Query parameter _text is not allowed for any resource.
+                    unsupportedSearchParameters.Add(query);
+                }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase))
                 {
                     if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
