@@ -941,14 +941,7 @@ CREATE CLUSTERED INDEX IXC_TokenSearchParam
 
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
     ON dbo.TokenSearchParam(ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
-    INCLUDE(SystemId) WHERE IsHistory = 0
-                            AND CodeOverflow IS NULL WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_CodeWithOverflow_SystemId
-    ON dbo.TokenSearchParam(ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
-    INCLUDE(SystemId) WHERE IsHistory = 0
-                            AND CodeOverflow IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+    INCLUDE(SystemId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenStringCompositeSearchParam (
@@ -971,7 +964,7 @@ CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
 
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
     ON dbo.TokenStringCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
-    INCLUDE(SystemId1, CodeOverflow1, TextOverflow2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+    INCLUDE(SystemId1, TextOverflow2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
