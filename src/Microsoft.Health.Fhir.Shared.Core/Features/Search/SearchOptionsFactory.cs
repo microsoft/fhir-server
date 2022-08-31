@@ -11,6 +11,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -417,7 +418,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
 
                     if (expression.TargetResourceType != null &&
-                        !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))
+                       string.IsNullOrWhiteSpace(expression.TargetResourceType))
+                    {
+                        throw Error.Format($"Invalid TargetResourceType : value cannot be empty");
+                    }
+
+                    if (expression.TargetResourceType != null && !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))
                     {
                         throw new ResourceNotSupportedException(expression.TargetResourceType);
                     }
