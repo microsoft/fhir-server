@@ -33,22 +33,6 @@ INCLUDE
 (
     SystemId
 )
-WHERE IsHistory = 0 AND CodeOverflow IS NULL
-WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
-CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_CodeWithOverflow_SystemId
-ON dbo.TokenSearchParam
-(
-    ResourceTypeId,
-    SearchParamId,
-    Code,
-    ResourceSurrogateId
-)
-INCLUDE
-(
-    SystemId
-)
-WHERE IsHistory = 0 AND CodeOverflow IS NOT NULL
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)

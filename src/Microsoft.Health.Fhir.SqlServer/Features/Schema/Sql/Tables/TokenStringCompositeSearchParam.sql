@@ -34,7 +34,6 @@ ON dbo.TokenStringCompositeSearchParam
 INCLUDE
 (
     SystemId1,
-    CodeOverflow1, -- TODO
     TextOverflow2 -- will not be needed when all servers are targeting at least this version.
 )
 WHERE IsHistory = 0
