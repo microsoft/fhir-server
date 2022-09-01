@@ -244,7 +244,7 @@
     <comment>_revinclude:iterate is a query parameter.</comment>
   </data>
   <data name="IncludeRevIncludeInvalidTargetResourceType" xml:space="preserve">
-    <value>Invalid TargetResourceType : value cannot be empty.</value>
+    <value>The target resource type cannot be empty.</value>
     <comment>TargetResourceType is an optional parameter</comment>
   </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">

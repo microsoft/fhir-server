@@ -573,9 +573,9 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("IncludeMissingType", resourceCulture);
             }
         }
-        
+
         /// <summary>
-        ///   Looks up a localized string similar to Invalid TargetResourceType : value cannot be empty..
+        ///   Looks up a localized string similar to The target resource type cannot be empty..
         /// </summary>
         internal static string IncludeRevIncludeInvalidTargetResourceType {
             get {
