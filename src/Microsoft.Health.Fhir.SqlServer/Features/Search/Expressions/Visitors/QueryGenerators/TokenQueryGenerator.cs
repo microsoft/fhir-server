@@ -47,7 +47,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     return context;
 
                 case FieldName.TokenCode:
-                    if (expression.Value.Length <= VLatest.TokenSearchParam.Code.Metadata.MaxLength)
+                    if (expression.Value.Length < VLatest.TokenSearchParam.Code.Metadata.MaxLength)
+                    {
+                        // In this case CodeOverflow in the DB table is always NULL, no need to test.
+                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
+                    }
+                    else if (expression.Value.Length == VLatest.TokenSearchParam.Code.Metadata.MaxLength)
                     {
                         VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
                         context.StringBuilder.Append(" AND ");

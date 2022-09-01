@@ -44,20 +44,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await Task.CompletedTask;
         }
 
-        private string GetTokenValue(string prefix, string suffix = null)
+        private string GetTokenValue(string codePrefix, long codeLength, string codeOverflow)
         {
-            int noOverflowMaxLength;
+            int codeMaxLength;
             checked
             {
-                noOverflowMaxLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength;
+                codeMaxLength = (int)codeLength;
             }
 
-            if (prefix.Length > noOverflowMaxLength)
+            if (codePrefix.Length > codeMaxLength)
             {
                 throw new Exception("Token prefix too long.");
             }
 
-            return prefix.PadRight(noOverflowMaxLength, '-') + suffix;
+            return codePrefix.PadRight(codeMaxLength, '-') + codeOverflow;
+        }
+
+        private string GetTokenValueWithOverflow(string codePrefix, string codeOverflow)
+        {
+            return GetTokenValue(codePrefix, VLatest.TokenSearchParam.Code.Metadata.MaxLength, codeOverflow);
+        }
+
+        private string GetTokenValueMaxNoOverflow(string codePrefix)
+        {
+            return GetTokenValue(codePrefix, VLatest.TokenSearchParam.Code.Metadata.MaxLength, null);
+        }
+
+        private string GetTokenValueShortNoOverflow(string codePrefix)
+        {
+            return GetTokenValue(codePrefix, VLatest.TokenSearchParam.Code.Metadata.MaxLength - 100, null);
         }
 
         private void EnsureSuccessStatusCode(HttpStatusCode httpStatusCode, string message)
@@ -69,7 +84,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        private void LoadTestResources<T>(string name, out T resourceAWithTokenOverflowOut, out T resourceBWithTokenOverflowOut, out T resourceCWithNoTokenOverflowOut)
+        private void LoadTestResources<T>(
+            string name,
+            out T resourceAWithTokenOverflowOut,
+            out T resourceBWithTokenOverflowOut,
+            out T resourceCWithMaxNoTokenOverflowOut,
+            out T resourceDWithShortNoTokenOverflowOut)
             where T : DomainResource
         {
             if (typeof(T) == typeof(Patient))
@@ -85,18 +105,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Patient patientAWithTokenOverflow = (Patient)patient.DeepCopy();
                 patient.Id = $"Patient-Id-{name}-A";
-                patientAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A"); // Overflow A.
+                patientAWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "A"); // Overflow A.
                 resourceAWithTokenOverflowOut = (T)(DomainResource)patientAWithTokenOverflow;
 
                 Patient patientBWithTokenOverflow = (Patient)patient.DeepCopy();
                 patientBWithTokenOverflow.Id = $"Patient-Id-{name}-B";
-                patientBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B"); // Overflow B.
+                patientBWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "B"); // Overflow B.
                 resourceBWithTokenOverflowOut = (T)(DomainResource)patientBWithTokenOverflow;
 
-                Patient patientCWithNoTokenOverflow = (Patient)patient.DeepCopy();
-                patientCWithNoTokenOverflow.Id = $"Patient-Id-{name}-C";
-                patientCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name); // NO overflow.
-                resourceCWithNoTokenOverflowOut = (T)(DomainResource)patientCWithNoTokenOverflow;
+                Patient patientCWithMaxNoTokenOverflow = (Patient)patient.DeepCopy();
+                patientCWithMaxNoTokenOverflow.Id = $"Patient-Id-{name}-C";
+                patientCWithMaxNoTokenOverflow.Identifier[0].Value = GetTokenValueMaxNoOverflow(name); // Max no overflow.
+                resourceCWithMaxNoTokenOverflowOut = (T)(DomainResource)patientCWithMaxNoTokenOverflow;
+
+                Patient patientDWithShortNoTokenOverflow = (Patient)patient.DeepCopy();
+                patientDWithShortNoTokenOverflow.Id = $"Patient-Id-{name}-D";
+                patientDWithShortNoTokenOverflow.Identifier[0].Value = GetTokenValueShortNoOverflow(name); // Short no overflow.
+                resourceDWithShortNoTokenOverflowOut = (T)(DomainResource)patientDWithShortNoTokenOverflow;
             }
             else if (typeof(T) == typeof(ChargeItem))
             {
@@ -108,29 +133,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ChargeItem chargeItemAWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemAWithTokenOverflow.Id = $"ChargeItem-Id-{name}-A";
 #if R4 || R5
-                chargeItemAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A"); // Overflow A.
+                chargeItemAWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "A"); // Overflow A.
 #else
-                chargeItemAWithTokenOverflow.Identifier.Value = GetTokenValue(name, "A"); // Overflow A.
+                chargeItemAWithTokenOverflow.Identifier.Value = GetTokenValueWithOverflow(name, "A"); // Overflow A.
 #endif
                 resourceAWithTokenOverflowOut = (T)(DomainResource)chargeItemAWithTokenOverflow;
 
                 ChargeItem chargeItemBWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemBWithTokenOverflow.Id = $"ChargeItem-Id-{name}-B";
 #if R4 || R5
-                chargeItemBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B"); // Overflow B.
+                chargeItemBWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "B"); // Overflow B.
 #else
-                chargeItemBWithTokenOverflow.Identifier.Value = GetTokenValue(name, "B"); // Overflow B.
+                chargeItemBWithTokenOverflow.Identifier.Value = GetTokenValueWithOverflow(name, "B"); // Overflow B.
 #endif
                 resourceBWithTokenOverflowOut = (T)(DomainResource)chargeItemBWithTokenOverflow;
 
-                ChargeItem chargeItemCWithNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
-                chargeItemCWithNoTokenOverflow.Id = $"ChargeItem-Id-{name}-C";
+                ChargeItem chargeItemCWithMaxNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                chargeItemCWithMaxNoTokenOverflow.Id = $"ChargeItem-Id-{name}-C";
 #if R4 || R5
-                chargeItemCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name); // NO overflow.
+                chargeItemCWithMaxNoTokenOverflow.Identifier[0].Value = GetTokenValueMaxNoOverflow(name); // Max no overflow.
 #else
-                chargeItemCWithNoTokenOverflow.Identifier.Value = GetTokenValue(name); // NO overflow.
+                chargeItemCWithMaxNoTokenOverflow.Identifier.Value = GetTokenValueMaxNoOverflow(name); // Max no overflow.
 #endif
-                resourceCWithNoTokenOverflowOut = (T)(DomainResource)chargeItemCWithNoTokenOverflow;
+                resourceCWithMaxNoTokenOverflowOut = (T)(DomainResource)chargeItemCWithMaxNoTokenOverflow;
+
+                ChargeItem chargeItemDWithShortNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                chargeItemDWithShortNoTokenOverflow.Id = $"ChargeItem-Id-{name}-D";
+#if R4 || R5
+                chargeItemDWithShortNoTokenOverflow.Identifier[0].Value = GetTokenValueShortNoOverflow(name); // Short no overflow.
+#else
+                chargeItemDWithShortNoTokenOverflow.Identifier.Value = GetTokenValueShortNoOverflow(name); // Short no overflow.
+#endif
+                resourceDWithShortNoTokenOverflowOut = (T)(DomainResource)chargeItemDWithShortNoTokenOverflow;
             }
             else if (typeof(T) == typeof(RiskAssessment))
             {
@@ -143,29 +177,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 RiskAssessment riskAssessmentAWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentAWithTokenOverflow.Id = $"RiskAssessment-Id-{name}-A";
 #if R4 || R5
-                riskAssessmentAWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "A"); // Overflow A.
+                riskAssessmentAWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "A"); // Overflow A.
 #else
-                riskAssessmentAWithTokenOverflow.Identifier.Value = GetTokenValue(name, "A"); // Overflow A.
+                riskAssessmentAWithTokenOverflow.Identifier.Value = GetTokenValueWithOverflow(name, "A"); // Overflow A.
 #endif
                 resourceAWithTokenOverflowOut = (T)(DomainResource)riskAssessmentAWithTokenOverflow;
 
                 RiskAssessment riskAssessmentBWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentBWithTokenOverflow.Id = $"RiskAssessment-Id-{name}-B";
 #if R4 || R5
-                riskAssessmentBWithTokenOverflow.Identifier[0].Value = GetTokenValue(name, "B"); // Overflow B.
+                riskAssessmentBWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "B"); // Overflow B.
 #else
-                riskAssessmentBWithTokenOverflow.Identifier.Value = GetTokenValue(name, "B"); // Overflow B.
+                riskAssessmentBWithTokenOverflow.Identifier.Value = GetTokenValueWithOverflow(name, "B"); // Overflow B.
 #endif
                 resourceBWithTokenOverflowOut = (T)(DomainResource)riskAssessmentBWithTokenOverflow;
 
-                RiskAssessment riskAssessmentCWithNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
-                riskAssessmentCWithNoTokenOverflow.Id = $"RiskAssessment-Id-{name}-C";
+                RiskAssessment riskAssessmentCWithMaxNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                riskAssessmentCWithMaxNoTokenOverflow.Id = $"RiskAssessment-Id-{name}-C";
 #if R4 || R5
-                riskAssessmentCWithNoTokenOverflow.Identifier[0].Value = GetTokenValue(name); // NO overflow.
+                riskAssessmentCWithMaxNoTokenOverflow.Identifier[0].Value = GetTokenValueMaxNoOverflow(name); // Max no overflow.
 #else
-                riskAssessmentCWithNoTokenOverflow.Identifier.Value = GetTokenValue(name); // NO overflow.
+                riskAssessmentCWithMaxNoTokenOverflow.Identifier.Value = GetTokenValueMaxNoOverflow(name); // Max no overflow.
 #endif
-                resourceCWithNoTokenOverflowOut = (T)(DomainResource)riskAssessmentCWithNoTokenOverflow;
+                resourceCWithMaxNoTokenOverflowOut = (T)(DomainResource)riskAssessmentCWithMaxNoTokenOverflow;
+
+                RiskAssessment riskAssessmentDWithShortNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                riskAssessmentDWithShortNoTokenOverflow.Id = $"RiskAssessment-Id-{name}-D";
+#if R4 || R5
+                riskAssessmentDWithShortNoTokenOverflow.Identifier[0].Value = GetTokenValueShortNoOverflow(name); // Short no overflow.
+#else
+                riskAssessmentDWithShortNoTokenOverflow.Identifier.Value = GetTokenValueShortNoOverflow(name); // Short no overflow.
+#endif
+                resourceDWithShortNoTokenOverflowOut = (T)(DomainResource)riskAssessmentDWithShortNoTokenOverflow;
             }
             else
             {
@@ -180,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 string name = "Kirk-T-" + Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
 
-                LoadTestResources(name, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithNoTokenOverflow);
+                LoadTestResources(name, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithMaxNoTokenOverflow, out Patient patientDWithShortNoTokenOverflow);
 
                 // Create patients.
 
@@ -190,11 +233,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // POST patient B.
                 FhirResponse<Patient> createdPatientB = await Client.CreateAsync(patientBWithTokenOverflow);
-                EnsureSuccessStatusCode(createdPatientA.StatusCode, "Creating patient B.");
+                EnsureSuccessStatusCode(createdPatientB.StatusCode, "Creating patient B.");
 
                 // POST patient C.
-                FhirResponse<Patient> createdPatientC = await Client.CreateAsync(patientCWithNoTokenOverflow);
-                EnsureSuccessStatusCode(createdPatientA.StatusCode, "Creating patient C.");
+                FhirResponse<Patient> createdPatientC = await Client.CreateAsync(patientCWithMaxNoTokenOverflow);
+                EnsureSuccessStatusCode(createdPatientC.StatusCode, "Creating patient C.");
+
+                // POST patient D.
+                FhirResponse<Patient> createdPatientD = await Client.CreateAsync(patientDWithShortNoTokenOverflow);
+                EnsureSuccessStatusCode(createdPatientD.StatusCode, "Creating patient D.");
 
                 // Verify we can search patients correctly.
 
@@ -207,8 +254,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     createdPatientB);
 
                 await ExecuteAndValidateBundle(
-                    $"Patient?identifier={patientCWithNoTokenOverflow.Identifier[0].Value}",
+                    $"Patient?identifier={patientCWithMaxNoTokenOverflow.Identifier[0].Value}",
                     createdPatientC);
+
+                await ExecuteAndValidateBundle(
+                    $"Patient?identifier={patientDWithShortNoTokenOverflow.Identifier[0].Value}",
+                    createdPatientD);
 
                 await ExecuteAndValidateBundle("Patient?identifier=nonexistant-patient");
             }
@@ -366,7 +417,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 searchParam.Code = searchParameterName;
 
                 // Load test resources.
-                LoadTestResources<T>(name, out T resourceAWithTokenOverflow, out T resourceBWithTokenOverflow, out T resourceCWithNoTokenOverflow);
+                LoadTestResources<T>(name, out T resourceAWithTokenOverflow, out T resourceBWithTokenOverflow, out T resourceCWithMaxNoTokenOverflow, out T resourceDWithShortNoTokenOverflow);
 
                 // First we create new resources and composite search parameter.
 
@@ -376,15 +427,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // POST custom composite search parameter.
                 FhirResponse<SearchParameter> createdSearchParam = await Client.CreateAsync(searchParam);
-                EnsureSuccessStatusCode(createdResourceA.StatusCode, "Creating custom composite search parameter.");
+                EnsureSuccessStatusCode(createdSearchParam.StatusCode, "Creating custom composite search parameter.");
 
                 // POST resource B.
                 FhirResponse<T> createdResourceB = await Client.CreateAsync(resourceBWithTokenOverflow);
-                EnsureSuccessStatusCode(createdResourceA.StatusCode, "Creating resource B.");
+                EnsureSuccessStatusCode(createdResourceB.StatusCode, "Creating resource B.");
 
                 // POST resource C.
-                FhirResponse<T> createdResourceC = await Client.CreateAsync(resourceCWithNoTokenOverflow);
-                EnsureSuccessStatusCode(createdResourceA.StatusCode, "Creating resource C.");
+                FhirResponse<T> createdResourceC = await Client.CreateAsync(resourceCWithMaxNoTokenOverflow);
+                EnsureSuccessStatusCode(createdResourceC.StatusCode, "Creating resource C.");
+
+                // POST resource D.
+                FhirResponse<T> createdResourceD = await Client.CreateAsync(resourceDWithShortNoTokenOverflow);
+                EnsureSuccessStatusCode(createdResourceD.StatusCode, "Creating resource D.");
 
                 // Before reindexing the database we test if we can access or not the created resources, with and without x-ms-use-partial-indices header.
 
@@ -412,11 +467,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     createdResourceB); // Expected resource B.
 
                 await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithNoTokenOverflow)}${getParameter2(resourceCWithNoTokenOverflow)}",
+                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
                     false,
                     false,
                     new Tuple<string, string>("x-ms-use-partial-indices", "true"),
                     createdResourceC); // Expected resource C.
+
+                await ExecuteAndValidateBundle(
+                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
+                    false,
+                    false,
+                    new Tuple<string, string>("x-ms-use-partial-indices", "true"),
+                    createdResourceD); // Expected resource D.
 
                 // Start reindexing resources.
 
@@ -460,13 +522,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                     FhirResponse<Parameters> responseB;
                     (responseB, _) = await Client.PostReindexJobAsync(new Parameters(), $"{resourceTypeName}/{createdResourceB.Resource.Id}/");
-                    EnsureSuccessStatusCode(createdResourceA.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceB.Resource.Id}.");
+                    EnsureSuccessStatusCode(createdResourceB.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceB.Resource.Id}.");
                     Assert.True(responseB.Resource.Parameter.Count > 0);
 
                     FhirResponse<Parameters> responseC;
                     (responseC, _) = await Client.PostReindexJobAsync(new Parameters(), $"{resourceTypeName}/{createdResourceC.Resource.Id}/");
-                    EnsureSuccessStatusCode(createdResourceA.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceC.Resource.Id}.");
+                    EnsureSuccessStatusCode(createdResourceC.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceC.Resource.Id}.");
                     Assert.True(responseC.Resource.Parameter.Count > 0);
+
+                    FhirResponse<Parameters> responseD;
+                    (responseD, _) = await Client.PostReindexJobAsync(new Parameters(), $"{resourceTypeName}/{createdResourceD.Resource.Id}/");
+                    EnsureSuccessStatusCode(createdResourceD.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceD.Resource.Id}.");
+                    Assert.True(responseD.Resource.Parameter.Count > 0);
                 }
 
                 // Resources are now reindexed.
@@ -489,11 +556,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     createdResourceB); // Expected resource B.
 
                 await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithNoTokenOverflow)}${getParameter2(resourceCWithNoTokenOverflow)}",
+                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
                     false,
                     false,
                     singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
                     createdResourceC); // Expected resource C.
+
+                await ExecuteAndValidateBundle(
+                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
+                    false,
+                    false,
+                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
+                    createdResourceD); // Expected resource D.
 
                 // Invalid composite search parameter returns nothing, we send correct token but incorrect second parameter that is not used by any of the resources.
                 await ExecuteAndValidateBundle(
