@@ -1,6 +1,6 @@
 {
     "resourceType": "Patient",
-    "id": "example-with-NO-token-overflow-KirkC",
+    "id": "example-with-max-NO-token-overflow-KirkC",
     "meta": {
         "profile": [
             "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
@@ -70,7 +70,7 @@
     "active": true,
     "name": [
         {
-            "family": "KirkC",
+            "family": "Kirk",
             "given": [
                 "Child"
             ]
