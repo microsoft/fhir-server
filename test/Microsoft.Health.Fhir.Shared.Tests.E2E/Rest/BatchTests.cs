@@ -172,16 +172,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("true", "201", true, true)]
-        [InlineData("true", "201", false, true)]
-        [InlineData("true", "201", false, false)]
-        [InlineData("true", "400", true, false)]
-        [InlineData("false", "201", true, false)]
-        [InlineData("false", "201", false, true)]
-        public async Task GivenABundle_WithProfileValidationFlag_ReturnsABundleResponse(string headerValue, string returnValue, bool profileValidation, bool withGender)
+        [InlineData("true", "true")]
+        [InlineData("true", "false")]
+        [InlineData("false", "true")]
+        [InlineData("false", "false")]
+        public async Task GivenABundle_WithProfileValidationFlag_ReturnsABundleResponse(string headerValue, string profileValidation)
         {
-            var resource = Samples.GetJsonSample("Profile-Patient-uscore-noGender").ToPoco<Patient>();
-
             var bundle = new Hl7.Fhir.Model.Bundle
             {
                 Type = Bundle.BundleType.Batch,
@@ -194,22 +190,49 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                             Method = HTTPVerb.POST,
                             Url = "Patient",
                         },
-                        Resource = resource,
+                        Resource = Samples.GetJsonSample("Profile-Patient-uscore-noGender").ToPoco<Patient>(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = Samples.GetJsonSample("Patient").ToPoco<Patient>(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = Samples.GetJsonSample("Profile-Patient-uscore-noidentifier").ToPoco<Patient>(),
                     },
                 },
             };
             _client.HttpClient.DefaultRequestHeaders.Remove(Core.Features.KnownHeaders.ProfileValidation);
-            _client.HttpClient.DefaultRequestHeaders.Add(Core.Features.KnownHeaders.ProfileValidation, headerValue);
+            if (headerValue.Equals("true"))
+            {
+                _client.HttpClient.DefaultRequestHeaders.Add(Core.Features.KnownHeaders.ProfileValidation, profileValidation);
+            }
+
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle);
             Assert.NotNull(fhirResponse);
             Bundle bundleResource = fhirResponse.Resource;
 
-            if (headerValue.Equals("true") && profileValidation)
+            if (headerValue.Equals("true") && profileValidation.Equals("true"))
             {
-                if (!withGender)
-                {
-                    Assert.Equal(returnValue, bundleResource.Entry[0].Response.Status);
-                }
+                Assert.Equal("400", bundleResource.Entry[0].Response.Status);
+                Assert.Equal("201", bundleResource.Entry[1].Response.Status);
+                Assert.Equal("400", bundleResource.Entry[2].Response.Status);
+            }
+            else
+            {
+                Assert.Equal("201", bundleResource.Entry[0].Response.Status);
+                Assert.Equal("201", bundleResource.Entry[1].Response.Status);
+                Assert.Equal("201", bundleResource.Entry[2].Response.Status);
             }
         }
     }
