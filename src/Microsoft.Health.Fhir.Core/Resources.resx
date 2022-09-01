@@ -243,6 +243,10 @@
     <value>The '_revinclude:iterate={0}' search parameter has multiple target types. Please specify a target type.</value>
     <comment>_revinclude:iterate is a query parameter.</comment>
   </data>
+  <data name="IncludeRevIncludeInvalidTargetResourceType" xml:space="preserve">
+    <value>The target resource type cannot be empty.</value>
+    <comment>TargetResourceType is an optional parameter</comment>
+  </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
