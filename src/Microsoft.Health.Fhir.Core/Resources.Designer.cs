@@ -575,6 +575,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid TargetResourceType : value cannot be empty..
+        /// </summary>
+        internal static string IncludeRevIncludeInvalidTargetResourceType {
+            get {
+                return ResourceManager.GetString("IncludeRevIncludeInvalidTargetResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string InvalidBooleanConfigSetting {

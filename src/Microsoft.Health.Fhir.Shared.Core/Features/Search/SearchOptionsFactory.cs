@@ -425,7 +425,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     if (expression.TargetResourceType != null &&
                        string.IsNullOrWhiteSpace(expression.TargetResourceType))
                     {
-                        throw Error.Format($"Invalid TargetResourceType : value cannot be empty");
+                        throw new BadRequestException(
+                            string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType, expression.TargetResourceType));
                     }
 
                     if (expression.TargetResourceType != null && !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))

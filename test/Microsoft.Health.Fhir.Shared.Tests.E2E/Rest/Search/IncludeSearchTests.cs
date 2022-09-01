@@ -1352,13 +1352,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             };
         }
 
+        [Theory]
         [InlineData("_include")]
         [InlineData("_revinclude")]
-        [Theory]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAIncludeOrRevIncludeIterateSearchExpressionWithInvalidTargetResourceType_WhenSearched_ShouldThrowResourceNotSupportedException(string include)
         {
-            string query = "$" + include + "=Observation:subject:NotAResourceType";
+            string query = $"{include}=Observation:subject:NotAResourceType";
 
             using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
@@ -1369,35 +1369,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
-        [InlineData("_include")]
-        [InlineData("_revinclude")]
         [Theory]
+        [InlineData("_include", "")]
+        [InlineData("_include", "   ")]
+        [InlineData("_revinclude", "")]
+        [InlineData("_revinclude", "   ")]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenAIncludeOrRevIncludeIterateSearchExpressionWithEmptyTargetResourceType_WhenSearched_ShouldThrowErrorFormat(string include)
+        public async Task GivenAIncludeOrRevIncludeIterateSearchExpressionWithEmptyOrWhiteSpaceTargetResourceType_WhenSearched_ShouldThrowBadRequestException(string include, string target)
         {
-            string query = "$" + include + "=Observation:subject:";
+            string query = $"{include}=Observation:subject:{target}";
 
             using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            string[] expectedDiagnostics = { string.Format("Invalid TargetResourceType : value cannot be empty") };
-            IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
-            IssueType[] expectedCodeTypes = { IssueType.Invalid };
-            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
-        }
-
-        [InlineData("_include")]
-        [InlineData("_revinclude")]
-        [Theory]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenAIncludeOrRevIncludeIterateSearchExpressionWithWhiteSpaceTargetResourceType_WhenSearched_ShouldThrowErrorFormat(string include)
-        {
-            string query = "$" + include + "=Observation:subject: ";
-
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
-
-            string[] expectedDiagnostics = { string.Format("Invalid TargetResourceType : value cannot be empty") };
+            string[] expectedDiagnostics = { string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType) };
             IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
             IssueType[] expectedCodeTypes = { IssueType.Invalid };
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
