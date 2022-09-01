@@ -21,8 +21,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [Trait(Traits.Category, Categories.Search)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.CompartmentSearch)]
     public class EverythingOperationTests : SearchTestsBase<EverythingOperationTestFixture>
     {
         public EverythingOperationTests(EverythingOperationTestFixture fixture)

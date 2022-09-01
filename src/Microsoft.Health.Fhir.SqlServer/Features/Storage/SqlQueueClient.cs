@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -261,17 +262,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
-        public async Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public async Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
             try
             {
-                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-                await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
+                {
+                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
 
-                return await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken);
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    return VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
+                }
+                else
+                {
+                    V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
+
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    return (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
+                }
             }
             catch (SqlException sqlEx)
             {

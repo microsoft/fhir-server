@@ -50,6 +50,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         Include,
 
         /// <summary>
+        /// Represents a table expression that is used to UNION results from multiple queries together.
+        /// </summary>
+        Union,
+
+        /// <summary>
         /// Represents a table expression that is used to union all of the includes with the base search query.
         /// </summary>
         IncludeUnionAll,

@@ -71,22 +71,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(tableExpressions, resourceExpressions);
         }
 
+        public override Expression VisitUnion(UnionExpression expression, int context) => ConvertNonMultiary(expression);
+
         public override Expression VisitSearchParameter(SearchParameterExpression expression, int context) => ConvertNonMultiary(expression);
 
         public override Expression VisitCompartment(CompartmentSearchExpression expression, int context) => ConvertNonMultiary(expression);
 
         public override Expression VisitMissingSearchParameter(MissingSearchParameterExpression expression, int context) => ConvertNonMultiary(expression);
 
-        public override Expression VisitChained(ChainedExpression expression, int context)
-        {
-            return ConvertNonMultiary(expression);
-        }
+        public override Expression VisitChained(ChainedExpression expression, int context) => ConvertNonMultiary(expression);
 
         private Expression ConvertNonMultiary(Expression expression)
         {
-            return TryGetSearchParamTableExpressionQueryGenerator(expression, out var generator, out var kind)
-                ? SqlRootExpression.WithSearchParamTableExpressions(new SearchParamTableExpression(generator, predicate: expression, kind, chainLevel: kind == SearchParamTableExpressionKind.Chain ? 1 : 0))
-                : SqlRootExpression.WithResourceTableExpressions((SearchParameterExpressionBase)expression);
+            if (TryGetSearchParamTableExpressionQueryGenerator(expression, out var generator, out var kind))
+            {
+                return SqlRootExpression.WithSearchParamTableExpressions(new SearchParamTableExpression(generator, predicate: expression, kind, chainLevel: kind == SearchParamTableExpressionKind.Chain ? 1 : 0));
+            }
+            else
+            {
+                return SqlRootExpression.WithResourceTableExpressions((SearchParameterExpressionBase)expression);
+            }
         }
 
         private bool TryGetSearchParamTableExpressionQueryGenerator(Expression expression, out SearchParamTableExpressionQueryGenerator searchParamTableExpressionGenerator, out SearchParamTableExpressionKind kind)
