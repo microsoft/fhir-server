@@ -232,6 +232,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (RequestEntityTooLargeException)
+            {
+                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.RequestEntityTooLargeExceptionDuringExport, HttpStatusCode.RequestEntityTooLarge);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (Exception ex)
             {
                 // The job has encountered an error it cannot recover from.
