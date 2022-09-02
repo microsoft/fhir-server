@@ -1,210 +1,185 @@
 {
-    "resourceType": "Patient",
-    "id": "example",
-    "meta": {
+  "resourceType": "Patient",
+  "id": "example",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>id</b>: example</p><p><b>meta</b>: </p><p><b>identifier</b>: Medical Record Number: 1032702 (USUAL)</p><p><b>active</b>: true</p><p><b>name</b>: Amy V. Shaw , Amy V. Baxter </p><p><b>telecom</b>: ph: 555-555-5555(HOME), amy.shaw@example.com</p><p><b>gender</b>: female</p><p><b>birthDate</b>: 1987-02-20</p><p><b>address</b>: </p><ul><li>49 Meadow St Mounds OK 74047 US </li><li>183 Mountain View St Mounds OK 74048 US </li></ul></div>"
+  },
+  "extension": [
+    {
       "extension": [
         {
-          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
-          "valueString": "Patient Example"
+          "url": "ombCategory",
+          "valueCoding": {
+            "system": "urn:oid:2.16.840.1.113883.6.238",
+            "code": "2106-3",
+            "display": "White"
+          }
         },
         {
-          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
-          "valueMarkdown": "This is a patient example for the *US Core Patient Profile*."
+          "url": "ombCategory",
+          "valueCoding": {
+            "system": "urn:oid:2.16.840.1.113883.6.238",
+            "code": "1002-5",
+            "display": "American Indian or Alaska Native"
+          }
+        },
+        {
+          "url": "ombCategory",
+          "valueCoding": {
+            "system": "urn:oid:2.16.840.1.113883.6.238",
+            "code": "2028-9",
+            "display": "Asian"
+          }
+        },
+        {
+          "url": "detailed",
+          "valueCoding": {
+            "system": "urn:oid:2.16.840.1.113883.6.238",
+            "code": "1586-7",
+            "display": "Shoshone"
+          }
+        },
+        {
+          "url": "detailed",
+          "valueCoding": {
+            "system": "urn:oid:2.16.840.1.113883.6.238",
+            "code": "2036-2",
+            "display": "Filipino"
+          }
+        },
+        {
+          "url": "text",
+          "valueString": "Mixed"
         }
       ],
-      "profile": [
-        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
-      ]
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race"
     },
-    "text": {
-      "status": "generated",
-      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Amy V. Baxter </b> female, DoB: 1987-02-20 ( Medical Record Number: 1032702 (USUAL))</p></div>"
-    },
-    "extension": [
-      {
-        "extension": [
-          {
-            "url": "ombCategory",
-            "valueCoding": {
-              "system": "urn:oid:2.16.840.1.113883.6.238",
-              "code": "2106-3",
-              "display": "White"
-            }
-          },
-          {
-            "url": "ombCategory",
-            "valueCoding": {
-              "system": "urn:oid:2.16.840.1.113883.6.238",
-              "code": "1002-5",
-              "display": "American Indian or Alaska Native"
-            }
-          },
-          {
-            "url": "ombCategory",
-            "valueCoding": {
-              "system": "urn:oid:2.16.840.1.113883.6.238",
-              "code": "2028-9",
-              "display": "Asian"
-            }
-          },
-          {
-            "url": "detailed",
-            "valueCoding": {
-              "system": "urn:oid:2.16.840.1.113883.6.238",
-              "code": "1586-7",
-              "display": "Shoshone"
-            }
-          },
-          {
-            "url": "detailed",
-            "valueCoding": {
-              "system": "urn:oid:2.16.840.1.113883.6.238",
-              "code": "2036-2",
-              "display": "Filipino"
-            }
-          },
-          {
-            "url": "text",
-            "valueString": "Mixed"
+    {
+      "extension": [
+        {
+          "url": "ombCategory",
+          "valueCoding": {
+            "system": "urn:oid:2.16.840.1.113883.6.238",
+            "code": "2135-2",
+            "display": "Hispanic or Latino"
           }
-        ],
-        "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race"
-      },
-      {
-        "extension": [
-          {
-            "url": "ombCategory",
-            "valueCoding": {
-              "system": "urn:oid:2.16.840.1.113883.6.238",
-              "code": "2135-2",
-              "display": "Hispanic or Latino"
-            }
-          },
-          {
-            "url": "detailed",
-            "valueCoding": {
-              "system": "urn:oid:2.16.840.1.113883.6.238",
-              "code": "2184-0",
-              "display": "Dominican"
-            }
-          },
-          {
-            "url": "detailed",
-            "valueCoding": {
-              "system": "urn:oid:2.16.840.1.113883.6.238",
-              "code": "2148-5",
-              "display": "Mexican"
-            }
-          },
-          {
-            "url": "text",
-            "valueString": "Hispanic or Latino"
-          }
-        ],
-        "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity"
-      },
-      {
-        "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
-        "valueCode": "F"
-      },
-      {
-        "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity",
-        "valueCodeableConcept": {
-          "coding": [
-            {
-              "system": "http://terminology.hl7.org/CodeSystem/v3-NullFlavor",
-              "code": "ASKU",
-              "display": "asked but unknown"
-            }
-          ],
-          "text": "asked but unknown"
-        }
-      }
-    ],
-    "identifier": [
-      {
-        "use": "usual",
-        "type": {
-          "coding": [
-            {
-              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
-              "code": "MR",
-              "display": "Medical Record Number"
-            }
-          ],
-          "text": "Medical Record Number"
         },
-        "system": "http://hospital.smarthealthit.org",
-        "value": "1032702"
-      }
-    ],
-    "active": true,
-    "name": [
-      {
-        "use": "old",
-        "family": "Shaw",
-        "given": [
-          "Amy",
-          "V."
-        ],
-        "period": {
-          "start": "2016-12-06",
-          "end": "2020-07-22"
+        {
+          "url": "detailed",
+          "valueCoding": {
+            "system": "urn:oid:2.16.840.1.113883.6.238",
+            "code": "2184-0",
+            "display": "Dominican"
+          }
+        },
+        {
+          "url": "detailed",
+          "valueCoding": {
+            "system": "urn:oid:2.16.840.1.113883.6.238",
+            "code": "2148-5",
+            "display": "Mexican"
+          }
+        },
+        {
+          "url": "text",
+          "valueString": "Hispanic or Latino"
         }
+      ],
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity"
+    },
+    {
+      "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
+      "valueCode": "F"
+    }
+  ],
+  "identifier": [
+    {
+      "use": "usual",
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MR",
+            "display": "Medical Record Number"
+          }
+        ],
+        "text": "Medical Record Number"
       },
-      {
-        "family": "Baxter",
-        "given": [
-          "Amy",
-          "V."
-        ],
-        "suffix": [
-          "PharmD"
-        ],
-        "period": {
-          "start": "2020-07-22"
-        }
+      "system": "http://hospital.smarthealthit.org",
+      "value": "1032702"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Shaw",
+      "given": [
+        "Amy",
+        "V."
+      ],
+      "period": {
+        "start": "2016-12-06",
+        "end": "2020-07-22"
       }
-    ],
-    "telecom": [
-      {
-        "system": "phone",
-        "value": "555-555-5555",
-        "use": "home"
-      },
-      {
-        "system": "email",
-        "value": "amy.shaw@example.com"
+    },
+    {
+      "family": "Baxter",
+      "given": [
+        "Amy",
+        "V."
+      ],
+      "suffix": [
+        "PharmD"
+      ],
+      "period": {
+        "start": "2020-07-22"
       }
-    ],
-    "gender": "female",
-    "birthDate": "1987-02-20",
-    "address": [
-      {
-        "use": "old",
-        "line": [
-          "49 Meadow St"
-        ],
-        "city": "Mounds",
-        "state": "OK",
-        "postalCode": "74047",
-        "country": "US",
-        "period": {
-          "start": "2016-12-06",
-          "end": "2020-07-22"
-        }
-      },
-      {
-        "line": [
-          "183 Mountain View St"
-        ],
-        "city": "Mounds",
-        "state": "OK",
-        "postalCode": "74048",
-        "country": "US",
-        "period": {
-          "start": "2020-07-22"
-        }
+    }
+  ],
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "555-555-5555",
+      "use": "home"
+    },
+    {
+      "system": "email",
+      "value": "amy.shaw@example.com"
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1987-02-20",
+  "address": [
+    {
+      "line": [
+        "49 Meadow St"
+      ],
+      "city": "Mounds",
+      "state": "OK",
+      "postalCode": "74047",
+      "country": "US",
+      "period": {
+        "start": "2016-12-06",
+        "end": "2020-07-22"
       }
-    ]
-  }
+    },
+    {
+      "line": [
+        "183 Mountain View St"
+      ],
+      "city": "Mounds",
+      "state": "OK",
+      "postalCode": "74048",
+      "country": "US",
+      "period": {
+        "start": "2020-07-22"
+      }
+    }
+  ]
+}

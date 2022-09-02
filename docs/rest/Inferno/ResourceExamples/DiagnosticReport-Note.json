@@ -1,94 +1,46 @@
 {
-    "resourceType": "DiagnosticReport",
-    "id": "cardiology-report",
-    "meta": {
-      "extension": [
-        {
-          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
-          "valueString": "DiagnosticReport Cardiology Report Example"
-        },
-        {
-          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
-          "valueMarkdown": "This is a DiagnosticReport cardiology report example for the *US Core DiagnosticReport Note Profile*."
-        }
-      ],
-      "profile": [
-        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note"
-      ]
-    },
-    "text": {
-      "status": "generated",
-      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2><span title=\"Codes: {http://loinc.org 45033-8}\">Cardiovascular physiologic and EKG assessment panel</span> (<span title=\"Codes: {http://loinc.org LP29708-2}\">Cardiology</span>) </h2><table class=\"grid\"><tr><td>Subject</td><td><b>Amy V. Baxter </b> female, DoB: 1987-02-20 ( Medical Record Number: 1032702 (USUAL))</td></tr><tr><td>When For</td><td>2021-11-10 09:39:30+0000</td></tr></table><p><b>Report Details</b></p><table class=\"grid\"><tr><td><b>Code</b></td><td><b>Value</b></td><td><b>When For</b></td></tr><tr><td><a href=\"Observation-qrs-dur-ekg-lead.html\"><span title=\"Codes: {http://loinc.org 44973-6}\">QRS dur {EKG lead}</span></a></td><td>60 ms</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-pulse-intensity-palpation.html\"><span title=\"Codes: {http://loinc.org 44974-4}\">Pulse intensity Palpation</span></a></td><td><span title=\"Codes: {http://loinc.org LA11841-6}\">1+</span></td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-p-r-interval-ekg-lead.html\"><span title=\"Codes: {http://loinc.org 44976-9}\">P-R interval {EKG lead}</span></a></td><td>0.2 s</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-q-t-interval-ekg-lead.html\"><span title=\"Codes: {http://loinc.org 44975-1}\">Q-T interval {EKG lead}</span></a></td><td>0.4 s</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-jugular-vein-distension.html\"><span title=\"Codes: {http://loinc.org 69428-1}\">Jugular vein distension</span></a></td><td><span title=\"Codes: {http://loinc.org LA9634-2}\">Absent</span></td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-heart-rate-rhythm.html\"><span title=\"Codes: {http://loinc.org 8884-9}\">Heart rate rhythm</span></a></td><td>Regular (R)</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-ekg-lead.html\"><span title=\"Codes: {http://loinc.org 44967-8}\">EKG lead</span></a></td><td>II</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-ekg-impression.html\"><span title=\"Codes: {http://loinc.org 8601-7}\">EKG impression</span></a></td><td>Normal Sinus Rhythm (NSR)</td><td>2021-11-10 04:48:57-0800</td></tr><tr><td><a href=\"Observation-capillary-refill-time-nail-bed.html\"><span title=\"Codes: {http://loinc.org 44963-7}\">Capillary refill Time Nail Bed</span></a></td><td>1 s</td><td>2021-11-10 04:48:57-0800</td></tr></table></div>"
-    },
-    "status": "final",
-    "category": [
-      {
-        "coding": [
-          {
-            "system": "http://loinc.org",
-            "code": "LP29708-2",
-            "display": "Cardiology"
-          }
-        ],
-        "text": "Cardiology"
-      }
-    ],
-    "code": {
-      "coding": [
-        {
-          "system": "http://loinc.org",
-          "code": "45033-8",
-          "display": "Cardiovascular physiologic and EKG assessment panel"
-        }
-      ],
-      "text": "Cardiovascular physiologic and EKG assessment panel"
-    },
-    "subject": {
-      "reference": "Patient/example"
-    },
-    "effectiveDateTime": "2021-11-10T21:39:30.000Z",
-    "result": [
-      {
-        "reference": "Observation/qrs-dur-ekg-lead"
-      },
-      {
-        "reference": "Observation/pulse-intensity-palpation"
-      },
-      {
-        "reference": "Observation/p-r-interval-ekg-lead"
-      },
-      {
-        "reference": "Observation/q-t-interval-ekg-lead"
-      },
-      {
-        "reference": "Observation/jugular-vein-distension"
-      },
-      {
-        "reference": "Observation/heart-rate-rhythm"
-      },
-      {
-        "reference": "Observation/ekg-lead"
-      },
-      {
-        "reference": "Observation/ekg-impression"
-      },
-      {
-        "reference": "Observation/capillary-refill-time-nail-bed"
-      }
-    ],
-    "media": [
-      {
-        "link": {
-          "reference": "Media/ekg-strip",
-          "display": "EKG Strip"
-        }
-      }
-    ],
-    "presentedForm": [
-      {
-        "contentType": "application/pdf",
-        "url": "http://example.org/pdfdownloads/cardiopanel-report-123.pdf",
-        "hash": "RVFILy4uQWdNRQo="
-      }
+  "resourceType" : "DiagnosticReport",
+  "id" : "chest-xray-report",
+  "meta" : {
+    "profile" : [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note"
     ]
-  }
+  },
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2><span title=\"Codes: {http://loinc.org 30746-2}\">Portable XR Chest Views</span> (<span title=\"Codes: {http://loinc.org LP29684-5}\">Radiology</span>) </h2><table class=\"grid\"><tr><td>Subject</td><td><b>Amy V. Shaw </b>  1987-02-20 ( Medical Record Number: 1032702 (USUAL))</td></tr><tr><td>When For</td><td>04/02/2019 6:43:30 AM</td></tr></table><p><b>Report Details</b></p></div>"
+  },
+  "status" : "final",
+  "category" : [
+    {
+      "coding" : [
+        {
+          "system" : "http://loinc.org",
+          "code" : "LP29684-5",
+          "display" : "Radiology"
+        }
+      ],
+      "text" : "Radiology"
+    }
+  ],
+  "code" : {
+    "coding" : [
+      {
+        "system" : "http://loinc.org",
+        "code" : "30746-2",
+        "display" : "Portable XR Chest Views"
+      }
+    ],
+    "text" : "Portable XR Chest Views"
+  },
+  "subject" : {
+    "reference" : "Patient/example"
+  },
+  "effectiveDateTime" : "2019-02-03T19:43:30.000Z",
+  "presentedForm" : [
+    {
+      "contentType" : "application/xhtml",
+      "data" : "PCFET0NUWVBFIGh0bWwgUFVCTElDICItLy9XM0MvL0RURCBYSFRNTCAxLjAgVHJhbnNpdGlvbmFsLy9FTiIgIkRURC94aHRtbDEtdHJhbnNpdGlvbmFsLmR0ZCI+CgkJPGh0bWwgeG1sOmxhbmc9ImVuIiBsYW5nPSJlbiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiPgkJCiAgPGhlYWQ+CiAgICA8dGl0bGU+Q2hlc3QgUG9ydGFibGU8L3RpdGxlPgogIDwvaGVhZD4KICA8Ym9keT4KICAgIDxwPlJlc3VsdDwvcD4KICAgIDxici8+Q2hlc3QgUG9ydGFibGUgCiAgICAgIAogICAgICA8cD5JTkRJQ0FUSU9OL0NMSU5JQ0FMIFFVRVNUSU9OOiBGZXZlciAvIFBuZXVtb25pYTwvcD4KICAgICAgCiAgICAgIDxwPkNPTVBBUklTT046IE5vbmUuPC9wPgogICAgICAKICAgICAgPHA+RklORElOR1M6PC9wPgogICAgICAKICAgICAgPHA+TElORVMgQU5EIFRVQkVTOiBOb25lLjwvcD4KICAgICAgCiAgICAgIDxwPkxVTkdTIEFORCBQTEVVUkE6PC9wPgogICAgICA8YnIvPkNsZWFyIGx1bmdzLiBOb3JtYWwgcHVsbW9uYXJ5IHZhc2N1bGFyaXR5LgogICAgICA8YnIvPk5vIHBsZXVyYWwgZWZmdXNpb24uCiAgICAgIDxici8+Tm8gcG5ldW1vdGhvcmF4LgogICAgICAKICAgICAgPHA+SEVBUlQsIE1FRElBU1RJTlVNIEFORCBISUxBOjwvcD4KICAgICAgPGJyLz5IZWFydCBpcyBub3JtYWwgaW4gc2l6ZS4KICAgICAgPGJyLz5Ob3JtYWwgbWVkaWFzdGluYWwgYW5kIGhpbGFyIGNvbnRvdXIuCiAgICAgIAogICAgICA8cD5CT05FUyBBTkQgU09GVCBUSVNTVUVTOjwvcD4KICAgICAgPGJyLz5ObyBhY3V0ZSBhYm5vcm1hbGl0eS4KICAgICAgCiAgICAgIDxwPklNUFJFU1NJT046PC9wPgogICAgICA8YnIvPk5vIGFjdXRlIGFibm9ybWFsaXR5LgogICAgICAKICAgICAgPHA+V1NOOiBPMTlJQy1TQy0wMjExPC9wPgogICAgICAKICAgICAgPHA+RGljdGF0ZWQgQnk6IEN1cmUgTUQsIENocmlzdGluZSBKCiAgICAgICAgRGljdGF0ZWQgRGF0ZS9UaW1lOiAwMi8wMy8xOSA3OjQ0IHBtCiAgICAgICAgUmV2aWV3ZWQgQnk6IEN1cmUgTUQsIENocmlzdGluZSBKCiAgICAgICAgU2lnbmVkIEJ5OiBDdXJlIE1ELCBDaHJpc3RpbmUgSgogICAgICAgIFNpZ25lZCBEYXRlL1RpbWU6IDAyLzAzLzE5IDc6NDQgcG0KICAgICAgICBUcmFuc2NyaWJlZCBCeTogQ1NCCiAgICAgICAgVHJhbnNjcmliZWQgRGF0ZS9UaW1lOiAwMi8wMy8xOSA3OjQzIHBtPC9wPgogICAgICAKICAgICAgCiAgPC9ib2R5Pgo8L2h0bWw+Cg=="
+    }
+  ]
+}

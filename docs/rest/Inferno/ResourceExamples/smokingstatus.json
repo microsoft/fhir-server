@@ -1,60 +1,50 @@
 {
-    "resourceType": "Observation",
-    "id": "some-day-smoker",
-    "meta": {
-      "extension": [
+  "resourceType" : "Observation",
+  "id" : "some-day-smoker",
+  "meta" : {
+    "profile" : [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-smokingstatus"
+    ]
+  },
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>id</b>: some-day-smoker</p><p><b>meta</b>: </p><p></p><p><b>category</b>: <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/observation-category social-history}\">Social History</span></p><p><b>code</b>: <span title=\"Codes: {http://loinc.org 72166-2}\">Tobacco smoking status</span></p><p><b>subject</b>: <a href=\"Patient-example.html\">Amy Shaw. Generated Summary: id: example; Medical Record Number: 1032702 (USUAL); active; Amy V. Shaw , Amy V. Baxter ; ph: 555-555-5555(HOME), amy.shaw@example.com; gender: female; birthDate: 1987-02-20</a></p><p><b>issued</b>: 18/03/2016 4:27:04 PM</p><p><b>value</b>: <span title=\"Codes: {http://snomed.info/sct 428041000124106}\">Current some day smoker</span></p></div>"
+  },
+  "status" : "final",
+  "category" : [
+    {
+      "coding" : [
         {
-          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
-          "valueString": "Some Day Smoker Example"
-        },
-        {
-          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
-          "valueMarkdown": "This is a some day smoker example for the *US Core Smokingstatus Profile*."
+          "system" : "http://terminology.hl7.org/CodeSystem/observation-category",
+          "code" : "social-history",
+          "display" : "Social History"
         }
       ],
-      "profile": [
-        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-smokingstatus"
-      ]
-    },
-    "text": {
-      "status": "generated",
-      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"some-day-smoker\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-us-core-smokingstatus.html\">US Core Smoking Status Observation Profile</a></p></div><p><b>status</b>: final</p><p><b>category</b>: Social History <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-observation-category.html\">Observation Category Codes</a>#social-history)</span></p><p><b>code</b>: Tobacco smoking status <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#72166-2)</span></p><p><b>subject</b>: <a href=\"Patient-example.html\">Patient/example: Amy Shaw</a> \" SHAW\"</p><p><b>effective</b>: 2016-03-18 05:27:04+0000</p><p><b>value</b>: Current some day smoker <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#428041000124106)</span></p></div>"
-    },
-    "status": "final",
-    "category": [
+      "text" : "Social History"
+    }
+  ],
+  "code" : {
+    "coding" : [
       {
-        "coding": [
-          {
-            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
-            "code": "social-history",
-            "display": "Social History"
-          }
-        ],
-        "text": "Social History"
+        "system" : "http://loinc.org",
+        "code" : "72166-2",
+        "display" : "Tobacco smoking status"
       }
     ],
-    "code": {
-      "coding": [
-        {
-          "system": "http://loinc.org",
-          "code": "72166-2",
-          "display": "Tobacco smoking status"
-        }
-      ],
-      "text": "Tobacco smoking status"
-    },
-    "subject": {
-      "reference": "Patient/example",
-      "display": "Amy Shaw"
-    },
-    "effectiveDateTime": "2016-03-18T05:27:04Z",
-    "valueCodeableConcept": {
-      "coding": [
-        {
-          "system": "http://snomed.info/sct",
-          "code": "428041000124106"
-        }
-      ],
-      "text": "Current some day smoker"
-    }
+    "text" : "Tobacco smoking status"
+  },
+  "subject" : {
+    "reference" : "Patient/example",
+    "display" : "Amy Shaw"
+  },
+  "issued" : "2016-03-18T05:27:04Z",
+  "valueCodeableConcept" : {
+    "coding" : [
+      {
+        "system" : "http://snomed.info/sct",
+        "code" : "428041000124106"
+      }
+    ],
+    "text" : "Current some day smoker"
   }
+}

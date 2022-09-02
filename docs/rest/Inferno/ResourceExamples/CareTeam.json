@@ -1,98 +1,71 @@
 {
-  "resourceType": "CareTeam",
-  "id": "example",
-  "meta": {
-    "extension": [
-      {
-        "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
-        "valueString": "CareTeam Example"
-      },
-      {
-        "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
-        "valueMarkdown": "This is a careteam example for the *US Core CareTeam Profile*."
-      }
-    ],
-    "profile": [
+  "resourceType" : "CareTeam",
+  "id" : "example",
+  "meta" : {
+    "profile" : [
       "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careteam"
     ]
   },
-  "text": {
-    "status": "generated",
-    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"example\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-us-core-careteam.html\">US Core CareTeam Profile</a></p></div><p><b>status</b>: active</p><p><b>name</b>: US-Core example CareTeam</p><p><b>subject</b>: <a href=\"Patient-example.html\">Patient/example: Amy V. Shaw</a> \" SHAW\"</p><blockquote><p><b>participant</b></p><p><b>role</b>: Cardiologist <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#17561000)</span></p><p><b>member</b>: <a href=\"Practitioner-practitioner-1.html\">Practitioner/practitioner-1: Ronald Bone, MD</a> \" BONE\"</p></blockquote><blockquote><p><b>participant</b></p><p><b>role</b>: Primary care provider <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#453231000124104)</span></p><p><b>member</b>: <a href=\"Practitioner-practitioner-2.html\">Practitioner/practitioner-2: Kathy Fielding, MD</a> \" KATHY\"</p></blockquote><blockquote><p><b>participant</b></p><p><b>role</b>: Patient (person) <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#116154003)</span></p><p><b>member</b>: <a href=\"Patient-example.html\">Patient/example: Amy V. Shaw</a> \" SHAW\"</p></blockquote><blockquote><p><b>participant</b></p><p><b>role</b>: Caregiver (person) <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#133932002)</span></p><p><b>member</b>: <a href=\"RelatedPerson-shaw-niece.html\">RelatedPerson/shaw-niece: Sarah van Putten</a> \" VAN PUTTEN\"</p></blockquote></div>"
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>id</b>: example</p><p><b>meta</b>: </p><p><b>status</b>: active</p><p><b>name</b>: US-Core example CareTeam</p><p><b>subject</b>: <a href=\"Patient-example.html\">Amy V. Shaw. Generated Summary: id: example; Medical Record Number: 1032702 (USUAL); active; Amy V. Shaw , Amy V. Baxter ; ph: 555-555-5555(HOME), amy.shaw@example.com; gender: female; birthDate: 1987-02-20</a></p><blockquote><p><b>participant</b></p><p><b>role</b>: <span title=\"Codes: {http://nucc.org/provider-taxonomy 207RC0000X}\">Cardiovascular Disease</span></p><p><b>member</b>: <a href=\"Practitioner-practitioner-1.html\">Ronald Bone, MD. Generated Summary: id: practitioner-1; id: 9941339108, id: 25456; Ronald Bone </a></p></blockquote><blockquote><p><b>participant</b></p><p><b>role</b>: <span title=\"Codes: {http://nucc.org/provider-taxonomy 208D00000X}\">General Practice</span></p><p><b>member</b>: <a href=\"Practitioner-practitioner-2.html\">Kathy Fielding, MD. Generated Summary: id: practitioner-2; id: 1245319599, id: 456789; Fielding Kathy ; Kathy.Fielding@direct.ExampleMedicalPractice.net(WORK)</a></p></blockquote><blockquote><p><b>participant</b></p><p><b>role</b>: <span title=\"Codes: {http://snomed.info/sct 116154003}\">Patient (person)</span></p><p><b>member</b>: <a href=\"Patient-example.html\">Amy V. Shaw. Generated Summary: id: example; Medical Record Number: 1032702 (USUAL); active; Amy V. Shaw , Amy V. Baxter ; ph: 555-555-5555(HOME), amy.shaw@example.com; gender: female; birthDate: 1987-02-20</a></p></blockquote></div>"
   },
-  "status": "active",
-  "name": "US-Core example CareTeam",
-  "subject": {
-    "reference": "Patient/example",
-    "display": "Amy V. Shaw"
+  "status" : "active",
+  "name" : "US-Core example CareTeam",
+  "subject" : {
+    "reference" : "Patient/example",
+    "display" : "Amy V. Shaw"
   },
-  "participant": [
+  "participant" : [
     {
-      "role": [
+      "role" : [
         {
-          "coding": [
+          "coding" : [
             {
-              "system": "http://snomed.info/sct",
-              "code": "17561000",
-              "display": "Cardiologist"
+              "system" : "http://nucc.org/provider-taxonomy",
+              "code" : "207RC0000X",
+              "display" : "Cardiovascular Disease"
             }
           ]
         }
       ],
-      "member": {
-        "reference": "Practitioner/practitioner-1",
-        "display": "Ronald Bone, MD"
+      "member" : {
+        "reference" : "Practitioner/practitioner-1",
+        "display" : "Ronald Bone, MD"
       }
     },
     {
-      "role": [
+      "role" : [
         {
-          "coding": [
+          "coding" : [
             {
-              "system": "http://snomed.info/sct",
-              "code": "453231000124104",
-              "display": "Primary care provider"
+              "system" : "http://nucc.org/provider-taxonomy",
+              "code" : "208D00000X",
+              "display" : "General Practice"
             }
           ]
         }
       ],
-      "member": {
-        "reference": "Practitioner/practitioner-2",
-        "display": "Kathy Fielding, MD"
+      "member" : {
+        "reference" : "Practitioner/practitioner-2",
+        "display" : "Kathy Fielding, MD"
       }
     },
     {
-      "role": [
+      "role" : [
         {
-          "coding": [
+          "coding" : [
             {
-              "system": "http://snomed.info/sct",
-              "code": "116154003",
-              "display": "Patient (person)"
+              "system" : "http://snomed.info/sct",
+              "code" : "116154003",
+              "display" : "Patient (person)"
             }
           ]
         }
       ],
-      "member": {
-        "reference": "Patient/example",
-        "display": "Amy V. Shaw"
-      }
-    },
-    {
-      "role": [
-        {
-          "coding": [
-            {
-              "system": "http://snomed.info/sct",
-              "code": "133932002",
-              "display": "Caregiver (person)"
-            }
-          ]
-        }
-      ],
-      "member": {
-        "reference": "RelatedPerson/shaw-niece",
-        "display": "Sarah van Putten"
+      "member" : {
+        "reference" : "Patient/example",
+        "display" : "Amy V. Shaw"
       }
     }
   ]
