@@ -91,9 +91,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
 
-            Assert.Equal(2, patched.Resource?.Entry?.Count);
-            Assert.IsType<Patient>(patched.Resource.Entry[1].Resource);
-            Assert.Equal(AdministrativeGender.Female, ((Patient)patched.Resource.Entry[1].Resource).Gender);
+            // Get the final result of our patch
+            Assert.IsType<Patient>(patched.Resource.Entry.Last().Resource);
+            var patchedPatient = patched.Resource.Entry.Last().Resource as Patient;
+
+            // Check first patch
+            Assert.Equal(AdministrativeGender.Female, patchedPatient.Gender);
+
+            // Check second patch
+            Coding patchedValue = patchedPatient
+                                    .Extension.Single(x => x.Url == "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race")
+                                    .Extension.Single(x => x.Url == "ombCategory")
+                                    .Value as Coding;
+            Coding expectedValue = new Coding(system: "urn:oid:2.16.840.1.113883.6.238", code: "2054-5", display: "Black or African American");
+
+            // The base objects aren't equal so we have to compare the members we care about
+            Assert.Equal(expectedValue.System, patchedValue.System);
+            Assert.Equal(expectedValue.Code, patchedValue.Code);
+            Assert.Equal(expectedValue.Display, patchedValue.Display);
         }
 
         [Fact]
