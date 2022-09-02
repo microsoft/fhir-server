@@ -267,6 +267,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
+            bool success = true;
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
@@ -311,7 +312,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // for the search parameter/reindex updates to propogate to all instances. Hence we are
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
-                bool success = true;
                 await Task.Delay(TimeSpan.FromSeconds(20));
 
                 do
@@ -324,6 +324,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             $"Specimen?{searchParam.Code}={expectedSpecimen.Resource.Id}",
                             Tuple.Create("x-ms-use-partial-indices", "true"),
                             expectedSpecimen.Resource);
+
+                        _output.WriteLine($"Success on {retryCount} of {MaxRetryCount}");
                     }
                     catch (Exception ex)
                     {
@@ -361,7 +363,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             finally
             {
                 // Clean up new SearchParameter
-                await DeleteSearchParameterAndVerify(searchParamPosted?.Resource);
+                if (success)
+                {
+                    await DeleteSearchParameterAndVerify(searchParamPosted?.Resource);
+                }
+                else
+                {
+                    _output.WriteLine($"Test was not successful, check db for search params");
+                }
             }
         }
 
@@ -454,6 +463,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         await ExecuteAndValidateBundle(
                             $"Immunization?{searchParam.Code}={expectedImmunization.Resource.Id}",
                             expectedImmunization.Resource);
+
+                        _output.WriteLine($"Success on {retryCount} of {MaxRetryCount}");
                     }
                     catch (Exception ex)
                     {
@@ -489,7 +500,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 }
                 else
                 {
-                    _output.WriteLine($"Test was not successful, check sql for search params");
+                    _output.WriteLine($"Test was not successful, check db for search params");
                 }
             }
         }
