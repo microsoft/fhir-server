@@ -254,6 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new Specimen
             var specimen = Samples.GetJsonSample<Specimen>("Specimen");
             FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
+            _output.WriteLine($"{nameof(expectedSpecimen)} Response.StatusCode is {expectedSpecimen.Response.StatusCode}");
 
             // POST a second Specimen to show it is filtered and not returned when using the new search parameter
             var specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
@@ -262,13 +263,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new patient
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = randomName } } };
             FhirResponse<Patient> expectedPatient = await Client.CreateAsync(patient);
+            _output.WriteLine($"{nameof(expectedPatient)} Response.StatusCode is {expectedPatient.Response.StatusCode}");
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
-                _output.WriteLine($"SearchParameter is posted {searchParam.Url}");
+                _output.WriteLine($"{nameof(searchParamPosted)} Response.StatusCode is {searchParamPosted.Response.StatusCode} and posted Url is {searchParam.Url}");
 
                 Uri reindexJobUri;
 
@@ -363,7 +365,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact] // [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        [SkippableFact]
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToSameListOfResourceTypes_ThenSearchParametersMarkedFullyIndexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -376,6 +378,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new Specimen
             var specimen = Samples.GetJsonSample<Specimen>("Specimen");
             FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
+            _output.WriteLine($"{nameof(expectedSpecimen)} Response.StatusCode is {expectedSpecimen.Response.StatusCode}");
 
             // POST a second Specimen to show it is filtered and not returned when using the new search parameter
             var specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
@@ -384,13 +387,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new Immunization
             var immunization = Samples.GetJsonSample<Immunization>("Immunization");
             FhirResponse<Immunization> expectedImmunization = await Client.CreateAsync(immunization);
+            _output.WriteLine($"{nameof(expectedImmunization)} Response.StatusCode is {expectedImmunization.Response.StatusCode}");
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
+            bool success = true;
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
-                _output.WriteLine($"SearchParameter Response.StatusCode is {searchParamPosted.Response.StatusCode} and posted Url is {searchParam.Url}");
+                _output.WriteLine($"{nameof(searchParamPosted)} Response.StatusCode is {searchParamPosted.Response.StatusCode} and posted Url is {searchParam.Url}");
 
                 Uri reindexJobUri;
 
@@ -402,7 +407,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 await WaitForReindexStatus(reindexJobUri, "Completed");
 
                 FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                Parameters.ParameterComponent searchParamListParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
+                Parameters.ParameterComponent searchParamListParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
                 Parameters.ParameterComponent targetResourcesParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.TargetResourceTypes);
                 Parameters.ParameterComponent resourcesParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Resources);
 
@@ -410,7 +415,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine("ReindexJobDocument:");
                 var serializer = new FhirJsonSerializer();
                 _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
-                _output.WriteLine(System.Text.Json.JsonSerializer.Serialize(reindexJobResult.Resource.Parameter, new System.Text.Json.JsonSerializerOptions() { WriteIndented = true }));
 
                 Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam?.Value?.ToString());
                 Assert.Contains("Specimen", targetResourcesParam?.Value?.ToString());
@@ -421,24 +425,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Specimen and Immunization only.");
 
                 var floatParse = float.TryParse(
-                    reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == JobRecordProperties.ResourcesSuccessfullyReindexed).Value.ToString(),
+                    reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
                     out float resourcesReindexed);
+
+                _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
+
                 Assert.True(floatParse);
                 Assert.True(resourcesReindexed > 0.0);
-
-                var floatParseTotalResourcesToReindex = float.TryParse(
-                    reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == JobRecordProperties.TotalResourcesToReindex).Value.ToString(),
-                    out float totalResourcesToReindex);
-                Assert.True(floatParseTotalResourcesToReindex);
-                Assert.True(totalResourcesToReindex > 0.0);
-                Assert.True(totalResourcesToReindex == resourcesReindexed);
 
                 // When job complete, search for resources using new parameter
                 // When there are multiple instances of the fhir-server running, it could take some time
                 // for the search parameter/reindex updates to propogate to all instances. Hence we are
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
-                bool success = true;
                 await Task.Delay(TimeSpan.FromSeconds(20));
 
                 do
@@ -484,7 +483,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             finally
             {
                 // Clean up new SearchParameter
-                await DeleteSearchParameterAndVerify(searchParamPosted?.Resource);
+                if (success)
+                {
+                    await DeleteSearchParameterAndVerify(searchParamPosted?.Resource);
+                }
+                else
+                {
+                    _output.WriteLine($"Test was not successful, check sql for search params");
+                }
             }
         }
 
