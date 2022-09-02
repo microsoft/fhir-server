@@ -22,8 +22,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Microsoft.Health.TaskManagement;
-using Newtonsoft.Json;
+using Xunit;
 using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -226,48 +225,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task PreprocessAsync(IProgress<string> progress, ImportOrchestratorJobResult importOrchestratorJobResult, CancellationToken cancellationToken)
+        public async Task PreprocessAsync<T>(IProgress<T> progress, T currentProgress, CancellationToken cancellationToken)
+            where T : IndexRebuildProcess
         {
-            if (importOrchestratorJobResult.IndexProgress == RebuildIndexProgress.DisableIndexCompleted)
+            if (cancellationToken.IsCancellationRequested || (!_importTaskConfiguration.DisableUniqueOptionalIndexesForImport && !_importTaskConfiguration.DisableOptionalIndexesForImport))
             {
                 return;
             }
 
             try
             {
-                OptionalIndexesForImport = IndexesList();
-                OptionalUniqueIndexesForImport = UniqueIndexesList();
-
-                // Not disable index by default
-                if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                if (currentProgress == null)
                 {
-                    List<(string tableName, string indexName)> indexesNeedDisable = new List<(string tableName, string indexName)>();
+                    await InitializeIndexProperties(cancellationToken);
+                    var indexRebuildProcess = new IndexRebuildProcess();
+                    currentProgress = (T)indexRebuildProcess;
+                    currentProgress.IndexRebuildProcessingProgress = IndexRebuildProcessingProgress.IndexPropertiesInitialized;
+                    progress.Report(currentProgress);
 
-                    if (_importTaskConfiguration.DisableOptionalIndexesForImport)
-                    {
-                        indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                    }
-
-                    if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
-                    {
-                        indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                    }
-
-                    foreach (var index in indexesNeedDisable)
-                    {
-                        using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                        using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                        {
-                            VLatest.DisableIndex.PopulateCommand(sqlCommandWrapper, index.tableName, index.indexName);
-                            await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                        }
-                    }
+                    _logger.LogInformation("Initial Table IndexProperties.");
                 }
 
-                importOrchestratorJobResult.IndexProgress = RebuildIndexProgress.DisableIndexCompleted;
-                progress.Report(JsonConvert.SerializeObject(importOrchestratorJobResult));
+                if (currentProgress.IndexRebuildProcessingProgress == IndexRebuildProcessingProgress.IndexPropertiesInitialized)
+                {
+                    OptionalIndexesForImport = IndexesList();
+                    OptionalUniqueIndexesForImport = UniqueIndexesList();
 
-                _logger.LogInformation("Indexes Disabled.");
+                    // Not disable index by default
+                    if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                    {
+                        List<(string tableName, string indexName)> indexesNeedDisable = new List<(string tableName, string indexName)>();
+
+                        if (_importTaskConfiguration.DisableOptionalIndexesForImport)
+                        {
+                            indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                        }
+
+                        if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                        {
+                            indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                        }
+
+                        foreach (var index in indexesNeedDisable)
+                        {
+                            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                            {
+                                VLatest.DisableIndex.PopulateCommand(sqlCommandWrapper, index.tableName, index.indexName);
+                                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                            }
+                        }
+                    }
+
+                    currentProgress.IndexRebuildProcessingProgress = IndexRebuildProcessingProgress.DisableIndexCompleted;
+                    progress.Report(currentProgress);
+
+                    _logger.LogInformation("Indexes Disabled.");
+                }
             }
             catch (Exception ex)
             {
@@ -281,33 +295,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task PostprocessAsync(IProgress<string> progress, ImportOrchestratorJobResult importOrchestratorJobResult, CancellationToken cancellationToken)
+        public async Task PostprocessAsync<T>(IProgress<T> progress, T currentProgress, CancellationToken cancellationToken)
+            where T : IndexRebuildProcess
         {
             try
             {
                 // Not rerebuild index by default
                 if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
                 {
-                    if (importOrchestratorJobResult.IndexProgress == RebuildIndexProgress.DisableIndexCompleted)
-                    {
-                        await InitializeIndexProperties(cancellationToken);
-                        importOrchestratorJobResult.IndexProgress = RebuildIndexProgress.InitialIndexProperties;
-                        progress.Report(JsonConvert.SerializeObject(importOrchestratorJobResult));
-
-                        _logger.LogInformation("Initial Table IndexProperties.");
-                    }
-
-                    if (importOrchestratorJobResult.IndexProgress == RebuildIndexProgress.InitialIndexProperties)
+                    IList<(string tableName, string indexName, string command, int partitionId)> commandsForRebuildIndexes = new List<(string tableName, string indexName, string command, int partitionId)>();
+                    if (currentProgress.IndexRebuildProcessingProgress == IndexRebuildProcessingProgress.DisableIndexCompleted)
                     {
                         await SwitchPartitionsOutAllTables(_importTaskConfiguration.RebuildClustered, cancellationToken);
-                        importOrchestratorJobResult.IndexProgress = RebuildIndexProgress.SwitchOutAllTables;
-                        progress.Report(JsonConvert.SerializeObject(importOrchestratorJobResult));
-
-                        _logger.LogInformation("Execute SwitchPartitionsOutAllTables Coompleted.");
+                        currentProgress.IndexRebuildProcessingProgress = IndexRebuildProcessingProgress.SwitchOutAllTablesCompleted;
+                        progress.Report(currentProgress);
+                        _logger.LogInformation("Switch out all tables Completed.");
                     }
 
-                    IList<RebuildIndex> commandsForRebuildIndexes = new List<RebuildIndex>();
-                    if (importOrchestratorJobResult.IndexProgress == RebuildIndexProgress.SwitchOutAllTables)
+                    if (currentProgress.IndexRebuildProcessingProgress == IndexRebuildProcessingProgress.SwitchOutAllTablesCompleted)
                     {
                         commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(_importTaskConfiguration.RebuildClustered, cancellationToken);
                         if (_importTaskConfiguration.RebuildClustered)
@@ -315,28 +320,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(false, cancellationToken);
                         }
 
-                        importOrchestratorJobResult.IndexProgress = RebuildIndexProgress.GetCommmandsForRebuildIndex;
-                        progress.Report(JsonConvert.SerializeObject(importOrchestratorJobResult));
-
-                        _logger.LogInformation("Get Commands For Rebuild Indexes.");
-                    }
-
-                    if (importOrchestratorJobResult.IndexProgress == RebuildIndexProgress.GetCommmandsForRebuildIndex)
-                    {
-                        await RunCommandForRebuildIndexes(commandsForRebuildIndexes, progress, importOrchestratorJobResult, cancellationToken);
-                        importOrchestratorJobResult.IndexProgress = RebuildIndexProgress.RunCommandForRebuildIndexCompleted;
-                        progress.Report(JsonConvert.SerializeObject(importOrchestratorJobResult));
+                        await RunCommandForRebuildIndexes(commandsForRebuildIndexes, (IProgress<IndexRebuildProcess>)progress, currentProgress, cancellationToken);
+                        currentProgress.IndexRebuildProcessingProgress = IndexRebuildProcessingProgress.IndexRebuildProcessCompleted;
+                        progress.Report(currentProgress);
 
                         _logger.LogInformation("Rebuild Indexes Completed.");
                     }
 
-                    if (importOrchestratorJobResult.IndexProgress == RebuildIndexProgress.RunCommandForRebuildIndexCompleted)
+                    if (currentProgress.IndexRebuildProcessingProgress == IndexRebuildProcessingProgress.IndexRebuildProcessCompleted)
                     {
                         await SwitchPartitionsInAllTables(cancellationToken);
-                        importOrchestratorJobResult.IndexProgress = RebuildIndexProgress.SwitchInAllTables;
-                        progress.Report(JsonConvert.SerializeObject(importOrchestratorJobResult));
+                        currentProgress.IndexRebuildProcessingProgress = IndexRebuildProcessingProgress.OperationCompleted;
+                        progress.Report(currentProgress);
 
-                        _logger.LogInformation("Execute SwitchPartitionsInAllTables Completed.");
+                        _logger.LogInformation("Operation Completed.");
                     }
                 }
             }
@@ -364,9 +361,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<IList<RebuildIndex>> GetCommandsForRebuildIndexes(bool rebuildClustered, CancellationToken cancellationToken)
+        private async Task<IList<(string tableName, string indexName, string command, int partitionId)>> GetCommandsForRebuildIndexes(bool rebuildClustered, CancellationToken cancellationToken)
         {
-            var indexes = new List<RebuildIndex>();
+            var indexes = new List<(string tableName, string indexName, string command, int partitionId)>();
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
@@ -376,114 +373,106 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
                 while (await sqlDataReader.ReadAsync(cancellationToken))
                 {
-                    var table = sqlDataReader.GetString(0);
-                    var ind = sqlDataReader.GetString(1);
-                    var sql = sqlDataReader.GetString(2);
-                    var pid = sqlDataReader.GetInt32(3);
+                    var tableName = sqlDataReader.GetString(0);
+                    var indexName = sqlDataReader.GetString(1);
+                    var command = sqlDataReader.GetString(2);
+                    var partitionId = sqlDataReader.GetInt32(3);
 
-                    indexes.Add(new RebuildIndex()
-                    {
-                        TableName = table,
-                        IndexName = ind,
-                        Command = sql,
-                        Pid = pid,
-                    });
+                    indexes.Add((tableName, indexName, command, partitionId));
                 }
             }
 
             return indexes;
         }
 
-        private async Task RunCommandForRebuildIndexes(IList<RebuildIndex> commands, IProgress<string> progress, ImportOrchestratorJobResult importOrchestratorJobResult, CancellationToken cancellationToken)
+        private async Task RunCommandForRebuildIndexes(IList<(string tableName, string indexName, string command, int partitionId)> commands, IProgress<IndexRebuildProcess> progress, IndexRebuildProcess indexRebuildProcess, CancellationToken cancellationToken)
         {
-            IEnumerable<RebuildIndex> updatestatCommands = commands.Where(index => index.IndexName.Equals("UPDATE STAT", StringComparison.Ordinal));
-            var tasks = new List<Task<(string Ind, int Pid)>>();
-            foreach (var command in updatestatCommands)
+            var updatestatCommands = commands.Where(i => i.indexName.Equals("UPDATE STAT", StringComparison.Ordinal));
+            var tasks = new Queue<Task<(string indexName, int partitionId)>>();
+            var rebuildCommands = commands.Except(updatestatCommands).ToList();
+            try
             {
-                while (tasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                // update stat for all tables before starting rebuild indexes.
+                foreach (var sqlCommand in updatestatCommands)
                 {
-                    await tasks.First();
-                    tasks.RemoveAt(0);
+                    while (tasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                    {
+                        await tasks.First();
+                        _ = tasks.Dequeue();
+                    }
+
+                    tasks.Enqueue(ExecuteSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, sqlCommand.partitionId, cancellationToken));
                 }
 
-                tasks.Add(ExecuteSqlCommand(command, cancellationToken));
-            }
-
-            while (tasks.Count > 0)
-            {
-                await tasks.First();
-                tasks.RemoveAt(0);
-            }
-
-            var rebuildCommands = commands.Except(updatestatCommands).ToList();
-            foreach (var rebuildIndex in rebuildCommands)
-            {
-                while (tasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                while (tasks.Count > 0)
                 {
-                    try
+                    await tasks.First();
+                    _ = tasks.Dequeue();
+                }
+
+                foreach (var sqlCommand in rebuildCommands)
+                {
+                    while (tasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
                     {
                         var result = await tasks.First();
-                        if (importOrchestratorJobResult.AlreadyCompletePartitionIds.ContainsKey(result.Ind))
+                        if (indexRebuildProcess.AlreadyCompletePartitionIds.ContainsKey(result.indexName))
                         {
-                            importOrchestratorJobResult.AlreadyCompletePartitionIds[result.Ind] =
-                                importOrchestratorJobResult.AlreadyCompletePartitionIds[result.Ind] > result.Pid ? importOrchestratorJobResult.AlreadyCompletePartitionIds[result.Ind] : result.Pid;
+                            Assert.True(indexRebuildProcess.AlreadyCompletePartitionIds[result.indexName] < result.partitionId);
+                            indexRebuildProcess.AlreadyCompletePartitionIds[result.indexName] = result.partitionId;
                         }
                         else
                         {
-                            importOrchestratorJobResult.AlreadyCompletePartitionIds.Add(result.Ind, result.Pid);
+                            indexRebuildProcess.AlreadyCompletePartitionIds.Add(result.indexName, result.partitionId);
                         }
 
-                        progress.Report(JsonConvert.SerializeObject(importOrchestratorJobResult));
-                        tasks.RemoveAt(0);
+                        progress.Report(indexRebuildProcess);
+                        _ = tasks.Dequeue();
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Job failed to execute");
-                    }
-                }
 
-                if (importOrchestratorJobResult.AlreadyCompletePartitionIds.ContainsKey(rebuildIndex.IndexName))
-                {
-                    if (importOrchestratorJobResult.AlreadyCompletePartitionIds[rebuildIndex.IndexName] < rebuildIndex.Pid)
+                    if (indexRebuildProcess.AlreadyCompletePartitionIds.ContainsKey(sqlCommand.indexName))
                     {
-                        tasks.Add(ExecuteSqlCommand(rebuildIndex, cancellationToken));
-                    }
-                }
-                else
-                {
-                    tasks.Add(ExecuteSqlCommand(rebuildIndex, cancellationToken));
-                }
-            }
-
-            try
-            {
-                while (tasks.Count > 0)
-                {
-                    var result = await tasks.First();
-                    if (importOrchestratorJobResult.AlreadyCompletePartitionIds.ContainsKey(result.Ind))
-                    {
-                        importOrchestratorJobResult.AlreadyCompletePartitionIds[result.Ind] =
-                            importOrchestratorJobResult.AlreadyCompletePartitionIds[result.Ind] > result.Pid ? importOrchestratorJobResult.AlreadyCompletePartitionIds[result.Ind] : result.Pid;
+                        if (indexRebuildProcess.AlreadyCompletePartitionIds[sqlCommand.indexName] < sqlCommand.partitionId)
+                        {
+                            tasks.Enqueue(ExecuteSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, sqlCommand.partitionId, cancellationToken));
+                        }
                     }
                     else
                     {
-                        importOrchestratorJobResult.AlreadyCompletePartitionIds.Add(result.Ind, result.Pid);
+                        tasks.Enqueue(ExecuteSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, sqlCommand.partitionId, cancellationToken));
+                    }
+                }
+
+                while (tasks.Count > 0)
+                {
+                    var result = await tasks.First();
+                    if (indexRebuildProcess.AlreadyCompletePartitionIds.ContainsKey(result.indexName))
+                    {
+                        Assert.True(indexRebuildProcess.AlreadyCompletePartitionIds[result.indexName] < result.partitionId);
+                        indexRebuildProcess.AlreadyCompletePartitionIds[result.indexName] = result.partitionId;
+                    }
+                    else
+                    {
+                        indexRebuildProcess.AlreadyCompletePartitionIds.Add(result.indexName, result.partitionId);
                     }
 
-                    progress.Report(JsonConvert.SerializeObject(importOrchestratorJobResult));
-                    tasks.RemoveAt(0);
+                    progress.Report(indexRebuildProcess);
+                    _ = tasks.Dequeue();
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job failed to execute");
+                _logger.LogError(ex, "Failed to rebuild indexes");
+                if (ex.IsRetryable())
+                {
+                    throw new RetriableJobException(ex.Message, ex);
+                }
+
+                throw;
             }
         }
 
-        private async Task<(string Ind, int Pid)> ExecuteSqlCommand(RebuildIndex rebuildIndex, CancellationToken cancellationToken)
+        private async Task<(string indexName, int partitionId)> ExecuteSqlCommand(string tableName, string indexName, string command, int partitionId, CancellationToken cancellationToken)
         {
-            var indexName = rebuildIndex.IndexName;
-            var pid = rebuildIndex.Pid;
             try
             {
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -491,23 +480,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
-                    VLatest.ExecuteCommandForRebuildIndexes.PopulateCommand(sqlCommandWrapper, rebuildIndex.TableName, rebuildIndex.IndexName, rebuildIndex.Command, rebuildIndex.Pid);
+                    VLatest.ExecuteCommandForRebuildIndexes.PopulateCommand(sqlCommandWrapper, tableName, indexName, command, partitionId);
                     using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         indexName = sqlDataReader.GetString(0);
-                        pid = sqlDataReader.GetInt32(1);
+                        partitionId = sqlDataReader.GetInt32(1);
                     }
                 }
 
-                await Task.Delay(10000, cancellationToken);
+                await Task.Delay(1000, cancellationToken);
             }
             catch (SqlException)
             {
                 throw;
             }
 
-            return (indexName, pid);
+            return (indexName, partitionId);
         }
 
         private async Task SwitchPartitionsOutAllTables(bool rebuildClustered, CancellationToken cancellationToken)
@@ -531,20 +520,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 VLatest.SwitchPartitionsInAllTables.PopulateCommand(sqlCommandWrapper);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-            }
-        }
-
-        private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, bool pageCompression, CancellationToken cancellationToken)
-        {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
-
-                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
-                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                return (tableName, indexName);
             }
         }
 

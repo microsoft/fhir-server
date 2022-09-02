@@ -56,13 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportOrchestratorJobProgress Progress { get; set; }
 
         /// <summary>
-        /// Rebuild index progress.
+        /// Index rebuild process
         /// </summary>
-        public RebuildIndexProgress IndexProgress { get; set; }
-
-        /// <summary>
-        /// Record the biggest partition id for each index.
-        /// </summary>
-        public Dictionary<string, int> AlreadyCompletePartitionIds { get; } = new Dictionary<string, int>();
+        public IndexRebuildProcess IndexRebuildProcess { get; set; }
     }
 }

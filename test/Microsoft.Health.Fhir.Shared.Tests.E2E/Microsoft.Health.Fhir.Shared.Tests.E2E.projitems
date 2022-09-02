@@ -33,6 +33,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportLongRunningTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestFixture.cs" />

@@ -24,4 +24,7 @@
   </ItemGroup>
   <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Integration\Microsoft.Health.Fhir.Shared.Tests.Integration.projitems" Label="Shared" />
+  <ItemGroup>
+    <Compile Remove="C:\Users\chengchen2\source\repos2\test\Microsoft.Health.Fhir.Shared.Tests.Integration\Features\Operations\Import\SqlServerProcessOperationTests.cs" />
+  </ItemGroup>
 </Project>

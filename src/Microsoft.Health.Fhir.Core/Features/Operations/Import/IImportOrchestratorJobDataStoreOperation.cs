@@ -15,16 +15,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Pre-process before import operation.
         /// </summary>
         /// <param name="progress">IProgress</param>
-        /// <param name="importOrchestratorJobResult">ImportOrchestratorJobResult</param>
+        /// <param name="currentProgress">currentProgress</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task PreprocessAsync(IProgress<string> progress, ImportOrchestratorJobResult importOrchestratorJobResult, CancellationToken cancellationToken);
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1618:Generic type parameters should be documented", Justification = "<Pending>")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1404:Code analysis suppression should have justification", Justification = "<Pending>")]
+        public Task PreprocessAsync<T>(IProgress<T> progress, T currentProgress, CancellationToken cancellationToken)
+            where T : IndexRebuildProcess;
 
         /// <summary>
         /// Post-process after import operation.
         /// </summary>
         /// <param name="progress">IProgress</param>
-        /// <param name="importOrchestratorJobResult">ImportOrchestratorJobResult</param>
+        /// <param name="currentProgress">currentProgress</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task PostprocessAsync(IProgress<string> progress, ImportOrchestratorJobResult importOrchestratorJobResult, CancellationToken cancellationToken);
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1618:Generic type parameters should be documented", Justification = "<Pending>")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1404:Code analysis suppression should have justification", Justification = "<Pending>")]
+        public Task PostprocessAsync<T>(IProgress<T> progress, T currentProgress, CancellationToken cancellationToken)
+            where T : IndexRebuildProcess;
     }
 }

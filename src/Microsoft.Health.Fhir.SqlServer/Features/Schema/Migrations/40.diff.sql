@@ -1,9 +1,10 @@
-﻿CREATE OR ALTER   PROCEDURE [dbo].[GetIndexCommands]
+﻿GO
+CREATE OR ALTER PROCEDURE [dbo].[GetIndexCommands]
 @Tbl VARCHAR (100), @Ind VARCHAR (200), @AddPartClause BIT, @IncludeClustered BIT, @Txt VARCHAR (MAX)=NULL OUTPUT
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetIndexCommands', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' Ind=' + isnull(@Ind, 'NULL'), @st AS DATETIME = getUTCdate();
+DECLARE @SP AS VARCHAR (100) = 'GetIndexCommands', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' Ind=' + isnull(@Ind, 'NULL'), @st AS DATETIME = getUTCdate(), @DataComp AS VARCHAR (100), @FilterDef AS VARCHAR (200), @CommandForKey AS VARCHAR (200), @CommandForInc AS VARCHAR (200), @TblId AS INT, @IndId AS INT, @colname AS VARCHAR (100), @PartClause AS VARCHAR (100);
 DECLARE @KeyColsTable TABLE (
     KeyCol VARCHAR (200));
 DECLARE @IncColsTable TABLE (
@@ -11,9 +12,6 @@ DECLARE @IncColsTable TABLE (
 DECLARE @Table_index TABLE (
     object_id INT,
     index_id  INT);
-DECLARE @DataComp AS VARCHAR (100);
-DECLARE @FilterDef AS VARCHAR (200), @CommandForKey AS VARCHAR (200), @CommandForInc AS VARCHAR (200), @TblId AS INT, @IndId AS INT, @colname AS VARCHAR (100);
-DECLARE @PartClause AS VARCHAR (100);
 DECLARE @Indexes TABLE (
     Ind VARCHAR (200) PRIMARY KEY,
     Txt VARCHAR (MAX));
@@ -94,7 +92,7 @@ BEGIN TRY
                                     WHERE  P.object_id = @TblId
                                            AND P.index_id = @IndId), (SELECT TOP 1 NULLIF (PropertyValue, 'NONE')
                                                                       FROM   dbo.IndexProperties, sys.objects AS O, sys.indexes AS I
-                                                                      WHERE  TableN = O.Name
+                                                                      WHERE  IndexTableName = O.Name
                                                                              AND IndexName = I.Name
                                                                              AND O.name = @Tbl
                                                                              AND I.name = @Ind
@@ -140,10 +138,12 @@ BEGIN CATCH
     THROW;
 END CATCH
 
+
+
 GO
-CREATE OR ALTER   PROCEDURE [dbo].[ExecuteCommandForRebuildIndexes]
-@Tbl VARCHAR (100), @Ind VARCHAR (100), @Cmd VARCHAR (MAX), @Pid INT
-WITH EXECUTE AS 'dbo'
+CREATE OR ALTER PROCEDURE [dbo].[ExecuteCommandForRebuildIndexes]
+@Tbl VARCHAR (100), @Ind VARCHAR (1000), @Cmd VARCHAR (MAX), @Pid INT
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'ExecuteCommandForRebuildIndexes', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL'), @st AS DATETIME, @Retries AS INT = 0, @Action AS VARCHAR (100), @msg AS VARCHAR (1000);
@@ -155,7 +155,7 @@ BEGIN TRY
         RAISERROR ('@Tbl IS NULL', 18, 127);
     IF @Cmd IS NULL
         RAISERROR ('@Cmd IS NULL', 18, 127);
-    SET @Action = CASE WHEN @Cmd LIKE 'UPDATE STAT%' THEN 'Update statistics' WHEN @Cmd LIKE 'CREATE%INDEX%' THEN 'Create Index' WHEN @Cmd LIKE 'ALTER%INDEX%REBUILD' THEN 'Rebuild Index' WHEN @Cmd LIKE 'ALTER%TABLE%ADD%' THEN 'Add Constraint' END;
+    SET @Action = CASE WHEN @Cmd LIKE 'UPDATE STAT%' THEN 'Update statistics' WHEN @Cmd LIKE 'CREATE%INDEX%' THEN 'Create Index' WHEN @Cmd LIKE 'ALTER%INDEX%REBUILD%' THEN 'Rebuild Index' WHEN @Cmd LIKE 'ALTER%TABLE%ADD%' THEN 'Add Constraint' END;
     IF @Action IS NULL
         BEGIN
             SET @msg = 'Not supported command = ' + CONVERT (VARCHAR (900), @Cmd);
@@ -185,13 +185,14 @@ BEGIN CATCH
     THROW;
 END CATCH
 
+
 GO
-CREATE OR ALTER   PROCEDURE [dbo].[GetCommandsForRebuildIndexes]
+CREATE OR ALTER PROCEDURE [dbo].[GetCommandsForRebuildIndexes]
 @RebuildClustered BIT
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetCommandsForRebuildIndexes', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId RC=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @Tbl AS VARCHAR (100), @TblInt AS VARCHAR (100), @Ind AS VARCHAR (200), @IndId AS INT, @Supported AS BIT, @Txt AS VARCHAR (MAX), @Rows AS BIGINT, @Pages AS BIGINT, @ResourceTypeId AS SMALLINT, @IndexesCnt AS INT;
+DECLARE @SP AS VARCHAR (100) = 'GetCommandsForRebuildIndexes', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId RC=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @Tbl AS VARCHAR (100), @TblInt AS VARCHAR (100), @Ind AS VARCHAR (200), @IndId AS INT, @Supported AS BIT, @Txt AS VARCHAR (MAX), @Rows AS BIGINT, @Pages AS BIGINT, @ResourceTypeId AS SMALLINT, @IndexesCnt AS INT, @DataComp AS VARCHAR (100);
 BEGIN TRY
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
     DECLARE @Commands TABLE (
@@ -223,7 +224,10 @@ BEGIN TRY
                     INSERT INTO @Commands
                     SELECT @Tbl,
                            name,
-                           'ALTER INDEX ' + name + ' ON dbo.' + @Tbl + ' REBUILD',
+                           'ALTER INDEX ' + name + ' ON dbo.' + @Tbl + ' REBUILD' + CASE WHEN (SELECT PropertyValue
+                                                                                               FROM   dbo.IndexProperties
+                                                                                               WHERE  IndexTableName = @Tbl
+                                                                                                      AND IndexName = name) = 'PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END,
                            0,
                            CONVERT (BIGINT, 9e18)
                     FROM   sys.indexes
@@ -274,7 +278,10 @@ BEGIN TRY
                                     ORDER BY Ind;
                                     IF @IndId = 1
                                         BEGIN
-                                            SET @Txt = 'ALTER INDEX ' + @Ind + ' ON dbo.' + @TblInt + ' REBUILD';
+                                            SET @Txt = 'ALTER INDEX ' + @Ind + ' ON dbo.' + @TblInt + ' REBUILD' + CASE WHEN (SELECT PropertyValue
+                                                                                                                              FROM   dbo.IndexProperties
+                                                                                                                              WHERE  IndexTableName = @Tbl
+                                                                                                                                     AND IndexName = @Ind) = 'PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END;
                                             INSERT INTO @Commands
                                             SELECT @TblInt,
                                                    @Ind,
@@ -340,9 +347,9 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE OR ALTER   PROCEDURE [dbo].[GetPartitionedTables]
+CREATE OR ALTER PROCEDURE [dbo].[GetPartitionedTables]
 @IncludeNotDisabled BIT, @IncludeNotSupported BIT
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'GetPartitionedTables', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId D=' + isnull(CONVERT (VARCHAR, @IncludeNotDisabled), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @IncludeNotSupported), 'NULL'), @st AS DATETIME = getUTCdate();
@@ -419,13 +426,14 @@ BEGIN CATCH
     THROW;
 END CATCH
 
+
 GO
-CREATE OR ALTER   PROCEDURE [dbo].[SwitchPartitionsIn]
+CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsIn]
 @Tbl VARCHAR (100)
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsIn', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL'), @st AS DATETIME = getUTCdate(), @ResourceTypeId AS SMALLINT, @Rows AS BIGINT, @Txt AS VARCHAR (1000), @TblInt AS VARCHAR (100), @Ind AS VARCHAR (200), @IndId AS INT;
+DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsIn', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL'), @st AS DATETIME = getUTCdate(), @ResourceTypeId AS SMALLINT, @Rows AS BIGINT, @Txt AS VARCHAR (1000), @TblInt AS VARCHAR (100), @Ind AS VARCHAR (200), @IndId AS INT, @DataComp AS VARCHAR (100);
 DECLARE @Indexes TABLE (
     IndId INT           PRIMARY KEY,
     name  VARCHAR (200));
@@ -449,7 +457,11 @@ BEGIN TRY
                            @Ind = name
             FROM     @Indexes
             ORDER BY IndId;
-            SET @Txt = 'IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''' + @Tbl + ''') AND name = ''' + @Ind + ''' AND is_disabled = 1) ALTER INDEX ' + @Ind + ' ON dbo.' + @Tbl + ' REBUILD';
+            SET @DataComp = CASE WHEN (SELECT PropertyValue
+                                       FROM   dbo.IndexProperties
+                                       WHERE  IndexTableName = @Tbl
+                                              AND IndexName = @Ind) = 'PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END;
+            SET @Txt = 'IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''' + @Tbl + ''') AND name = ''' + @Ind + ''' AND is_disabled = 1) ALTER INDEX ' + @Ind + ' ON dbo.' + @Tbl + ' REBUILD' + @DataComp;
             EXECUTE (@Txt);
             EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @Ind, @Action = 'Rebuild', @Text = @Txt;
             DELETE @Indexes
@@ -499,8 +511,8 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE OR ALTER   PROCEDURE [dbo].[SwitchPartitionsInAllTables]
-WITH EXECUTE AS 'dbo'
+CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsInAllTables]
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsInAllTables', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId', @st AS DATETIME = getUTCdate(), @Tbl AS VARCHAR (100);
@@ -533,12 +545,12 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE OR ALTER   PROCEDURE [dbo].[SwitchPartitionsOut]
+CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsOut]
 @Tbl VARCHAR (100), @RebuildClustered BIT
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsOut', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' ND=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @ResourceTypeId AS SMALLINT, @Rows AS BIGINT, @Txt AS VARCHAR (MAX), @TblInt AS VARCHAR (100), @IndId AS INT, @Ind AS VARCHAR (200), @Name AS VARCHAR (100), @checkName AS VARCHAR (200), @colName AS VARCHAR (200), @definition AS VARCHAR (200);
+DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsOut', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' ND=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @ResourceTypeId AS SMALLINT, @Rows AS BIGINT, @Txt AS VARCHAR (MAX), @TblInt AS VARCHAR (100), @IndId AS INT, @Ind AS VARCHAR (200), @Name AS VARCHAR (100), @checkName AS VARCHAR (200), @definition AS VARCHAR (200);
 DECLARE @Indexes TABLE (
     IndId      INT           PRIMARY KEY,
     name       VARCHAR (200),
@@ -620,7 +632,7 @@ BEGIN TRY
                             SELECT TOP 1 @checkName = CheckName,
                                          @definition = CheckDefinition
                             FROM   @CheckConstraints;
-                            SET @Txt = 'ALTER TABLE ' + @TblInt + ' ADD CONSTRAINT ' + @checkName + '_' + CONVERT (VARCHAR, @ResourceTypeId) + ' CHECK ' + @definition;
+                            SET @Txt = 'ALTER TABLE ' + @TblInt + ' ADD CONSTRAINT ' + @checkName + CONVERT (VARCHAR, @ResourceTypeId) + ' CHECK ' + @definition;
                             EXECUTE (@Txt);
                             EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'ALTER', @Text = @Txt;
                             DELETE @CheckConstraints
@@ -694,10 +706,11 @@ BEGIN CATCH
     THROW;
 END CATCH
 
+
 GO
-CREATE OR ALTER   PROCEDURE [dbo].[SwitchPartitionsOutAllTables]
+CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsOutAllTables]
 @RebuildClustered BIT
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsOutAllTables', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId ND=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @Tbl AS VARCHAR (100);
@@ -734,44 +747,124 @@ IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'IndexProperties')
 BEGIN
     CREATE TABLE dbo.IndexProperties
     (
-     TableN     varchar(100)     NOT NULL
+     IndexTableName     varchar(100)     NOT NULL
     ,IndexName     varchar(200)     NOT NULL
     ,PropertyName  varchar(100)     NOT NULL
     ,PropertyValue varchar(100)     NOT NULL
     ,CreateDate    datetime         NOT NULL CONSTRAINT DF_IndexProperties_CreateDate DEFAULT getUTCdate()
     
-     CONSTRAINT PKC_IndexProperties_TableName_IndexName_PropertyName PRIMARY KEY CLUSTERED (TableN, IndexName, PropertyName)
+     CONSTRAINT PKC_IndexProperties_TableName_IndexName_PropertyName PRIMARY KEY CLUSTERED (IndexTableName, IndexName, PropertyName)
     )
     ON [PRIMARY]
 END
 GO
 
 GO
-CREATE OR ALTER   PROCEDURE [dbo].[InitializeIndexProperties]
-WITH EXECUTE AS 'dbo'
+CREATE OR ALTER PROCEDURE [dbo].[InitializeIndexProperties]
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
-INSERT INTO dbo.IndexProperties (TableN, IndexName, PropertyName, PropertyValue)
-SELECT Tbl,
-       Ind,
-       'DATA_COMPRESSION',
-       isnull(data_comp, 'NONE')
-FROM   (SELECT O.Name AS Tbl,
-               I.Name AS Ind,
-               (SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END
-                FROM   sys.partitions AS P
-                WHERE  P.object_id = I.object_id
-                       AND I.index_id = P.index_id) AS data_comp
-        FROM   sys.indexes AS I
-               INNER JOIN
-               sys.objects AS O
-               ON O.object_id = I.object_id
-        WHERE  O.type = 'u'
-               AND EXISTS (SELECT *
-                           FROM   sys.partition_schemes AS PS
-                           WHERE  PS.data_space_id = I.data_space_id
-                                  AND name = 'PartitionScheme_ResourceTypeId')) AS A
-WHERE  NOT EXISTS (SELECT *
-                   FROM   dbo.IndexProperties
-                   WHERE  TableN = Tbl
-                          AND IndexName = Ind);
+BEGIN
+    INSERT INTO dbo.IndexProperties (IndexTableName, IndexName, PropertyName, PropertyValue)
+    SELECT Tbl,
+           Ind,
+           'DATA_COMPRESSION',
+           isnull(data_comp, 'NONE')
+    FROM   (SELECT O.Name AS Tbl,
+                   I.Name AS Ind,
+                   (SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END
+                    FROM   sys.partitions AS P
+                    WHERE  P.object_id = I.object_id
+                           AND I.index_id = P.index_id) AS data_comp
+            FROM   sys.indexes AS I
+                   INNER JOIN
+                   sys.objects AS O
+                   ON O.object_id = I.object_id
+            WHERE  O.type = 'u'
+                   AND EXISTS (SELECT *
+                               FROM   sys.partition_schemes AS PS
+                               WHERE  PS.data_space_id = I.data_space_id
+                                      AND name = 'PartitionScheme_ResourceTypeId')) AS A
+    WHERE  NOT EXISTS (SELECT *
+                       FROM   dbo.IndexProperties
+                       WHERE  IndexTableName = Tbl
+                              AND IndexName = Ind);
+END
+GO
+CREATE OR ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit, @IsCompleted bit = NULL
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'EnqueueJobs'
+       ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
+                           +' D='+convert(varchar,(SELECT count(*) FROM @Definitions))
+                           +' G='+isnull(convert(varchar,@GroupId),'NULL')
+                           +' F='+isnull(convert(varchar,@ForceOneActiveJobGroup),'NULL')
+                           +' C='+isnull(convert(varchar,@IsCompleted),'NULL')
+       ,@st datetime = getUTCdate()
+       ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
+       ,@MaxJobId bigint
+       ,@Rows int
+       ,@msg varchar(1000)
+       ,@JobIds BigintList
+       ,@InputRows int
+
+BEGIN TRY
+  DECLARE @Input TABLE (DefinitionHash varbinary(20) PRIMARY KEY, Definition varchar(max))
+  INSERT INTO @Input SELECT DefinitionHash = hashbytes('SHA1',String), Definition = String FROM @Definitions
+  SET @InputRows = @@rowcount
+
+  INSERT INTO @JobIds
+    SELECT JobId
+      FROM @Input A
+           JOIN dbo.JobQueue B ON B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5
+  
+  IF @@rowcount < @InputRows
+  BEGIN
+    BEGIN TRANSACTION  
+
+    EXECUTE sp_getapplock @Lock, 'Exclusive'
+
+    IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
+      RAISERROR('There are other active job groups',18,127)
+
+    SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+  
+    INSERT INTO dbo.JobQueue
+        (
+             QueueType
+            ,GroupId
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+            ,Status
+        )
+      OUTPUT inserted.JobId INTO @JobIds
+      SELECT @QueueType
+            ,GroupId = isnull(@GroupId,@MaxJobId+1)
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+            ,Status = CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END
+        FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY Dummy), * FROM (SELECT *, Dummy = 0 FROM @Input) A) A -- preserve input order
+        WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
+    SET @Rows = @@rowcount
+
+    COMMIT TRANSACTION
+  END
+
+  EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+--DECLARE @Definitions StringList
+--INSERT INTO @Definitions SELECT 'Test'
+--EXECUTE dbo.EnqueueJobs 2, @Definitions, @ForceOneActiveJobGroup = 1
+
+IF EXISTS(SELECT * FROM sys.objects WHERE name='EventLog') ALTER TABLE eventlog ALTER COLUMN Mode varchar(200) null;
