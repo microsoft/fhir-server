@@ -83,3 +83,22 @@ steps:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
+
+  - task: CopyFiles@2
+    displayName: 'copy symbols'
+    inputs:
+      sourceFolder: '$(build.sourcesDirectory)'
+      contents: |
+        **/*.pdb
+        !**/*.UnitTests.pdb
+      targetFolder: '$(build.artifactStagingDirectory)/symbols'
+      cleanTargetFolder: true
+      flattenFolders: true
+      overWrite: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish symbol artifacts'
+    inputs:
+      pathtoPublish: '$(build.artifactStagingDirectory)/symbols'
+      artifactName: 'symbols'
+      publishLocation: 'container'

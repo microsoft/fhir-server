@@ -13,7 +13,7 @@
     <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
+    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.47027.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(AspNetPackageVersion)" />
     <PackageReference Include="xunit.assert" Version="2.4.2" />
@@ -38,10 +38,6 @@
     <TSqlScript Include="Features\Schema\Sql\Scripts\Sequences.sql" />
     <TSqlScript Include="Features\Schema\Sql\Types\*.sql" />
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="Features\Schema\Migrations\39.diff.sql" />
   </ItemGroup>
 
   <ItemGroup>
