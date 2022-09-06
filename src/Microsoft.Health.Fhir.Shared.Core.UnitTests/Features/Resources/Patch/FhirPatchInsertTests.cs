@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("No content found at Patient.nothing when processing patch insert operation.", exception.Message);
+            Assert.Contains("No content found at Patient.nothing", exception.Message);
         }
 
         // Not a defined test case, but the path will not resolve and thus a exception is expected.
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("No content found at Patient.identifier when processing patch insert operation.", exception.Message);
+            Assert.Contains("No content found at Patient.identifier", exception.Message);
         }
 
         // Not a defined test case, but the path will not resolve and thus a exception is expected.
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Multiple matches found at Patient.contact.name.given when processing patch insert operation.", exception.Message);
+            Assert.Contains("Multiple matches found at Patient.contact.name.given", exception.Message);
         }
 
         // Not an official test case, but testing index out of range.
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Index 2 out of bounds when processing patch insert operation.", exception.Message);
+            Assert.Contains("Index 2 out of bounds", exception.Message);
         }
 
         // Not an official test case, but testing index out of range.
@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Index -1 out of bounds when processing patch insert operation.", exception.Message);
+            Assert.Contains("Index -1 out of bounds", exception.Message);
         }
     }
 }

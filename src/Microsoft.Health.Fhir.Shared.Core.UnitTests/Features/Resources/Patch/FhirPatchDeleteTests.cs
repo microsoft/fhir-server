@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             };
 
             var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
-            Assert.Equal("Multiple matches found for Patient.identifier when processing patch delete operation.", exception.Message);
+            Assert.Contains("Multiple matches found", exception.Message);
         }
 
         // Not an official test case, but any delete operation on a path that doesn't resolve should return orig resource.

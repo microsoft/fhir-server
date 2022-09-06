@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var patchOperation = new FhirPathPatchBuilder(new Patient(), patchParam);
             var exception = Assert.Throws<InvalidOperationException>(patchOperation.Apply);
-            Assert.Equal("No content found at Patient.none when processing patch replace operation.", exception.Message);
+            Assert.Contains("No content found at Patient.none", exception.Message);
         }
 
         // Not an official test case, but path for replace operations must return a single element
@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             };
 
             var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
-            Assert.Equal("Multiple matches found at Patient.identifier.period.start when processing patch replace operation.", exception.Message);
+            Assert.Contains("Multiple matches found at Patient.identifier.period.start", exception.Message);
         }
     }
 }

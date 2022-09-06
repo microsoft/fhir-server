@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
     /// <summary>
-    /// Abstract representation of a basic operational resource.
+    /// Base abstract class for shared logic for FHIRPath Patch operations
     /// </summary>
     internal abstract class OperationBase
     {
@@ -22,26 +22,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         /// Initializes a new instance of the <see cref="OperationBase"/> class.
         /// </summary>
         /// <param name="resource">FHIR Resource for this operation.</param>
-        /// <param name="po">Operation request.</param>
-        internal OperationBase(Resource resource, PendingOperation po)
+        /// <param name="po">Pending operation object for the patch request.</param>
+        /// <param name="provider">Provider for model information needed for resource manipulation.</param>
+        internal OperationBase(Resource resource, PendingOperation po, IStructureDefinitionSummaryProvider provider = null)
         {
             ResourceElement = resource.ToElementNode();
             Operation = po;
+            Provider = provider ?? ModelInfoProvider.Instance.StructureDefinitionSummaryProvider;
         }
 
-        // Gets the element node representation of the patch operation resource
+        /// <summary>
+        /// Gets the element node representation of the patch operation target resource.
+        /// </summary>
         internal ElementNode ResourceElement { get; }
 
-        // Gets the operation object representing the patch request.
+        /// <summary>
+        /// Gets the operation object representing the patch request.
+        /// </summary>
         internal PendingOperation Operation { get; }
 
-        // Gets the FHIR Provider used in manipulating ElementNodes.
-        internal static IStructureDefinitionSummaryProvider Provider =>
-            ModelInfoProvider.Instance.StructureDefinitionSummaryProvider;
+        /// <summary>
+        /// Pointer to the FHIR definition provider in the ModelInfoProvider static class
+        /// </summary>
+        internal IStructureDefinitionSummaryProvider Provider { get; }
 
+        /// <summary>
+        /// Target node to apply the patch operation.
+        /// </summary>
         internal ElementNode Target { get; set; }
 
-        // Gets the value of the patch operation as an ElementNode.
+        /// <summary>
+        /// Gets the value of the patch operation value parameter as an ElementNode.
+        /// </summary>
         internal virtual ElementNode ValueElementNode
         {
             get

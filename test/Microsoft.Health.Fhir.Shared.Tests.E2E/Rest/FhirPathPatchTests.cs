@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             var responseObject = exception.Response.ToT();
-            Assert.Equal("Patching immutable properties is not allowed.", responseObject.Issue[0].Diagnostics);
+            Assert.Contains("immutable", responseObject.Issue[0].Diagnostics);
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             var responseObject = exception.Response.ToT();
-            Assert.Equal("Existing element deceased found at Patient when processing patch add operation.", responseObject.Issue[0].Diagnostics);
+            Assert.Contains("Existing element deceased found", responseObject.Issue[0].Diagnostics);
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
@@ -334,7 +334,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             var responseObject = exception.Response.ToT();
-            Assert.Equal("Element value not found at Patient when processing patch add operation.", responseObject.Issue[0].Diagnostics);
+            Assert.Contains("not found at Patient", responseObject.Issue[0].Diagnostics);
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 

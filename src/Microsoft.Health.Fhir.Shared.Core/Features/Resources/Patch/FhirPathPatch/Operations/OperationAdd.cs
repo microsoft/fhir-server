@@ -22,7 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         {
         }
 
-        // Gets the value of the patch operation as an ElementNode.
+        /// <summary>
+        /// Gets the value of the patch operation as an ElementNode.
+        /// </summary>
         internal override ElementNode ValueElementNode =>
             Operation.Value.GetElementNodeFromPart(Target.Definition.GetChildMapping(Operation.Name));
 
