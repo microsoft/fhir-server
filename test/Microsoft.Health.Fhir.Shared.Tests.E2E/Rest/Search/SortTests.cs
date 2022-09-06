@@ -927,13 +927,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return await Client.CreateResourcesAsync<Observation>(
                 o => SetObservationInfo(o, observationDate, tag, patient));
         }
-
-        private async Task<Organization> CreateOrganization()
-        {
-            var resource = Samples.GetJsonSample<Organization>("Organization");
-            resource.Name = "MSFT";
-            using FhirResponse<Organization> response = await Client.CreateAsync(resource);
-            return response;
-        }
     }
 }
