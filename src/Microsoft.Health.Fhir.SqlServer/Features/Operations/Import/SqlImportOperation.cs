@@ -350,16 +350,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     while (tasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
                     {
-                        var result = await tasks.First();
+                        await tasks.First();
                         _ = tasks.Dequeue();
                     }
 
-                    tasks.Enqueue(ExecuteSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, cancellationToken));
+                    tasks.Enqueue(ExecuteSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, CancellationToken.None));
                 }
 
                 while (tasks.Count > 0)
                 {
-                    var result = await tasks.First();
+                    await tasks.First();
                     _ = tasks.Dequeue();
                 }
             }
