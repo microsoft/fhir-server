@@ -21,6 +21,9 @@ BEGIN
   WHERE NOT EXISTS (SELECT *
                   FROM   dbo.IndexProperties
                   WHERE  IndexTableName = Tbl
-                    AND IndexName = Ind);
+                    AND IndexName = Ind) 
+    AND NOT EXISTS (SELECT * 
+                   FROM sys.indexes 
+                   WHERE name = Ind AND object_id=object_id(Tbl) AND is_disabled = 1);
 END
 GO

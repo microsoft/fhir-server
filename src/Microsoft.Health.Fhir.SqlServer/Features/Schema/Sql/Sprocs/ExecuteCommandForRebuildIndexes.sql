@@ -1,6 +1,6 @@
 ﻿--IF object_id('ExecuteCommandForRebuildIndexes') IS NOT NULL DROP PROCEDURE dbo.ExecuteCommandForRebuildIndexes
 GO
-CREATE PROCEDURE dbo.ExecuteCommandForRebuildIndexes @Tbl varchar(100), @Ind varchar(1000), @Cmd varchar(max), @Pid int
+CREATE PROCEDURE dbo.ExecuteCommandForRebuildIndexes @Tbl varchar(100), @Ind varchar(1000), @Cmd varchar(max)
 WITH EXECUTE AS SELF
 AS
 set nocount on
@@ -36,8 +36,7 @@ BEGIN TRY
   IF @Action = 'Create Index' WAITFOR DELAY '00:00:05'
 
   EXECUTE(@Cmd)
-  SELECT @Ind,
-         @Pid;
+  SELECT @Ind;
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Action=@Action,@Status='End',@Start=@st,@Text=@Cmd
 END TRY

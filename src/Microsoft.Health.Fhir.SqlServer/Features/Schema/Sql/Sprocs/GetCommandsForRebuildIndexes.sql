@@ -22,7 +22,7 @@ DECLARE @SP varchar(100) = 'GetCommandsForRebuildIndexes'
 BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
 
-  DECLARE @Commands TABLE (Tbl varchar(100), Ind varchar(200), Txt varchar(max), Pid int, Pages bigint)
+  DECLARE @Commands TABLE (Tbl varchar(100), Ind varchar(200), Txt varchar(max), Pages bigint)
   DECLARE @ResourceTypes TABLE (ResourceTypeId smallint PRIMARY KEY)
   DECLARE @Indexes TABLE (Ind varchar(200) PRIMARY KEY, IndId int)
   DECLARE @Tables TABLE (name varchar(100) PRIMARY KEY, Supported bit)
@@ -37,7 +37,7 @@ BEGIN TRY
     IF @Supported = 0
     BEGIN
       INSERT INTO @Commands
-        SELECT @Tbl, name, 'ALTER INDEX '+name+' ON dbo.'+@Tbl+' REBUILD'+CASE WHEN (SELECT PropertyValue from dbo.IndexProperties where IndexTableName=@Tbl AND IndexName=name)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END, 0, convert(bigint,9e18) FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (is_disabled = 1 AND index_id > 1 AND @RebuildClustered = 0 OR index_id = 1 AND @RebuildClustered = 1)
+        SELECT @Tbl, name, 'ALTER INDEX '+name+' ON dbo.'+@Tbl+' REBUILD'+CASE WHEN (SELECT PropertyValue from dbo.IndexProperties where IndexTableName=@Tbl AND IndexName=name)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END, convert(bigint,9e18) FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (is_disabled = 1 AND index_id > 1 AND @RebuildClustered = 0 OR index_id = 1 AND @RebuildClustered = 1)
       EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Commands',@Action='Insert',@Rows=@@rowcount,@Text='Not supported tables with disabled indexes'
     END
     ELSE
@@ -66,7 +66,7 @@ BEGIN TRY
           IF @IndId = 1
           BEGIN
             SET @Txt = 'ALTER INDEX '+@Ind+' ON dbo.'+@TblInt+' REBUILD'+CASE WHEN (SELECT PropertyValue from dbo.IndexProperties where IndexTableName=@Tbl and IndexName=@Ind)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END
-            INSERT INTO @Commands SELECT @TblInt, @Ind, @Txt, @ResourceTypeId, @Pages
+            INSERT INTO @Commands SELECT @TblInt, @Ind, @Txt, @Pages
             EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
           END
           ELSE
@@ -77,7 +77,7 @@ BEGIN TRY
               IF @Txt IS NOT NULL
               BEGIN
                 SET @IndexesCnt = @IndexesCnt + 1
-                INSERT INTO @Commands SELECT @TblInt, @Ind, @Txt, @ResourceTypeId, @Pages
+                INSERT INTO @Commands SELECT @TblInt, @Ind, @Txt, @Pages
                 EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
               END
             END
@@ -88,7 +88,7 @@ BEGIN TRY
         IF @IndexesCnt > 1
         BEGIN
           -- add update stats so index creates are not waiting on each other
-          INSERT INTO @Commands SELECT @TblInt, 'UPDATE STAT', 'UPDATE STATISTICS dbo.'+@TblInt, @ResourceTypeId, @Pages
+          INSERT INTO @Commands SELECT @TblInt, 'UPDATE STAT', 'UPDATE STATISTICS dbo.'+@TblInt, @Pages
           EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text='Add stats update'
         END
 
@@ -99,7 +99,7 @@ BEGIN TRY
     DELETE FROM @Tables WHERE name = @Tbl
   END
 
-  SELECT Tbl, Ind, Txt, Pid FROM @Commands ORDER BY Pages DESC, Tbl, CASE WHEN Txt LIKE 'UPDATE STAT%' THEN 0 ELSE 1 END -- update stats should be before index creates
+  SELECT Tbl, Ind, Txt FROM @Commands ORDER BY Pages DESC, Tbl, CASE WHEN Txt LIKE 'UPDATE STAT%' THEN 0 ELSE 1 END -- update stats should be before index creates
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Commands',@Action='Select',@Rows=@@rowcount
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st

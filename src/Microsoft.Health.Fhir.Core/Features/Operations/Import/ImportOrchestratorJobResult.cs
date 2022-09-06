@@ -54,10 +54,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Orchestrator job progress.
         /// </summary>
         public ImportOrchestratorJobProgress Progress { get; set; }
-
-        /// <summary>
-        /// Index rebuild process
-        /// </summary>
-        public IndexRebuildProcess IndexRebuildProcess { get; set; }
     }
 }

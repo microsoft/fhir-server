@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            fhirDataBulkImportOperation.PreprocessAsync(Arg.Any<IProgress<IndexRebuildProcess>>(), Arg.Any<IndexRebuildProcess>(), Arg.Any<CancellationToken>())
+            fhirDataBulkImportOperation.PreprocessAsync(Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     throw new InvalidCastException();
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            fhirDataBulkImportOperation.PreprocessAsync(Arg.Any<IProgress<IndexRebuildProcess>>(), Arg.Any<IndexRebuildProcess>(), Arg.Any<CancellationToken>())
+            fhirDataBulkImportOperation.PreprocessAsync(Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     throw new RetriableJobException("test");
@@ -437,7 +437,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<IProgress<IndexRebuildProcess>>(), Arg.Any<IndexRebuildProcess>(), Arg.Any<CancellationToken>())
+            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     throw new InvalidCastException();

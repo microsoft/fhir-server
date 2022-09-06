@@ -1858,7 +1858,7 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.ExecuteCommandForRebuildIndexes
-@Tbl VARCHAR (100), @Ind VARCHAR (1000), @Cmd VARCHAR (MAX), @Pid INT
+@Tbl VARCHAR (100), @Ind VARCHAR (1000), @Cmd VARCHAR (MAX)
 WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
@@ -1880,8 +1880,7 @@ BEGIN TRY
     IF @Action = 'Create Index'
         WAITFOR DELAY '00:00:05';
     EXECUTE (@Cmd);
-    SELECT @Ind,
-           @Pid;
+    SELECT @Ind;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Action = @Action, @Status = 'End', @Start = @st, @Text = @Cmd;
 END TRY
 BEGIN CATCH
@@ -1974,7 +1973,6 @@ BEGIN TRY
         Tbl   VARCHAR (100),
         Ind   VARCHAR (200),
         Txt   VARCHAR (MAX),
-        Pid   INT          ,
         Pages BIGINT       );
     DECLARE @ResourceTypes TABLE (
         ResourceTypeId SMALLINT PRIMARY KEY);
@@ -2003,7 +2001,6 @@ BEGIN TRY
                                                                                                FROM   dbo.IndexProperties
                                                                                                WHERE  IndexTableName = @Tbl
                                                                                                       AND IndexName = name) = 'PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END,
-                           0,
                            CONVERT (BIGINT, 9e18)
                     FROM   sys.indexes
                     WHERE  object_id = object_id(@Tbl)
@@ -2061,7 +2058,6 @@ BEGIN TRY
                                             SELECT @TblInt,
                                                    @Ind,
                                                    @Txt,
-                                                   @ResourceTypeId,
                                                    @Pages;
                                             EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Add command', @Rows = @@rowcount, @Text = @Txt;
                                         END
@@ -2080,7 +2076,6 @@ BEGIN TRY
                                                         SELECT @TblInt,
                                                                @Ind,
                                                                @Txt,
-                                                               @ResourceTypeId,
                                                                @Pages;
                                                         EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Add command', @Rows = @@rowcount, @Text = @Txt;
                                                     END
@@ -2094,7 +2089,6 @@ BEGIN TRY
                                     SELECT @TblInt,
                                            'UPDATE STAT',
                                            'UPDATE STATISTICS dbo.' + @TblInt,
-                                           @ResourceTypeId,
                                            @Pages;
                                     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Add command', @Rows = @@rowcount, @Text = 'Add stats update';
                                 END
@@ -2107,8 +2101,7 @@ BEGIN TRY
         END
     SELECT   Tbl,
              Ind,
-             Txt,
-             Pid
+             Txt
     FROM     @Commands
     ORDER BY Pages DESC, Tbl, CASE WHEN Txt LIKE 'UPDATE STAT%' THEN 0 ELSE 1 END;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Commands', @Action = 'Select', @Rows = @@rowcount;
@@ -2773,7 +2766,12 @@ BEGIN
     WHERE  NOT EXISTS (SELECT *
                        FROM   dbo.IndexProperties
                        WHERE  IndexTableName = Tbl
-                              AND IndexName = Ind);
+                              AND IndexName = Ind)
+           AND NOT EXISTS (SELECT *
+                           FROM   sys.indexes
+                           WHERE  name = Ind
+                                  AND object_id = object_id(Tbl)
+                                  AND is_disabled = 1);
 END
 
 GO
