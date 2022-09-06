@@ -338,9 +338,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task RunCommandForRebuildIndexes(IList<(string tableName, string indexName, string command)> commands, CancellationToken cancellationToken)
         {
-            var updatestatCommands = commands.Where(i => i.indexName.Equals("UPDATE STAT", StringComparison.Ordinal));
             var tasks = new Queue<Task<string>>();
-            var rebuildCommands = commands.Except(updatestatCommands).ToList();
             try
             {
                 foreach (var sqlCommand in commands)
