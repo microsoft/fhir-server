@@ -762,6 +762,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
         }
 
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithManagingOrg_WhenSearchedWithOrgNameAndSortedByName_ThenPatientsAreReturned()
+        {
+            // Arrange Patients with linked Managing Organization
+            var tag = Guid.NewGuid().ToString();
+
+            var org = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            org.Identifier.Add(new Identifier("http://e2etest", tag));
+            org.Name = "MSFT";
+            var orgResponse = await Client.CreateAsync(org);
+
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.ManagingOrganization = new ResourceReference($"{KnownResourceTypes.Organization}/{orgResponse.Resource.Id}");
+
+            var patients = new List<Patient>();
+
+            SetPatientInfo(patient, "Seattle", "Robinson", tag);
+            patients.Add((await Client.CreateAsync(patient)).Resource);
+
+            SetPatientInfo(patient, "Portland", "Williams", tag);
+            patients.Add((await Client.CreateAsync(patient)).Resource);
+
+            string query = $"organization.name=MSFT&_sort=name";
+            var response = await Client.SearchAsync(ResourceType.Patient, query);
+            Assert.NotNull(response);
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -898,6 +926,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             return await Client.CreateResourcesAsync<Observation>(
                 o => SetObservationInfo(o, observationDate, tag, patient));
+        }
+
+        private async Task<Organization> CreateOrganization()
+        {
+            var resource = Samples.GetJsonSample<Organization>("Organization");
+            resource.Name = "MSFT";
+            using FhirResponse<Organization> response = await Client.CreateAsync(resource);
+            return response;
         }
     }
 }
