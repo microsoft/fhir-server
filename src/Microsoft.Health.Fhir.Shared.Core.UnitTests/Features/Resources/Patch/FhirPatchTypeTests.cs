@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "identifier", new FhirDecimal(-42));
 
             var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
-            Assert.Equal("Invalid input for identifier at Patient when processing patch add operation.", exception.Message);
+            Assert.Contains("Invalid input for identifier", exception.Message);
         }
 
         // Tests using "part" for a predefined type. Part is unnecessary but should still work.

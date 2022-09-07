@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("No content found at Patient.nothing when processing patch move operation.", exception.Message);
+            Assert.Contains("No content found at Patient.nothing", exception.Message);
         }
 
         // Not a defined test case, but the path will not resolve and thus a exception is expected.
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("No content found at Patient.identifier when processing patch move operation.", exception.Message);
+            Assert.Contains("No content found at Patient.identifier", exception.Message);
         }
 
         // Not a defined test case, but the path will not resolve and thus a exception is expected.
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Multiple matches found at Patient.contact.name.given when processing patch move operation.", exception.Message);
+            Assert.Contains("Multiple elements found at Patient.contact.name.given", exception.Message);
         }
 
         // Not an official test case, but ensuring proper error messages for out of index errors.
@@ -270,7 +270,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Source 3 out of bounds when processing patch move operation.", exception.Message);
+            Assert.Contains("Source 3 out of bounds", exception.Message);
         }
 
         // Not an official test case, but ensuring proper error messages for out of index errors.
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Source -1 out of bounds when processing patch move operation.", exception.Message);
+            Assert.Contains("Source -1 out of bounds", exception.Message);
         }
 
         // Not an official test case, but ensuring proper error messages for out of index errors.
@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Destination 3 out of bounds when processing patch move operation.", exception.Message);
+            Assert.Contains("Destination 3 out of bounds", exception.Message);
         }
 
         // Not an official test case, but ensuring proper error messages for out of index errors.
@@ -330,7 +330,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 
             var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             var exception = Assert.Throws<InvalidOperationException>(builder.Apply);
-            Assert.Equal("Destination -1 out of bounds when processing patch move operation.", exception.Message);
+            Assert.Contains("Destination -1 out of bounds", exception.Message);
         }
     }
 }

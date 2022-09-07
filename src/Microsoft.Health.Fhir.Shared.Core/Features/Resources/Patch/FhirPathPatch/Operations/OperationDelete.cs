@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             {
                 var findResult = ResourceElement
                             .Select(Operation.Path)
-                            .CheckMultipleElementsOrCollection();
+                            .RequireSingleElement();
 
                 Target = findResult.Count() == 1 ? findResult.GetFirstElementNode() : null;
             }

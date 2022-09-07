@@ -41,8 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             {
                 Target = ResourceElement
                             .Select(Operation.Path)
-                            .CheckNoElements()
-                            .CheckMultipleElements()
+                            .RequireOneOrMoreElements()
+                            .RequireMultipleElementsInSameCollection()
                             .GetFirstElementNode();
 
                 targetParent = Target.Parent;

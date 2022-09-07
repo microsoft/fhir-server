@@ -36,8 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             {
                 Target = ResourceElement
                             .Select(Operation.Path)
-                            .CheckNoElements()
-                            .CheckMultipleElementsOrCollection()
+                            .RequireOneOrMoreElements()
+                            .RequireSingleElement()
                             .GetFirstElementNode();
 
                 Target.ReplaceWith(Provider, ValueElementNode);

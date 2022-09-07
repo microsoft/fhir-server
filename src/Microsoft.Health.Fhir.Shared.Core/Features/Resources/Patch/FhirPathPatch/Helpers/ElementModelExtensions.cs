@@ -38,8 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
         internal static ElementNode GetFirstElementNode(this IEnumerable<ITypedElement> nodeList) =>
             nodeList.First().ToScopedNode().Current.ToElementNode();
 
-        // Used to check return from "select" operation
-        internal static IEnumerable<ITypedElement> CheckNoElements(this IEnumerable<ITypedElement> nodeList)
+        // Given an input note list, throw an exception if there are no elements.
+        internal static IEnumerable<ITypedElement> RequireOneOrMoreElements(this IEnumerable<ITypedElement> nodeList)
         {
             if (!nodeList.Any())
             {
@@ -49,20 +49,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             return nodeList;
         }
 
-        // Used to check return from "select" operation
-        internal static IEnumerable<ITypedElement> CheckMultipleElements(this IEnumerable<ITypedElement> nodeList)
+        // Given an input note list, throw an exception if there are multiple elements that aren't in the same collection.
+        internal static IEnumerable<ITypedElement> RequireMultipleElementsInSameCollection(this IEnumerable<ITypedElement> nodeList)
         {
+            // If multiple elements or collection.
             if (nodeList.Count() > 1)
             {
-                var firstResultLocation = nodeList.First().Location;
-                var expectedLocation = firstResultLocation.Remove(firstResultLocation.LastIndexOf('.'));
-
-                // Multiple results are only allowed on collection types
-                if (nodeList.Any(l =>
-                    !l.Definition.IsCollection ||
-                    !l.Location.StartsWith(expectedLocation, StringComparison.InvariantCultureIgnoreCase)))
+                // We only allow multiple elements if they are a collection
+                if (nodeList.Any(l => !l.Definition.IsCollection))
                 {
-                    throw new InvalidOperationException($"Multiple matches found");
+                    throw new InvalidOperationException($"Multiple elements found");
+                }
+
+                // Get the location of the first elements to check the rest of the node list. Remove the collection index.
+                var firstElementLocation = nodeList.First().Location;
+                var firstElementCollectionLocation = firstElementLocation.Remove(firstElementLocation.LastIndexOf('['));
+
+                // We only allow multiple elements if they are from the same collection
+                if (nodeList.Any(l =>
+                    !l.Location.StartsWith(firstElementCollectionLocation, StringComparison.InvariantCultureIgnoreCase)))
+                {
+                    throw new InvalidOperationException($"Multiple elements found");
                 }
             }
 
@@ -70,11 +77,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
         }
 
         // Used to check return from "select" operation
-        internal static IEnumerable<ITypedElement> CheckMultipleElementsOrCollection(this IEnumerable<ITypedElement> nodeList)
+        internal static IEnumerable<ITypedElement> RequireSingleElement(this IEnumerable<ITypedElement> nodeList)
         {
             if (nodeList.Count() > 1)
             {
-                throw new InvalidOperationException($"Multiple matches found");
+                throw new InvalidOperationException($"Multiple elements or collection found");
             }
 
             return nodeList;

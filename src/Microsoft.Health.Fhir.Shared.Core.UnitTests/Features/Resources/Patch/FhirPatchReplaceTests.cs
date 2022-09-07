@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             };
 
             var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource, patchParam).Apply);
-            Assert.Contains("Multiple matches found at Patient.identifier.period.start", exception.Message);
+            Assert.Contains("Multiple elements or collection found at Patient.identifier.period.start", exception.Message);
         }
     }
 }
