@@ -181,6 +181,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             // Rebuild Indexes
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => rebuildSqlImportOperation.PostprocessAsync(cancellationTokenSource.Token));
 
+            await Task.Delay(3000);
+
             await rebuildSqlImportOperation.PostprocessAsync(CancellationToken.None);
 
             var diff = await CompareDatabaseSchemas(prototypeDatabaseName, rebuildDatabaseName);
