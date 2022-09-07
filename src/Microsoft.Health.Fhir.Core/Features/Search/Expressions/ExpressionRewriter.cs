@@ -38,8 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 return expression;
             }
 
-            /*SortRewriter will return null expression if it finds _sort param same as on of filter params.
-             But in case of chained names we do need to keep it. #94770*/
+            /*SortRewriter will return null expression if it finds _sort param same as one of filter params.
+             But in case of chained names we do need to keep it.*/
             if (visitedExpression == null)
             {
                 return new ChainedExpression(resourceTypes: expression.ResourceTypes, referenceSearchParameter: expression.ReferenceSearchParameter, targetResourceTypes: expression.TargetResourceTypes, reversed: expression.Reversed, expression: expression);

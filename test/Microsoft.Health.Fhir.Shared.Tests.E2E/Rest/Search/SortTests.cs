@@ -762,8 +762,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
         }
 
-        [SkippableFact]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenPatientWithManagingOrg_WhenSearchedWithOrgNameAndSortedByName_ThenPatientsAreReturned()
         {
             // Arrange Patients with linked Managing Organization
@@ -771,7 +772,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var org = Samples.GetDefaultOrganization().ToPoco<Organization>();
             org.Identifier.Add(new Identifier("http://e2etest", tag));
-            org.Name = "MSFT";
+            org.Name = "TESTINGCHAINEDSORT";
             var orgResponse = await Client.CreateAsync(org);
 
             var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -785,9 +786,59 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             SetPatientInfo(patient, "Portland", "Williams", tag);
             patients.Add((await Client.CreateAsync(patient)).Resource);
 
-            string query = $"organization.name=MSFT&_sort=name";
-            var response = await Client.SearchAsync(ResourceType.Patient, query);
-            Assert.NotNull(response);
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Patient?organization.identifier={tag}&organization.name=TESTINGCHAINEDSORT&_sort=name",
+                false,
+                patients.OrderBy(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
+
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Patient?organization.identifier={tag}&organization.name=TESTINGCHAINEDSORT&_sort=-name",
+                false,
+                patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenOrg_WhenSearchedWithPartOfAndSortedByName_ThenOrgsAreReturned()
+        {
+            var tagP = Guid.NewGuid().ToString();
+            var orgP = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            orgP.Identifier.Add(new Identifier("http://e2etest", tagP));
+            orgP.Name = "Parent";
+            var orgResponseP = await Client.CreateAsync(orgP);
+
+            var tag1 = Guid.NewGuid().ToString();
+            var org1 = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            org1.Identifier.Add(new Identifier("http://e2etest", tag1));
+            org1.Name = "MSFT1";
+            org1.PartOf = new ResourceReference($"{KnownResourceTypes.Organization}/{orgResponseP.Resource.Id}");
+            var orgResponse1 = await Client.CreateAsync(org1);
+
+            var orgs = new List<Organization>();
+            orgs.Add(orgResponse1.Resource);
+
+            var tag2 = Guid.NewGuid().ToString();
+            var org2 = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            org2.Identifier.Add(new Identifier("http://e2etest", tag2));
+            org2.Name = "MSFT2";
+            org2.PartOf = new ResourceReference($"{KnownResourceTypes.Organization}/{orgResponseP.Resource.Id}");
+            var orgResponse2 = await Client.CreateAsync(org2);
+            orgs.Add(orgResponse2.Resource);
+
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Organization?partof.identifier={tagP}&partof.name=Parent&_sort=name",
+                false,
+                orgs.OrderBy(x => x.Name).Cast<Resource>().ToArray());
+
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Organization?partof.identifier={tagP}&partof.name=Parent&_sort=-name",
+                false,
+                orgs.OrderByDescending(x => x.Name).Cast<Resource>().ToArray());
         }
 
         private async Task<Patient[]> CreatePatients(string tag)
