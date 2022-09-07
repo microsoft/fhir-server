@@ -20,7 +20,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Post-process after import operation.
         /// </summary>
         /// <param name="cancellationToken">Cancellation Token</param>
-        /// <typeparam name="T">Type parameter</typeparam>
         public Task PostprocessAsync(CancellationToken cancellationToken);
     }
 }
