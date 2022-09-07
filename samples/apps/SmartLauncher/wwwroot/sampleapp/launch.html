@@ -10,7 +10,7 @@
     $.getJSON( '/config', function (appConfig) {
         FHIR.oauth2.authorize({
             "client_id": appConfig.ClientId,
-            "scope"    : "openid profile",
+            "scope": "openid fhirUser",
             "redirect_uri": redirectUri
             });
     });

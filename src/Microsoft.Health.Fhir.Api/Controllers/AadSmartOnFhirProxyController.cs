@@ -446,6 +446,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             };
         }
 
+        [HttpGet]
+        [AuditEventType(AuditEventSubType.WellKnown)]
+        [Route("/.well-known/smart-configuration")]
+        public ContentResult WellKnownConfiguration()
+        {
+            var wellKnownResponse = "{\n" +
+                  "\"authorization_endpoint\": \"" + _aadAuthorizeEndpoint + "\",\n" +
+                  "\"token_endpoint\": \"" + _aadTokenEndpoint + "\",\n" +
+                  "\"scopes_supported\": [\"openid\", \"fhirUser\", \"launch\", \"launch/patient\", \"patient/*.*\", \"user/*.*\", \"offline_access\", \"system/*.*\"],\n" +
+                  "\"response_types_supported\": [\"code\", \"code id_token\", \"id_token\", \"refresh_token\"],\n" +
+                  "\"capabilities\": [\"launch-ehr\", \"client-public\", \"client-confidential-symmetric\", \"context-ehr-patient\", \"sso-openid-connect\", \"launch-standalone\"]\n" +
+                  "}";
+            return Content(wellKnownResponse, "application/json");
+        }
+
         private static bool IsAbsoluteUrl(string url)
         {
             return Uri.TryCreate(url, UriKind.Absolute, out _);
