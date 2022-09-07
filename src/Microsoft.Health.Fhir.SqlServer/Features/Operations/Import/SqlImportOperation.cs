@@ -354,7 +354,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _ = tasks.Dequeue();
                     }
 
-                    tasks.Enqueue(ExecuteSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, CancellationToken.None));
+                    tasks.Enqueue(ExecuteSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, cancellationToken));
                 }
 
                 while (tasks.Count > 0)
@@ -391,8 +391,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         indexName = sqlDataReader.GetString(0);
                     }
                 }
-
-                await Task.Delay(1000, cancellationToken);
             }
             catch (SqlException)
             {

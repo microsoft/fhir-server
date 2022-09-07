@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -179,9 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             cancellationTokenSource.CancelAfter(5000);
 
             // Rebuild Indexes
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => rebuildSqlImportOperation.PostprocessAsync(cancellationTokenSource.Token));
-
-            await Task.Delay(3000);
+            await Assert.ThrowsAnyAsync<RetriableJobException>(() => rebuildSqlImportOperation.PostprocessAsync(cancellationTokenSource.Token));
 
             await rebuildSqlImportOperation.PostprocessAsync(CancellationToken.None);
 
