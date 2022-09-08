@@ -11,6 +11,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -419,6 +420,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         throw new BadRequestException(
                             string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
+                    }
+
+                    if (expression.TargetResourceType != null &&
+                       string.IsNullOrWhiteSpace(expression.TargetResourceType))
+                    {
+                        throw new BadRequestException(
+                            string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType, expression.TargetResourceType));
+                    }
+
+                    if (expression.TargetResourceType != null && !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))
+                    {
+                        throw new ResourceNotSupportedException(expression.TargetResourceType);
                     }
 
                     // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.

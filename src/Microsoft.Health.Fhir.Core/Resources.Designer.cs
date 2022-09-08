@@ -575,6 +575,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The target resource type cannot be empty..
+        /// </summary>
+        internal static string IncludeRevIncludeInvalidTargetResourceType {
+            get {
+                return ResourceManager.GetString("IncludeRevIncludeInvalidTargetResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string InvalidBooleanConfigSetting {
@@ -1003,6 +1012,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string RequestedActionNotAllowed {
             get {
                 return ResourceManager.GetString("RequestedActionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Timespan in export request contains too much data to export in a single request. Please try reducing the time range and try again..
+        /// </summary>
+        internal static string RequestEntityTooLargeExceptionDuringExport {
+            get {
+                return ResourceManager.GetString("RequestEntityTooLargeExceptionDuringExport", resourceCulture);
             }
         }
         
