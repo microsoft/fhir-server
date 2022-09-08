@@ -605,8 +605,8 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
     ReferenceResourceVersion1 INT            NULL,
     SystemId2                 INT            NULL,
     Code2                     VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow2             NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
-    IsHistory                 BIT            NOT NULL
+    IsHistory                 BIT            NOT NULL,
+    CodeOverflow2             NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -814,11 +814,11 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     SearchParamId       SMALLINT       NOT NULL,
     SystemId1           INT            NULL,
     Code1               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
     StartDateTime2      DATETIME2 (7)  NOT NULL,
     EndDateTime2        DATETIME2 (7)  NOT NULL,
     IsLongerThanADay2   BIT            NOT NULL,
-    IsHistory           BIT            NOT NULL
+    IsHistory           BIT            NOT NULL,
+    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -855,7 +855,6 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
     SearchParamId       SMALLINT        NOT NULL,
     SystemId1           INT             NULL,
     Code1               VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL,
     SingleValue2        DECIMAL (18, 6) NULL,
     LowValue2           DECIMAL (18, 6) NULL,
     HighValue2          DECIMAL (18, 6) NULL,
@@ -863,7 +862,8 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
     LowValue3           DECIMAL (18, 6) NULL,
     HighValue3          DECIMAL (18, 6) NULL,
     HasRange            BIT             NOT NULL,
-    IsHistory           BIT             NOT NULL
+    IsHistory           BIT             NOT NULL,
+    CodeOverflow1       NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -890,13 +890,13 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam (
     SearchParamId       SMALLINT        NOT NULL,
     SystemId1           INT             NULL,
     Code1               VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL,
     SystemId2           INT             NULL,
     QuantityCodeId2     INT             NULL,
     SingleValue2        DECIMAL (18, 6) NULL,
     LowValue2           DECIMAL (18, 6) NULL,
     HighValue2          DECIMAL (18, 6) NULL,
-    IsHistory           BIT             NOT NULL
+    IsHistory           BIT             NOT NULL,
+    CodeOverflow1       NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -929,8 +929,8 @@ CREATE TABLE dbo.TokenSearchParam (
     SearchParamId       SMALLINT       NOT NULL,
     SystemId            INT            NULL,
     Code                VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
-    IsHistory           BIT            NOT NULL
+    IsHistory           BIT            NOT NULL,
+    CodeOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -950,10 +950,10 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam (
     SearchParamId       SMALLINT       NOT NULL,
     SystemId1           INT            NULL,
     Code1               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
     Text2               NVARCHAR (256) COLLATE Latin1_General_CI_AI NOT NULL,
     TextOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_CI_AI NULL,
-    IsHistory           BIT            NOT NULL
+    IsHistory           BIT            NOT NULL,
+    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenStringCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -997,11 +997,11 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam (
     SearchParamId       SMALLINT       NOT NULL,
     SystemId1           INT            NULL,
     Code1               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
     SystemId2           INT            NULL,
     Code2               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
-    IsHistory           BIT            NOT NULL
+    IsHistory           BIT            NOT NULL,
+    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam SET (LOCK_ESCALATION = AUTO);

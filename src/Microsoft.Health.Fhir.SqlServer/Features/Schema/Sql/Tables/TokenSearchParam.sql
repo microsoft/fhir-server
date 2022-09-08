@@ -5,8 +5,8 @@
     SearchParamId               smallint                NOT NULL,
     SystemId                    int                     NULL,
     Code                        varchar(256)            COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow                nvarchar(max)           COLLATE Latin1_General_100_CS_AS NULL,
     IsHistory                   bit                     NOT NULL,
+    CodeOverflow                nvarchar(max)           COLLATE Latin1_General_100_CS_AS NULL,
 )
 
 ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )

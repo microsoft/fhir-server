@@ -5,11 +5,11 @@
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
+    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
