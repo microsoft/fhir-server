@@ -536,45 +536,75 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     Assert.True(responseD.Resource.Parameter.Count > 0);
                 }
 
-                // Resources are now reindexed.
+                // When there are multiple instances of the fhir-server running, it could take some time
+                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // adding some retries below to account for that delay.
+                int retryCount = 0;
+                bool success = true;
+                int maxRetryCount = 0;
+                if (!singleReindex)
+                {
+                    maxRetryCount = 10;
+                    await Task.Delay(TimeSpan.FromSeconds(20));
+                }
 
-                // After reindexing, if full database is reindexed no need to use x-ms-use-partial-indices, all resources are searchable.
-                // Otherwise, must use x-ms-use-partial-indices header.
-                // Also, resources A and B have token overflow while C does not. Still all resources are correctly returned.
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
-                    false,
-                    false,
-                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
-                    createdResourceA); // Expected resource A.
+                do
+                {
+                    success = true;
+                    retryCount++;
+                    try
+                    {
+                        // Resources are now reindexed.
 
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
-                    false,
-                    false,
-                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
-                    createdResourceB); // Expected resource B.
+                        // After reindexing, if full database is reindexed no need to use x-ms-use-partial-indices, all resources are searchable.
+                        // Otherwise, must use x-ms-use-partial-indices header.
+                        // Also, resources A and B have token overflow while C does not. Still all resources are correctly returned.
+                        await ExecuteAndValidateBundle(
+                        $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
+                        false,
+                        false,
+                        singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
+                        createdResourceA); // Expected resource A.
 
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
-                    false,
-                    false,
-                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
-                    createdResourceC); // Expected resource C.
+                        await ExecuteAndValidateBundle(
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
+                            false,
+                            false,
+                            singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
+                            createdResourceB); // Expected resource B.
 
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
-                    false,
-                    false,
-                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
-                    createdResourceD); // Expected resource D.
+                        await ExecuteAndValidateBundle(
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
+                            false,
+                            false,
+                            singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
+                            createdResourceC); // Expected resource C.
 
-                // Invalid composite search parameter returns nothing, we send correct token but incorrect second parameter that is not used by any of the resources.
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}",
-                    false,
-                    false,
-                    singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
+                        await ExecuteAndValidateBundle(
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
+                            false,
+                            false,
+                            singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
+                            createdResourceD); // Expected resource D.
+
+                        // Invalid composite search parameter returns nothing, we send correct token but incorrect second parameter that is not used by any of the resources.
+                        await ExecuteAndValidateBundle(
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}",
+                            false,
+                            false,
+                            singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
+                    }
+                    catch (Exception ex)
+                    {
+                        string error = $"Attempt {retryCount} of {maxRetryCount}: Failed to validate bundle: {ex}";
+                        _output.WriteLine(error);
+                        success = false;
+                        await Task.Delay(TimeSpan.FromSeconds(10));
+                    }
+                }
+                while (!success && retryCount < maxRetryCount);
+
+                Assert.True(success);
             }
             catch (Exception e)
             {
