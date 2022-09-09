@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _metricHandler = fixture.MetricHandler;
         }
 
-        [SkippableTheory]
+        [SkippableFact]
         [InlineData("")]
         [InlineData("Patient/")]
         public async Task GivenAValidConfigurationWithAcrReference_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(2, dataFromExport.Count());
         }
 
-        [SkippableTheory]
+        [SkippableFact]
         [InlineData("configimage:1234567890")]
         [InlineData("configimage@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
         [InlineData("wrongimage:default")]
