@@ -3,8 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
@@ -29,7 +32,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         /// <returns>Patched FHIR Resource as POCO.</returns>
         internal override Resource Execute()
         {
-            Target.ReplaceWith(Provider, ValueElementNode);
+            try
+            {
+                Target = ResourceElement
+                            .Select(Operation.Path)
+                            .RequireOneOrMoreElements()
+                            .RequireSingleElement()
+                            .GetFirstElementNode();
+
+                Target.ReplaceWith(Provider, ValueElementNode);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch replace operation.");
+            }
+
             return ResourceElement.ToPoco<Resource>();
         }
     }
