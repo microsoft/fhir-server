@@ -8,11 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -35,8 +35,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class AnonymizedExportTests : IClassFixture<ExportTestFixture>
     {
-        private const string LocalIntegrationStoreConnectionString = "UseDevelopmentStorage=true";
-
         private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
         private readonly MetricHandler _metricHandler;
@@ -72,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            IEnumerable<string> dataFromExport = await StorageAccountHelper.DownloadBlobAndParseAsync(blobUris, CancellationToken.None);
             FhirJsonParser parser = new FhirJsonParser();
 
             foreach (string content in dataFromExport)
@@ -122,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            IEnumerable<string> dataFromExport = await StorageAccountHelper.DownloadBlobAndParseAsync(blobUris, CancellationToken.None);
             FhirJsonParser parser = new FhirJsonParser();
 
             foreach (string content in dataFromExport)
@@ -157,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            IEnumerable<string> dataFromExport = await StorageAccountHelper.DownloadBlobAndParseAsync(blobUris, CancellationToken.None);
             FhirJsonParser parser = new FhirJsonParser();
 
             foreach (string content in dataFromExport)
@@ -191,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            IEnumerable<string> dataFromExport = await StorageAccountHelper.DownloadBlobAndParseAsync(blobUris, CancellationToken.None);
             FhirJsonParser parser = new FhirJsonParser();
 
             foreach (string content in dataFromExport)
@@ -302,7 +300,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             _metricHandler?.ResetCount();
             var dateTime = DateTimeOffset.UtcNow;
-            await InitializeAnonymizationContainer();
+            await InitializeAnonymizationContainerAsync(CancellationToken.None);
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", dateTime, containerName);
@@ -355,7 +353,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private async Task<(string name, string eTag)> UploadConfigurationAsync(string configurationContent, string blobName = null)
         {
             blobName = blobName ?? $"{Guid.NewGuid()}.json";
-            CloudBlobContainer container = await InitializeAnonymizationContainer();
+            CloudBlobContainer container = await InitializeAnonymizationContainerAsync(CancellationToken.None);
 
             CloudBlockBlob blob = container.GetBlockBlobReference(blobName);
             await blob.DeleteIfExistsAsync();
@@ -365,9 +363,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return (blobName, blob.Properties.ETag);
         }
 
-        private async Task<CloudBlobContainer> InitializeAnonymizationContainer()
+        private async Task<CloudBlobContainer> InitializeAnonymizationContainerAsync(CancellationToken cancellationToken)
         {
-            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
+            CloudStorageAccount cloudAccount = await StorageAccountHelper.GetCloudStorageAccountAsync(cancellationToken);
             CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
             CloudBlobContainer container = blobClient.GetContainerReference("anonymization");
             await container.CreateIfNotExistsAsync();
@@ -402,59 +400,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             ExportJobResult exportJobResult = JsonConvert.DeserializeObject<ExportJobResult>(contentString);
             return exportJobResult.Output.Select(x => x.FileUri).ToList();
-        }
-
-        private async Task<IEnumerable<string>> DownloadBlobAndParse(IList<Uri> blobUri)
-        {
-            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            var result = new List<string>();
-
-            foreach (Uri uri in blobUri)
-            {
-                var blob = new CloudBlockBlob(uri, blobClient);
-                string allData = await blob.DownloadTextAsync();
-
-                var splitData = allData.Split("\n");
-
-                foreach (var entry in splitData)
-                {
-                    if (string.IsNullOrWhiteSpace(entry))
-                    {
-                        continue;
-                    }
-
-                    result.Add(entry);
-                }
-            }
-
-            return result;
-        }
-
-        private CloudStorageAccount GetCloudStorageAccountHelper()
-        {
-            CloudStorageAccount storageAccount = null;
-
-            string exportStoreFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestExportStoreUri");
-            string exportStoreKeyFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestExportStoreKey");
-            if (!string.IsNullOrEmpty(exportStoreFromEnvironmentVariable) && !string.IsNullOrEmpty(exportStoreKeyFromEnvironmentVariable))
-            {
-                Uri integrationStoreUri = new Uri(exportStoreFromEnvironmentVariable);
-                string storageAccountName = integrationStoreUri.Host.Split('.')[0];
-                StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, exportStoreKeyFromEnvironmentVariable);
-                storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-            }
-            else
-            {
-                CloudStorageAccount.TryParse(LocalIntegrationStoreConnectionString, out storageAccount);
-            }
-
-            if (storageAccount == null)
-            {
-                throw new Exception("Unable to create a cloud storage account");
-            }
-
-            return storageAccount;
         }
     }
 }

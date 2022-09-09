@@ -116,11 +116,15 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)StartupBaseForCustomProviders.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Helper\StorageAccountHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
     <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Rest\Helper\" />
   </ItemGroup>
 </Project>
