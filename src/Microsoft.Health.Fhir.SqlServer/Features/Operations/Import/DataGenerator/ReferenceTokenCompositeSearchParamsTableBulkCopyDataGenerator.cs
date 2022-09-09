@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceVersion1.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceVersion1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.SystemId2.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.SystemId2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.SqlDbType.GetGeneralType()));
-            table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.CodeOverflow2.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.CodeOverflow2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.ReferenceTokenCompositeSearchParam.CodeOverflow2.Metadata.Name, VLatest.ReferenceTokenCompositeSearchParam.CodeOverflow2.Metadata.SqlDbType.GetGeneralType()));
         }
 
         internal static IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeV2Row> input)

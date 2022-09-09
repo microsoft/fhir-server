@@ -75,13 +75,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SystemId1.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SystemId1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.SqlDbType.GetGeneralType()));
-            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SystemId2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SystemId2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.QuantityCodeId2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.QuantityCodeId2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SingleValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SingleValue2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
         }
 
         internal static IEnumerable<BulkTokenQuantityCompositeSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkTokenQuantityCompositeSearchParamTableTypeV2Row> input)

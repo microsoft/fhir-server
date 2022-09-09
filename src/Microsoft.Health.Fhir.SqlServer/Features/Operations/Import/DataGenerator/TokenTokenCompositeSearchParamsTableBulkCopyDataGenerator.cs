@@ -73,11 +73,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.SystemId1.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.SystemId1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.SqlDbType.GetGeneralType()));
-            table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.SystemId2.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.SystemId2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.SqlDbType.GetGeneralType()));
-            table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.CodeOverflow2.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.CodeOverflow2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.CodeOverflow2.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.CodeOverflow2.Metadata.SqlDbType.GetGeneralType()));
         }
 
         internal static IEnumerable<BulkTokenTokenCompositeSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkTokenTokenCompositeSearchParamTableTypeV2Row> input)

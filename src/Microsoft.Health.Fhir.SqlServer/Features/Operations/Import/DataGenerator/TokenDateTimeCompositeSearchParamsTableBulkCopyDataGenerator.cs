@@ -74,11 +74,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.SystemId1.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.SystemId1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.SqlDbType.GetGeneralType()));
-            table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.StartDateTime2.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.StartDateTime2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenDateTimeCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenDateTimeCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
         }
 
         internal static IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> input)

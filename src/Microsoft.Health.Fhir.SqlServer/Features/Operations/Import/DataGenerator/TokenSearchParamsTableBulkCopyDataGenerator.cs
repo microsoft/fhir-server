@@ -70,8 +70,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenSearchParam.SystemId.Metadata.Name, VLatest.TokenSearchParam.SystemId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenSearchParam.Code.Metadata.Name, VLatest.TokenSearchParam.Code.Metadata.SqlDbType.GetGeneralType()));
-            table.Columns.Add(new DataColumn(VLatest.TokenSearchParam.CodeOverflow.Metadata.Name, VLatest.TokenSearchParam.CodeOverflow.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenSearchParam.CodeOverflow.Metadata.Name, VLatest.TokenSearchParam.CodeOverflow.Metadata.SqlDbType.GetGeneralType()));
         }
 
         internal static IEnumerable<BulkTokenSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkTokenSearchParamTableTypeV2Row> input)

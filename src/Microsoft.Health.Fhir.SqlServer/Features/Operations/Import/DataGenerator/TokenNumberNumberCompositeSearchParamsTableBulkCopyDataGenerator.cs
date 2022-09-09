@@ -77,7 +77,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.SystemId1.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.SystemId1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.Code1.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.Code1.Metadata.SqlDbType.GetGeneralType()));
-            table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.SingleValue2.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.SingleValue2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.LowValue2.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.LowValue2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.HighValue2.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.HighValue2.Metadata.SqlDbType.GetGeneralType()));
@@ -86,6 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.HighValue3.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.HighValue3.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.HasRange.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.HasRange.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
         }
 
         internal static IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row> input)

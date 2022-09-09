@@ -72,10 +72,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenStringCompositeSearchParam.SystemId1.Metadata.Name, VLatest.TokenStringCompositeSearchParam.SystemId1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenStringCompositeSearchParam.Code1.Metadata.Name, VLatest.TokenStringCompositeSearchParam.Code1.Metadata.SqlDbType.GetGeneralType()));
-            table.Columns.Add(new DataColumn(VLatest.TokenStringCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenStringCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenStringCompositeSearchParam.Text2.Metadata.Name, VLatest.TokenStringCompositeSearchParam.Text2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenStringCompositeSearchParam.TextOverflow2.Metadata.Name, VLatest.TokenStringCompositeSearchParam.TextOverflow2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenStringCompositeSearchParam.CodeOverflow1.Metadata.Name, VLatest.TokenStringCompositeSearchParam.CodeOverflow1.Metadata.SqlDbType.GetGeneralType()));
         }
 
         internal static IEnumerable<BulkTokenStringCompositeSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkTokenStringCompositeSearchParamTableTypeV2Row> input)
