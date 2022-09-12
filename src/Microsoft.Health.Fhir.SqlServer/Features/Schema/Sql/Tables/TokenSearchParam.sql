@@ -9,6 +9,8 @@
     CodeOverflow                nvarchar(max)           COLLATE Latin1_General_100_CS_AS NULL,
 )
 
+ALTER TABLE dbo.TokenSearchParam ADD CONSTRAINT CHK_TokenSearchParam_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
+
 ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_TokenSearchParam
