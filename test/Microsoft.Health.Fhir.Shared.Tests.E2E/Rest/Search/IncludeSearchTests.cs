@@ -1352,6 +1352,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             };
         }
 
+        [Theory]
+        [InlineData("_include")]
+        [InlineData("_revinclude")]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAIncludeOrRevIncludeIterateSearchExpressionWithInvalidTargetResourceType_WhenSearched_ShouldThrowResourceNotSupportedException(string include)
+        {
+            string query = $"{include}=Observation:subject:NotAResourceType";
+
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+
+            string[] expectedDiagnostics = { string.Format(Core.Resources.ResourceNotSupported, "NotAResourceType") };
+            IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
+            IssueType[] expectedCodeTypes = { IssueType.NotSupported };
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
+        }
+
+        [Theory]
+        [InlineData("_include", "")]
+        [InlineData("_include", "   ")]
+        [InlineData("_revinclude", "")]
+        [InlineData("_revinclude", "   ")]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAIncludeOrRevIncludeIterateSearchExpressionWithEmptyOrWhiteSpaceTargetResourceType_WhenSearched_ShouldThrowBadRequestException(string include, string target)
+        {
+            string query = $"{include}=Observation:subject:{target}";
+
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+
+            string[] expectedDiagnostics = { string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType) };
+            IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
+            IssueType[] expectedCodeTypes = { IssueType.Invalid };
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
+        }
+
         // This will not work for circular reference
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {

@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
@@ -35,19 +36,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         internal override Resource Execute()
         {
             // Setup
-            var targetParent = Target.Parent;
-            var name = Target.Name;
+            ElementNode targetParent;
+            string name;
+            try
+            {
+                Target = ResourceElement
+                            .Select(Operation.Path)
+                            .RequireOneOrMoreElements()
+                            .RequireMultipleElementsInSameCollection()
+                            .GetFirstElementNode();
+
+                targetParent = Target.Parent;
+                name = Target.Name;
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new InvalidOperationException($"{ex.Message} at {Operation.Path} when processing patch move operation.");
+            }
 
             // Check indexes
             var targetLen = targetParent.Children(name).Count();
             if (Operation.Source < 0 || Operation.Source >= targetLen)
             {
-                throw new InvalidOperationException("Move source index out of bounds of target list");
+                throw new InvalidOperationException($"Source {Operation.Source} out of bounds when processing patch move operation.");
             }
 
             if (Operation.Destination < 0 || Operation.Destination >= targetLen)
             {
-                throw new InvalidOperationException("Move destination index out of bounds of target list");
+                throw new InvalidOperationException($"Destination {Operation.Destination} out of bounds when processing patch move operation.");
             }
 
             // Remove specified element from the list
@@ -59,9 +75,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
 
             // There is no easy "move" operation in the FHIR library, so we must
             // iterate over the list to reconstruct it.
-            foreach (var child in targetParent.Children(name).ToList()
-                                            .Select(x => x.ToElementNode())
-                                            .Select((value, index) => (value, index)))
+            var children = targetParent.Children(name).ToList()
+                                       .Select(x => x.ToElementNode())
+                                       .Select((value, index) => (value, index));
+
+            foreach (var child in children)
             {
                 // Add the new item at the correct index
                 if (Operation.Destination == child.index)
@@ -77,6 +95,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
 
                 // Add the old element back to the list
                 targetParent.Add(Provider, child.value, name);
+            }
+
+            // Insert if destination is at end of list (orig list length + 1)
+            if (children.Count() == Operation.Destination)
+            {
+                targetParent.Add(Provider, elementToMove, name);
             }
 
             return ResourceElement.ToPoco<Resource>();
