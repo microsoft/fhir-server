@@ -609,6 +609,10 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
     CodeOverflow2             NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+    ADD CONSTRAINT CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256
+                                                                               OR CodeOverflow2 IS NULL);
+
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
@@ -821,6 +825,10 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                              OR CodeOverflow1 IS NULL);
+
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
 CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
@@ -866,6 +874,10 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
     CodeOverflow1       NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
 );
 
+ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenNumberNumberCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                                  OR CodeOverflow1 IS NULL);
+
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
 CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
@@ -898,6 +910,10 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam (
     IsHistory           BIT             NOT NULL,
     CodeOverflow1       NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenQuantityCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                              OR CodeOverflow1 IS NULL);
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -933,6 +949,10 @@ CREATE TABLE dbo.TokenSearchParam (
     CodeOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
+ALTER TABLE dbo.TokenSearchParam
+    ADD CONSTRAINT CHK_TokenSearchParam_CodeOverflow CHECK (LEN(Code) = 256
+                                                            OR CodeOverflow IS NULL);
+
 ALTER TABLE dbo.TokenSearchParam SET (LOCK_ESCALATION = AUTO);
 
 CREATE CLUSTERED INDEX IXC_TokenSearchParam
@@ -955,6 +975,10 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam (
     IsHistory           BIT            NOT NULL,
     CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenStringCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenStringCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                            OR CodeOverflow1 IS NULL);
 
 ALTER TABLE dbo.TokenStringCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -1003,6 +1027,14 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam (
     CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
     CodeOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenTokenCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                           OR CodeOverflow1 IS NULL);
+
+ALTER TABLE dbo.TokenTokenCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256
+                                                                           OR CodeOverflow2 IS NULL);
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
