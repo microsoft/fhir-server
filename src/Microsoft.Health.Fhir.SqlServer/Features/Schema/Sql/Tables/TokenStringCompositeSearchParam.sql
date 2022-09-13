@@ -8,7 +8,7 @@
     Text2 nvarchar(256) COLLATE Latin1_General_CI_AI NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NULL,
     IsHistory bit NOT NULL,
-    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
 
 ALTER TABLE dbo.TokenStringCompositeSearchParam ADD CONSTRAINT CHK_TokenStringCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)

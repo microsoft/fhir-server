@@ -49,7 +49,7 @@ CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     Code varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    CodeOverflow varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 )
 
 /*************************************************************
@@ -194,7 +194,7 @@ CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_2 AS TABLE
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
     Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow2 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 )
 
 /*************************************************************
@@ -221,10 +221,10 @@ CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_2 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     SystemId2 int NULL,
     Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow2 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 )
 
 /*************************************************************
@@ -252,7 +252,7 @@ CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     StartDateTime2 datetimeoffset(7) NOT NULL,
     EndDateTime2 datetimeoffset(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL
@@ -285,7 +285,7 @@ CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     SystemId2 int NULL,
     QuantityCodeId2 int NULL,
     SingleValue2 decimal(18,6) NULL,
@@ -317,7 +317,7 @@ CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
@@ -361,7 +361,7 @@ CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,

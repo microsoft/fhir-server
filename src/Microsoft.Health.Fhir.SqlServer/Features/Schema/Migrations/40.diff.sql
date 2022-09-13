@@ -6,7 +6,7 @@ EXEC dbo.LogSchemaMigrationProgress 'Migrating to schema 40.'
 ALTER TABLE dbo.TokenSearchParam ALTER COLUMN Code varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 IF COL_LENGTH('dbo.TokenSearchParam', 'CodeOverflow') IS NULL
 BEGIN
-    ALTER TABLE dbo.TokenSearchParam ADD CodeOverflow nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    ALTER TABLE dbo.TokenSearchParam ADD CodeOverflow varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 END
 GO
 IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenSearchParam_CodeOverflow')
@@ -21,14 +21,14 @@ BEGIN
         SearchParamId smallint NOT NULL,
         SystemId int NULL,
         Code varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-        CodeOverflow nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+        CodeOverflow varchar(max) COLLATE Latin1_General_100_CS_AS NULL
     )
 END
 
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ALTER COLUMN Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 IF COL_LENGTH('dbo.ReferenceTokenCompositeSearchParam', 'CodeOverflow2') IS NULL
 BEGIN
-    ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CodeOverflow2 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 END
 GO
 IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2')
@@ -47,14 +47,14 @@ BEGIN
         ReferenceResourceVersion1 int NULL,
         SystemId2 int NULL,
         Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-        CodeOverflow2 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+        CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
     )
 END
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 IF COL_LENGTH('dbo.TokenDateTimeCompositeSearchParam', 'CodeOverflow1') IS NULL
 BEGIN
-    ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 END
 GO
 IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1')
@@ -69,7 +69,7 @@ BEGIN
         SearchParamId smallint NOT NULL,
         SystemId1 int NULL,
         Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-        CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
         StartDateTime2 datetimeoffset(7) NOT NULL,
         EndDateTime2 datetimeoffset(7) NOT NULL,
         IsLongerThanADay2 bit NOT NULL
@@ -79,7 +79,7 @@ END
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 IF COL_LENGTH('dbo.TokenNumberNumberCompositeSearchParam', 'CodeOverflow1') IS NULL
 BEGIN
-    ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam ADD CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 END
 GO
 IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenNumberNumberCompositeSearchParam_CodeOverflow1')
@@ -94,7 +94,7 @@ BEGIN
         SearchParamId smallint NOT NULL,
         SystemId1 int NULL,
         Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-        CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
         SingleValue2 decimal(18,6) NULL,
         LowValue2 decimal(18,6) NULL,
         HighValue2 decimal(18,6) NULL,
@@ -108,7 +108,7 @@ END
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 IF COL_LENGTH('dbo.TokenQuantityCompositeSearchParam', 'CodeOverflow1') IS NULL
 BEGIN
-    ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 END
 GO
 IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenQuantityCompositeSearchParam_CodeOverflow1')
@@ -123,7 +123,7 @@ BEGIN
         SearchParamId smallint NOT NULL,
         SystemId1 int NULL,
         Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-        CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
         SystemId2 int NULL,
         QuantityCodeId2 int NULL,
         SingleValue2 decimal(18,6) NULL,
@@ -135,7 +135,7 @@ END
 ALTER TABLE dbo.TokenStringCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 IF COL_LENGTH('dbo.TokenStringCompositeSearchParam', 'CodeOverflow1') IS NULL
 BEGIN
-    ALTER TABLE dbo.TokenStringCompositeSearchParam ADD CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    ALTER TABLE dbo.TokenStringCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 END
 GO
 IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenStringCompositeSearchParam_CodeOverflow1')
@@ -150,7 +150,7 @@ BEGIN
         SearchParamId smallint NOT NULL,
         SystemId1 int NULL,
         Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-        CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
         Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
         TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
     )
@@ -159,12 +159,12 @@ END
 ALTER TABLE dbo.TokenTokenCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 IF COL_LENGTH('dbo.TokenTokenCompositeSearchParam', 'CodeOverflow1') IS NULL
 BEGIN
-    ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 END
 ALTER TABLE dbo.TokenTokenCompositeSearchParam ALTER COLUMN Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 IF COL_LENGTH('dbo.TokenTokenCompositeSearchParam', 'CodeOverflow2') IS NULL
 BEGIN
-    ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CodeOverflow2 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
 END
 GO
 IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenTokenCompositeSearchParam_CodeOverflow1')
@@ -183,10 +183,10 @@ BEGIN
         SearchParamId smallint NOT NULL,
         SystemId1 int NULL,
         Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-        CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
         SystemId2 int NULL,
         Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-        CodeOverflow2 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL
+        CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
     )
 END
 GO

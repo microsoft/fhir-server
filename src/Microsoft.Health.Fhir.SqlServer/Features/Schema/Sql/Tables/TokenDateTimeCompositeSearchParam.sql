@@ -9,7 +9,7 @@
     EndDateTime2 datetime2(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
-    CodeOverflow1 nvarchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CONSTRAINT CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
