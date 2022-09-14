@@ -279,3 +279,62 @@ Authorization: Bearer {{bearer.response.body.access_token}}
         }
     ]
 }
+
+###
+## Add link (used in patient merge)
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "delete"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.link.where(other.reference = 'Patient/other')"
+                }
+            ]
+        },
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "add"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "name",
+                    "valueString": "link"
+                },
+                {
+                    "name": "value",
+                    "part": [
+                        {
+                            "name": "other",
+                            "valueReference": {
+                                "reference": "Patient/other",
+                                "type": "Patient"
+                            }
+                        },
+                        {
+                            "name": "type",
+                            "valueCode": "replaces"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
