@@ -92,11 +92,11 @@ CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE (
     Code          VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
 CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE (
-    Offset        INT            NOT NULL,
-    SearchParamId SMALLINT       NOT NULL,
-    SystemId      INT            NULL,
-    Code          VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow  NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
+    Offset        INT           NOT NULL,
+    SearchParamId SMALLINT      NOT NULL,
+    SystemId      INT           NULL,
+    Code          VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow  VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
 
 CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE (
     Offset        INT            NOT NULL,
@@ -165,15 +165,15 @@ CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_1 AS TABLE (
     Code2                     VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
 CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_2 AS TABLE (
-    Offset                    INT            NOT NULL,
-    SearchParamId             SMALLINT       NOT NULL,
-    BaseUri1                  VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId1  SMALLINT       NULL,
-    ReferenceResourceId1      VARCHAR (64)   COLLATE Latin1_General_100_CS_AS NOT NULL,
-    ReferenceResourceVersion1 INT            NULL,
-    SystemId2                 INT            NULL,
-    Code2                     VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow2             NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
+    Offset                    INT           NOT NULL,
+    SearchParamId             SMALLINT      NOT NULL,
+    BaseUri1                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
+    ReferenceResourceTypeId1  SMALLINT      NULL,
+    ReferenceResourceId1      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion1 INT           NULL,
+    SystemId2                 INT           NULL,
+    Code2                     VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow2             VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
 
 CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE (
     Offset        INT           NOT NULL,
@@ -184,14 +184,14 @@ CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE (
     Code2         VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
 CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_2 AS TABLE (
-    Offset        INT            NOT NULL,
-    SearchParamId SMALLINT       NOT NULL,
-    SystemId1     INT            NULL,
-    Code1         VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
-    SystemId2     INT            NULL,
-    Code2         VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow2 NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
+    Offset        INT           NOT NULL,
+    SearchParamId SMALLINT      NOT NULL,
+    SystemId1     INT           NULL,
+    Code1         VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
+    SystemId2     INT           NULL,
+    Code2         VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow2 VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
 
 CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 AS TABLE (
     Offset            INT                NOT NULL,
@@ -207,7 +207,7 @@ CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 AS TABLE (
     SearchParamId     SMALLINT           NOT NULL,
     SystemId1         INT                NULL,
     Code1             VARCHAR (256)      COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1     NVARCHAR (MAX)     COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1     VARCHAR (MAX)      COLLATE Latin1_General_100_CS_AS NULL,
     StartDateTime2    DATETIMEOFFSET (7) NOT NULL,
     EndDateTime2      DATETIMEOFFSET (7) NOT NULL,
     IsLongerThanADay2 BIT                NOT NULL);
@@ -228,7 +228,7 @@ CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE (
     SearchParamId   SMALLINT        NOT NULL,
     SystemId1       INT             NULL,
     Code1           VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1   NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1   VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL,
     SystemId2       INT             NULL,
     QuantityCodeId2 INT             NULL,
     SingleValue2    DECIMAL (18, 6) NULL,
@@ -248,7 +248,7 @@ CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE (
     SearchParamId SMALLINT       NOT NULL,
     SystemId1     INT            NULL,
     Code1         VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 VARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL,
     Text2         NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL);
 
@@ -270,7 +270,7 @@ CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE (
     SearchParamId SMALLINT        NOT NULL,
     SystemId1     INT             NULL,
     Code1         VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow1 NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow1 VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL,
     SingleValue2  DECIMAL (18, 6) NULL,
     LowValue2     DECIMAL (18, 6) NULL,
     HighValue2    DECIMAL (18, 6) NULL,
@@ -596,17 +596,17 @@ CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourc
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
-    ResourceTypeId            SMALLINT       NOT NULL,
-    ResourceSurrogateId       BIGINT         NOT NULL,
-    SearchParamId             SMALLINT       NOT NULL,
-    BaseUri1                  VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NULL,
-    ReferenceResourceTypeId1  SMALLINT       NULL,
-    ReferenceResourceId1      VARCHAR (64)   COLLATE Latin1_General_100_CS_AS NOT NULL,
-    ReferenceResourceVersion1 INT            NULL,
-    SystemId2                 INT            NULL,
-    Code2                     VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory                 BIT            NOT NULL,
-    CodeOverflow2             NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
+    ResourceTypeId            SMALLINT      NOT NULL,
+    ResourceSurrogateId       BIGINT        NOT NULL,
+    SearchParamId             SMALLINT      NOT NULL,
+    BaseUri1                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
+    ReferenceResourceTypeId1  SMALLINT      NULL,
+    ReferenceResourceId1      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion1 INT           NULL,
+    SystemId2                 INT           NULL,
+    Code2                     VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    IsHistory                 BIT           NOT NULL,
+    CodeOverflow2             VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
@@ -813,16 +813,16 @@ CREATE NONCLUSTERED INDEX IX_QueueId_ParentTaskId
     ON dbo.TaskInfo(QueueId, ParentTaskId);
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
-    ResourceTypeId      SMALLINT       NOT NULL,
-    ResourceSurrogateId BIGINT         NOT NULL,
-    SearchParamId       SMALLINT       NOT NULL,
-    SystemId1           INT            NULL,
-    Code1               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    StartDateTime2      DATETIME2 (7)  NOT NULL,
-    EndDateTime2        DATETIME2 (7)  NOT NULL,
-    IsLongerThanADay2   BIT            NOT NULL,
-    IsHistory           BIT            NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
+    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceSurrogateId BIGINT        NOT NULL,
+    SearchParamId       SMALLINT      NOT NULL,
+    SystemId1           INT           NULL,
+    Code1               VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    StartDateTime2      DATETIME2 (7) NOT NULL,
+    EndDateTime2        DATETIME2 (7) NOT NULL,
+    IsLongerThanADay2   BIT           NOT NULL,
+    IsHistory           BIT           NOT NULL,
+    CodeOverflow1       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam
@@ -871,7 +871,7 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
     HighValue3          DECIMAL (18, 6) NULL,
     HasRange            BIT             NOT NULL,
     IsHistory           BIT             NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
+    CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam
@@ -908,7 +908,7 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam (
     LowValue2           DECIMAL (18, 6) NULL,
     HighValue2          DECIMAL (18, 6) NULL,
     IsHistory           BIT             NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
+    CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam
@@ -940,13 +940,13 @@ CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Cod
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenSearchParam (
-    ResourceTypeId      SMALLINT       NOT NULL,
-    ResourceSurrogateId BIGINT         NOT NULL,
-    SearchParamId       SMALLINT       NOT NULL,
-    SystemId            INT            NULL,
-    Code                VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT            NOT NULL,
-    CodeOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
+    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceSurrogateId BIGINT        NOT NULL,
+    SearchParamId       SMALLINT      NOT NULL,
+    SystemId            INT           NULL,
+    Code                VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    IsHistory           BIT           NOT NULL,
+    CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenSearchParam
@@ -973,7 +973,7 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam (
     Text2               NVARCHAR (256) COLLATE Latin1_General_CI_AI NOT NULL,
     TextOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_CI_AI NULL,
     IsHistory           BIT            NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
+    CodeOverflow1       VARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenStringCompositeSearchParam
@@ -1016,16 +1016,16 @@ CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenTokenCompositeSearchParam (
-    ResourceTypeId      SMALLINT       NOT NULL,
-    ResourceSurrogateId BIGINT         NOT NULL,
-    SearchParamId       SMALLINT       NOT NULL,
-    SystemId1           INT            NULL,
-    Code1               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    SystemId2           INT            NULL,
-    Code2               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT            NOT NULL,
-    CodeOverflow1       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
-    CodeOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
+    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceSurrogateId BIGINT        NOT NULL,
+    SearchParamId       SMALLINT      NOT NULL,
+    SystemId1           INT           NULL,
+    Code1               VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SystemId2           INT           NULL,
+    Code2               VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    IsHistory           BIT           NOT NULL,
+    CodeOverflow1       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow2       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam
