@@ -443,42 +443,67 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Before reindexing the database we test if we can access or not the created resources, with and without x-ms-use-partial-indices header.
 
-                // Without x-ms-use-partial-indices header we cannot search for resources created after the search parameter was created.
-                Bundle bundle = await Client.SearchAsync($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
-                OperationOutcome operationOutcome = GetAndValidateOperationOutcome(bundle);
-                string[] expectedDiagnostics = { string.Format(Core.Resources.SearchParameterNotSupported, searchParameterName, resourceTypeName) };
-                OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
-                OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
-                ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, operationOutcome);
+                // When there are multiple instances of the fhir-server running, it could take some time
+                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // adding some retries below to account for that delay.
+                int retryCountPreReindex = 0;
+                bool successPreReindex = true;
+                int maxRetryCountPreReindex = 10;
+                maxRetryCountPreReindex = 10;
+                await Task.Delay(TimeSpan.FromSeconds(20));
 
-                // With x-ms-use-partial-indices header we can search only for resources created after the search parameter was created.
+                do
+                {
+                    successPreReindex = true;
+                    retryCountPreReindex++;
+                    try
+                    {
+                        // Without x-ms-use-partial-indices header we cannot search for resources created after the search parameter was created.
+                        Bundle bundle = await Client.SearchAsync($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
+                        OperationOutcome operationOutcome = GetAndValidateOperationOutcome(bundle);
+                        string[] expectedDiagnostics = { string.Format(Core.Resources.SearchParameterNotSupported, searchParameterName, resourceTypeName) };
+                        OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
+                        OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
+                        ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, operationOutcome);
 
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
-                    false,
-                    false,
-                    new Tuple<string, string>("x-ms-use-partial-indices", "true")); // Nothing should be returned.
+                        // With x-ms-use-partial-indices header we can search only for resources created after the search parameter was created.
 
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
-                    false,
-                    false,
-                    new Tuple<string, string>("x-ms-use-partial-indices", "true"),
-                    createdResourceB); // Expected resource B.
+                        await ExecuteAndValidateBundle(
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
+                            false,
+                            false,
+                            new Tuple<string, string>("x-ms-use-partial-indices", "true")); // Nothing should be returned.
 
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
-                    false,
-                    false,
-                    new Tuple<string, string>("x-ms-use-partial-indices", "true"),
-                    createdResourceC); // Expected resource C.
+                        await ExecuteAndValidateBundle(
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
+                            false,
+                            false,
+                            new Tuple<string, string>("x-ms-use-partial-indices", "true"),
+                            createdResourceB); // Expected resource B.
 
-                await ExecuteAndValidateBundle(
-                    $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
-                    false,
-                    false,
-                    new Tuple<string, string>("x-ms-use-partial-indices", "true"),
-                    createdResourceD); // Expected resource D.
+                        await ExecuteAndValidateBundle(
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
+                            false,
+                            false,
+                            new Tuple<string, string>("x-ms-use-partial-indices", "true"),
+                            createdResourceC); // Expected resource C.
+
+                        await ExecuteAndValidateBundle(
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
+                            false,
+                            false,
+                            new Tuple<string, string>("x-ms-use-partial-indices", "true"),
+                            createdResourceD); // Expected resource D.
+                    }
+                    catch (Exception ex)
+                    {
+                        string error = $"Pre-reindex attempt {retryCountPreReindex} of {maxRetryCountPreReindex}: Failed to validate bundle: {ex}";
+                        _output.WriteLine(error);
+                        successPreReindex = false;
+                        await Task.Delay(TimeSpan.FromSeconds(10));
+                    }
+                }
+                while (!successPreReindex && retryCountPreReindex < maxRetryCountPreReindex);
 
                 // Start reindexing resources.
 
@@ -596,7 +621,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception ex)
                     {
-                        string error = $"Attempt {retryCount} of {maxRetryCount}: Failed to validate bundle: {ex}";
+                        string error = $"Post-reindex attempt {retryCount} of {maxRetryCount}: Failed to validate bundle: {ex}";
                         _output.WriteLine(error);
                         success = false;
                         await Task.Delay(TimeSpan.FromSeconds(10));
