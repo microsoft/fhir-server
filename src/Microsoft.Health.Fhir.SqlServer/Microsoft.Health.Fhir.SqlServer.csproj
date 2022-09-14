@@ -51,9 +51,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Update="Features\Schema\Migrations\40.sql">
-      <MutableClassVersion>%(Filename)</MutableClassVersion>
-    </EmbeddedResource>
     <EmbeddedResource Update="Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
