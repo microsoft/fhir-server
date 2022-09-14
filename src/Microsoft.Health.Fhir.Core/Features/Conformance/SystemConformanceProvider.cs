@@ -23,18 +23,17 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public sealed class SystemConformanceProvider
-        : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IDisposable
+        : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IAsyncDisposable
     {
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private readonly TimeSpan _rebuildDelay = TimeSpan.FromHours(4);
+        private readonly int _rebuildDelay = 240; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
         private ResourceElement _listedCapabilityStatement;
         private ResourceElement _metadata;
         private ICapabilityStatementBuilder _builder;
-        private Thread _rebuilder;
-        private bool _runRebuilder = true;
+        private Task _rebuilder;
         private static SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
         private static SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
@@ -91,8 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         _listedCapabilityStatement = _builder.Build().ToResourceElement();
 
-                        _rebuilder = new Thread(RebuildCapabilityStatement);
-                        _rebuilder.Start();
+                        _rebuilder = Task.Run(BackgroudLoop, CancellationToken.None);
                     }
                 }
                 finally
@@ -105,15 +103,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return _listedCapabilityStatement;
         }
 
-        public async void RebuildCapabilityStatement()
+        public async Task BackgroudLoop()
         {
-            while (_runRebuilder)
+            while (!_cancellationTokenSource.IsCancellationRequested)
             {
-                Thread.Sleep(_rebuildDelay);
-
-                if (!_runRebuilder)
+                for (int i = 0; i < _rebuildDelay; i++)
                 {
-                    break;
+                    await Task.Delay(TimeSpan.FromMinutes(1));
+
+                    if (!_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        return;
+                    }
                 }
 
                 if (_builder != null)
@@ -149,13 +150,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _configurationUpdates.Add(builder);
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
+            _cancellationTokenSource.Cancel();
+            await _rebuilder;
+            _cancellationTokenSource.Dispose();
+            _rebuilder = null;
             _defaultCapabilitySemaphore?.Dispose();
             _defaultCapabilitySemaphore = null;
             _metadataSemaphore?.Dispose();
             _metadataSemaphore = null;
-            _runRebuilder = false;
         }
 
         public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
