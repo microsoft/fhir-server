@@ -646,4 +646,7 @@
     <value>Inner '{0}' are not supported</value>
     <comment>Union expression can't have other union expressions as children.</comment>
   </data>
+  <data name="RequestEntityTooLargeExceptionDuringExport" xml:space="preserve">
+    <value>Timespan in export request contains too much data to export in a single request. Please try reducing the time range and try again.</value>
+  </data>
 </root>

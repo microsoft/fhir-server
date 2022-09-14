@@ -573,7 +573,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("IncludeMissingType", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The target resource type cannot be empty..
         /// </summary>
@@ -1012,6 +1012,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string RequestedActionNotAllowed {
             get {
                 return ResourceManager.GetString("RequestedActionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Timespan in export request contains too much data to export in a single request. Please try reducing the time range and try again..
+        /// </summary>
+        internal static string RequestEntityTooLargeExceptionDuringExport {
+            get {
+                return ResourceManager.GetString("RequestEntityTooLargeExceptionDuringExport", resourceCulture);
             }
         }
         

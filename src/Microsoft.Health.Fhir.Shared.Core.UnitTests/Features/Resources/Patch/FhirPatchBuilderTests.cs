@@ -17,7 +17,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         {
             var patchParam = new Parameters().AddPatchParameter("remove", path: "Patient.identifier");
 
-            Assert.Throws<InvalidOperationException>(() => new FhirPathPatchBuilder(new Patient(), patchParam));
+            var exception = Assert.Throws<InvalidOperationException>(() => new FhirPathPatchBuilder(new Patient(), patchParam));
+            Assert.Contains("Invalid patch operation type", exception.Message);
         }
 
         [Fact]
@@ -25,7 +26,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         {
             var patchParam = new Parameters().AddPatchParameter("add", name: "identifier", value: new FhirString("test"));
 
-            Assert.Throws<InvalidOperationException>(() => new FhirPathPatchBuilder(new Patient(), patchParam));
+            var exception = Assert.Throws<InvalidOperationException>(() => new FhirPathPatchBuilder(new Patient(), patchParam));
+            Assert.Contains("Patch add operation", exception.Message);
+            Assert.Contains("must have the 'path'", exception.Message);
         }
 
         [Fact]
@@ -33,7 +36,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         {
             var patchParam = new Parameters().AddPatchParameter("add", path: "Patient", value: new FhirString("test"));
 
-            Assert.Throws<InvalidOperationException>(() => new FhirPathPatchBuilder(new Patient(), patchParam));
+            var exception = Assert.Throws<InvalidOperationException>(() => new FhirPathPatchBuilder(new Patient(), patchParam));
+            Assert.Equal("Patch add operations must have the 'name' part.", exception.Message);
+            Assert.Contains("Patch add operation", exception.Message);
+            Assert.Contains("must have the 'name'", exception.Message);
         }
 
         [Fact]
@@ -41,7 +47,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         {
             var patchParam = new Parameters().AddPatchParameter("add", path: "Patient", name: "identifier");
 
-            Assert.Throws<InvalidOperationException>(() => new FhirPathPatchBuilder(new Patient(), patchParam));
+            var exception = Assert.Throws<InvalidOperationException>(() => new FhirPathPatchBuilder(new Patient(), patchParam));
+            Assert.Contains("Patch add operation", exception.Message);
+            Assert.Contains("must have the 'value'", exception.Message);
         }
     }
 }
