@@ -15,6 +15,46 @@
                     "status": "generated",
                     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
                 },
+                "extension": [
+                    {
+                        "extension": [
+                            {
+                                "url": "ombCategory",
+                                "valueCoding": {
+                                    "system": "urn:oid:2.16.840.1.113883.6.238",
+                                    "code": "2028-9",
+                                    "display": "Asian"
+                                }
+                            },
+                            {
+                                "url": "text",
+                                "valueString": "Asian"
+                            }
+                        ],
+                        "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race"
+                    },
+                    {
+                        "extension": [
+                            {
+                                "url": "ombCategory",
+                                "valueCoding": {
+                                    "system": "urn:oid:2.16.840.1.113883.6.238",
+                                    "code": "2186-5",
+                                    "display": "Not Hispanic or Latino"
+                                }
+                            },
+                            {
+                                "url": "text",
+                                "valueString": "Not Hispanic or Latino"
+                            }
+                        ],
+                        "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity"
+                    },
+                    {
+                        "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
+                        "valueCode": "M"
+                    }
+                ],
                 "identifier": [
                     {
                         "system": "http:/example.org/fhir/ids",
@@ -59,6 +99,39 @@
                             {
                                 "name": "value",
                                 "valueCode": "female"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5"
+            }
+        },
+        {
+            "fullUrl": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5",
+            "resource": {
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "operation",
+                        "part": [
+                            {
+                                "name": "type",
+                                "valueCode": "replace"
+                            },
+                            {
+                                "name": "path",
+                                "valueString": "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.where(url = 'ombCategory').value"
+                            },
+                            {
+                                "name": "value",
+                                "valueCoding": {
+                                    "system": "urn:oid:2.16.840.1.113883.6.238",
+                                    "code": "2054-5",
+                                    "display": "Black or African American"
+                                }
                             }
                         ]
                     }
