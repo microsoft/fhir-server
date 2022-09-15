@@ -4,8 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
@@ -33,13 +36,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         {
             try
             {
-                Target.Parent.Remove(Target);
-                return ResourceElement.ToPoco<Resource>();
+                var findResult = ResourceElement
+                            .Select(Operation.Path)
+                            .RequireSingleElement();
+
+                Target = findResult.Count() == 1 ? findResult.GetFirstElementNode() : null;
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
-                return ResourceElement.ToPoco<Resource>();
+                throw new InvalidOperationException($"{ex.Message} for {Operation.Path} when processing patch delete operation.");
             }
+
+            if (Target is not null)
+            {
+                Target.Parent.Remove(Target);
+            }
+
+            return ResourceElement.ToPoco<Resource>();
         }
     }
 }

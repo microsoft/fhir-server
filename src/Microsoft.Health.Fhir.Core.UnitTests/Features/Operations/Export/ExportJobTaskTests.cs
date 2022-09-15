@@ -1363,6 +1363,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData(typeof(AnonymizationConfigurationNotFoundException), "config not found", HttpStatusCode.BadRequest)]
         [InlineData(typeof(FailedToParseAnonymizationConfigurationException), "cannot parse the config", HttpStatusCode.BadRequest)]
         [InlineData(typeof(InvalidOperationException), "Unknown Error.", HttpStatusCode.InternalServerError)]
+        [InlineData(typeof(RequestEntityTooLargeException), "Timespan in export request contains too much data to export in a single request. Please try reducing the time range and try again.", HttpStatusCode.RequestEntityTooLarge)]
         public async Task GivenExceptionThrowFromAnonymizerFactory_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed(Type exceptionType, string expectedErrorMessage, HttpStatusCode expectedHttpStatusCode)
         {
             // Setup export destination client.
