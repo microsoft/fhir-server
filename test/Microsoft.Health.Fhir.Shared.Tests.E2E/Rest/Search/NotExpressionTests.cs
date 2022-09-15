@@ -13,7 +13,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -23,7 +22,6 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [Trait(Traits.Category, Categories.Search)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public sealed class NotExpressionTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
@@ -58,8 +56,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var healthCareServices = healthRecordIdentifiers.Where(i => i.ResourceType == ResourceType.HealthcareService.ToString());
             foreach (HealthRecordIdentifier healthCareService in healthCareServices)
             {
-                // Investigating the possibility of having a bug with :not and chain queries.
-                // string query1 = $"_id={healthCareService.Id}&_has:PractitionerRole:service:active:not=false";
+                string query0 = $"_id={healthCareService.Id}&_has:PractitionerRole:service:active:not=false";
+                Bundle queryResult0 = await _client.SearchAsync(ResourceType.HealthcareService, query0);
+                Assert.Single(queryResult0.Entry);
+
                 string query1 = $"location:missing=false&_id={healthCareService.Id}";
                 Bundle queryResult1 = await _client.SearchAsync(ResourceType.HealthcareService, query1);
                 Assert.Single(queryResult1.Entry);
