@@ -616,7 +616,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                         // Invalid composite search parameter returns nothing, we send correct token but incorrect second parameter that is not used by any of the resources.
                         await ExecuteAndValidateBundle(
-                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}",
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}",
                             false,
                             false,
                             singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
