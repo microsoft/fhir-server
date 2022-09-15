@@ -1,7 +1,7 @@
 ﻿
 --DROP PROCEDURE dbo.DequeueJob
 GO
-CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
+CREATE or ALTER PROCEDURE dbo.DequeueJob @QueueType tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueJob'
