@@ -114,8 +114,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand command = connection.CreateCommand();
                 command.CommandTimeout = 600;
-                command.CommandText = $"ALTER DATABASE {databaseName} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
-                await command.ExecuteNonQueryAsync(cancellationToken);
                 command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 await connection.CloseAsync();
