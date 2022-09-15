@@ -587,11 +587,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         // Otherwise, must use x-ms-use-partial-indices header.
                         // Also, resources A and B have token overflow while C does not. Still all resources are correctly returned.
                         await ExecuteAndValidateBundle(
-                        $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
-                        false,
-                        false,
-                        singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
-                        createdResourceA); // Expected resource A.
+                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
+                            false,
+                            false,
+                            singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null,
+                            createdResourceA); // Expected resource A.
 
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
