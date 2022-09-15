@@ -13,6 +13,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -22,6 +23,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [Trait(Traits.Category, Categories.Search)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public sealed class NotExpressionTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
@@ -43,10 +45,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 string query1 = $"_id={practitioner.Id}&active:not=false";
                 Bundle queryResult1 = await _client.SearchAsync(ResourceType.PractitionerRole, query1);
                 Assert.Single(queryResult1.Entry);
+                Assert.Equal(practitioner.Id, queryResult1.Entry.Single().Resource.Id);
 
                 string query2 = $"_id={practitioner.Id}&active:not=false&location:missing=false";
                 Bundle queryResult2 = await _client.SearchAsync(ResourceType.PractitionerRole, query2);
                 Assert.Single(queryResult2.Entry);
+                Assert.Equal(practitioner.Id, queryResult2.Entry.Single().Resource.Id);
 
                 string query3 = $"_id={practitioner.Id}&active:not=true";
                 Bundle queryResult3 = await _client.SearchAsync(ResourceType.PractitionerRole, query3);
@@ -56,17 +60,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var healthCareServices = healthRecordIdentifiers.Where(i => i.ResourceType == ResourceType.HealthcareService.ToString());
             foreach (HealthRecordIdentifier healthCareService in healthCareServices)
             {
-                string query0 = $"_id={healthCareService.Id}&_has:PractitionerRole:service:active:not=false";
-                Bundle queryResult0 = await _client.SearchAsync(ResourceType.HealthcareService, query0);
-                Assert.Single(queryResult0.Entry);
-
                 string query1 = $"location:missing=false&_id={healthCareService.Id}";
                 Bundle queryResult1 = await _client.SearchAsync(ResourceType.HealthcareService, query1);
                 Assert.Single(queryResult1.Entry);
+                Assert.Equal(healthCareService.Id, queryResult1.Entry.Single().Resource.Id);
 
                 string query2 = $"_id={healthCareService.Id}";
                 Bundle queryResult2 = await _client.SearchAsync(ResourceType.HealthcareService, query2);
                 Assert.Single(queryResult2.Entry);
+                Assert.Equal(healthCareService.Id, queryResult2.Entry.Single().Resource.Id);
             }
         }
 
