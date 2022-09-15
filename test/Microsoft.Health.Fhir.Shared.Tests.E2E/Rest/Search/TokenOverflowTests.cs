@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // IMPORTANT. It is important that the following values are same for all the resources in a test, so selection of returned resources
                 // from database is done based on proper functioning of the token overflow functionality only.
-                patient.Name[0].Family = $"{name}-A"; // Used in token-string tests.
+                patient.Name[0].Family = $"{name}-FName"; // Used in token-string tests.
                 patient.BirthDate = "2016-01-15"; // Used in token-datetime tests.
                 patient.Telecom[0].Value = "555-555-5555"; // Used in tokenoverflow-token and token-tokenoverflow tests.
                 patient.ManagingOrganization.Reference = "Test-Organization"; // Used in reference-token tests.
@@ -450,7 +450,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 bool successPreReindex = true;
                 int maxRetryCountPreReindex = 10;
                 maxRetryCountPreReindex = 10;
-                await Task.Delay(TimeSpan.FromSeconds(20));
+                await Task.Delay(TimeSpan.FromSeconds(5));
 
                 do
                 {
@@ -500,10 +500,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         string error = $"Pre-reindex attempt {retryCountPreReindex} of {maxRetryCountPreReindex}: Failed to validate bundle: {ex}";
                         _output.WriteLine(error);
                         successPreReindex = false;
-                        await Task.Delay(TimeSpan.FromSeconds(10));
+                        await Task.Delay(TimeSpan.FromSeconds(20));
                     }
                 }
                 while (!successPreReindex && retryCountPreReindex < maxRetryCountPreReindex);
+
+                Assert.True(successPreReindex);
 
                 // Start reindexing resources.
 
@@ -570,7 +572,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 if (!singleReindex)
                 {
                     maxRetryCount = 10;
-                    await Task.Delay(TimeSpan.FromSeconds(20));
+                    await Task.Delay(TimeSpan.FromSeconds(5));
                 }
 
                 do
@@ -624,7 +626,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         string error = $"Post-reindex attempt {retryCount} of {maxRetryCount}: Failed to validate bundle: {ex}";
                         _output.WriteLine(error);
                         success = false;
-                        await Task.Delay(TimeSpan.FromSeconds(10));
+                        await Task.Delay(TimeSpan.FromSeconds(20));
                     }
                 }
                 while (!success && retryCount < maxRetryCount);
