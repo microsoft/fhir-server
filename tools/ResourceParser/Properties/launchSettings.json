@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ResourceParser": {
+      "commandName": "Project",
+      "commandLineArgs": "\"{\\\"resourceType\\\": \\\"Patient\\\", \\\"gender\\\": \\\"male\\\", \\\"id\\\": \\\"123\\\"}\""
+    }
+  }
+}
