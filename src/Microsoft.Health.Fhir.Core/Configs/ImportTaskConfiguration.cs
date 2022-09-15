@@ -102,13 +102,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool DisableOptionalIndexesForImport { get; set; }
 
         /// <summary>
-        /// Disable unique optional index during import data.
-        /// </summary>
-        public bool DisableUniqueOptionalIndexesForImport { get; set; }
-
-        /// <summary>
         /// Default not rebuild clustered.
         /// </summary>
-        public bool RebuildClustered { get; } = DefaultSqlRebuildClustered;
+        public bool RebuildClustered { get; set; } = DefaultSqlRebuildClustered;
     }
 }

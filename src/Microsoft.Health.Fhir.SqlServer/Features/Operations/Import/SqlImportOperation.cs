@@ -22,7 +22,6 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Xunit;
 using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -234,20 +233,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 OptionalUniqueIndexesForImport = UniqueIndexesList();
 
                 // Not disable index by default
-                if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
                     List<(string tableName, string indexName)> indexesNeedDisable = new List<(string tableName, string indexName)>();
-
-                    if (_importTaskConfiguration.DisableOptionalIndexesForImport)
-                    {
-                        indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                    }
-
-                    if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
-                    {
-                        indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                    }
-
+                    indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                    indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
                     foreach (var index in indexesNeedDisable)
                     {
                         using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -276,7 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             try
             {
                 // Not rerebuild index by default
-                if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
                     IList<(string tableName, string indexName, string command)> commandsForRebuildIndexes = new List<(string tableName, string indexName, string command)>();
                     await SwitchPartitionsOutAllTables(_importTaskConfiguration.RebuildClustered, cancellationToken);

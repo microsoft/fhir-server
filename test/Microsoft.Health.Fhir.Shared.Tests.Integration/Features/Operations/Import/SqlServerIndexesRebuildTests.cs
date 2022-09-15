@@ -74,7 +74,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 Import = new ImportTaskConfiguration()
                 {
                     DisableOptionalIndexesForImport = true,
-                    DisableUniqueOptionalIndexesForImport = true,
                 },
             });
 
@@ -145,7 +144,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 Import = new ImportTaskConfiguration()
                 {
                     DisableOptionalIndexesForImport = true,
-                    DisableUniqueOptionalIndexesForImport = true,
                 },
             });
 
