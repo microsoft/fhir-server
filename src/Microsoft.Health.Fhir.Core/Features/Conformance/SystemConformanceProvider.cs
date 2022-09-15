@@ -203,6 +203,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 try
                 {
                     _metadata = _builder.Build().ToResourceElement();
+                    return _metadata;
                 }
                 finally
                 {
@@ -210,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
             }
 
-            // There is a chance that the RebuildCapabilityStatement handler sets metadata to null between when it is checked and returned, but the alternative was leading to deadlocks where the creation of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built. But the metadata builder was waiting on the rebuild handler.
+            // There is a chance that the BackgroundLoop handler sets metadata to null between when it is checked and returned, but the alternative was leading to deadlocks where the creation of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built. But the metadata builder was waiting on the rebuild handler.
             return _metadata;
         }
     }
