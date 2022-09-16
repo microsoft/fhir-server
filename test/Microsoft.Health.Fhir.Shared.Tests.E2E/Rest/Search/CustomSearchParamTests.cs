@@ -254,6 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new Specimen
             var specimen = Samples.GetJsonSample<Specimen>("Specimen");
             FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
+            _output.WriteLine($"{nameof(expectedSpecimen)} Response.StatusCode is {expectedSpecimen.Response.StatusCode}");
 
             // POST a second Specimen to show it is filtered and not returned when using the new search parameter
             var specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
@@ -262,13 +263,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new patient
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = randomName } } };
             FhirResponse<Patient> expectedPatient = await Client.CreateAsync(patient);
+            _output.WriteLine($"{nameof(expectedPatient)} Response.StatusCode is {expectedPatient.Response.StatusCode}");
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
+            bool success = true;
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
-                _output.WriteLine($"SearchParameter is posted {searchParam.Url}");
+                _output.WriteLine($"{nameof(searchParamPosted)} Response.StatusCode is {searchParamPosted.Response.StatusCode} and posted Url is {searchParam.Url}");
 
                 Uri reindexJobUri;
 
@@ -309,7 +312,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // for the search parameter/reindex updates to propogate to all instances. Hence we are
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
-                bool success = true;
                 await Task.Delay(TimeSpan.FromSeconds(20));
 
                 do
@@ -322,6 +324,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             $"Specimen?{searchParam.Code}={expectedSpecimen.Resource.Id}",
                             Tuple.Create("x-ms-use-partial-indices", "true"),
                             expectedSpecimen.Resource);
+
+                        _output.WriteLine($"Success on {retryCount} of {MaxRetryCount}");
                     }
                     catch (Exception ex)
                     {
@@ -359,7 +363,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             finally
             {
                 // Clean up new SearchParameter
-                await DeleteSearchParameterAndVerify(searchParamPosted?.Resource);
+                if (success)
+                {
+                    await DeleteSearchParameterAndVerify(searchParamPosted?.Resource);
+                }
+                else
+                {
+                    _output.WriteLine($"Test was not successful, check db for search params");
+                }
             }
         }
 
@@ -376,6 +387,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new Specimen
             var specimen = Samples.GetJsonSample<Specimen>("Specimen");
             FhirResponse<Specimen> expectedSpecimen = await Client.CreateAsync(specimen);
+            _output.WriteLine($"{nameof(expectedSpecimen)} Response.StatusCode is {expectedSpecimen.Response.StatusCode}");
 
             // POST a second Specimen to show it is filtered and not returned when using the new search parameter
             var specimen2 = Samples.GetJsonSample<Specimen>("Specimen");
@@ -384,13 +396,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new Immunization
             var immunization = Samples.GetJsonSample<Immunization>("Immunization");
             FhirResponse<Immunization> expectedImmunization = await Client.CreateAsync(immunization);
+            _output.WriteLine($"{nameof(expectedImmunization)} Response.StatusCode is {expectedImmunization.Response.StatusCode}");
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
+            bool success = true;
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
-                _output.WriteLine($"SearchParameter is posted {searchParam.Url}");
+                _output.WriteLine($"{nameof(searchParamPosted)} Response.StatusCode is {searchParamPosted.Response.StatusCode} and posted Url is {searchParam.Url}");
 
                 Uri reindexJobUri;
 
@@ -433,7 +447,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // for the search parameter/reindex updates to propogate to all instances. Hence we are
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
-                bool success = true;
                 await Task.Delay(TimeSpan.FromSeconds(20));
 
                 do
@@ -450,6 +463,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         await ExecuteAndValidateBundle(
                             $"Immunization?{searchParam.Code}={expectedImmunization.Resource.Id}",
                             expectedImmunization.Resource);
+
+                        _output.WriteLine($"Success on {retryCount} of {MaxRetryCount}");
                     }
                     catch (Exception ex)
                     {
@@ -479,7 +494,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             finally
             {
                 // Clean up new SearchParameter
-                await DeleteSearchParameterAndVerify(searchParamPosted?.Resource);
+                if (success)
+                {
+                    await DeleteSearchParameterAndVerify(searchParamPosted?.Resource);
+                }
+                else
+                {
+                    _output.WriteLine($"Test was not successful, check db for search params");
+                }
             }
         }
 
