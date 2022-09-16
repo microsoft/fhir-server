@@ -37,14 +37,29 @@ stages:
     steps:
     - template: ./jobs/build.yml
       parameters:
-        packageArtifacts: false
-  
+        packageIntegrationTests: true
+
   - job: Linux
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
+      parameters:
+        codeCoverage: true
+        componentGovernance: true
+        packageArtifacts: true
+
+- stage: AnalyzeSecurity
+  displayName: 'Run Security Analysis'
+  dependsOn:
+  - BuildUnitTests
+  jobs:
+  - job: Guardian
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - template: ./jobs/analyze.yml
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -169,7 +184,7 @@ stages:
       appServiceName: $(DeploymentEnvironmentNameR5)
 
 - stage: DockerAddTag
-  displayName: 'Docker add master tag'
+  displayName: 'Docker add main tag'
   dependsOn:
   - testStu3
   - testR4
@@ -187,19 +202,3 @@ stages:
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
-
-- stage: securityScan
-  displayName: Security Scan
-  dependsOn: []
-  jobs:
-  - job: runScan
-    pool:
-      vmImage: $(WindowsVmImage)
-    steps:
-    - task: securedevelopmentteam.vss-secure-development-tools.build-task-antimalware.AntiMalware@3
-      displayName: 'Run MpCmdRun.exe'
-      inputs:
-        FileDirPath: '$(System.ArtifactsDirectory)'
-        EnableServices: true
-        SignatureFreshness: OneDay
-        TreatStaleSignatureAs: Warning
