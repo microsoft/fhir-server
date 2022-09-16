@@ -80,6 +80,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingAndSortTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSortAndSearchValidationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CustomSearchParamTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RequiresIsolatedDatabaseAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
@@ -92,6 +93,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IdSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotExpressionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\QuantitySearchTestFixture.cs" />
