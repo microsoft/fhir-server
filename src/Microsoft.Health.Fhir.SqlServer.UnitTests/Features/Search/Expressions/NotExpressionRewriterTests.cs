@@ -8,10 +8,13 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
+    [Trait(Traits.Category, Categories.Search)]
     public class NotExpressionRewriterTests
     {
         [Fact]
@@ -27,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NotExpressionRewriter.Instance);
             Assert.Collection(
                 visitedExpression.SearchParamTableExpressions,
-                e => { Assert.Equal(SearchParamTableExpressionKind.All, e.Kind); },
+                e => { Assert.Equal(SearchParamTableExpressionKind.Normal, e.Kind); },
                 e => { ValidateNotExpression(subExpression, e); });
             Assert.Equal(searchParamTableExpressions.Count + 1, visitedExpression.SearchParamTableExpressions.Count);
         }
