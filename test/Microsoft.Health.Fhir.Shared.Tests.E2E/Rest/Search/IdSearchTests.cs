@@ -17,7 +17,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [Trait(Traits.Category, Categories.Search)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public sealed class IdSearchTests : ChainingSortAndSearchValidationTestFixture
     {
         public IdSearchTests(HttpIntegrationTestFixture fixture)
