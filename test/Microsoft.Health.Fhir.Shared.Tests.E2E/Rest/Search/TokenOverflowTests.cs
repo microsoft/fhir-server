@@ -500,7 +500,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         string error = $"Pre-reindex attempt {retryCountPreReindex} of {maxRetryCountPreReindex}: Failed to validate bundle: {ex}";
                         _output.WriteLine(error);
                         successPreReindex = false;
-                        await Task.Delay(TimeSpan.FromSeconds(20));
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
                 while (!successPreReindex && retryCountPreReindex < maxRetryCountPreReindex);
@@ -626,7 +626,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         string error = $"Post-reindex attempt {retryCount} of {maxRetryCount}: Failed to validate bundle: {ex}";
                         _output.WriteLine(error);
                         success = false;
-                        await Task.Delay(TimeSpan.FromSeconds(20));
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
                 while (!success && retryCount < maxRetryCount);
