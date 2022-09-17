@@ -394,6 +394,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private void WriteBundle(Bundle b)
         {
             _output.WriteLine("BUNDLE");
+            if (b.Entry == null)
+            {
+                _output.WriteLine("  b.Entry == null");
+            }
+
             foreach (Bundle.EntryComponent ec in b.Entry)
             {
                 _output.WriteLine($"  {ToString(ec.Resource)}");
@@ -408,10 +413,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             OperationOutcome o = r as OperationOutcome;
             if (p != null)
             {
-                return $"Patient: {p.Name[0].Family} ; {p.BirthDate} ; {p.Telecom[0].Value} ; {p.ManagingOrganization.Reference} ; {p.Id} ; {p.Identifier[0].Value}";
+                string name = (p.Name?.Count ?? 0) > 0 ? p.Name[0].Family : null;
+                string telecom = (p.Telecom?.Count ?? 0) > 0 ? p.Telecom[0].Value : null;
+                string identifier = (p.Identifier?.Count ?? 0) > 0 ? p.Identifier[0].Value : null;
+                return $"Patient: {name} ; {p.BirthDate} ; {telecom} ; {p.ManagingOrganization?.Reference} ; {p.Id} ; {identifier}";
             }
             else if (o != null)
             {
+                if (o.Issue == null)
+                {
+                    return "o.Issue == null";
+                }
+
                 string ostr = null;
                 for (int iter = 0; iter < o.Issue.Count; iter++)
                 {
