@@ -317,7 +317,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenTokenOverflowString_VerifyCorrectSerachResults(bool singleReindex)
+        public async Task GivenResourcesWithAndWithoutTokenOverflow_WhenSearchByTokenTokenOverflow_VerifyCorrectSerachResults(bool singleReindex)
         {
             await TestCompositeTokenOverflow<Patient>(
                 singleReindex,
@@ -492,9 +492,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<T> createdResourceD = await Client.CreateAsync(resourceDWithShortNoTokenOverflow);
                 EnsureSuccessStatusCode(createdResourceD.StatusCode, "Creating resource D.");
 
-                _output.WriteLine($"---------NAME: {name}");
-                WriteBundle(await Client.SearchAsync(WebUtility.UrlDecode("Patient")));
-
                 // Before reindexing the database we test if we can access or not the created resources, with and without x-ms-use-partial-indices header.
 
                 // When there are multiple instances of the fhir-server running, it could take some time
@@ -512,6 +509,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     retryCountPreReindex++;
                     try
                     {
+                        _output.WriteLine($"---------NAME: {name}");
+                        WriteBundle(await Client.SearchAsync(WebUtility.UrlDecode("Patient")));
+
                         // With x-ms-use-partial-indices header we can search only for resources created after the search parameter was created.
 
                         _output.WriteLine($"---------createdResourceB x-ms-use-partial-indices:");
