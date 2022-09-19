@@ -99,19 +99,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Shards.Import
         {
             // read blob and save in batches
             var lines = 0;
+            var shardletSequence = new Dictionary<ShardletId, short>();
             BatchExtensions.ExecuteInParallelBatches(GetLinesInBlob(blobName), 1, 100000, (outerThread, batch) =>
             {
-                var resources = new List<(int index, Resource)>();
+                var wrappers = new List<(long offset, ShardletId shardletId, ResourceWrapper wrapper)>();
                 BatchExtensions.ExecuteInParallelBatches(batch.Item2, _threads, 100, (innerThread, lineBatch) =>
                 {
-                    var wrappers = new List<(int index, ResourceWrapper)>();
+                    var wrappersInt = new List<(long offset, ShardletId, ResourceWrapper)>();
                     foreach (var line in lineBatch.Item2)
                     {
                         var wrapper = _parser.CreateResourceWrapper(line.json);
-                        wrappers.Add((line.index, wrapper));
+                        wrappersInt.Add((line.offset, ShardletId.GetHashedShardletId(wrapper.ResourceId), wrapper));
                         Interlocked.Increment(ref lines);
                     }
+
+                    lock (wrappers)
+                    {
+                        wrappers.AddRange(wrappersInt);
+                    }
                 });
+
+                // add cross thread sequence update
+                var resourceGroups = wrappers.GroupBy(_ => _.shardletId).Select(_ => _.Select((g, i) => new { g.shardletId, sequence = (short)i, g.wrapper })).SelectMany(_ => _).ToList();
+                var resources = resourceGroups.Select(_ => new Resource(_.wrapper, _model.GetResourceTypeId(_.wrapper.ResourceTypeName), _.shardletId, _.sequence));
             });
 
             return (lines, lines);
@@ -122,15 +132,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Shards.Import
             return wrappers.Select(_ => new Resource(_, _model.GetResourceTypeId(_.ResourceTypeName), ShardletId.GetHashedShardletId(_.ResourceId), 0));
         }
 
-        private IEnumerable<(int index, long offset, string json)> GetLinesInBlob(string blobName)
+        private IEnumerable<(long offset, string json)> GetLinesInBlob(string blobName)
         {
             var index = 0;
             using var reader = new StreamReader(GetContainer(_blobStoreConnectionString, _blobContainer).GetBlobClient(blobName).Download().Value.Content);
             while (!reader.EndOfStream)
             {
                 var json = reader.ReadLine();
-                var offset = 0L;
-                yield return (index, offset, json);
+                yield return (index, json); // replace by offset
                 index++;
             }
         }
