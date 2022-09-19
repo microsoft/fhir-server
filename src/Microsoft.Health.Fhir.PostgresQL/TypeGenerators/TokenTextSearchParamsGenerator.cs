@@ -51,11 +51,11 @@ namespace Microsoft.Health.Fhir.PostgresQL.TypeGenerators
                 _ => throw new ArgumentOutOfRangeException(nameof(searchParameterType)),
             };
 
-        private static Type GetSearchValueType(SearchIndexEntry searchIndexEntry)
+        private static Type? GetSearchValueType(SearchIndexEntry searchIndexEntry)
         {
             if (searchIndexEntry.Value is CompositeSearchValue)
             {
-                return GetSearchValueType(searchIndexEntry.SearchParameter);
+                return null;
             }
 
             Type searchValueType = searchIndexEntry.Value.GetType();

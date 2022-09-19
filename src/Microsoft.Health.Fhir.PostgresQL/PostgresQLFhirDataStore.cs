@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
         internal static readonly Encoding LegacyResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
         internal static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
 
-        private const string ConnectionString = "Host=localhost;Port=5432;Username=postgres;Password=;Database=";
+        private const string ConnectionString = "";
         private readonly ISqlServerFhirModel _model;
         private readonly SchemaInformation _schemaInformation;
         private readonly ResourceWriteClaimsGenerator _resourceWriteClaimsGenerator;
@@ -297,62 +297,60 @@ namespace Microsoft.Health.Fhir.PostgresQL
                 using (var conn = new NpgsqlConnection(ConnectionString))
                 {
                     await conn.OpenAsync(cancellationToken);
-                    using (var cmd = conn.CreateCommand())
+                    try
                     {
-                        cmd.CommandText = $"select * from readresource((@restypeid), (@resid), (@vers))";
-                        cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = _model.GetResourceTypeId(key.ResourceType) });
-                        cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = key.Id });
-                        cmd.Parameters.Add(new NpgsqlParameter("vers", NpgsqlDbType.Integer) { Value = requestedVersion == null ? 0 : requestedVersion });
-                        var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-                        long resourceSurrogateId = 0;
-                        int version = 0;
-                        bool isDeleted = false;
-                        bool isHistory = false;
-                        Stream? rawResourceStream = null;
-                        bool isRawResourceMetaSet = false;
-                        string? searchParamHash = null;
-
-                        while (await reader.ReadAsync(cancellationToken))
+                        using (var cmd = conn.CreateCommand())
                         {
-                            resourceSurrogateId = reader.GetInt64(0);
-                            version = reader.GetInt32(1);
-                            isDeleted = reader.GetBoolean(2);
-                            isHistory = reader.GetBoolean(3);
-                            rawResourceStream = reader.GetStream(4);
-                            isRawResourceMetaSet = reader.GetBoolean(5);
-                            searchParamHash = reader.GetString(6);
-                        }
+                            cmd.CommandText = $"select * from readresource((@restypeid), (@resid), (@vers))";
+                            cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = _model.GetResourceTypeId(key.ResourceType) });
+                            cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = key.Id });
+                            cmd.Parameters.Add(new NpgsqlParameter("vers", NpgsqlDbType.Integer) { Value = requestedVersion == null ? 1 : requestedVersion });
+                            var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                            long resourceSurrogateId = 0;
+                            int version = 0;
+                            bool isDeleted = false;
+                            bool isHistory = false;
+                            bool isRawResourceMetaSet = false;
+                            string rawResource = string.Empty;
+                            string? searchParamHash = null;
 
-                        await conn.CloseAsync();
-                        string rawResource = string.Empty;
-                        if (rawResourceStream != null)
-                        {
-                            using (rawResourceStream)
+                            while (await reader.ReadAsync(cancellationToken))
                             {
-                                // rawResource = ReadCompressedRawResource(rawResourceStream);
-                                rawResource = "test rawresource";
+                                resourceSurrogateId = reader.GetInt64(0);
+                                version = reader.GetInt32(1);
+                                isDeleted = reader.GetBoolean(2);
+                                isHistory = reader.GetBoolean(3);
+                                using Stream rawResourceStream = reader.GetStream(4);
+                                rawResource = ReadCompressedRawResource(rawResourceStream);
+                                isRawResourceMetaSet = reader.GetBoolean(5);
+                                searchParamHash = reader.GetString(6);
                             }
-                        }
-                        else
-                        {
-                            return null;
-                        }
 
-                        return new ResourceWrapper(
-                            key.Id,
-                            version.ToString(CultureInfo.InvariantCulture),
-                            key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                            null,
-                            new DateTimeOffset(ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                            isDeleted,
-                            searchIndices: null,
-                            compartmentIndices: null,
-                            lastModifiedClaims: null,
-                            searchParamHash)
-                        {
-                            IsHistory = isHistory,
-                        };
+                            if (string.IsNullOrEmpty(rawResource))
+                            {
+                                return null;
+                            }
+
+                            return new ResourceWrapper(
+                                key.Id,
+                                version.ToString(CultureInfo.InvariantCulture),
+                                key.ResourceType,
+                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                null,
+                                new DateTimeOffset(ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                                isDeleted,
+                                searchIndices: null,
+                                compartmentIndices: null,
+                                lastModifiedClaims: null,
+                                searchParamHash)
+                            {
+                                IsHistory = isHistory,
+                            };
+                        }
+                    }
+                    finally
+                    {
+                        await conn.CloseAsync();
                     }
                 }
             }

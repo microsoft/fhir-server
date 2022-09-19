@@ -1,4 +1,4 @@
-﻿CREATE TYPE BulkTokenTextTableType_1 AS
+﻿CREATE TYPE BulkTokenTextTableType_2 AS
 (
     offsetid int  ,
     SearchParamId int  ,
