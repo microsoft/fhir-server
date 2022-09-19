@@ -13,15 +13,6 @@ steps:
     parameters:
       csproj: '**/Microsoft.Health.Fhir.R5.Web.csproj'
 
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet publish Integration Tests'
-    inputs:
-      command: publish
-      projects: 'test/**/*.csproj'
-      arguments: '--version-suffix $(build.buildNumber) -o "$(build.binariesdirectory)/IntegrationTests" --configuration $(buildConfiguration) --no-build'
-      publishWebProjects: false
-      zipAfterPublish: false
-
   # Package nugets
   - powershell: |
       & dotnet pack $(Build.SourcesDirectory) --output $(Build.ArtifactStagingDirectory)/nupkgs --no-build --configuration=Release -p:PackageVersion=$(nuGetVersion)
@@ -77,9 +68,21 @@ steps:
       artifactName: 'nuget'
       publishLocation: 'container'
 
-  - task: PublishBuildArtifacts@1
-    displayName: 'publish Integration Tests'
+  - task: CopyFiles@2
+    displayName: 'copy symbols'
     inputs:
-      pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
-      artifactName: 'IntegrationTests'
-      artifactType: 'container'
+      sourceFolder: '$(build.sourcesDirectory)'
+      contents: |
+        **/*.pdb
+        !**/*.UnitTests.pdb
+      targetFolder: '$(build.artifactStagingDirectory)/symbols'
+      cleanTargetFolder: true
+      flattenFolders: true
+      overWrite: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish symbol artifacts'
+    inputs:
+      pathtoPublish: '$(build.artifactStagingDirectory)/symbols'
+      artifactName: 'symbols'
+      publishLocation: 'container'

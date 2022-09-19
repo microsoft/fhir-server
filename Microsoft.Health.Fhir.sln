@@ -178,6 +178,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Importer.Shards", "tools\Im
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IndexRebuilder", "tools\IndexRebuilder\IndexRebuilder.csproj", "{C4998FA8-A235-4BF5-BE85-C5781F2E3F36}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResourceParser", "tools\ResourceParser\ResourceParser.csproj", "{86130CF7-35BA-45B3-8BE7-B83D382B32C3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4.ResourceParser", "tools\Microsoft.Health.Fhir.R4.ResourceParser\Microsoft.Health.Fhir.R4.ResourceParser.csproj", "{2CAC8D57-180F-4DD4-B11D-6B2AB65B2A48}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -503,7 +507,9 @@ Global
 		{08D03809-1BF9-466F-A3B6-F6062EE8C87F} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{11AB1AC3-2978-4629-92C3-C10FD13E11F6} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{C4998FA8-A235-4BF5-BE85-C5781F2E3F36} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
-	EndGlobalSection
+		{86130CF7-35BA-45B3-8BE7-B83D382B32C3} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{2CAC8D57-180F-4DD4-B11D-6B2AB65B2A48} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+    EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}

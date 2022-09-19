@@ -1,6 +1,9 @@
 parameters:
   # Default values
-  packageArtifacts: true
+  codeCoverage: false
+  componentGovernance: false
+  packageArtifacts: false
+  packageIntegrationTests: false
 
 steps:
 - task: UseDotNet@2
@@ -14,13 +17,48 @@ steps:
     command: build
     arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
 
-- task: DotNetCoreCLI@2
-  displayName: 'dotnet test UnitTests'
-  inputs:
-    command: test
-    projects: '**/*UnitTests/*.csproj'
-    arguments: '--configuration $(buildConfiguration) --no-build'
-    testRunTitle: 'Unit Tests'
+- ${{ if eq(parameters.componentGovernance, 'true') }}:
+  - task: ComponentGovernanceComponentDetection@0
+    inputs:
+      scanType: 'Register'
+      verbosity: 'Verbose'
+      alertWarningLevel: 'High'
+      failOnAlert: true
+
+- ${{ if eq(parameters.codeCoverage, 'false') }}:
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet test'
+    inputs:
+      command: test
+      projects: '**/*UnitTests/*.csproj'
+      arguments: '--configuration $(buildConfiguration) --no-build'
+      testRunTitle: 'Unit Tests'
+
+- ${{ if eq(parameters.codeCoverage, 'true') }}:
+  - task: PowerShell@2
+    inputs:
+      targetType: 'filePath'
+      filePath: $(System.DefaultWorkingDirectory)/build/Run-Tests-WithCoverage.ps1
+    displayName: 'dotnet test with coverage'
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '**/*.trx'
+      searchFolder: '$(Agent.BuildDirectory)/TestResults/'
+  - task: PublishCodeCoverageResults@1
+    displayName: 'publish code coverage results'
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.BuildDirectory)/TestResults/coverage.cobertura.xml'
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish coverage.json'
+    inputs:
+      pathToPublish: '$(Agent.BuildDirectory)/TestResults/coverage.json'
+      artifactName: 'IntegrationTests'
+      artifactType: 'container'
 
 - ${{ if eq(parameters.packageArtifacts, 'true') }}:
   - template: package.yml
+
+- ${{ if eq(parameters.packageIntegrationTests, 'true') }}:
+  - template: package-integration-tests.yml
