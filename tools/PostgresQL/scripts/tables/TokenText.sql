@@ -1,17 +1,19 @@
 ﻿CREATE TABLE TokenText
 (
     ResourceTypeId              smallint            NOT NULL,
-    ResourceSurrogateId         bigint              NOT NULL,
+    ResourceId                  varchar(64)             NOT NULL,
+    Version                     int                     NOT NULL,
     SearchParamId               int            NOT NULL,
     Text                        varchar(400)       NOT NULL,
     IsHistory                   bit                 NOT NULL
-) PARTITION BY RANGE(ResourceTypeId);
+)
 
 CREATE  INDEX IXC_TokenText
 ON TokenText
 (
     ResourceTypeId,
-    ResourceSurrogateId,
+    ResourceId,
+    Version,
     SearchParamId
 );
 
@@ -21,6 +23,9 @@ ON TokenText
     ResourceTypeId,
     SearchParamId,
     Text,
-    ResourceSurrogateId
+    ResourceId,
+    Version
 )
 WHERE IsHistory = 0 :: bit;
+
+SELECT create_distributed_table('tokentext', 'resourceid', colocate_with => 'resource');

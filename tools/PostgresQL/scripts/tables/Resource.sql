@@ -11,9 +11,9 @@
     IsRawResourceMetaSet        bit                     NOT NULL,
     SearchParamHash             varchar(64)             NULL,
 
-    CONSTRAINT PKC_Resource PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
+    CONSTRAINT PKC_Resource PRIMARY KEY (ResourceTypeId, ResourceId, Version),
     CONSTRAINT CH_Resource_RawResource_Length CHECK (RawResource > '\000')
-)PARTITION BY RANGE(ResourceTypeId);
+);
 
 -- SQLINES LICENSE FOR EVALUATION USE ONLY
 CREATE UNIQUE INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON Resource
@@ -37,11 +37,5 @@ INCLUDE -- SQLINES DEMO ***  in UpsertResource, which is done with UPDLOCK AND H
 )
 WHERE IsHistory = 0 :: bit;
 
+SELECT create_distributed_table('resource', 'resourceid');
 
--- SQLINES LICENSE FOR EVALUATION USE ONLY
-CREATE UNIQUE INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId ON Resource
-(
-    ResourceTypeId,
-    ResourceSurrogateId
-)
-WHERE IsHistory = 0 :: bit AND IsDeleted = 0 :: bit;
