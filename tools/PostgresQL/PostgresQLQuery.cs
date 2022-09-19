@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
 {
     internal static class PostgresQLQuery
     {
-        private static string connectionString = "Host=localhost;Port=5432;Username=postgres;password=;Database=";
+        private static string connectionString = "Host=localhost;Port=5432;Username=postgres;password=288613;Database=CC_Test_1";
         private const int ShiftFactor = 3;
 
         internal static readonly DateTime MaxDateTime = new DateTime(long.MaxValue >> ShiftFactor, DateTimeKind.Utc).TruncateToMillisecond().AddTicks(-1);
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
 
         internal static void UpsertData()
         {
-            long resourceSurrogateId = 758297;
+            long resourceSurrogateId = 7493027906;
 
             // NpgsqlConnection.GlobalTypeMapper.MapComposite<BulkResourceWriteClaimTableTypeV1Row>("BulkResourceWriteClaimTableType_1");
             using (var conn = new NpgsqlConnection(connectionString))
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
                            $"(@comparedversion))";
                     cmd.Parameters.Add(new NpgsqlParameter("baseresourcesurrogateid", NpgsqlDbType.Bigint) { Value = resourceSurrogateId });
                     cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = (short)103 });
-                    cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = "753829719" });
+                    cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = "178942075" });
                     cmd.Parameters.Add(new NpgsqlParameter("etag", NpgsqlDbType.Integer) { Value = 12 });
                     cmd.Parameters.Add(new NpgsqlParameter("allowcreate", NpgsqlDbType.Bit) { Value = true });
                     cmd.Parameters.Add(new NpgsqlParameter("isdeleted", NpgsqlDbType.Bit) { Value = false });
@@ -121,21 +121,27 @@ namespace Microsoft.Health.Fhir.PostgresQL
                     cmd.Parameters.Add(new NpgsqlParameter
                     {
                         ParameterName = "resourcewriteclaims",
-                        Value = new BulkResourceWriteClaimTableTypeV1Row()
+                        Value = new List<BulkResourceWriteClaimTableTypeV1Row>
                         {
-                            Offset = 0,
-                            claimtypeid = 12,
-                            Claimvalue = "78490ewhgiod",
+                            new BulkResourceWriteClaimTableTypeV1Row()
+                            {
+                                Offset = 0,
+                                claimtypeid = 12,
+                                Claimvalue = "78490ewhgiod",
+                            },
                         },
                     });
                     cmd.Parameters.Add(new NpgsqlParameter
                     {
                         ParameterName = "tokentextsearchparams",
-                        Value = new BulkTokenTextTableTypeV1Row()
+                        Value = new List<BulkTokenTextTableTypeV1Row>
                         {
-                            offsetid = 0,
-                            searchparamid = 12,
-                            text = "549wjgdsk",
+                            new BulkTokenTextTableTypeV1Row()
+                            {
+                                offsetid = 0,
+                                searchparamid = 12,
+                                text = "549wjgdsk",
+                            },
                         },
                     });
                     cmd.Parameters.Add(new NpgsqlParameter("isresourcechangecaptureenabled", NpgsqlDbType.Bit) { Value = false });

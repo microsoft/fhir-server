@@ -416,10 +416,10 @@ namespace Microsoft.Health.Fhir.PostgresQL
             public BulkTokenTextTableTypeV1Row()
             {
             }
-
-            public int Offset { get; set; }
-
 #pragma warning disable SA1300 // Element should begin with upper-case letter
+
+            public int offsetid { get; set; }
+
             public int searchparamid { get; set; }
 
             public string? text { get; set; }

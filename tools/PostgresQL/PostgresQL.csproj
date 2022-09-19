@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="scripts\functions\" />
     <Folder Include="scripts\sequence\" />
     <Folder Include="scripts\procedures\" />
   </ItemGroup>

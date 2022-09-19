@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.PostgresQL.TypeGenerators
 
             row = new BulkTokenTextTableTypeV1Row()
             {
-                Offset = offset,
+                offsetid = offset,
                 searchparamid = searchParamId,
                 text = searchValue.Text,
             };

@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.PostgresQL\Microsoft.Health.Fhir.PostgresQL.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R4.Api\Microsoft.Health.Fhir.R4.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />

@@ -13,7 +13,6 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.PostgresQL.TypeGenerators;
@@ -40,14 +39,12 @@ namespace Microsoft.Health.Fhir.PostgresQL
         private readonly ILogger<PostgresQLFhirDataStore> _logger;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         public PostgresQLFhirDataStore(
             ISqlServerFhirModel model,
             SchemaInformation schemaInformation,
             ILogger<PostgresQLFhirDataStore> logger,
-            ICompressedRawResourceConverter compressedRawResourceConverter,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             IModelInfoProvider modelInfoProvider)
         {
@@ -59,7 +56,6 @@ namespace Microsoft.Health.Fhir.PostgresQL
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _memoryStreamManager = new RecyclableMemoryStreamManager();
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-            _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
@@ -160,7 +156,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
                         resource.Version = (existingVersion + 1).Value.ToString(CultureInfo.InvariantCulture);
                     }
 
-                    _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
+                    WriteCompressedRawResource(stream, resource.RawResource.Data);
 
                     stream.Seek(0, 0);
 
@@ -189,6 +185,13 @@ namespace Microsoft.Health.Fhir.PostgresQL
             }
         }
 
+        public static void WriteCompressedRawResource(Stream outputStream, string rawResource)
+        {
+            using var gzipStream = new GZipStream(outputStream, CompressionMode.Compress, leaveOpen: true);
+            using var writer = new StreamWriter(gzipStream, ResourceEncoding);
+            writer.Write(rawResource);
+        }
+
         private void PopulateUpsertResourceCommand(
             ResourceWrapper resource,
             bool allowCreate,
@@ -210,7 +213,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
                     {
                         conn.Open();
                         conn.TypeMapper.MapComposite<BulkResourceWriteClaimTableTypeV1Row>("bulkresourcewriteclaimtabletype_1");
-                        conn.TypeMapper.MapComposite<BulkTokenTextTableTypeV1Row>("bulktokentexttabletype_1");
+                        conn.TypeMapper.MapComposite<BulkTokenTextTableTypeV1Row>("bulktokentexttabletype_2");
                         using (var cmd = conn.CreateCommand())
                         {
                             cmd.CommandText = $"call upsertresource_3((@baseresourcesurrogateid)," +
@@ -242,12 +245,12 @@ namespace Microsoft.Health.Fhir.PostgresQL
                             cmd.Parameters.Add(new NpgsqlParameter
                             {
                                 ParameterName = "resourcewriteclaims",
-                                Value = _resourceWriteClaimsGenerator.GenerateRows(new List<ResourceWrapper> { resource}),
+                                Value = _resourceWriteClaimsGenerator.GenerateRows(new List<ResourceWrapper> { resource }).ToList(),
                             });
                             cmd.Parameters.Add(new NpgsqlParameter
                             {
                                 ParameterName = "tokentextsearchparams",
-                                Value = _tokenTextSearchParamsGenerator.GenerateRows(new List<ResourceWrapper> { resource }),
+                                Value = _tokenTextSearchParamsGenerator.GenerateRows(new List<ResourceWrapper> { resource }).ToList(),
                             });
                             cmd.Parameters.Add(new NpgsqlParameter("isresourcechangecaptureenabled", NpgsqlDbType.Bit) { Value = isResourceChangeCaptureEnabled });
                             cmd.Parameters.Add(new NpgsqlParameter("comparedversion", NpgsqlDbType.Integer) { Value = comparedVersion == null ? 0 : comparedVersion });

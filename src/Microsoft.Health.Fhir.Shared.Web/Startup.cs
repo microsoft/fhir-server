@@ -15,8 +15,14 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.PostgresQL;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Registration;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -57,6 +63,18 @@ namespace Microsoft.Health.Fhir.Web
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
             }
+            else if (dataStore.Equals("PostgresQL", StringComparison.OrdinalIgnoreCase))
+            {
+                fhirServerBuilder.AddSqlServer(config =>
+                {
+                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                });
+
+                AddPostgresQL(fhirServerBuilder.Services, config =>
+                {
+                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                });
+            }
 
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
@@ -91,6 +109,39 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             AddApplicationInsightsTelemetry(services);
+        }
+
+        public static void AddPostgresQL(IServiceCollection services, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        {
+            services.AddSqlServerConnection(configureAction);
+            services.Add(provider => new SchemaInformation(SchemaVersionConstants.Min, 39) { Current = 39 })
+                .Singleton()
+                .AsSelf()
+            .AsImplementedInterfaces();
+
+            services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
+
+            services.Add<SqlServerFhirModel>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlQueueClient>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<PostgresQLFhirDataStore>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.AddHealthChecks();
+
+            services.Add<PostgresQLSearchParameterValidator>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
         }
 
         private void AddTaskHostingService(IServiceCollection services)
