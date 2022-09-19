@@ -16,7 +16,6 @@
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.47027.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(AspNetPackageVersion)" />
-    <PackageReference Include="xunit.assert" Version="2.4.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,10 +37,6 @@
     <TSqlScript Include="Features\Schema\Sql\Scripts\Sequences.sql" />
     <TSqlScript Include="Features\Schema\Sql\Types\*.sql" />
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Remove="Features\Schema\Migrations\41.diff.sql" />
   </ItemGroup>
 
   <ItemGroup>
