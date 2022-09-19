@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         private const int DefaultSqlMaxRebuildIndexOperationConcurrentCount = 3;
         private const int DefaultSqlMaxDeleteDuplicateOperationConcurrentCount = 3;
         private const int DefaultSqlMaxDatatableProcessConcurrentCount = 3;
-        private const int DefaultSqlLongRunningOperationTimeoutInSec = 60 * 60 * 2;
+        private const int DefaultSqlLongRunningOperationTimeoutInSec = 0;
         private const int DefaultSqlBulkOperationTimeoutInSec = 60 * 10;
         private const int DefaultPollingFrequencyInSeconds = 60;
         private const bool DefaultSqlRebuildClustered = false;
