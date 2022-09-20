@@ -52,22 +52,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             switch (request.DeleteOperation)
             {
                 case DeleteOperation.SoftDelete:
-                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceKey.ResourceType));
-                    emptyInstance.Id = request.ResourceKey.Id;
-
-                    ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true, keepMeta: false);
-
-                    bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
-
-                    UpsertOutcome result = await FhirDataStore.UpsertAsync(
-                        deletedWrapper,
-                        weakETag: null,
-                        allowCreate: true,
-                        keepHistory: keepHistory,
-                        cancellationToken: cancellationToken);
-
-                    version = result?.Wrapper.Version;
-                    break;
                 case DeleteOperation.HardDelete:
                 case DeleteOperation.PurgeHistory:
                     await FhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, cancellationToken);

@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AsImplementedInterfaces();
 
             services.Add<PostgresQLFhirDataStore>()
-                .Singleton()
+                .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
