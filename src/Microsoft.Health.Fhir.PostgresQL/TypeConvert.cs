@@ -425,5 +425,34 @@ namespace Microsoft.Health.Fhir.PostgresQL
             public string? text { get; set; }
 #pragma warning restore SA1300 // Element should begin with upper-case letter
         }
+
+        internal class BulkImportResourceType
+        {
+            public BulkImportResourceType()
+            {
+            }
+
+#pragma warning disable SA1300 // Element should begin with upper-case letter
+            public short resourcetypeid { get; set; }
+
+            public string? resourceid { get; set; }
+
+            public int version { get; set; }
+
+            public bool ishistory { get; set; }
+
+            public long resourcesurrogateid { get; set; }
+
+            public bool isdeleted { get; set; }
+
+            public string? requestmethod { get; set; }
+
+            public Stream? rawresource { get; set; }
+
+            public bool israwresourcemetaset { get; set; }
+
+            public string? searchparamhash { get; set; }
+#pragma warning restore SA1300 // Element should begin with upper-case letter
+        }
     }
 }

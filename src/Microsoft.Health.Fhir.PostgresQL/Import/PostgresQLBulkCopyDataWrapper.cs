@@ -3,22 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Runtime.CompilerServices;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using static Microsoft.Health.Fhir.PostgresQL.TypeConvert;
 
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.PostgresQL")]
-
-namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
+namespace Microsoft.Health.Fhir.PostgresQL.Import
 {
-    public class SqlBulkCopyDataWrapper : IEquatable<SqlBulkCopyDataWrapper>
+    public class PostgresQLBulkCopyDataWrapper : IEquatable<PostgresQLBulkCopyDataWrapper>
     {
         /// <summary>
         /// FHIR resource metadata for SQL
         /// </summary>
-        internal ResourceMetadata Metadata { get; set; }
+        internal ResourceMetadata? Metadata { get; set; }
 
         /// <summary>
         /// Resource type id for sql mapping
@@ -33,13 +28,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         /// <summary>
         /// Extracted resource wrapper
         /// </summary>
-        public ResourceWrapper Resource { get; set; }
+        public ResourceWrapper? Resource { get; set; }
 
         /// <summary>
         /// Compressed FHIR raw data
         /// </summary>
 #pragma warning disable CA1819
-        public byte[] CompressedRawData { get; set; }
+        public byte[]? CompressedRawData { get; set; }
 #pragma warning restore CA1819
 
         /// <summary>
@@ -50,16 +45,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         /// <summary>
         /// Import resource for sql operation
         /// </summary>
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         internal BulkImportResourceTypeV1Row BulkImportResource { get; set; }
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-        public bool Equals(SqlBulkCopyDataWrapper other)
+        public bool Equals(PostgresQLBulkCopyDataWrapper? other)
         {
-            return ResourceSurrogateId.Equals(other.ResourceSurrogateId);
+            return ResourceSurrogateId.Equals(other?.ResourceSurrogateId);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
-            return Equals(obj as SqlBulkCopyDataWrapper);
+            return Equals(obj as PostgresQLBulkCopyDataWrapper);
         }
 
         public override int GetHashCode() => ResourceSurrogateId.GetHashCode();

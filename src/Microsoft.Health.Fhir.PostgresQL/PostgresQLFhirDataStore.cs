@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.PostgresQL
         internal static readonly Encoding LegacyResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
         internal static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
 
-        private const string ConnectionString = "";
         private readonly ISqlServerFhirModel _model;
         private readonly SchemaInformation _schemaInformation;
         private readonly ResourceWriteClaimsGenerator _resourceWriteClaimsGenerator;
@@ -203,13 +202,13 @@ namespace Microsoft.Health.Fhir.PostgresQL
             bool isResourceChangeCaptureEnabled)
         {
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
-            short resourceTypeId = 103;
+            short resourceTypeId = 103; // TODO
 
             if (_schemaInformation.Current >= SchemaVersionConstants.PreventUpdatesFromCreatingVersionWhenNoImpact)
             {
                 try
                 {
-                    using (var conn = new NpgsqlConnection(ConnectionString))
+                    using (var conn = new NpgsqlConnection(PostgresQLConfiguration.DefaultConnectionString))
                     {
                         conn.Open();
                         conn.TypeMapper.MapComposite<BulkResourceWriteClaimTableTypeV1Row>("bulkresourcewriteclaimtabletype_1");
@@ -294,7 +293,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
 
             try
             {
-                using (var conn = new NpgsqlConnection(ConnectionString))
+                using (var conn = new NpgsqlConnection(PostgresQLConfiguration.DefaultConnectionString))
                 {
                     await conn.OpenAsync(cancellationToken);
                     try
