@@ -11,18 +11,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.Database.Central\Microsoft.Health.Fhir.SqlServer.Database.Central.sqlproj" />
-    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.Database.Distributed\Microsoft.Health.Fhir.SqlServer.Database.Distributed.sqlproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer.SetupDb\Microsoft.Health.Fhir.SqlServer.SetupDb.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.SqlUtils\Microsoft.Health.Fhir.Store.SqlUtils.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj" />
   </ItemGroup>
-
-  <PropertyGroup>
-    <PostBuildEvent>
-      copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database.Central\bin\$(Configuration)\*.dacpac" *
-      copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database.Distributed\bin\$(Configuration)\*.dacpac" *
-    </PostBuildEvent>
-  </PropertyGroup>
 
 </Project>

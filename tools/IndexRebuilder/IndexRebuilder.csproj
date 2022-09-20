@@ -19,7 +19,4 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <PostBuildEvent>copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
-  </PropertyGroup>
 </Project>
