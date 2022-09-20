@@ -11,7 +11,7 @@ using Microsoft.SqlServer.Server;
 
 namespace Microsoft.Health.Fhir.Store.Sharding
 {
-    public class ReferenceSearchParam
+    public class ReferenceSearchParam : PrimaryKey
     {
         public ReferenceSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
         {
@@ -55,16 +55,6 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 IsHistory = reader.GetBoolean(7);
             }
         }
-
-        public short ResourceTypeId { get; }
-
-        public long ResourceSurrogateId { get; set; } // not sharded schema
-
-        public TransactionId TransactionId { get; set; } // sharded schema
-
-        public ShardletId ShardletId { get; set; } // sharded schema
-
-        public short Sequence { get; set; } // sharded schema
 
         public short SearchParamId { get; }
 

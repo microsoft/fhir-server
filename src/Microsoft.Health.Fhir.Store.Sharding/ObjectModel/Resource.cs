@@ -11,7 +11,7 @@ using Microsoft.SqlServer.Server;
 
 namespace Microsoft.Health.Fhir.Store.Sharding
 {
-    public class Resource
+    public class Resource : PrimaryKey
     {
         public Resource()
         {
@@ -38,21 +38,11 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
 
-        public short ResourceTypeId { get; set; }
-
         public string ResourceId { get; set; }
 
         public int Version { get; set; }
 
         public bool IsHistory { get; set; }
-
-        public long ResourceSurrogateId { get; set; } // not sharded schema
-
-        public TransactionId TransactionId { get; set; } // sharded schema
-
-        public ShardletId ShardletId { get; set; } // sharded schema
-
-        public short Sequence { get; set; } // sharded schema
 
         public bool IsDeleted { get; set; }
 

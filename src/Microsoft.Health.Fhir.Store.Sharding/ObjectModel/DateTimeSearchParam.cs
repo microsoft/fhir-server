@@ -11,7 +11,7 @@ using Microsoft.SqlServer.Server;
 
 namespace Microsoft.Health.Fhir.Store.Sharding
 {
-    public class DateTimeSearchParam
+    public class DateTimeSearchParam : PrimaryKey
     {
         public DateTimeSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
         {
@@ -47,16 +47,6 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 IsMax = reader.GetBoolean(8);
             }
         }
-
-        public short ResourceTypeId { get; }
-
-        public long ResourceSurrogateId { get; set; } // not sharded schema
-
-        public TransactionId TransactionId { get; set; } // sharded schema
-
-        public ShardletId ShardletId { get; set; } // sharded schema
-
-        public short Sequence { get; set; } // sharded schema
 
         public short SearchParamId { get; }
 
