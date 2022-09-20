@@ -67,20 +67,23 @@ namespace Microsoft.Health.Fhir.PostgresQL.TypeGenerators
 
         public IEnumerable<BulkTokenTextTableTypeV1Row> GenerateRows(IReadOnlyList<ResourceWrapper> resources)
         {
-            for (var index = 0; index < resources.Count; index++)
+            if (resources.Count > 0)
             {
-                ResourceWrapper resource = resources[index];
-                var searchIndices = resource.SearchIndices?.ToLookup(e => GetSearchValueType(e));
-
-                foreach (SearchIndexEntry v in searchIndices == null ? Enumerable.Empty<SearchIndexEntry>() : searchIndices[typeof(TokenSearchValue)])
+                for (var index = 0; index < resources.Count; index++)
                 {
-                    short searchParamId = _model.GetSearchParamId(v.SearchParameter.Url);
+                    ResourceWrapper resource = resources[index];
+                    var searchIndices = resource.SearchIndices?.ToLookup(e => GetSearchValueType(e));
 
-                    foreach (var searchValue in new[] { (TokenSearchValue)v.Value})
+                    foreach (SearchIndexEntry v in searchIndices == null ? Enumerable.Empty<SearchIndexEntry>() : searchIndices[typeof(TokenSearchValue)])
                     {
-                        if (TryGenerateRow(index, searchParamId, searchValue, out BulkTokenTextTableTypeV1Row row))
+                        short searchParamId = _model.GetSearchParamId(v.SearchParameter.Url);
+
+                        foreach (var searchValue in new[] { (TokenSearchValue)v.Value })
                         {
-                            yield return row;
+                            if (TryGenerateRow(index, searchParamId, searchValue, out BulkTokenTextTableTypeV1Row row))
+                            {
+                                yield return row;
+                            }
                         }
                     }
                 }

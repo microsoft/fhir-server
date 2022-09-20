@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
             bool isResourceChangeCaptureEnabled)
         {
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
-            short resourceTypeId = 103;
+            short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
 
             if (_schemaInformation.Current >= SchemaVersionConstants.PreventUpdatesFromCreatingVersionWhenNoImpact)
             {
@@ -401,9 +401,29 @@ namespace Microsoft.Health.Fhir.PostgresQL
             return reader.ReadToEnd();
         }
 
-        public Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            using (var conn = new NpgsqlConnection(ConnectionString))
+            {
+                await conn.OpenAsync(cancellationToken);
+                try
+                {
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = $"call harddeleteresource(" +
+                                                $"(@restypeid)," +
+                                                $"(@resid))";
+
+                        cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = _model.GetResourceTypeId(key.ResourceType) });
+                        cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = key.Id });
+                        _ = await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                }
+                finally
+                {
+                    await conn.CloseAsync();
+                }
+            }
         }
 
         public Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
