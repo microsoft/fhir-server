@@ -76,32 +76,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 searchParamPosted = await Client.CreateAsync(searchParam);
                 _output.WriteLine($"SearchParameter is posted {searchParam.Url}");
 
-                Uri reindexJobUri;
-
                 // Start a reindex job
-                (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
+                Uri reindexJobUri;
+                FhirResponse<Parameters> reindexJobResult;
 
-                await WaitForReindexStatus(reindexJobUri, "Completed");
-
-                FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
-                _output.WriteLine("ReindexJobDocument:");
-                var serializer = new FhirJsonSerializer();
-                _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
-
-                Assert.Contains(searchParamPosted.Resource.Url, param?.Value?.ToString());
-
-                reindexJobResult = await WaitForReindexStatus(reindexJobUri, "Completed");
+                (reindexJobResult, reindexJobUri) = await RunReindexToCompletion(new Parameters());
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with {randomName}");
 
-                var floatParse = float.TryParse(
-                    reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
-                    out float resourcesReindexed);
-
-                _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
-
-                Assert.True(floatParse);
-                Assert.True(resourcesReindexed > 0.0);
+                Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
+                Assert.Contains(searchParamPosted.Resource.Url, param?.Value?.ToString());
 
                 // When job complete, search for resources using new parameter
                 // When there are multiple instances of the fhir-server running, it could take some time
@@ -182,11 +165,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<Parameters> reindexJobResult;
 
                 // Reindex just a single patient, so we can try searching with a partially indexed search param
-                (reindexJobResult, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters(), $"Patient/{expectedPatient.Resource.Id}/");
-                await Task.Delay(10000);
+                (reindexJobResult, reindexJobUri) = await RunReindexToCompletion(new Parameters(), $"Patient/{expectedPatient.Resource.Id}/");
 
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == randomNameUpdated);
-
                 if (param == null)
                 {
                     _output.WriteLine($"Parameter with name equal to randomly generated name of this test case: {randomNameUpdated} not found in reindex result.");
@@ -274,38 +255,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine($"{nameof(searchParamPosted)} Response.StatusCode is {searchParamPosted.Response.StatusCode} and posted Url is {searchParam.Url}");
 
                 Uri reindexJobUri;
+                FhirResponse<Parameters> reindexJobResult;
 
                 // Start a reindex job
                 var reindexParameters = new Parameters();
                 reindexParameters.Add("targetResourceTypes", new FhirString("Specimen"));
-                (_, reindexJobUri) = await Client.PostReindexJobAsync(reindexParameters);
+                (reindexJobResult, reindexJobUri) = await RunReindexToCompletion(reindexParameters);
 
-                await WaitForReindexStatus(reindexJobUri, "Completed");
-
-                FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                Parameters.ParameterComponent searchParamListParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
+                Parameters.ParameterComponent searchParamListParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
                 Parameters.ParameterComponent targetResourcesParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.TargetResourceTypes);
                 Parameters.ParameterComponent resourcesParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Resources);
-
-                // output reindex job for debugging
-                _output.WriteLine("ReindexJobDocument:");
-                var serializer = new FhirJsonSerializer();
-                _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
                 Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam?.Value?.ToString());
                 Assert.Equal("Specimen", targetResourcesParam?.Value?.ToString());
                 Assert.Equal("Specimen", resourcesParam?.Value?.ToString());
 
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Specimen only.");
-
-                var floatParse = float.TryParse(
-                    reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
-                    out float resourcesReindexed);
-
-                _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
-
-                Assert.True(floatParse);
-                Assert.True(resourcesReindexed > 0.0);
 
                 // When job complete, search for resources using new parameter
                 // When there are multiple instances of the fhir-server running, it could take some time
@@ -407,23 +372,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine($"{nameof(searchParamPosted)} Response.StatusCode is {searchParamPosted.Response.StatusCode} and posted Url is {searchParam.Url}");
 
                 Uri reindexJobUri;
+                FhirResponse<Parameters> reindexJobResult;
 
                 // Start a reindex job
                 var reindexParameters = new Parameters();
                 reindexParameters.Add("targetResourceTypes", new FhirString("Specimen,Immunization"));
-                (_, reindexJobUri) = await Client.PostReindexJobAsync(reindexParameters);
+                (reindexJobResult, reindexJobUri) = await RunReindexToCompletion(reindexParameters);
 
-                await WaitForReindexStatus(reindexJobUri, "Completed");
-
-                FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                Parameters.ParameterComponent searchParamListParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
+                Parameters.ParameterComponent searchParamListParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
                 Parameters.ParameterComponent targetResourcesParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.TargetResourceTypes);
                 Parameters.ParameterComponent resourcesParam = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Resources);
-
-                // output reindex job for debugging
-                _output.WriteLine("ReindexJobDocument:");
-                var serializer = new FhirJsonSerializer();
-                _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
                 Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam?.Value?.ToString());
                 Assert.Contains("Specimen", targetResourcesParam?.Value?.ToString());
@@ -432,15 +390,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Contains("Immunization", resourcesParam?.Value?.ToString());
 
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Specimen and Immunization only.");
-
-                var floatParse = float.TryParse(
-                    reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
-                    out float resourcesReindexed);
-
-                _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
-
-                Assert.True(floatParse);
-                Assert.True(resourcesReindexed > 0.0);
 
                 // When job complete, search for resources using new parameter
                 // When there are multiple instances of the fhir-server running, it could take some time
@@ -513,7 +462,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        private async Task<FhirResponse<Parameters>> WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
+        private async Task<(FhirResponse<Parameters> response, Uri uri)> RunReindexToCompletion(Parameters reindexParameters, string uniqueResource = null)
+        {
+            Uri reindexJobUri;
+            FhirResponse<Parameters> response;
+            (response, reindexJobUri) = await Client.PostReindexJobAsync(reindexParameters, uniqueResource);
+
+            // check for status code reindexJobResult
+            if (reindexJobUri != null)
+            {
+                await WaitForReindexStatus(reindexJobUri, "Completed");
+
+                response = await Client.CheckReindexAsync(reindexJobUri);
+
+                _output.WriteLine("ReindexJobDocument:");
+                var serializer = new FhirJsonSerializer();
+                _output.WriteLine(serializer.SerializeToString(response.Resource));
+
+                var floatParse = float.TryParse(
+                    response.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.ResourcesSuccessfullyReindexed).Value.ToString(),
+                    out float resourcesReindexed);
+
+                _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
+
+                Assert.True(floatParse);
+                Assert.True(resourcesReindexed > 0.0);
+            }
+
+            _output.WriteLine("response.Resource.Parameter output:");
+            foreach (var p in response.Resource.Parameter)
+            {
+                _output.WriteLine($"  {p.Name}: {p.Value}");
+            }
+
+            return (response, reindexJobUri);
+        }
+
+        private async Task<FhirResponse<Parameters>> WaitForReindexStatus(Uri reindexJobUri, params string[] desiredStatus)
         {
             int checkReindexCount = 0;
             string currentStatus;
@@ -521,7 +506,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             do
             {
                 reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "status")?.Value.ToString();
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Status)?.Value.ToString();
                 checkReindexCount++;
                 await Task.Delay(1000);
             }
