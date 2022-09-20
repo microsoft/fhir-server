@@ -21,6 +21,3 @@ BEGIN
         WHERE r.resourcetypeid=restypeid AND r.resourceid=resid AND r.version=vers;
 END;
 $BODY$;
-
-ALTER FUNCTION public.readresource(smallint, character varying, integer)
-    OWNER TO postgres;

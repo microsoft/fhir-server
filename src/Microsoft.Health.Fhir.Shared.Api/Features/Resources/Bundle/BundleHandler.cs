@@ -263,11 +263,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             try
             {
-                using (var transaction = _transactionHandler.BeginTransaction())
+                using (TransactionScope scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
                     await ExecuteAllRequests(responseBundle);
-
-                    transaction.Complete();
+                    scope.Complete();
                 }
             }
             catch (TransactionAbortedException)
