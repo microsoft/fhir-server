@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             command.ExecuteNonQuery();
         }
 
-        public void CompleteJob(long jobId, bool failed, long version, int? resourceCount = null, int? totalCount = null)
+        public void CompleteJob(long jobId, bool failed, long version, int? resourceCount = null, int? totalCount = null, long? transactionId = null)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
@@ -99,9 +99,20 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 command.Parameters.AddWithValue("@Data", DBNull.Value);
             }
 
-            if (totalCount.HasValue)
+            if (totalCount.HasValue || transactionId.HasValue)
             {
-                command.Parameters.AddWithValue("@FinalResult", $"total={totalCount.Value}");
+                var res = string.Empty;
+                if (totalCount.HasValue)
+                {
+                    res = $"total={totalCount.Value}";
+                }
+
+                if (transactionId.HasValue)
+                {
+                    res = $"{res}{(res.Length == 0 ? string.Empty : " ")}tran={transactionId.Value}";
+                }
+
+                command.Parameters.AddWithValue("@FinalResult", res);
             }
             else
             {
