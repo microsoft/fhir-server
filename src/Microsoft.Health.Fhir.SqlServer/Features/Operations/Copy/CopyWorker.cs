@@ -9,7 +9,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Store.Sharding;
 using Microsoft.Health.Fhir.Store.Utils;
 
@@ -21,11 +20,9 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private bool _writesEnabled = false;
         private int _maxRetries = 10;
         private string _sourceConnectionString = string.Empty;
-        private ISqlServerFhirModel _model;
 
-        public CopyWorker(string connectionString, ISqlServerFhirModel model)
+        public CopyWorker(string connectionString)
         {
-            _model = model;
             var connStr = SqlUtils.SqlService.GetCanonicalConnectionString(connectionString);
             if (IsSharded(connStr))
             {

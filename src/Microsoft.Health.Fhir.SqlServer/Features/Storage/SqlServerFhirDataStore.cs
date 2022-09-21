@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (CopyWorker == null || CopyWorker.Target == null)
             {
-                CopyWorker = new Store.Copy.CopyWorker(config.Value.ConnectionString, model);
+                CopyWorker = new Store.Copy.CopyWorker(config.Value.ConnectionString);
             }
         }
 
