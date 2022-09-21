@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [CollectionDefinition(Categories.CustomSearch, DisableParallelization = true)]
     [Collection(Categories.CustomSearch)]
     [Trait(Traits.Category, Categories.CustomSearch)]
+    [Trait(Traits.Category, Categories.Search)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
     {

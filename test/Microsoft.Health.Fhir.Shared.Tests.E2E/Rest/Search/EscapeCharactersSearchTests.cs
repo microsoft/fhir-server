@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Bundle queryResult1 = await Client.SearchAsync(ResourceType.HealthcareService, query1);
                 ValidateBundle(queryResult1);
 
-                string query2 = HttpUtility.UrlEncode(query1);
+                string query2 = HttpUtility.HtmlEncode(query1);
                 Bundle queryResult2 = await Client.SearchAsync(ResourceType.HealthcareService, query2);
                 ValidateBundle(queryResult2);
 
