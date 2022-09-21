@@ -10,7 +10,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Transactions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Store.Sharding;
 using Microsoft.Health.Fhir.Store.Utils;
@@ -47,11 +46,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 var workingTasks = 0;
                 for (var i = 0; i < _workers; i++)
                 {
-                    var thread = i;
+                    var worker = i;
                     tasks.Add(BatchExtensions.StartTask(() =>
                     {
                         Interlocked.Increment(ref workingTasks);
-                        Copy(thread);
+                        Copy(worker);
                         Interlocked.Decrement(ref workingTasks);
                     }));
                 }
@@ -102,7 +101,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                         transactionId = Target.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
                         var (resourceCount, totalCount) = Copy(worker, resourceTypeId.Value, jobId, minId, maxId, transactionId);
                         Target.CommitTransaction(transactionId);
-                        Target.CompleteJob(jobId, false, version, resourceCount, totalCount);
+                        Target.CompleteJob(jobId, false, version, resourceCount, totalCount, transactionId.Id);
                     }
                     else
                     {
