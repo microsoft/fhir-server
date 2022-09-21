@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Bundle queryResult1 = await Client.SearchAsync(ResourceType.HealthcareService, query1);
                 ValidateBundle(queryResult1);
 
-                string query2 = System.Web.HttpUtility.UrlEncode(query1);
+                string query2 = HttpUtility.UrlEncode(query1);
                 Bundle queryResult2 = await Client.SearchAsync(ResourceType.HealthcareService, query2);
                 ValidateBundle(queryResult2);
 

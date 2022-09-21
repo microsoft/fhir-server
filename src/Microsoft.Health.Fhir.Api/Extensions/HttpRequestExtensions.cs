@@ -40,10 +40,13 @@ namespace Microsoft.Health.Fhir.Api.Extensions
             {
                 List<Tuple<string, string>> queries = new List<Tuple<string, string>>();
                 NameValueCollection queryStringParameters = HttpUtility.ParseQueryString(HttpUtility.UrlDecode(request.QueryString.Value));
+
                 foreach (string key in queryStringParameters.AllKeys)
                 {
-                    string value = queryStringParameters[key];
-                    queries.Add(Tuple.Create(key, value));
+                    foreach (var queryStringValue in queryStringParameters.GetValues(key))
+                    {
+                        queries.Add(Tuple.Create(key, queryStringValue));
+                    }
                 }
 
                 return queries;
