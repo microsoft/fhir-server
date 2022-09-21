@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -17,6 +18,7 @@ using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
+using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Hl7.Fhir.Model.OperationOutcome;
 
@@ -26,10 +28,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         where TFixture : HttpIntegrationTestFixture
     {
         private Regex _continuationToken = new Regex("[?&]ct");
+        private ITestOutputHelper _output;
 
-        protected SearchTestsBase(TFixture fixture)
+        protected SearchTestsBase(TFixture fixture, ITestOutputHelper output = null)
         {
             Fixture = fixture;
+            _output = output;
         }
 
         protected TFixture Fixture { get; }
@@ -89,7 +93,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             int pageSize = 10,
             params Resource[] expectedResources)
         {
-            Bundle firstBundle = await Client.SearchAsync(searchUrl, customHeader);
+            FhirResponse<Bundle> fhirResponse = await Client.SearchAsync(searchUrl, customHeader);
+            if (_output != null)
+            {
+                WriteSearchAsync(fhirResponse, "ExecuteAndValidateBundle", searchUrl, customHeader);
+            }
+
+            Bundle firstBundle = fhirResponse;
 
             var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources[0..pageSize] : expectedResources;
 
@@ -257,6 +267,107 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             uriBuilder.Query = expectedQuery;
 
             Assert.Equal(HttpUtility.UrlDecode(uriBuilder.Uri.ToString()), HttpUtility.UrlDecode(bundleUrl));
+        }
+
+        protected async System.Threading.Tasks.Task WriteSearchAsync(string title, string pathAndQuery, Tuple<string, string> header = null)
+        {
+            FhirResponse<Bundle> fhirResponse = await Client.SearchAsync(pathAndQuery, header);
+            WriteSearchAsync(fhirResponse, title, pathAndQuery, header);
+        }
+
+        protected void WriteSearchAsync(FhirResponse<Bundle> fhirResponse, string title, string pathAndQuery, Tuple<string, string> header)
+        {
+            _output.WriteLine($"<--------- {title}");
+            _output.WriteLine($"REQUEST:");
+            _output.WriteLine($"  {pathAndQuery}");
+            if (header != null)
+            {
+                _output.WriteLine($"  {header.Item1}: {header.Item2}");
+            }
+
+            _output.WriteLine($"RESPONSE:");
+
+            try
+            {
+                _output.WriteLine($"  {fhirResponse.StatusCode}");
+                if (fhirResponse.Headers != null)
+                {
+                    string headerName = "X-Instance-Id";
+                    IEnumerable<string> headerValues = fhirResponse.Headers.GetValues(headerName);
+                    foreach (string headerValue in headerValues)
+                    {
+                        _output.WriteLine($"  {headerName}: {headerValue}");
+                    }
+                }
+                else
+                {
+                    _output.WriteLine("  fhirResponse.Headers == null");
+                }
+
+                Bundle bundle = fhirResponse;
+                if (bundle != null)
+                {
+                    _output.WriteLine("  BUNDLE:");
+                    if (bundle.Entry == null)
+                    {
+                        _output.WriteLine("    bundle.Entry == null");
+                    }
+                    else
+                    {
+                        foreach (Bundle.EntryComponent ec in bundle.Entry)
+                        {
+                            _output.WriteLine($"    {ToString(ec.Resource)}");
+                        }
+                    }
+                }
+                else
+                {
+                    _output.WriteLine("  bundle == null");
+                }
+            }
+            catch (Exception ex)
+            {
+                _output.WriteLine("  EXCEPTION:");
+                while (ex != null)
+                {
+                    _output.WriteLine($"    {ex.Message}");
+                    ex = ex.InnerException;
+                }
+            }
+
+            _output.WriteLine($">---------");
+        }
+
+        protected static string ToString(Resource r)
+        {
+            Patient p = r as Patient;
+            OperationOutcome o = r as OperationOutcome;
+            if (p != null)
+            {
+                string name = (p.Name?.Count ?? 0) > 0 ? p.Name[0].Family : null;
+                string telecom = (p.Telecom?.Count ?? 0) > 0 ? p.Telecom[0].Value : null;
+                string identifier = (p.Identifier?.Count ?? 0) > 0 ? p.Identifier[0].Value : null;
+                return $"Patient: {name} ; {p.BirthDate} ; {telecom} ; {p.ManagingOrganization?.Reference} ; {p.Id} ; {identifier}";
+            }
+            else if (o != null)
+            {
+                if (o.Issue == null)
+                {
+                    return "o.Issue == null";
+                }
+
+                string ostr = null;
+                for (int iter = 0; iter < o.Issue.Count; iter++)
+                {
+                    ostr += $"{o.Issue[iter].Code}, {o.Issue[iter].Severity}, {o.Issue[iter].Diagnostics} ||";
+                }
+
+                return $"OperationOutcome: {ostr}";
+            }
+            else
+            {
+                return "UNKNOWN";
+            }
         }
     }
 }
