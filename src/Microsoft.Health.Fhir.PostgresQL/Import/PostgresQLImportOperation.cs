@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Npgsql;
 using static Microsoft.Health.Fhir.PostgresQL.TypeConvert;
-using BulkTokenTextTableTypeV1Row = Microsoft.Health.Fhir.PostgresQL.TypeConvert.BulkTokenTextTableTypeV1Row;
 
 namespace Microsoft.Health.Fhir.PostgresQL.Import
 {
@@ -78,36 +77,18 @@ namespace Microsoft.Health.Fhir.PostgresQL.Import
                 resources = resources.GroupBy(r => (r.ResourceTypeId, r.Resource?.ResourceId)).Select(r => r.First());
                 IEnumerable<BulkImportResourceType> inputResources = resources.Select(r => ResourceTypeConvert(r.BulkImportResource));
 
-                using (var conn = new NpgsqlConnection(PostgresQLConfiguration.DefaultConnectionString))
+                await ExecuteNonQueryAsync(async cmd =>
                 {
-                    try
+                    cmd.CommandText = $"select bulkmergeresource_1((@resources))";
+                    cmd.Parameters.Add(new NpgsqlParameter()
                     {
-                        await conn.OpenAsync(cancellationToken);
-                        conn.TypeMapper.MapComposite<BulkImportResourceType>("bulkimportresourcetype_1");
+                        ParameterName = "resources",
+                        Value = inputResources.ToList(),
+                    });
+                    await cmd.ExecuteNonQueryAsync();
+                });
 
-                        using (var cmd = conn.CreateCommand())
-                        {
-                            cmd.CommandText = $"select bulkmergeresource_1((@resources))";
-                            cmd.Parameters.Add(new NpgsqlParameter()
-                            {
-                                ParameterName = "resources",
-                                Value = inputResources.ToList(),
-                            });
-
-                            await cmd.ExecuteNonQueryAsync(cancellationToken);
-
-                            return resources;
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                        await conn.CloseAsync();
-                    }
-                }
+                return resources;
             }
             catch (Exception ex)
             {
@@ -128,48 +109,58 @@ namespace Microsoft.Health.Fhir.PostgresQL.Import
             {
                 resources = resources.GroupBy(r => (r.ResourceTypeId, r.Resource?.ResourceId)).Select(r => r.First());
 
-                using (var conn = new NpgsqlConnection(PostgresQLConfiguration.DefaultConnectionString))
+                foreach (var resource in resources)
                 {
-                    try
+                    await ExecuteNonQueryAsync(async cmd =>
                     {
-                        await conn.OpenAsync(cancellationToken);
-                        conn.TypeMapper.MapComposite<BulkImportResourceType>("bulkimportresourcetype_1");
-                        conn.TypeMapper.MapComposite<BulkTokenTextTableTypeV1Row>("bulktokentexttabletype_2");
-
-                        foreach (var resource in resources)
+                        cmd.CommandText = $"select bulkmergetokentext((@resource), (@tokentexts))";
+                        cmd.Parameters.Add(new NpgsqlParameter()
                         {
-                            using (var cmd = conn.CreateCommand())
-                            {
-                                cmd.CommandText = $"select bulkmergetokentext((@resource), (@tokentexts))";
-                                cmd.Parameters.Add(new NpgsqlParameter()
-                                {
-                                    ParameterName = "resource",
-                                    Value = ResourceTypeConvert(resource.BulkImportResource),
-                                });
-                                cmd.Parameters.Add(new NpgsqlParameter()
-                                {
-                                    ParameterName = "tokentexts",
-                                    Value = _tokenTextSearchParamsGenerator.GenerateRows(new List<ResourceWrapper>() { resource.Resource }).ToList(),
-                                });
+                            ParameterName = "resource",
+                            Value = ResourceTypeConvert(resource.BulkImportResource),
+                        });
+                        cmd.Parameters.Add(new NpgsqlParameter()
+                        {
+                            ParameterName = "tokentexts",
+                            Value = _tokenTextSearchParamsGenerator.GenerateRows(new List<ResourceWrapper>() { resource.Resource }).ToList(),
+                        });
 
-                                await cmd.ExecuteNonQueryAsync(cancellationToken);
-                            }
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                        await conn.CloseAsync();
-                    }
+                        await cmd.ExecuteNonQueryAsync();
+                    });
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "BulkMergeResourceAsync failed.");
                 throw new RetriableJobException(ex.Message, ex);
+            }
+        }
+
+        private static async Task ExecuteNonQueryAsync(Func<NpgsqlCommand, Task> queryFunc)
+        {
+            _ = await ExecuteQueryAsync(
+                async (cmd) =>
+                {
+                    await queryFunc(cmd);
+                    return true;
+                });
+        }
+
+        private static async Task<T> ExecuteQueryAsync<T>(Func<NpgsqlCommand, Task<T>> queryFunc)
+        {
+            using (var conn = await PgsqlConnectionUtils.CreateAndOpenConnectionAsync())
+            {
+                try
+                {
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        return await queryFunc(cmd);
+                    }
+                }
+                finally
+                {
+                    await conn.CloseAsync();
+                }
             }
         }
 

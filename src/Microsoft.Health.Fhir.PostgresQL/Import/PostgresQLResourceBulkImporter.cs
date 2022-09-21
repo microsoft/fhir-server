@@ -115,33 +115,25 @@ namespace Microsoft.Health.Fhir.PostgresQL.Import
                         IEnumerable<ImportResource> resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
                         IEnumerable<SqlBulkCopyDataWrapper> inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r));
                         mergedResources = await _postgresQLImportOperation.BulkMergeResourceAsync(inputResources, cancellationToken);
-                        IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
-
-                        importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
-                        AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
 
                         succeedCount += mergedResources.Count();
-                        failedCount += resourcesWithError.Count() + duplicateResourcesNotMerged.Count();
+                        failedCount += resourcesWithError.Count();
 
-                        bool shouldCreateCheckpoint = resource.Index - lastCheckpointIndex >= _importTaskConfiguration.SqlImportBatchSizeForCheckpoint;
-                        if (shouldCreateCheckpoint)
-                        {
-                            await _postgresQLImportOperation.BulkCopyDataAsync(mergedResources, cancellationToken);
+                        _ = await EnqueueTaskAsync(
+                                                    importTasks,
+                                                    async () =>
+                                                    {
+                                                        await _postgresQLImportOperation.BulkCopyDataAsync(mergedResources, cancellationToken);
 
-                            // wait previous checkpoint task complete
-                            await checkpointTask;
+                                                        ImportProcessingProgress progress = new ImportProcessingProgress();
+                                                        progress.SucceedImportCount = succeedCount;
+                                                        progress.FailedImportCount = failedCount;
+                                                        progress.CurrentIndex = currentIndex + 1;
 
-                            // upload error logs for import errors
-                            string[] importErrors = importErrorBuffer.ToArray();
-                            importErrorBuffer.Clear();
-                            lastCheckpointIndex = resource.Index;
-                            checkpointTask = await EnqueueTaskAsync(importTasks, () => UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrors, currentIndex, cancellationToken), outputChannel);
-                        }
-                        else
-                        {
-                            // import table >= MaxResourceCountInBatch
-                            await _postgresQLImportOperation.BulkCopyDataAsync(mergedResources, cancellationToken);
-                        }
+                                                        // Return progress for checkpoint progress
+                                                        return progress;
+                                                    },
+                                                    progressChannel: outputChannel);
                     }
                     finally
                     {
@@ -164,14 +156,25 @@ namespace Microsoft.Health.Fhir.PostgresQL.Import
                     IEnumerable<ImportResource> resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
                     IEnumerable<SqlBulkCopyDataWrapper> inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r));
                     mergedResources = await _postgresQLImportOperation.BulkMergeResourceAsync(inputResources, cancellationToken);
-                    IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
-                    importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
 
-                    AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
                     succeedCount += mergedResources.Count();
-                    failedCount += resourcesWithError.Count() + duplicateResourcesNotMerged.Count();
+                    failedCount += resourcesWithError.Count();
 
-                    await _postgresQLImportOperation.BulkCopyDataAsync(mergedResources, cancellationToken);
+                    _ = await EnqueueTaskAsync(
+                                                    importTasks,
+                                                    async () =>
+                                                    {
+                                                        await _postgresQLImportOperation.BulkCopyDataAsync(mergedResources, cancellationToken);
+
+                                                        ImportProcessingProgress progress = new ImportProcessingProgress();
+                                                        progress.SucceedImportCount = succeedCount;
+                                                        progress.FailedImportCount = failedCount;
+                                                        progress.CurrentIndex = currentIndex + 1;
+
+                                                        // Return progress for checkpoint progress
+                                                        return progress;
+                                                    },
+                                                    progressChannel: outputChannel);
                 }
                 finally
                 {

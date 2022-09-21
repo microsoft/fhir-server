@@ -12,13 +12,14 @@ namespace Microsoft.Health.Fhir.PostgresQL
     {
         public static async Task<NpgsqlConnection> CreateAndOpenConnectionAsync()
         {
-            string connectionSting = "";
+            string connectionSting = "Host=localhost;Port=5432;Username=postgres;Password=;Database=;";
             new NpgsqlConnectionStringBuilder(connectionSting) { Enlist = true }.ToString();
             NpgsqlConnection connection = new NpgsqlConnection(new NpgsqlConnectionStringBuilder(connectionSting) { Enlist = true }.ToString());
             await connection.OpenAsync(CancellationToken.None);
 
             connection.TypeMapper.MapComposite<BulkResourceWriteClaimTableTypeV1Row>("bulkresourcewriteclaimtabletype_1");
             connection.TypeMapper.MapComposite<BulkTokenTextTableTypeV1Row>("bulktokentexttabletype_2");
+            connection.TypeMapper.MapComposite<BulkImportResourceType>("bulkimportresourcetype_1");
 
             return connection;
         }
