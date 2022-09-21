@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -33,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private const int MaxRetryCount = 10;
 
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
-            : base(fixture)
+            : base(fixture, output)
         {
             _fixture = fixture;
             _output = output;
@@ -88,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // When job complete, search for resources using new parameter
                 // When there are multiple instances of the fhir-server running, it could take some time
-                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // for the search parameter/reindex updates to propagate to all instances. Hence we are
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
                 bool success = true;
@@ -179,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // When job complete, search for resources using new parameter
                 await ExecuteAndValidateBundle(
                             $"Patient?{searchParamPosted.Resource.Code}:exact={randomName}",
-                            Tuple.Create("x-ms-use-partial-indices", "true"),
+                            Tuple.Create(KnownHeaders.PartiallyIndexedParamsHeaderName, "true"),
                             expectedPatient.Resource);
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
@@ -274,7 +276,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // When job complete, search for resources using new parameter
                 // When there are multiple instances of the fhir-server running, it could take some time
-                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // for the search parameter/reindex updates to propagate to all instances. Hence we are
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
                 await Task.Delay(TimeSpan.FromSeconds(20));
@@ -287,10 +289,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         await ExecuteAndValidateBundle(
                             $"Specimen?{searchParam.Code}={expectedSpecimen.Resource.Id}",
-                            Tuple.Create("x-ms-use-partial-indices", "true"),
+                            Tuple.Create(KnownHeaders.PartiallyIndexedParamsHeaderName, "true"),
                             expectedSpecimen.Resource);
 
-                        _output.WriteLine($"Success on {retryCount} of {MaxRetryCount}");
+                        _output.WriteLine($"Success on attempt {retryCount} of {MaxRetryCount}");
                     }
                     catch (Exception ex)
                     {
@@ -301,7 +303,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                     // now searching for patient with same search parameter should not work
                     var searchUrl = $"Patient?{searchParam.Code}={expectedPatient.Resource.Id}";
-                    Bundle bundle = await Client.SearchAsync(searchUrl, Tuple.Create("x-ms-use-partial-indices", "true"));
+                    Bundle bundle = await Client.SearchAsync(searchUrl, Tuple.Create(KnownHeaders.PartiallyIndexedParamsHeaderName, "true"));
                     Assert.Empty(bundle.Entry);
 
                     // finally searching with new SearchParam but without partial header should not use
@@ -393,7 +395,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // When job complete, search for resources using new parameter
                 // When there are multiple instances of the fhir-server running, it could take some time
-                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // for the search parameter/reindex updates to propagate to all instances. Hence we are
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
                 await Task.Delay(TimeSpan.FromSeconds(20));
@@ -413,7 +415,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             $"Immunization?{searchParam.Code}={expectedImmunization.Resource.Id}",
                             expectedImmunization.Resource);
 
-                        _output.WriteLine($"Success on {retryCount} of {MaxRetryCount}");
+                        _output.WriteLine($"Success on attempt {retryCount} of {MaxRetryCount}");
                     }
                     catch (Exception ex)
                     {
@@ -468,7 +470,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             FhirResponse<Parameters> response;
             (response, reindexJobUri) = await Client.PostReindexJobAsync(reindexParameters, uniqueResource);
 
-            // check for status code reindexJobResult
+            // this becomes null when the uniqueResource gets passed in
             if (reindexJobUri != null)
             {
                 await WaitForReindexStatus(reindexJobUri, "Completed");
@@ -477,6 +479,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 _output.WriteLine("ReindexJobDocument:");
                 var serializer = new FhirJsonSerializer();
+                serializer.Settings.Pretty = true;
                 _output.WriteLine(serializer.SerializeToString(response.Resource));
 
                 var floatParse = float.TryParse(
@@ -488,11 +491,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.True(floatParse);
                 Assert.True(resourcesReindexed > 0.0);
             }
-
-            _output.WriteLine("response.Resource.Parameter output:");
-            foreach (var p in response.Resource.Parameter)
+            else
             {
-                _output.WriteLine($"  {p.Name}: {p.Value}");
+                _output.WriteLine("response.Resource.Parameter output:");
+                foreach (var p in response.Resource.Parameter)
+                {
+                    _output.WriteLine($"  {p.Name}: {p.Value}");
+                }
             }
 
             return (response, reindexJobUri);
@@ -501,20 +506,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task<FhirResponse<Parameters>> WaitForReindexStatus(Uri reindexJobUri, params string[] desiredStatus)
         {
             int checkReindexCount = 0;
+            int maxCount = 30;
+            var delay = TimeSpan.FromSeconds(1);
+            var sw = new Stopwatch();
             string currentStatus;
-            FhirResponse<Parameters> reindexJobResult = null;
+            FhirResponse<Parameters> reindexJobResult;
+            sw.Start();
+
             do
             {
                 reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
                 currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Status)?.Value.ToString();
                 checkReindexCount++;
-                await Task.Delay(1000);
+                await Task.Delay(delay);
             }
-            while (!desiredStatus.Contains(currentStatus) && checkReindexCount < 20);
+            while (!desiredStatus.Contains(currentStatus) && checkReindexCount < maxCount);
 
-            if (checkReindexCount >= 20)
+            sw.Stop();
+
+            if (checkReindexCount >= maxCount)
             {
-                throw new Exception("ReindexJob did not complete within 20 seconds.");
+                throw new Exception($"ReindexJob did not complete within {checkReindexCount} attempts and a duration of {sw.Elapsed.Duration()}");
             }
 
             return reindexJobResult;
@@ -526,7 +538,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 // Clean up new SearchParameter
                 // When there are multiple instances of the fhir-server running, it could take some time
-                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // for the search parameter/reindex updates to propagate to all instances. Hence we are
                 // adding some retries below to account for that delay.
                 int retryCount = 0;
                 bool success = true;
@@ -551,7 +563,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         }
 
                         success = false;
-                        await Task.Delay(10000);
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
                 while (!success && retryCount < MaxRetryCount);
