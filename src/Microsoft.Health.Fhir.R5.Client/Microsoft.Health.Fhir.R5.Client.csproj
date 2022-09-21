@@ -4,9 +4,9 @@
     <DefineConstants>R5</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Ensure.That" Version="10.1.0" />
-    <PackageReference Include="Hl7.Fhir.R5" Version="$(Hl7FhirVersion)" />
-    <PackageReference Include="Microsoft.Health.Client" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageReference Include="Ensure.That" />
+    <PackageReference Include="Hl7.Fhir.R5" />
+    <PackageReference Include="Microsoft.Health.Client" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
