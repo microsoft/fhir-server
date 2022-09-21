@@ -86,7 +86,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _sqlServerFhirModel,
                 _schemaInformation,
                 NullLogger<PostgresQLFhirDataStore>.Instance,
-                new CompressedRawResourceConverter(),
                 options,
                 ModelInfoProvider.Instance);
 

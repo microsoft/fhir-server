@@ -29,6 +29,7 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.Api\Microsoft.Health.Fhir.R5.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.PostgresQL\Microsoft.Health.Fhir.PostgresQL.csproj" />
   </ItemGroup>
 
   <Import Project="..\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.projitems" Label="Shared" />

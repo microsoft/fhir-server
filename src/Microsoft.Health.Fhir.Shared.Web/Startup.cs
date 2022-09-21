@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.PostgresQL;
+using Microsoft.Health.Fhir.PostgresQL.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
@@ -140,6 +141,16 @@ namespace Microsoft.Health.Fhir.Web
 
             services.Add<PostgresQLSearchParameterValidator>()
                 .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<PostgresQLImportOperation>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<PostgresQLResourceBulkImporter>()
+                .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
         }

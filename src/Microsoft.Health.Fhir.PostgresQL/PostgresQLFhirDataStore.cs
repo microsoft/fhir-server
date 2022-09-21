@@ -402,7 +402,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
-            using (var conn = new NpgsqlConnection(ConnectionString))
+            using (var conn = new NpgsqlConnection(PostgresQLConfiguration.DefaultConnectionString))
             {
                 await conn.OpenAsync(cancellationToken);
                 try

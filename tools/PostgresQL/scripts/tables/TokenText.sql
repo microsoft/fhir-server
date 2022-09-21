@@ -29,4 +29,6 @@ ON TokenText
 )
 WHERE IsHistory = 0 :: bit;
 
+alter table tokentext add constraint IX_TokenText_ResourceTypeId_ResourceId_Version primary key(resourcetypeid, resourceid, version)
+
 SELECT create_distributed_table('tokentext', 'resourceid', colocate_with => 'resource');

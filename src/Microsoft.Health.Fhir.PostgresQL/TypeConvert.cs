@@ -447,7 +447,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
 
             public string? requestmethod { get; set; }
 
-            public Stream? rawresource { get; set; }
+            public byte[]? rawresource { get; set; }
 
             public bool israwresourcemetaset { get; set; }
 
