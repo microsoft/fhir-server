@@ -9,7 +9,6 @@ using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -31,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private readonly ITestOutputHelper _output;
 
         public TokenOverflowTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
-            : base(fixture)
+            : base(fixture, output)
         {
             _output = output;
         }
@@ -391,54 +390,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
         */
 
-        private void WriteBundle(Bundle b)
-        {
-            _output.WriteLine("BUNDLE");
-            if (b.Entry == null)
-            {
-                _output.WriteLine("  b.Entry == null");
-            }
-
-            foreach (Bundle.EntryComponent ec in b.Entry)
-            {
-                _output.WriteLine($"  {ToString(ec.Resource)}");
-            }
-
-            _output.WriteLine($"---------");
-        }
-
-        private static string ToString(Resource r)
-        {
-            Patient p = r as Patient;
-            OperationOutcome o = r as OperationOutcome;
-            if (p != null)
-            {
-                string name = (p.Name?.Count ?? 0) > 0 ? p.Name[0].Family : null;
-                string telecom = (p.Telecom?.Count ?? 0) > 0 ? p.Telecom[0].Value : null;
-                string identifier = (p.Identifier?.Count ?? 0) > 0 ? p.Identifier[0].Value : null;
-                return $"Patient: {name} ; {p.BirthDate} ; {telecom} ; {p.ManagingOrganization?.Reference} ; {p.Id} ; {identifier}";
-            }
-            else if (o != null)
-            {
-                if (o.Issue == null)
-                {
-                    return "o.Issue == null";
-                }
-
-                string ostr = null;
-                for (int iter = 0; iter < o.Issue.Count; iter++)
-                {
-                    ostr += $"{o.Issue[iter].Code}, {o.Issue[iter].Severity}, {o.Issue[iter].Diagnostics} ||";
-                }
-
-                return $"OperationOutcome: {ostr}";
-            }
-            else
-            {
-                return "UNKNOWN";
-            }
-        }
-
         private async Task TestCompositeTokenOverflow<T>(
             bool singleReindex,
             string resourceTypeName,
@@ -477,9 +428,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 EnsureSuccessStatusCode(createdResourceA.StatusCode, "Creating resource A.");
 
                 // POST custom composite search parameter.
-                FhirResponse<SearchParameter> createdSearchParam = null; // await Client.CreateAsync(searchParam);
-
-                // EnsureSuccessStatusCode(createdSearchParam.StatusCode, "Creating custom composite search parameter.");
+                // FhirResponse<SearchParameter> createdSearchParam = null; // await Client.CreateAsync(searchParam);
+                FhirResponse<SearchParameter> createdSearchParam = await Client.CreateAsync(searchParam);
+                EnsureSuccessStatusCode(createdSearchParam.StatusCode, "Creating custom composite search parameter.");
 
                 // POST resource B.
                 FhirResponse<T> createdResourceB = await Client.CreateAsync(resourceBWithTokenOverflow);
@@ -511,12 +462,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     try
                     {
                         _output.WriteLine($"---------NAME: {name}");
-                        WriteBundle(await Client.SearchAsync(WebUtility.UrlDecode("Patient")));
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"Patient?name={name}");
 
                         // With x-ms-use-partial-indices header we can search only for resources created after the search parameter was created.
 
-                        _output.WriteLine($"---------createdResourceB x-ms-use-partial-indices:");
-                        WriteBundle(await Client.SearchAsync(WebUtility.UrlDecode($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}"), new Tuple<string, string>("x-ms-use-partial-indices", "true")));
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
 
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
@@ -525,8 +475,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             new Tuple<string, string>("x-ms-use-partial-indices", "true"),
                             createdResourceB); // Expected resource B.
 
-                        _output.WriteLine($"---------createdResourceC x-ms-use-partial-indices:");
-                        WriteBundle(await Client.SearchAsync(WebUtility.UrlDecode($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}"), new Tuple<string, string>("x-ms-use-partial-indices", "true")));
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
 
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
@@ -535,8 +484,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             new Tuple<string, string>("x-ms-use-partial-indices", "true"),
                             createdResourceC); // Expected resource C.
 
-                        _output.WriteLine($"---------createdResourceD x-ms-use-partial-indices:");
-                        WriteBundle(await Client.SearchAsync(WebUtility.UrlDecode($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}"), new Tuple<string, string>("x-ms-use-partial-indices", "true")));
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
 
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
@@ -547,8 +495,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                         // Put these two last, so we know that nothing is returned not because there was no time to propagate from other instances.
 
-                        _output.WriteLine($"---------createdResourceA x-ms-use-partial-indices:");
-                        WriteBundle(await Client.SearchAsync(WebUtility.UrlDecode($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}")));
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
 
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
@@ -556,8 +503,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             false,
                             new Tuple<string, string>("x-ms-use-partial-indices", "true")); // Nothing should be returned.
 
-                        _output.WriteLine($"---------createdResourceB:");
-                        WriteBundle(await Client.SearchAsync(WebUtility.UrlDecode($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}")));
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
 
                         // Without x-ms-use-partial-indices header we cannot search for resources created after the search parameter was created.
                         Bundle bundle = await Client.SearchAsync($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
@@ -577,6 +523,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 }
                 while (!successPreReindex && retryCountPreReindex < maxRetryCountPreReindex);
 
+                Assert.True(false); //---------------------------------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 Assert.True(successPreReindex);
 
                 return;
