@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private static readonly object _locker = new object();
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -110,9 +111,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
-            if (CopyWorker == null || CopyWorker.Target == null)
+            lock (_locker)
             {
-                CopyWorker = new Store.Copy.CopyWorker(config.Value.ConnectionString);
+                if (CopyWorker == null || CopyWorker.Target == null)
+                {
+                    CopyWorker = new Store.Copy.CopyWorker(config.Value.ConnectionString);
+                }
             }
         }
 
