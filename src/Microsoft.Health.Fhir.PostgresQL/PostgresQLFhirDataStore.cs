@@ -16,13 +16,11 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.PostgresQL.TypeGenerators;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.IO;
 using Npgsql;
 using NpgsqlTypes;
-using static Microsoft.Health.Fhir.PostgresQL.TypeConvert;
 
 namespace Microsoft.Health.Fhir.PostgresQL
 {
@@ -169,7 +167,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
                         throw new ServiceUnavailableException();
                     }
 
-                    PopulateUpsertResourceCommand(resource, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
+                    await UpsertAsync(resource, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
 
                     try
                     {
@@ -191,7 +189,7 @@ namespace Microsoft.Health.Fhir.PostgresQL
             writer.Write(rawResource);
         }
 
-        private void PopulateUpsertResourceCommand(
+        private async Task UpsertAsync(
             ResourceWrapper resource,
             bool allowCreate,
             bool keepHistory,
@@ -204,18 +202,9 @@ namespace Microsoft.Health.Fhir.PostgresQL
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
             short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.PreventUpdatesFromCreatingVersionWhenNoImpact)
+            await ExecuteNonQueryAsync(async cmd =>
             {
-                try
-                {
-                    using (var conn = new NpgsqlConnection(PostgresQLConfiguration.DefaultConnectionString))
-                    {
-                        conn.Open();
-                        conn.TypeMapper.MapComposite<BulkResourceWriteClaimTableTypeV1Row>("bulkresourcewriteclaimtabletype_1");
-                        conn.TypeMapper.MapComposite<BulkTokenTextTableTypeV1Row>("bulktokentexttabletype_2");
-                        using (var cmd = conn.CreateCommand())
-                        {
-                            cmd.CommandText = $"call upsertresource_3((@baseresourcesurrogateid)," +
+                cmd.CommandText = $"call upsertresource_3((@baseresourcesurrogateid)," +
                                 $"(@restypeid)," +
                                 $"(@resid), " +
                                 $"(@etag), " +
@@ -230,44 +219,32 @@ namespace Microsoft.Health.Fhir.PostgresQL
                                 $"(@tokentextsearchparams), " +
                                 $"(@isresourcechangecaptureenabled), " +
                                 $"(@comparedversion))";
-                            cmd.Parameters.Add(new NpgsqlParameter("baseresourcesurrogateid", NpgsqlDbType.Bigint) { Value = baseResourceSurrogateId });
-                            cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = resourceTypeId });
-                            cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = resource.ResourceId });
-                            cmd.Parameters.Add(new NpgsqlParameter("etag", NpgsqlDbType.Integer) { Value = eTag == null ? 0 : 1 });
-                            cmd.Parameters.Add(new NpgsqlParameter("allowcreate", NpgsqlDbType.Bit) { Value = allowCreate });
-                            cmd.Parameters.Add(new NpgsqlParameter("isdeleted", NpgsqlDbType.Bit) { Value = resource.IsDeleted });
-                            cmd.Parameters.Add(new NpgsqlParameter("keephistory", NpgsqlDbType.Bit) { Value = keepHistory });
-                            cmd.Parameters.Add(new NpgsqlParameter("requireetagonupdate", NpgsqlDbType.Bit) { Value = requireETagOnUpdate });
-                            cmd.Parameters.Add(new NpgsqlParameter("requestmethod", NpgsqlDbType.Varchar) { Value = resource.Request.Method });
-                            cmd.Parameters.Add(new NpgsqlParameter("searchparamhash", NpgsqlDbType.Varchar) { Value = resource.SearchParameterHash == null ? "test hash" : resource.SearchParameterHash });
-                            cmd.Parameters.Add(new NpgsqlParameter("rawresource", NpgsqlDbType.Bytea) { Value = StreamToBytes(stream) });
-                            cmd.Parameters.Add(new NpgsqlParameter
-                            {
-                                ParameterName = "resourcewriteclaims",
-                                Value = _resourceWriteClaimsGenerator.GenerateRows(new List<ResourceWrapper> { resource }).ToList(),
-                            });
-                            cmd.Parameters.Add(new NpgsqlParameter
-                            {
-                                ParameterName = "tokentextsearchparams",
-                                Value = _tokenTextSearchParamsGenerator.GenerateRows(new List<ResourceWrapper> { resource }).ToList(),
-                            });
-                            cmd.Parameters.Add(new NpgsqlParameter("isresourcechangecaptureenabled", NpgsqlDbType.Bit) { Value = isResourceChangeCaptureEnabled });
-                            cmd.Parameters.Add(new NpgsqlParameter("comparedversion", NpgsqlDbType.Integer) { Value = comparedVersion == null ? 0 : comparedVersion });
-
-                            cmd.ExecuteNonQuery();
-                            conn.Close();
-                        }
-                    }
-                }
-                catch (Exception)
+                cmd.Parameters.Add(new NpgsqlParameter("baseresourcesurrogateid", NpgsqlDbType.Bigint) { Value = baseResourceSurrogateId });
+                cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = resourceTypeId });
+                cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = resource.ResourceId });
+                cmd.Parameters.Add(new NpgsqlParameter("etag", NpgsqlDbType.Integer) { Value = eTag == null ? 0 : 1 });
+                cmd.Parameters.Add(new NpgsqlParameter("allowcreate", NpgsqlDbType.Bit) { Value = allowCreate });
+                cmd.Parameters.Add(new NpgsqlParameter("isdeleted", NpgsqlDbType.Bit) { Value = resource.IsDeleted });
+                cmd.Parameters.Add(new NpgsqlParameter("keephistory", NpgsqlDbType.Bit) { Value = keepHistory });
+                cmd.Parameters.Add(new NpgsqlParameter("requireetagonupdate", NpgsqlDbType.Bit) { Value = requireETagOnUpdate });
+                cmd.Parameters.Add(new NpgsqlParameter("requestmethod", NpgsqlDbType.Varchar) { Value = resource.Request.Method });
+                cmd.Parameters.Add(new NpgsqlParameter("searchparamhash", NpgsqlDbType.Varchar) { Value = resource.SearchParameterHash == null ? "test hash" : resource.SearchParameterHash });
+                cmd.Parameters.Add(new NpgsqlParameter("rawresource", NpgsqlDbType.Bytea) { Value = StreamToBytes(stream) });
+                cmd.Parameters.Add(new NpgsqlParameter
                 {
-                    throw;
-                }
-            }
-            else
-            {
-                throw new InvalidOperationException("No support schema version");
-            }
+                    ParameterName = "resourcewriteclaims",
+                    Value = _resourceWriteClaimsGenerator.GenerateRows(new List<ResourceWrapper> { resource }).ToList(),
+                });
+                cmd.Parameters.Add(new NpgsqlParameter
+                {
+                    ParameterName = "tokentextsearchparams",
+                    Value = _tokenTextSearchParamsGenerator.GenerateRows(new List<ResourceWrapper> { resource }).ToList(),
+                });
+                cmd.Parameters.Add(new NpgsqlParameter("isresourcechangecaptureenabled", NpgsqlDbType.Bit) { Value = isResourceChangeCaptureEnabled });
+                cmd.Parameters.Add(new NpgsqlParameter("comparedversion", NpgsqlDbType.Integer) { Value = comparedVersion == null ? 0 : comparedVersion });
+
+                await cmd.ExecuteNonQueryAsync();
+            });
         }
 
         public static byte[] StreamToBytes(Stream stream)
@@ -291,72 +268,54 @@ namespace Microsoft.Health.Fhir.PostgresQL
                 requestedVersion = parsedVersion;
             }
 
-            try
+            return await ExecuteQueryAsync(async cmd =>
             {
-                using (var conn = new NpgsqlConnection(PostgresQLConfiguration.DefaultConnectionString))
+                cmd.CommandText = $"select * from readresource((@restypeid), (@resid), (@vers))";
+                cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = _model.GetResourceTypeId(key.ResourceType) });
+                cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = key.Id });
+                cmd.Parameters.Add(new NpgsqlParameter("vers", NpgsqlDbType.Integer) { Value = requestedVersion == null ? 1 : requestedVersion });
+                var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                long resourceSurrogateId = 0;
+                int version = 0;
+                bool isDeleted = false;
+                bool isHistory = false;
+                bool isRawResourceMetaSet = false;
+                string rawResource = string.Empty;
+                string? searchParamHash = null;
+
+                while (await reader.ReadAsync(cancellationToken))
                 {
-                    await conn.OpenAsync(cancellationToken);
-                    try
-                    {
-                        using (var cmd = conn.CreateCommand())
-                        {
-                            cmd.CommandText = $"select * from readresource((@restypeid), (@resid), (@vers))";
-                            cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = _model.GetResourceTypeId(key.ResourceType) });
-                            cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = key.Id });
-                            cmd.Parameters.Add(new NpgsqlParameter("vers", NpgsqlDbType.Integer) { Value = requestedVersion == null ? 1 : requestedVersion });
-                            var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-                            long resourceSurrogateId = 0;
-                            int version = 0;
-                            bool isDeleted = false;
-                            bool isHistory = false;
-                            bool isRawResourceMetaSet = false;
-                            string rawResource = string.Empty;
-                            string? searchParamHash = null;
-
-                            while (await reader.ReadAsync(cancellationToken))
-                            {
-                                resourceSurrogateId = reader.GetInt64(0);
-                                version = reader.GetInt32(1);
-                                isDeleted = reader.GetBoolean(2);
-                                isHistory = reader.GetBoolean(3);
-                                using Stream rawResourceStream = reader.GetStream(4);
-                                rawResource = ReadCompressedRawResource(rawResourceStream);
-                                isRawResourceMetaSet = reader.GetBoolean(5);
-                                searchParamHash = reader.GetString(6);
-                            }
-
-                            if (string.IsNullOrEmpty(rawResource))
-                            {
-                                return null;
-                            }
-
-                            return new ResourceWrapper(
-                                key.Id,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                key.ResourceType,
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                null,
-                                new DateTimeOffset(ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                                isDeleted,
-                                searchIndices: null,
-                                compartmentIndices: null,
-                                lastModifiedClaims: null,
-                                searchParamHash)
-                            {
-                                IsHistory = isHistory,
-                            };
-                        }
-                    }
-                    finally
-                    {
-                        await conn.CloseAsync();
-                    }
+                    resourceSurrogateId = reader.GetInt64(0);
+                    version = reader.GetInt32(1);
+                    isDeleted = reader.GetBoolean(2);
+                    isHistory = reader.GetBoolean(3);
+                    using Stream rawResourceStream = reader.GetStream(4);
+                    rawResource = ReadCompressedRawResource(rawResourceStream);
+                    isRawResourceMetaSet = reader.GetBoolean(5);
+                    searchParamHash = reader.GetString(6);
                 }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+
+                if (string.IsNullOrEmpty(rawResource))
+                {
+                    return null;
+                }
+
+                return new ResourceWrapper(
+                    key.Id,
+                    version.ToString(CultureInfo.InvariantCulture),
+                    key.ResourceType,
+                    new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                    null,
+                    new DateTimeOffset(ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                    isDeleted,
+                    searchIndices: null,
+                    compartmentIndices: null,
+                    lastModifiedClaims: null,
+                    searchParamHash)
+                {
+                    IsHistory = isHistory,
+                };
+            });
         }
 
         private static string RemoveTrailingZerosFromMillisecondsForAGivenDate(DateTimeOffset date)
@@ -402,20 +361,37 @@ namespace Microsoft.Health.Fhir.PostgresQL
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
-            using (var conn = new NpgsqlConnection(PostgresQLConfiguration.DefaultConnectionString))
+            await ExecuteNonQueryAsync(async cmd =>
             {
-                await conn.OpenAsync(cancellationToken);
+                cmd.CommandText = $"call harddeleteresource(" +
+                                    $"(@restypeid)," +
+                                    $"(@resid))";
+
+                cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = _model.GetResourceTypeId(key.ResourceType) });
+                cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = key.Id });
+                _ = await cmd.ExecuteNonQueryAsync(cancellationToken);
+            });
+        }
+
+        private static async Task ExecuteNonQueryAsync(Func<NpgsqlCommand, Task> queryFunc)
+        {
+            _ = await ExecuteQueryAsync(
+                async (cmd) =>
+                    {
+                        await queryFunc(cmd);
+                        return true;
+                    });
+        }
+
+        private static async Task<T> ExecuteQueryAsync<T>(Func<NpgsqlCommand, Task<T>> queryFunc)
+        {
+            using (var conn = await PgsqlConnectionUtils.CreateAndOpenConnectionAsync())
+            {
                 try
                 {
                     using (var cmd = conn.CreateCommand())
                     {
-                        cmd.CommandText = $"call harddeleteresource(" +
-                                                $"(@restypeid)," +
-                                                $"(@resid))";
-
-                        cmd.Parameters.Add(new NpgsqlParameter("restypeid", NpgsqlDbType.Smallint) { Value = _model.GetResourceTypeId(key.ResourceType) });
-                        cmd.Parameters.Add(new NpgsqlParameter("resid", NpgsqlDbType.Varchar) { Value = key.Id });
-                        _ = await cmd.ExecuteNonQueryAsync(cancellationToken);
+                        return await queryFunc(cmd);
                     }
                 }
                 finally

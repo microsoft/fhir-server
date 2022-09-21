@@ -23,6 +23,10 @@ CREATE OR REPLACE PROCEDURE public.harddeleteResource(
 language plpgsql    
 as $$
 begin
+    IF restypeid = 96 THEN
+        RAISE EXCEPTION 'Not valid type Observation';
+    END IF;
+    
 	DELETE FROM Resource
 	WHERE  ResourceTypeId = restypeid
 			AND ResourceId = resid;
@@ -30,6 +34,4 @@ begin
 	DELETE FROM TokenText
 	WHERE  ResourceTypeId = restypeid
 			AND ResourceId = resid;
-
-    commit;
 end;$$;
