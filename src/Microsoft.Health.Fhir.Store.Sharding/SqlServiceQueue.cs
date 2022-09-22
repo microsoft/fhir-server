@@ -50,18 +50,23 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
 
-        public void DequeueJob(out long jobId, out long version, out short? resourceTypeId, out long minSurId, out long maxSurId)
+        public void DequeueJob(out long jobId, out long version, out short? resourceTypeId, out long minSurId, out long maxSurId, out string suffix)
         {
             DequeueJob(out var _, out jobId, out version, out var definition);
             resourceTypeId = null;
             minSurId = 0;
             maxSurId = 0;
+            suffix = string.Empty;
             if (definition != null)
             {
                 var split = definition.Split(";");
                 resourceTypeId = short.Parse(split[0]);
                 minSurId = long.Parse(split[1]);
                 maxSurId = long.Parse(split[2]);
+                if (split.Length > 3)
+                {
+                    suffix = split[3];
+                }
             }
         }
 
