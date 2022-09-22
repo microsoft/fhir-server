@@ -2,7 +2,7 @@
   
    <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <AspNetPackageVersion>6.0.8</AspNetPackageVersion>
+    <AspNetPackageVersion>6.0.9</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>6.1.114</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.2.1</Hl7FhirVersion>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
@@ -51,7 +51,7 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="6.0.9" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.20.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(RuntimePackageVersion)" />
