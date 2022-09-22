@@ -444,6 +444,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<T> createdResourceD = await Client.CreateAsync(resourceDWithShortNoTokenOverflow);
                 EnsureSuccessStatusCode(createdResourceD.StatusCode, "Creating resource D.");
 
+                _output.WriteLine("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+                WriteSearchAsync(createdResourceA, "resourceAWithTokenOverflow", resourceAWithTokenOverflow.TypeName);
+                WriteSearchAsync(createdSearchParam, "searchParam", searchParam.TypeName);
+                WriteSearchAsync(createdResourceB, "resourceBWithTokenOverflow", resourceBWithTokenOverflow.TypeName);
+                WriteSearchAsync(createdResourceC, "resourceCWithMaxNoTokenOverflow", resourceCWithMaxNoTokenOverflow.TypeName);
+                WriteSearchAsync(createdResourceD, "resourceDWithShortNoTokenOverflow", resourceDWithShortNoTokenOverflow.TypeName);
+
                 // Before reindexing the database we test if we can access or not the created resources, with and without x-ms-use-partial-indices header.
 
                 // When there are multiple instances of the fhir-server running, it could take some time

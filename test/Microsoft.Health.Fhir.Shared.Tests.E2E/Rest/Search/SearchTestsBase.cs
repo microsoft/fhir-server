@@ -269,20 +269,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpUtility.UrlDecode(uriBuilder.Uri.ToString()), HttpUtility.UrlDecode(bundleUrl));
         }
 
+        // Troubleshooting helper methods follow.
         protected async System.Threading.Tasks.Task WriteSearchAsync(string title, string pathAndQuery, Tuple<string, string> header = null)
         {
             FhirResponse<Bundle> fhirResponse = await Client.SearchAsync(pathAndQuery, header);
             WriteSearchAsync(fhirResponse, title, pathAndQuery, header);
         }
 
-        protected void WriteSearchAsync(FhirResponse<Bundle> fhirResponse, string title, string pathAndQuery, Tuple<string, string> header)
+        protected void WriteSearchAsync<T>(FhirResponse<T> fhirResponse, string title, string requestPathAndQuery, Tuple<string, string> requestHeader = null)
+            where T : Resource
         {
             _output.WriteLine($"<--------- {title}");
             _output.WriteLine($"REQUEST:");
-            _output.WriteLine($"  {pathAndQuery}");
-            if (header != null)
+            _output.WriteLine($"  {requestPathAndQuery}");
+            if (requestHeader != null)
             {
-                _output.WriteLine($"  {header.Item1}: {header.Item2}");
+                _output.WriteLine($"  {requestHeader.Item1}: {requestHeader.Item2}");
             }
 
             _output.WriteLine($"RESPONSE:");
@@ -304,25 +306,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     _output.WriteLine("  fhirResponse.Headers == null");
                 }
 
-                Bundle bundle = fhirResponse;
-                if (bundle != null)
+                if (fhirResponse.Resource != null)
                 {
-                    _output.WriteLine("  BUNDLE:");
-                    if (bundle.Entry == null)
+                    Bundle bundle = fhirResponse.Resource as Bundle;
+                    if (bundle != null)
                     {
-                        _output.WriteLine("    bundle.Entry == null");
-                    }
-                    else
-                    {
-                        foreach (Bundle.EntryComponent ec in bundle.Entry)
+                        _output.WriteLine("  BUNDLE:");
+                        if (bundle.Entry == null)
                         {
-                            _output.WriteLine($"    {ToString(ec.Resource)}");
+                            _output.WriteLine("    bundle.Entry == null");
+                        }
+                        else
+                        {
+                            _output.WriteLine($"    bundle.Entry.Count = {bundle.Entry.Count}");
+                            foreach (Bundle.EntryComponent ec in bundle.Entry)
+                            {
+                                _output.WriteLine($"    {ToString(ec.Resource)}");
+                            }
                         }
                     }
+
+                    _output.WriteLine($"  RESOURCE: {fhirResponse.Resource.TypeName}, {fhirResponse.Resource.Id}");
                 }
                 else
                 {
-                    _output.WriteLine("  bundle == null");
+                    _output.WriteLine("  Resource == null");
                 }
             }
             catch (Exception ex)

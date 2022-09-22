@@ -35,11 +35,7 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public virtual void ConfigureServices(IServiceCollection services)
         {
-            instanceId = Configuration["WEBSITE_ROLE_INSTANCE_ID"];
-            if (instanceId == null)
-            {
-                instanceId = Guid.NewGuid().ToString();
-            }
+            instanceId = $"{Configuration["WEBSITE_ROLE_INSTANCE_ID"]}--{Configuration["WEBSITE_INSTANCE_ID"]}--{Guid.NewGuid()}";
 
             services.AddDevelopmentIdentityProvider(Configuration);
 
