@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>json,cobertura</Format>
+          <Exclude>[*Tests*]*,[*.Web]*,[*.ValueSets]*,[*.SqlServer]*.Schema.Model.*</Exclude>
+          <Include>[Microsoft.Health.Fhir.*]*</Include>
+          <ExcludeByAttribute>ExcludeFromCodeCoverage</ExcludeByAttribute>
+          <!-- Remove ExcludeByFile for generated files once coverlet-coverage/coverlet#1198 is resolved -->
+          <ExcludeByFile>**/*.g.cs,**/test/**</ExcludeByFile>
+          <SingleHit>false</SingleHit>
+          <UseSourceLink>true</UseSourceLink>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
