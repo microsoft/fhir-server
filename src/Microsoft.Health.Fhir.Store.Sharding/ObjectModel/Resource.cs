@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         {
         }
 
-        public Resource(SqlDataReader reader, bool isSharded)
+        public Resource(SqlDataReader reader, bool isSharded, string suffix = null)
         {
             if (isSharded)
             {
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             else
             {
                 ResourceTypeId = reader.GetInt16(0);
-                ResourceId = reader.GetString(1);
+                ResourceId = suffix == null ? reader.GetString(1) : $"{reader.GetString(1)}{suffix}";
                 Version = reader.GetInt32(2);
                 IsHistory = reader.GetBoolean(3);
                 ResourceSurrogateId = reader.GetInt64(4);

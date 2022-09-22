@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             IsHistory = false;
         }
 
-        public ReferenceSearchParam(SqlDataReader reader, bool isSharded)
+        public ReferenceSearchParam(SqlDataReader reader, bool isSharded, string suffix = null)
         {
             if (isSharded)
             {
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 SearchParamId = reader.GetInt16(2);
                 BaseUri = reader.IsDBNull(3) ? null : reader.GetString(3);
                 ReferenceResourceTypeId = reader.GetInt16(4);
-                ReferenceResourceId = reader.GetString(5);
+                ReferenceResourceId = suffix == null ? reader.GetString(5) : $"{reader.GetString(5)}{suffix}";
                 ReferenceResourceVersion = reader.IsDBNull(6) ? null : reader.GetInt32(6);
                 IsHistory = reader.GetBoolean(7);
             }

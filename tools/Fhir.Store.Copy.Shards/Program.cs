@@ -173,7 +173,7 @@ END
                 try
                 {
                     resourceTypeId = null;
-                    Queue.DequeueJob(out jobId, out version, out resourceTypeId, out minId, out var maxId);
+                    Queue.DequeueJob(out jobId, out version, out resourceTypeId, out minId, out var maxId, out var _);
                     if (jobId != -1)
                     {
                         if (!QueueOnly)

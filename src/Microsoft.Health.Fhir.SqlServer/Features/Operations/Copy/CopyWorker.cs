@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     AdvanceVisibility(ref workingTasks);
                 }));
 
-                Task.WaitAll(tasks.ToArray()); // we should never get here
+                ////Task.WaitAll(tasks.ToArray()); // we should never get here
             }
         }
 
@@ -92,11 +92,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
             retry:
                 try
                 {
-                    Target.DequeueJob(out jobId, out version, out var resourceTypeId, out var minId, out var maxId);
+                    Target.DequeueJob(out jobId, out version, out var resourceTypeId, out var minId, out var maxId, out var suffix);
                     if (jobId != -1)
                     {
                         transactionId = Target.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
-                        var (resourceCount, totalCount) = Copy(worker, resourceTypeId.Value, jobId, minId, maxId, transactionId);
+                        var (resourceCount, totalCount) = Copy(worker, resourceTypeId.Value, jobId, minId, maxId, transactionId, suffix);
                         Target.CommitTransaction(transactionId);
                         Target.CompleteJob(jobId, false, version, resourceCount, totalCount, transactionId.Id);
                     }
@@ -136,13 +136,13 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
 #pragma warning disable SA1107 // Code should not contain multiple statements on one line
 #pragma warning disable SA1127 // Generic type constraints should be on their own line
-        private (int resourceCnt, int totalCnt) Copy(int thread, short resourceTypeId, long jobId, long minId, long maxId, TransactionId transactionId)
+        private (int resourceCnt, int totalCnt) Copy(int thread, short resourceTypeId, long jobId, long minId, long maxId, TransactionId transactionId, string suffix)
         {
             var sw = Stopwatch.StartNew();
             var st = DateTime.UtcNow;
             var shardletSequence = new Dictionary<ShardletId, short>();
             var surrIdMap = new Dictionary<long, (ShardletId ShardletId, short Sequence)>(); // map from surr id to shardlet resource index
-            var resources = Source.GetData(_ => new Resource(_, false), resourceTypeId, minId, maxId).ToList();
+            var resources = Source.GetData(_ => new Resource(_, false, suffix), resourceTypeId, minId, maxId).ToList();
 
             foreach (var resource in resources)
             {
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
             resources = resources.Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
 
-            var referenceSearchParams = GetData(_ => new ReferenceSearchParam(_, false), resourceTypeId, minId, maxId, surrIdMap, transactionId);
+            var referenceSearchParams = GetData(_ => new ReferenceSearchParam(_, false, suffix), resourceTypeId, minId, maxId, surrIdMap, transactionId);
             var tokenSearchParams = GetData(_ => new TokenSearchParam(_, false), resourceTypeId, minId, maxId, surrIdMap, transactionId);
             var compartmentAssignments = GetData(_ => new CompartmentAssignment(_, false), resourceTypeId, minId, maxId, surrIdMap, transactionId);
             var tokenTexts = GetData(_ => new TokenText(_, false), resourceTypeId, minId, maxId, surrIdMap, transactionId);
