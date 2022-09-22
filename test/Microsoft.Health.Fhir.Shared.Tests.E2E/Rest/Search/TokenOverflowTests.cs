@@ -475,6 +475,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                         await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
 
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
+
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
+
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
+
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
+
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
                             false,
@@ -482,16 +490,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             new Tuple<string, string>("x-ms-use-partial-indices", "true"),
                             createdResourceB); // Expected resource B.
 
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
-
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
                             false,
                             false,
                             new Tuple<string, string>("x-ms-use-partial-indices", "true"),
                             createdResourceC); // Expected resource C.
-
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
 
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
@@ -502,15 +506,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                         // Put these two last, so we know that nothing is returned not because there was no time to propagate from other instances.
 
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
-
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
                             false,
                             false,
                             new Tuple<string, string>("x-ms-use-partial-indices", "true")); // Nothing should be returned.
-
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
 
                         // Without x-ms-use-partial-indices header we cannot search for resources created after the search parameter was created.
                         Bundle bundle = await Client.SearchAsync($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
