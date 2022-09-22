@@ -44,7 +44,7 @@ stages:
     steps:
     - template: ./jobs/build.yml
       parameters:
-        packageArtifacts: false
+        packageIntegrationTests: true
 
   - job: Linux
     pool:
@@ -52,7 +52,21 @@ stages:
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
+      parameters:
+        codeCoverage: true
+        componentGovernance: true
+        packageArtifacts: true
     
+- stage: AnalyzeSecurity
+  displayName: 'Run Security Analysis'
+  dependsOn:
+  - BuildUnitTests
+  jobs:
+  - job: Guardian
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - template: ./jobs/analyze.yml
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -105,67 +119,6 @@ stages:
       vmImage: '$(WindowsVmImage)'
     steps:
     - template: ./jobs/add-aad-test-environment.yml
-
-- stage: deployAksR4Cosmos
-  displayName: 'Deploy R4 Cosmos in AKS'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  jobs:
-  - template: ./jobs/deploy-aks.yml
-    parameters: 
-      version: R4
-      dataStore: CosmosDb
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-      clusterLocation: $(clusterLocation)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
-      imageTag: $(ImageTag)
-      dnsSuffix: $(aksDnsSuffix)
-      reindexEnabled: true
-
-- stage: deployAksR4Sql
-  displayName: 'Deploy R4 Sql in AKS'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  jobs:
-  - template: ./jobs/deploy-aks.yml
-    parameters: 
-      version: R4
-      dataStore: SqlServer
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-      clusterLocation: $(clusterLocation)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
-      imageTag: $(ImageTag)
-      dnsSuffix: $(aksDnsSuffix)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      reindexEnabled: true
-
-- stage: deployAksR4SqlContainer
-  displayName: 'Deploy R4 SqlContainer in AKS'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  jobs:
-  - template: ./jobs/deploy-aks.yml
-    parameters: 
-      version: R4
-      dataStore: SqlContainer
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-      clusterLocation: $(clusterLocation)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
-      imageTag: $(ImageTag)
-      dnsSuffix: $(aksDnsSuffix)
-      schemaAutomaticUpdatesEnabled: 'auto'
 
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
@@ -281,54 +234,6 @@ stages:
       schemaAutomaticUpdatesEnabled: 'auto'
       reindexEnabled: true
 
-- stage: testAksR4Cosmos
-  displayName: 'R4 CosmosDb AKS Tests'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - BuildUnitTests
-  - setupEnvironment
-  - deployAksR4Cosmos
-  jobs:
-  - template: ./jobs/run-tests-aks.yml
-    parameters:
-      version: R4
-      dataStore: CosmosDb
-      dnsSuffix: $(aksDnsSuffix)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-
-- stage: testAksR4Sql
-  displayName: 'R4 SqlServer AKS Tests'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - BuildUnitTests
-  - setupEnvironment
-  - deployAksR4Sql
-  jobs:
-  - template: ./jobs/run-tests-aks.yml
-    parameters:
-      version: R4
-      dataStore: SqlServer
-      dnsSuffix: $(aksDnsSuffix)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-
-- stage: testAksR4SqlContainer
-  displayName: 'R4 SqlContainer AKS Tests'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - BuildUnitTests
-  - setupEnvironment
-  - deployAksR4SqlContainer
-  jobs:
-  - template: ./jobs/run-tests-aks.yml
-    parameters:
-      version: R4
-      dataStore: SqlContainer
-      dnsSuffix: $(aksDnsSuffix)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
@@ -371,38 +276,12 @@ stages:
       keyVaultName: $(DeploymentEnvironmentNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
 
-- stage: cleanupAks
-  displayName: 'Cleanup AKS Deployments'
-  dependsOn:
-  - testAksR4Cosmos
-  - testAksR4Sql
-  - testAksR4SqlContainer
-  jobs:
-  - template: ./jobs/cleanup-aks.yml
-    parameters:
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
   - testStu3
   - testR4
   - testR5
-  - testAksR4Cosmos
-  - testAksR4Sql
-  - testAksR4SqlContainer
-  condition: |
-    and
-    (
-      eq(dependencies.testStu3.result, 'Succeeded'),
-      eq(dependencies.testR4.result, 'Succeeded'),
-      eq(dependencies.testR5.result, 'Succeeded'),
-      in(dependencies.testAksR4Cosmos.result, 'Succeeded', 'Skipped'),
-      in(dependencies.testAksR4Sql.result, 'Succeeded', 'Skipped'),
-      in(dependencies.testAksR4SqlContainer.result, 'Succeeded', 'Skipped')
-    )
   jobs:
   - template: ./jobs/cleanup.yml
 

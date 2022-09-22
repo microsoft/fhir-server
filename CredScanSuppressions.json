@@ -1,0 +1,17 @@
+{
+    "tool": "Credential Scanner",
+    "suppressions": [
+        {
+            "placeholder": "globalAdminServicePrincipal",
+            "_justification": "[docs/Authentication.md] Service principal for local testing."
+        },
+        {
+            "placeholder": "mySecretPassword123",
+            "_justification": "[docs/QuickstartDeployPowershell.md] This is an example value and does not represent a real credential."
+        },
+        {
+            "placeholder": "fhir",
+            "_justification": "[samples/kubernetes/helm/fhir-server/values.yaml] Name of a pre-created secret to retrieve the SQL Server's password."
+        }
+    ]
+}

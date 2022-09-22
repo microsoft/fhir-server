@@ -9,9 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NSubstitute" Version="4.4.0" />
-    <PackageReference Include="xunit.assert" Version="2.4.2" />
-    <PackageReference Include="xunit.extensibility.core" Version="2.4.2" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="xunit.assert" />
+    <PackageReference Include="xunit.extensibility.core" />
   </ItemGroup>
 
   <ItemGroup>

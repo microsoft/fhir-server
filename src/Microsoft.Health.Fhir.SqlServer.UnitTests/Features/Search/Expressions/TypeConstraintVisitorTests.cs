@@ -13,12 +13,15 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
+    [Trait(Traits.Category, Categories.Search)]
     public class TypeConstraintVisitorTests
     {
         private const short AllergyIntolerance = 1;
