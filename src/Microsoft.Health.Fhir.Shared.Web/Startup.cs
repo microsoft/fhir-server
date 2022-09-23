@@ -120,7 +120,11 @@ namespace Microsoft.Health.Fhir.Web
             {
                 if (instanceId != null)
                 {
-                    context.Response.Headers.Add("X-Instance-Id", new StringValues(instanceId));
+                    string instanceKey = "X-Instance-Id";
+                    if (!context.Response.Headers.ContainsKey(instanceKey))
+                    {
+                        context.Response.Headers.Add(instanceKey, new StringValues(instanceId));
+                    }
                 }
 
                 await next.Invoke();

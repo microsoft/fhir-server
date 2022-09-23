@@ -341,7 +341,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (patient, valid) => patient.Identifier[0].Value);
         }
 
-        /*
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
@@ -388,7 +387,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     return $"{number1}${number2}";
                 });
         }
-        */
 
         private async Task TestCompositeTokenOverflow<T>(
             bool singleReindex,
