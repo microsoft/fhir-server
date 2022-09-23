@@ -1,6 +1,5 @@
 ﻿GO
 CREATE PROCEDURE dbo.InitializeIndexProperties
-WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON
 
