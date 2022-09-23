@@ -451,6 +451,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 WriteSearchAsync(createdResourceC, "resourceCWithMaxNoTokenOverflow", resourceCWithMaxNoTokenOverflow.TypeName);
                 WriteSearchAsync(createdResourceD, "resourceDWithShortNoTokenOverflow", resourceDWithShortNoTokenOverflow.TypeName);
 
+                /*
                 // Before reindexing the database we test if we can access or not the created resources, with and without x-ms-use-partial-indices header.
 
                 // When there are multiple instances of the fhir-server running, it could take some time
@@ -533,7 +534,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.True(false); //---------------------------------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 Assert.True(successPreReindex);
 
-                return;
+                return;*/
 
                 // Start reindexing resources.
 
@@ -602,7 +603,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 if (!singleReindex)
                 {
                     maxRetryCount = 10;
-                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    await Task.Delay(TimeSpan.FromSeconds(10));
                 }
 
                 do
@@ -611,6 +612,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     retryCount++;
                     try
                     {
+                        _output.WriteLine($"---------NAME: {name}");
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"Patient?name={name}");
+
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
+                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
+
                         // Resources are now reindexed.
 
                         // After reindexing, if full database is reindexed no need to use x-ms-use-partial-indices, all resources are searchable.
