@@ -58,7 +58,9 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 foreach (var shard in Target.ShardletMap.Shards)
                 {
                     TruncateTables(shard.Key);
+                    Console.WriteLine($"Truncated tables in {shard.Value.Server}..{shard.Value.Database}.");
                     DisableIndexes(shard.Key);
+                    Console.WriteLine($"Disabled indexes in {shard.Value.Server}..{shard.Value.Database}.");
                 }
             }
             else

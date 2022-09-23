@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             var st = DateTime.UtcNow;
             var shardletSequence = new Dictionary<ShardletId, short>();
             var surrIdMap = new Dictionary<long, (ShardletId ShardletId, short Sequence)>(); // map from surr id to shardlet resource index
-            var resources = Source.GetData(_ => new Resource(_, false, suffix), resourceTypeId, minId, maxId).ToList();
+            var resources = Source.GetData(_ => new Resource(_, false, suffix), resourceTypeId, minId, maxId);
 
             foreach (var resource in resources)
             {
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private IList<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId, Dictionary<long, (ShardletId ShardletId, short Sequence)> surrIdMap, TransactionId transactionId) where T : PrimaryKey
         {
-            var results = Source.GetData(toT, resourceTypeId, minId, maxId).ToList();
+            var results = Source.GetData(toT, resourceTypeId, minId, maxId);
             if (results.Count == 0)
             {
                 results = null;

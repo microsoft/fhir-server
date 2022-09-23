@@ -18,6 +18,9 @@ DECLARE @SP varchar(100) = 'DequeueJob'
        ,@LookedAtPartitions tinyint = 0
 
 BEGIN TRY
+  IF EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'DequeueJobStop' AND Number = 1)
+    RETURN
+
   IF @PartitionId IS NULL
     SET @PartitionId = @MaxPartitions * rand()
 
