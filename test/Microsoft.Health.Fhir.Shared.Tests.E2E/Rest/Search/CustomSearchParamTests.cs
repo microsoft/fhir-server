@@ -73,6 +73,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
+            int retryCount = 0;
+            bool success = true;
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
@@ -87,14 +89,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
                 Assert.Contains(searchParamPosted.Resource.Url, param?.Value?.ToString());
-
-                // When job complete, search for resources using new parameter
-                // When there are multiple instances of the fhir-server running, it could take some time
-                // for the search parameter/reindex updates to propagate to all instances. Hence we are
-                // adding some retries below to account for that delay.
-                int retryCount = 0;
-                bool success = true;
-                await Task.Delay(TimeSpan.FromSeconds(20));
 
                 do
                 {
@@ -252,6 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
+            int retryCount = 0;
             bool success = true;
             try
             {
@@ -275,13 +270,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Equal("Specimen", resourcesParam?.Value?.ToString());
 
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Specimen only.");
-
-                // When job complete, search for resources using new parameter
-                // When there are multiple instances of the fhir-server running, it could take some time
-                // for the search parameter/reindex updates to propagate to all instances. Hence we are
-                // adding some retries below to account for that delay.
-                int retryCount = 0;
-                await Task.Delay(TimeSpan.FromSeconds(20));
 
                 do
                 {
@@ -370,6 +358,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
+            int retryCount = 0;
             bool success = true;
             try
             {
@@ -395,13 +384,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Contains("Immunization", resourcesParam?.Value?.ToString());
 
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Specimen and Immunization only.");
-
-                // When job complete, search for resources using new parameter
-                // When there are multiple instances of the fhir-server running, it could take some time
-                // for the search parameter/reindex updates to propagate to all instances. Hence we are
-                // adding some retries below to account for that delay.
-                int retryCount = 0;
-                await Task.Delay(TimeSpan.FromSeconds(20));
 
                 do
                 {
@@ -510,7 +492,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             int checkReindexCount = 0;
             int maxCount = 30;
-            var delay = TimeSpan.FromSeconds(1);
+            var delay = TimeSpan.FromSeconds(10);
             var sw = new Stopwatch();
             string currentStatus;
             FhirResponse<Parameters> reindexJobResult;
