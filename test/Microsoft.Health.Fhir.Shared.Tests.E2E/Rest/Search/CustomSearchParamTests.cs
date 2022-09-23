@@ -120,6 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
+                _output.WriteLine($"Skipping because reindex is disabled.");
                 Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
                 return;
             }
@@ -186,6 +187,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
+                _output.WriteLine($"Skipping because reindex is disabled.");
                 Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
                 return;
             }
@@ -318,6 +320,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
+                _output.WriteLine($"Skipping because reindex is disabled.");
                 Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
                 return;
             }
