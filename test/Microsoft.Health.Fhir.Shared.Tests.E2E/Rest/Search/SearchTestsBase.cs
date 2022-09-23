@@ -293,10 +293,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 if (fhirResponse.Headers != null)
                 {
                     string headerName = "X-Instance-Id";
-                    IEnumerable<string> headerValues = fhirResponse.Headers.GetValues(headerName);
-                    foreach (string headerValue in headerValues)
+                    if (fhirResponse.Headers.TryGetValues(headerName, out IEnumerable<string> headerValues))
                     {
-                        _output.WriteLine($"  {headerName}: {headerValue}");
+                        foreach (string headerValue in headerValues)
+                        {
+                            _output.WriteLine($"  {headerName}: {headerValue}");
+                        }
                     }
                 }
                 else
@@ -316,8 +318,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         foreach (Bundle.EntryComponent ec in bundle.Entry)
                         {
-                            _output.WriteLine($"    {ToString(ec.Resource)}");
-                            FindInvalidSearchParam(ec);
+                            OutputIssueComponents(ec);
                         }
                     }
                 }
@@ -331,7 +332,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine("  EXCEPTION:");
                 while (ex != null)
                 {
-                    _output.WriteLine($"    {ex.Message}");
+                    _output.WriteLine($"    {ex.ToString()}");
                     ex = ex.InnerException;
                 }
             }
@@ -339,53 +340,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _output.WriteLine($">---------");
         }
 
-        private void FindInvalidSearchParam(Bundle.EntryComponent ec)
+        private void OutputIssueComponents(Bundle.EntryComponent ec)
         {
             var operationOutcome = ec.Resource as OperationOutcome;
-            if (operationOutcome != null && operationOutcome.Children.Count() > 0)
-            {
-                foreach (var child in operationOutcome.Children)
-                {
-                    var issueCompoment = child as OperationOutcome.IssueComponent;
-                    if (issueCompoment != null)
-                    {
-                        _output.WriteLine($"  {issueCompoment.Severity}");
-                        _output.WriteLine($"  {issueCompoment.Code}");
-                        _output.WriteLine($"  {issueCompoment.Diagnostics}");
-                    }
-                }
-            }
-        }
+            List<OperationOutcome.IssueComponent> issueComponents = operationOutcome?.Issue.ToList();
 
-        protected static string ToString(Resource r)
-        {
-            Patient p = r as Patient;
-            OperationOutcome o = r as OperationOutcome;
-            if (p != null)
+            if (issueComponents != null)
             {
-                string name = (p.Name?.Count ?? 0) > 0 ? p.Name[0].Family : null;
-                string telecom = (p.Telecom?.Count ?? 0) > 0 ? p.Telecom[0].Value : null;
-                string identifier = (p.Identifier?.Count ?? 0) > 0 ? p.Identifier[0].Value : null;
-                return $"Patient: {name} ; {p.BirthDate} ; {telecom} ; {p.ManagingOrganization?.Reference} ; {p.Id} ; {identifier}";
-            }
-            else if (o != null)
-            {
-                if (o.Issue == null)
+                _output.WriteLine($"  Issue Found: ");
+                foreach (IssueComponent issueComponent in issueComponents)
                 {
-                    return "o.Issue == null";
+                    _output.WriteLine($"    {issueComponent.Severity}");
+                    _output.WriteLine($"    {issueComponent.Code}");
+                    _output.WriteLine($"    {issueComponent.Diagnostics}");
                 }
-
-                string ostr = null;
-                for (int iter = 0; iter < o.Issue.Count; iter++)
-                {
-                    ostr += $"{o.Issue[iter].Code}, {o.Issue[iter].Severity}, {o.Issue[iter].Diagnostics} ||";
-                }
-
-                return $"OperationOutcome: {ostr}";
-            }
-            else
-            {
-                return "UNKNOWN";
             }
         }
     }
