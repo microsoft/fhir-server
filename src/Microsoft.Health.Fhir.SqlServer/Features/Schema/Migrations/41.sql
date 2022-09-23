@@ -2149,7 +2149,7 @@ WHERE  ParentTaskId = @importTaskId
        AND Status = 3;
 
 GO
-CREATE PROCEDURE [dbo].[GetIndexCommands]
+CREATE PROCEDURE dbo.GetIndexCommands
 @Tbl VARCHAR (100), @Ind VARCHAR (200), @AddPartClause BIT, @IncludeClustered BIT, @Txt VARCHAR (MAX)=NULL OUTPUT
 WITH EXECUTE AS SELF
 AS
@@ -2738,41 +2738,34 @@ WHERE  ResourceTypeId = @resourceTypeId
 COMMIT TRANSACTION;
 
 GO
-CREATE PROCEDURE [dbo].[InitializeIndexProperties]
+CREATE PROCEDURE dbo.InitializeIndexProperties
 WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
-BEGIN
-    INSERT INTO dbo.IndexProperties (IndexTableName, IndexName, PropertyName, PropertyValue)
-    SELECT Tbl,
-           Ind,
-           'DATA_COMPRESSION',
-           isnull(data_comp, 'NONE')
-    FROM   (SELECT O.Name AS Tbl,
-                   I.Name AS Ind,
-                   (SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END
-                    FROM   sys.partitions AS P
-                    WHERE  P.object_id = I.object_id
-                           AND I.index_id = P.index_id) AS data_comp
-            FROM   sys.indexes AS I
-                   INNER JOIN
-                   sys.objects AS O
-                   ON O.object_id = I.object_id
-            WHERE  O.type = 'u'
-                   AND EXISTS (SELECT *
-                               FROM   sys.partition_schemes AS PS
-                               WHERE  PS.data_space_id = I.data_space_id
-                                      AND name = 'PartitionScheme_ResourceTypeId')) AS A
-    WHERE  NOT EXISTS (SELECT *
-                       FROM   dbo.IndexProperties
-                       WHERE  IndexTableName = Tbl
-                              AND IndexName = Ind)
-           AND NOT EXISTS (SELECT *
-                           FROM   sys.indexes
-                           WHERE  name = Ind
-                                  AND object_id = object_id(Tbl)
-                                  AND is_disabled = 1);
-END
+INSERT INTO dbo.IndexProperties (IndexTableName, IndexName, PropertyName, PropertyValue)
+SELECT Tbl,
+       Ind,
+       'DATA_COMPRESSION',
+       isnull(data_comp, 'NONE')
+FROM   (SELECT O.Name AS Tbl,
+               I.Name AS Ind,
+               (SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END
+                FROM   sys.partitions AS P
+                WHERE  P.object_id = I.object_id
+                       AND I.index_id = P.index_id) AS data_comp
+        FROM   sys.indexes AS I
+               INNER JOIN
+               sys.objects AS O
+               ON O.object_id = I.object_id
+        WHERE  O.type = 'u'
+               AND EXISTS (SELECT *
+                           FROM   sys.partition_schemes AS PS
+                           WHERE  PS.data_space_id = I.data_space_id
+                                  AND name = 'PartitionScheme_ResourceTypeId')) AS A
+WHERE  NOT EXISTS (SELECT *
+                   FROM   dbo.IndexProperties
+                   WHERE  IndexTableName = Tbl
+                          AND IndexName = Ind);
 
 GO
 CREATE PROCEDURE dbo.LogEvent
@@ -3511,17 +3504,17 @@ BEGIN TRY
                     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Select Into', @Rows = @@rowcount;
                     DELETE @CheckConstraints;
                     INSERT INTO @CheckConstraints
-                    SELECT CHK.name AS CheckName,
-                           CHK.definition AS CheckDefinition
-                    FROM   sys.check_constraints AS CHK
-                    WHERE  CHK.parent_object_id = object_id(@Tbl);
+                    SELECT name,
+                           definition
+                    FROM   sys.check_constraints
+                    WHERE  parent_object_id = object_id(@Tbl);
                     WHILE EXISTS (SELECT *
                                   FROM   @CheckConstraints)
                         BEGIN
                             SELECT TOP 1 @checkName = CheckName,
                                          @definition = CheckDefinition
                             FROM   @CheckConstraints;
-                            SET @Txt = 'ALTER TABLE ' + @TblInt + ' ADD CONSTRAINT ' + @checkName + CONVERT (VARCHAR, @ResourceTypeId) + ' CHECK ' + @definition;
+                            SET @Txt = 'ALTER TABLE ' + @TblInt + ' ADD CHECK ' + @definition;
                             EXECUTE (@Txt);
                             EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'ALTER', @Text = @Txt;
                             DELETE @CheckConstraints
