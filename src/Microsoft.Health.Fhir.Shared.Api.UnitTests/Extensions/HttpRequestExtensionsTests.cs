@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Extensions;
+using Microsoft.Health.Fhir.Shared.Tests;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -20,6 +21,77 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
     [Trait(Traits.Category, Categories.Search)]
     public class HttpRequestExtensionsTests
     {
+        /*[Fact]
+        public async Task X()
+        {
+            // https://learn.microsoft.com/en-us/dotnet/api/system.text.encodings.web.urlencoder?view=net-6.0
+
+            const string originalQueryString = $"name:missing=false&_has:PractitionerRole:service:practitioner=foo&active:not=false&location:missing=false&_has:PractitionerRole:service:active=true";
+
+            string x = HttpUtility.UrlEncode(originalQueryString);
+            string y = HttpUtility.HtmlEncode(originalQueryString);
+            string z = Uri.EscapeDataString(originalQueryString);
+            string w = EncodeUrl(originalQueryString);
+
+            string urlEncodedString = EncodeUrl(originalQueryString);
+
+            // Reproducing a prod issue, wh9en a set of parameters is grouped together due encoding.
+            HttpRequest request1 = await GetHttpRequestAsync(urlEncodedString);
+            var parameters1 = GetPreviousQueriesForSearchApproach(request1);
+            Assert.Single(parameters1);
+
+            IReadOnlyList<Tuple<string, string>> expectedParameters = new Tuple<string, string>[]
+            {
+                Tuple.Create("name:missing", "false"),
+                Tuple.Create("_has:PractitionerRole:service:practitioner", "foo"),
+                Tuple.Create("active:not", "false"),
+                Tuple.Create("location:missing", "false"),
+                Tuple.Create("_has:PractitionerRole:service:active", "true"),
+            };
+
+            // Checking URL encoding.
+            HttpRequest request2 = await GetHttpRequestAsync(urlEncodedString);
+            var parameters2 = request2.GetQueriesForSearch();
+            AssertQueryParameters(expectedParameters, parameters2);
+        }
+        */
+
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData("_count=1&ct=foobarbaz+foobarbazCni1WdU46vh6NveXlWhkmAU6AjFNjaKgeFWBkqhwQ5WxkqewaHWRkpe7r6W5mZmpqZKwc6u1lZKLsFOFs5Blq4wfS4BobCmLZKOkpFiXnpqUpW1Uq5mSDblHSUchMrlKyU3NyUamtjAQAAAP//")]
+        public async Task GivenAnUrlWithAContinuationToken_WhenEncoded_ThenCompareTheExpectedResults(string queryString)
+        {
+            IReadOnlyList<Tuple<string, string>> encodedUrlExpectedParameters = new Tuple<string, string>[]
+            {
+                Tuple.Create("_count", "1"),
+                Tuple.Create("ct", "foobarbaz+foobarbazCni1WdU46vh6NveXlWhkmAU6AjFNjaKgeFWBkqhwQ5WxkqewaHWRkpe7r6W5mZmpqZKwc6u1lZKLsFOFs5Blq4wfS4BobCmLZKOkpFiXnpqUpW1Uq5mSDblHSUchMrlKyU3NyUamtjAQAAAP//"),
+            };
+
+            IReadOnlyList<Tuple<string, string>> notEncodedUrlExpectedParameters = new Tuple<string, string>[]
+            {
+                Tuple.Create("_count", "1"),
+                Tuple.Create("ct", "foobarbaz foobarbazCni1WdU46vh6NveXlWhkmAU6AjFNjaKgeFWBkqhwQ5WxkqewaHWRkpe7r6W5mZmpqZKwc6u1lZKLsFOFs5Blq4wfS4BobCmLZKOkpFiXnpqUpW1Uq5mSDblHSUchMrlKyU3NyUamtjAQAAAP//"),
+            };
+
+            // Validate parameters for not encoded URI.
+            HttpRequest rawRequest = await GetHttpRequestAsync(queryString);
+            var rawRequestParameters = rawRequest.GetQueriesForSearch();
+            Assert.Equal(notEncodedUrlExpectedParameters.Count, rawRequestParameters.Count);
+            AssertQueryParameters(notEncodedUrlExpectedParameters, rawRequestParameters);
+
+            // Check compatibility with previous query string parameter identification approach.
+            var previousRequestParameters = GetPreviousQueriesForSearchApproach(rawRequest);
+            Assert.Equal(notEncodedUrlExpectedParameters.Count, previousRequestParameters.Count);
+            AssertQueryParameters(notEncodedUrlExpectedParameters, previousRequestParameters);
+
+            // Validate parameters for encoded URI.
+            string encodedQueryString = HttpFhirUtility.EncodeUrl(queryString);
+            HttpRequest encodedRequest = await GetHttpRequestAsync(encodedQueryString);
+            var encodedRequestParameters = encodedRequest.GetQueriesForSearch();
+            Assert.Equal(encodedUrlExpectedParameters.Count, encodedRequestParameters.Count);
+            AssertQueryParameters(notEncodedUrlExpectedParameters, encodedRequestParameters);
+        }
+
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(null, 0)]
@@ -28,8 +100,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
         [InlineData("_has:HealthcareService:location:_id=00000000-0000-0000-0000-000000000000&name=foo&_count=4", 3)]
         [InlineData("_count=4&_sort=name&name=foo&_has:HealthcareService:location:_id=00000000-0000-0000-0000-000000000000", 4)]
         [InlineData("_count=4&_sort=name&name=BAR&name=foo&_has:HealthcareService:location:_id=00000000-0000-0000-0000-000000000000", 5)]
-        [InlineData("_count=4&_sort=name&name=BAZ&_has%3AHealthcareService%3Alocation%3A_id=00000000-0000-0000-0000-000000000000", 4)]
-        [InlineData("_lastUpdated=gt2022-09-20T18%3a35%3a41.6098088-07%3a00&_sort=-birthdate&_tag=00000000-0000-0000-0000-000000000000", 3)]
+        [InlineData("_count=4&_sort=name&name=BAZ&_has:HealthcareService:location:_id=00000000-0000-0000-0000-000000000000", 4)]
+        [InlineData("_lastUpdated=gt2022-09-20T18:35:41.6098088-07:00&_sort=-birthdate&_tag=00000000-0000-0000-0000-000000000000", 3)]
         [InlineData("name:missing=false&_has:PractitionerRole:service:practitioner=00000000-0000-0000-0000-000000000000&active:not=false&location:missing=false&_has:PractitionerRole:service:active=true", 5)]
         public async Task GivenAnUrl_WhenEncoded_ThenCompareTheResultingQueryParameters(string queryString, int expectedNumberOfParameters)
         {
@@ -43,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
             Assert.Equal(expectedNumberOfParameters, previousRequestParameters.Count);
 
             // Validate parameters for encoded URI.
-            string encodedQueryString = HttpUtility.HtmlEncode(queryString);
+            string encodedQueryString = HttpFhirUtility.EncodeUrl(queryString);
             HttpRequest encodedRequest = await GetHttpRequestAsync(encodedQueryString);
             var encodedRequestParameters = encodedRequest.GetQueriesForSearch();
             Assert.Equal(expectedNumberOfParameters, encodedRequestParameters.Count);
@@ -55,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUrl_WhenEncoded_ThenCompareTheExpectedResults()
         {
-            const int expectedNumberOfParameters = 12;
+            const int expectedNumberOfParameters = 11;
             string queryString =
                 "name:missing=false" +
                 "&_has:PractitionerRole:service:practitioner=00000000-0000-0000-0000-000000000000" +
@@ -64,11 +136,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
                 "&_has:PractitionerRole:service:active=true" +
                 "&_has:SomeProperty:OtherProperty:Another1:not=false" +
                 "&_has:SomeProperty:OtherProperty:Another2:not=true" +
-                "&_lastUpdated1=gt2022-09-20T18%3a35%3a41.6098088-07%3a00" +
                 "&_revinclude=DiagnosticReport:result" +
                 "&_include=MedicationRequest:*" +
                 "&_include:iterate=Patient:*" +
-                "&_datetime=2022-09-21T20%3A34%3A37.0000000%2B00%3A00";
+                "&_lastUpdated1=2022-09-20T18:35:41.6098088-07:00";
 
             IReadOnlyList<Tuple<string, string>> expectedParameters = new Tuple<string, string>[]
             {
@@ -79,11 +150,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
                 Tuple.Create("_has:PractitionerRole:service:active", "true"),
                 Tuple.Create("_has:SomeProperty:OtherProperty:Another1:not", "false"),
                 Tuple.Create("_has:SomeProperty:OtherProperty:Another2:not", "true"),
-                Tuple.Create("_lastUpdated1", "gt2022-09-20T18:35:41.6098088-07:00"),
                 Tuple.Create("_revinclude", "DiagnosticReport:result"),
                 Tuple.Create("_include", "MedicationRequest:*"),
                 Tuple.Create("_include:iterate", "Patient:*"),
-                Tuple.Create("_datetime", "2022-09-21T20:34:37.0000000+00:00"),
+                Tuple.Create("_lastUpdated1", "2022-09-20T18:35:41.6098088-07:00"),
             };
 
             Assert.Equal(expectedNumberOfParameters, expectedParameters.Count);
@@ -96,7 +166,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
         public async Task GivenAnUrlWithMultipleParameters_WhenEncoded_ThenCompareTheExpectedResults()
         {
             const int expectedNumberOfParameters = 4;
-            string queryString = "_count=4&_sort=name&name=AB&_has%3AHealthcareService%3Alocation%3A_id=00000000-0000-0000-0000-000000000000";
+            string queryString = "_count=4&_sort=name&name=AB&_has:HealthcareService:location:_id=00000000-0000-0000-0000-000000000000";
 
             IReadOnlyList<Tuple<string, string>> expectedParameters = new Tuple<string, string>[]
             {
@@ -131,20 +201,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
 
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        [InlineData("_count=1&ct=a0a0a0a0a0a0a0a%2Ba0a0a0a0a0Cni1WdU46vh6NveXlWhkmAU6AjFNjaKgeFWBkqhwQ5WxkqewaHWRkpe7r6W5mZmpqZKwc6u1lZKLsFOFs5Blq4wfS4BobCmLZKOkpFiXnpqUpW1Uq5mSDblHSUchMrlKyU3NyUamtjAQAAAP%2F%2F")]
-        public async Task GivenAnUrlWithAContinuationToken_WhenEncoded_ThenCompareTheExpectedResults(string queryString)
+        [InlineData("2022-09-20T18:35:41.6098088-07:00")]
+        [InlineData("2022-09-21T20:34:37.0000000 00:00")]
+        public async Task GivenAnUrlWithADatetime_WhenEncoded_ThenCompareTheExpectedResults(string value)
         {
-            const int expectedNumberOfParameters = 2;
+            const int expectedNumberOfParameters = 1;
 
             IReadOnlyList<Tuple<string, string>> expectedParameters = new Tuple<string, string>[]
             {
-                Tuple.Create("_count", "1"),
-                Tuple.Create("ct", "a0a0a0a0a0a0a0a+a0a0a0a0a0Cni1WdU46vh6NveXlWhkmAU6AjFNjaKgeFWBkqhwQ5WxkqewaHWRkpe7r6W5mZmpqZKwc6u1lZKLsFOFs5Blq4wfS4BobCmLZKOkpFiXnpqUpW1Uq5mSDblHSUchMrlKyU3NyUamtjAQAAAP//"),
+                Tuple.Create("_datetime", value),
             };
 
             Assert.Equal(expectedNumberOfParameters, expectedParameters.Count);
 
-            await AssertHttpRequestsWithQueryParameters(queryString, expectedParameters);
+            await AssertHttpRequestsWithQueryParameters($"_datetime={value}", expectedParameters);
         }
 
         private static async Task AssertHttpRequestsWithQueryParameters(string queryString, IReadOnlyList<Tuple<string, string>> expectedParameters)
@@ -161,7 +231,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
             AssertQueryParameters(expectedParameters, previousRequestParameters);
 
             // Validate parameters for encoded URI.
-            string encodedQueryString = HttpUtility.HtmlEncode(queryString);
+            string encodedQueryString = HttpFhirUtility.EncodeUrl(queryString);
             HttpRequest encodedRequest = await GetHttpRequestAsync(encodedQueryString);
             var encodedRequestParameters = encodedRequest.GetQueriesForSearch();
             Assert.Equal(expectedParameters.Count, encodedRequestParameters.Count);

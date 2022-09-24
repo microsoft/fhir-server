@@ -38,8 +38,10 @@ namespace Microsoft.Health.Fhir.Api.Extensions
 
             if (request.QueryString.HasValue)
             {
-                NameValueCollection queryStringParameters = HttpUtility.ParseQueryString(HttpUtility.HtmlDecode(request.QueryString.Value));
-                        HttpUtility.UrlDecode(
+                NameValueCollection queryStringParameters =
+                    HttpUtility.ParseQueryString(
+                            request.QueryString.Value);
+
                 List<Tuple<string, string>> queries = new List<Tuple<string, string>>();
                 foreach (string key in queryStringParameters.AllKeys)
                 {
