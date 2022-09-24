@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     throw new ArgumentException("_sourceConnectionString == null");
                 }
 
-                Source = new SqlServiceSingleDatabase(_sourceConnectionString);
+                Source = new SqlUtils.SqlService(_sourceConnectionString);
 
                 _workers = GetWorkers();
                 _writesEnabled = GetWritesEnabled();
@@ -54,10 +54,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
                 Target.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={workingTasks}");
 
-                tasks.Add(BatchExtensions.StartTask(() =>
-                {
-                    AdvanceVisibility(ref workingTasks);
-                }));
+                //// TODO: Move to watchdog
+                ////tasks.Add(BatchExtensions.StartTask(() =>
+                ////{
+                ////    AdvanceVisibility(ref workingTasks);
+                ////}));
 
                 ////Task.WaitAll(tasks.ToArray()); // we should never get here
             }
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         public SqlService Target { get; private set; }
 
-        public SqlServiceSingleDatabase Source { get; private set; }
+        public SqlUtils.SqlService Source { get; private set; }
 
         private void AdvanceVisibility(ref int workingTasks)
         {
@@ -142,7 +143,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             var st = DateTime.UtcNow;
             var shardletSequence = new Dictionary<ShardletId, short>();
             var surrIdMap = new Dictionary<long, (ShardletId ShardletId, short Sequence)>(); // map from surr id to shardlet resource index
-            var resources = Source.GetData(_ => new Resource(_, false, suffix), resourceTypeId, minId, maxId);
+            var resources = GetData(_ => new Resource(_, false, suffix), resourceTypeId, minId, maxId);
 
             foreach (var resource in resources)
             {
@@ -189,7 +190,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private IList<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId, Dictionary<long, (ShardletId ShardletId, short Sequence)> surrIdMap, TransactionId transactionId) where T : PrimaryKey
         {
-            var results = Source.GetData(toT, resourceTypeId, minId, maxId);
+            var results = GetData(toT, resourceTypeId, minId, maxId);
             if (results.Count == 0)
             {
                 results = null;
@@ -203,6 +204,18 @@ namespace Microsoft.Health.Fhir.Store.Copy
         }
 #pragma warning restore SA1107 // Code should not contain multiple statements on one line
 #pragma warning restore SA1127 // Generic type constraints should be on their own line
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
+        private IList<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
+        {
+            using var cmd = new SqlCommand($"SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId ORDER BY ResourceSurrogateId") { CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@MinId", minId);
+            cmd.Parameters.AddWithValue("@MaxId", maxId);
+            var results = new List<T>();
+            SqlUtils.SqlService.ExecuteSqlReaderWithRetries(_sourceConnectionString, cmd, reader => { results.Add(toT(reader)); });
+            return results;
+        }
 
         private static bool IsSharded(string connectionString)
         {
