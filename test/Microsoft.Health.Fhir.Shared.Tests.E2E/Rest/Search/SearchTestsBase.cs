@@ -93,7 +93,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             int pageSize = 10,
             params Resource[] expectedResources)
         {
-            FhirResponse<Bundle> fhirResponse = await Client.SearchAsync(searchUrl, customHeader);
+            FhirResponse<Bundle> fhirResponse = null;
+            try
+            {
+                fhirResponse = await Client.SearchAsync(searchUrl, customHeader);
+            }
+            catch (Exception ex)
+            {
+                if (_output != null)
+                {
+                    WriteSearchAsync(fhirResponse, "ExecuteAndValidateBundle", searchUrl, customHeader, ex);
+                }
+
+                throw ex;
+            }
+
             if (_output != null)
             {
                 WriteSearchAsync(fhirResponse, "ExecuteAndValidateBundle", searchUrl, customHeader);
@@ -270,13 +284,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         // Troubleshooting helper methods follow.
+        // These methods can be used to debug test failures in the pipeline.
+        // ExecuteAndValidateBundle method is partially instrumented with WriteSearchAsync, which can be enabled by calling constructor with the output parameter set.
         protected async System.Threading.Tasks.Task WriteSearchAsync(string title, string pathAndQuery, Tuple<string, string> header = null)
         {
-            FhirResponse<Bundle> fhirResponse = await Client.SearchAsync(pathAndQuery, header);
-            WriteSearchAsync(fhirResponse, title, pathAndQuery, header);
+            Exception exception = null;
+            FhirResponse<Bundle> fhirResponse = null;
+#pragma warning disable CA1031 // Do not catch general exception types
+            try
+            {
+                fhirResponse = await Client.SearchAsync(pathAndQuery, header);
+            }
+            catch (Exception ex)
+            {
+                exception = ex;
+            }
+#pragma warning restore CA1031 // Do not catch general exception types
+
+            WriteSearchAsync(fhirResponse, title, pathAndQuery, header, exception);
         }
 
-        protected void WriteSearchAsync<T>(FhirResponse<T> fhirResponse, string title, string requestPathAndQuery, Tuple<string, string> requestHeader = null)
+        protected void WriteSearchAsync<T>(FhirResponse<T> fhirResponse, string title, string requestPathAndQuery, Tuple<string, string> requestHeader = null, Exception exception = null)
             where T : Resource
         {
             _output.WriteLine($"<--------- {title}");
@@ -289,7 +317,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             _output.WriteLine($"RESPONSE:");
 
-            try
+            if (fhirResponse != null)
             {
                 _output.WriteLine($"  {fhirResponse.StatusCode}");
                 if (fhirResponse.Headers != null)
@@ -308,10 +336,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 if (fhirResponse.Resource != null)
                 {
-                    Bundle bundle = fhirResponse.Resource as Bundle;
-                    if (bundle != null)
+                    if (fhirResponse.Resource is Bundle bundle)
                     {
-                        _output.WriteLine("  BUNDLE:");
+                        _output.WriteLine($"  {ToString(bundle)}:");
                         if (bundle.Entry == null)
                         {
                             _output.WriteLine("    bundle.Entry == null");
@@ -325,56 +352,79 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             }
                         }
                     }
-
-                    _output.WriteLine($"  RESOURCE: {fhirResponse.Resource.TypeName}, {fhirResponse.Resource.Id}");
+                    else
+                    {
+                        _output.WriteLine($"  {ToString(fhirResponse.Resource)}");
+                    }
                 }
                 else
                 {
                     _output.WriteLine("  Resource == null");
                 }
             }
-            catch (Exception ex)
+            else
+            {
+                _output.WriteLine("  fhirResponse == null");
+            }
+
+            if (exception != null)
             {
                 _output.WriteLine("  EXCEPTION:");
-                while (ex != null)
+                while (exception != null)
                 {
-                    _output.WriteLine($"    {ex.Message}");
-                    ex = ex.InnerException;
+                    _output.WriteLine($"    {exception.Message}");
+                    exception = exception.InnerException;
                 }
             }
 
             _output.WriteLine($">---------");
         }
 
-        protected static string ToString(Resource r)
+        protected static string ToString(Resource resource)
         {
-            Patient p = r as Patient;
-            OperationOutcome o = r as OperationOutcome;
-            if (p != null)
+            // Should return single line string.
+
+            if (resource is Patient patient)
             {
-                string name = (p.Name?.Count ?? 0) > 0 ? p.Name[0].Family : null;
-                string telecom = (p.Telecom?.Count ?? 0) > 0 ? p.Telecom[0].Value : null;
-                string identifier = (p.Identifier?.Count ?? 0) > 0 ? p.Identifier[0].Value : null;
-                return $"Patient: {name} ; {p.BirthDate} ; {telecom} ; {p.ManagingOrganization?.Reference} ; {p.Id} ; {identifier}";
+                string name = (patient.Name?.Count ?? 0) > 0 ? patient.Name[0].Family : null;
+                string telecom = (patient.Telecom?.Count ?? 0) > 0 ? patient.Telecom[0].Value : null;
+                string identifier = (patient.Identifier?.Count ?? 0) > 0 ? patient.Identifier[0].Value : null;
+                return $"{resource.TypeName}, {resource.Id}, {name}, {patient.BirthDate}, {telecom}, {patient.ManagingOrganization?.Reference}, {patient.Id}, {identifier}";
             }
-            else if (o != null)
+            else if (resource is OperationOutcome operationOutcome)
             {
-                if (o.Issue == null)
+                if (operationOutcome.Issue == null)
                 {
                     return "o.Issue == null";
                 }
 
                 string ostr = null;
-                for (int iter = 0; iter < o.Issue.Count; iter++)
+                for (int i = 0; i < operationOutcome.Issue.Count; i++)
                 {
-                    ostr += $"{o.Issue[iter].Code}, {o.Issue[iter].Severity}, {o.Issue[iter].Diagnostics} ||";
+                    if (ostr == null)
+                    {
+                        ostr = $"{resource.TypeName}, {resource.Id} || ";
+                    }
+                    else
+                    {
+                        ostr += " | ";
+                    }
+
+                    ostr += $"{operationOutcome.Issue[i].Code}, {operationOutcome.Issue[i].Severity}, {operationOutcome.Issue[i].Diagnostics}";
                 }
 
-                return $"OperationOutcome: {ostr}";
+                return ostr;
             }
             else
             {
-                return "UNKNOWN";
+                if (resource != null)
+                {
+                    return $"{resource.TypeName}, {resource.Id}";
+                }
+                else
+                {
+                    return "resource == null";
+                }
             }
         }
     }

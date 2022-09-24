@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Web
 {
     public class Startup
     {
-        private static string instanceId = null;
+        private static string instanceId;
 
         public Startup(IConfiguration configuration)
         {

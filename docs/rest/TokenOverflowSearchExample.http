@@ -73,6 +73,11 @@ GET https://{{hostname}}/Patient?identifier=IDKirk789
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### At this point we can not get any patient by token-string value without using x-ms-use-partial-indices header.
+### IMPORTANT NOTE: Searching for patients in this example (steps 12 - 16) before reindexing the DB will work correctly only if
+### the server runs on a single instance, for example if it funs locally from Visual Studio. If server runs multiple instances, for
+### example as AppService on Azure, then reindexing while creating resources like in previous steps will be random, depending on what
+### instance the load balancer sends to the create resource request. In this case not all resources may be reindexed and searchable
+### by x-ms-use-partial-indices header.
 
 ### 12. Get patient B by token-string value, returns OperationOutcome warning.
 GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B$KirkB

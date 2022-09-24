@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private readonly ITestOutputHelper _output;
 
         public TokenOverflowTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
-            : base(fixture, output)
+            : base(fixture)
         {
             _output = output;
         }
@@ -103,22 +103,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patient.Telecom[0].Value = "555-555-5555"; // Used in tokenoverflow-token and token-tokenoverflow tests.
                 patient.ManagingOrganization.Reference = "Test-Organization"; // Used in reference-token tests.
 
-                Patient patientAWithTokenOverflow = (Patient)patient.DeepCopy();
+                var patientAWithTokenOverflow = (Patient)patient.DeepCopy();
                 patient.Id = $"Patient-Id-{name}-A";
                 patientAWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "A"); // Overflow A.
                 resourceAWithTokenOverflowOut = (T)(DomainResource)patientAWithTokenOverflow;
 
-                Patient patientBWithTokenOverflow = (Patient)patient.DeepCopy();
+                var patientBWithTokenOverflow = (Patient)patient.DeepCopy();
                 patientBWithTokenOverflow.Id = $"Patient-Id-{name}-B";
                 patientBWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "B"); // Overflow B.
                 resourceBWithTokenOverflowOut = (T)(DomainResource)patientBWithTokenOverflow;
 
-                Patient patientCWithMaxNoTokenOverflow = (Patient)patient.DeepCopy();
+                var patientCWithMaxNoTokenOverflow = (Patient)patient.DeepCopy();
                 patientCWithMaxNoTokenOverflow.Id = $"Patient-Id-{name}-C";
                 patientCWithMaxNoTokenOverflow.Identifier[0].Value = GetTokenValueMaxNoOverflow(name); // Max no overflow.
                 resourceCWithMaxNoTokenOverflowOut = (T)(DomainResource)patientCWithMaxNoTokenOverflow;
 
-                Patient patientDWithShortNoTokenOverflow = (Patient)patient.DeepCopy();
+                var patientDWithShortNoTokenOverflow = (Patient)patient.DeepCopy();
                 patientDWithShortNoTokenOverflow.Id = $"Patient-Id-{name}-D";
                 patientDWithShortNoTokenOverflow.Identifier[0].Value = GetTokenValueShortNoOverflow(name); // Short no overflow.
                 resourceDWithShortNoTokenOverflowOut = (T)(DomainResource)patientDWithShortNoTokenOverflow;
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // IMPORTANT. It is important that the following value is same for all the resources in a test for the same reason as above.
                 chargeItem.Quantity.Value = 1; // Used in token quantity tests.
 
-                ChargeItem chargeItemAWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                var chargeItemAWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemAWithTokenOverflow.Id = $"ChargeItem-Id-{name}-A";
 #if R4 || R5
                 chargeItemAWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "A"); // Overflow A.
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
                 resourceAWithTokenOverflowOut = (T)(DomainResource)chargeItemAWithTokenOverflow;
 
-                ChargeItem chargeItemBWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                var chargeItemBWithTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemBWithTokenOverflow.Id = $"ChargeItem-Id-{name}-B";
 #if R4 || R5
                 chargeItemBWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "B"); // Overflow B.
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
                 resourceBWithTokenOverflowOut = (T)(DomainResource)chargeItemBWithTokenOverflow;
 
-                ChargeItem chargeItemCWithMaxNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                var chargeItemCWithMaxNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemCWithMaxNoTokenOverflow.Id = $"ChargeItem-Id-{name}-C";
 #if R4 || R5
                 chargeItemCWithMaxNoTokenOverflow.Identifier[0].Value = GetTokenValueMaxNoOverflow(name); // Max no overflow.
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
                 resourceCWithMaxNoTokenOverflowOut = (T)(DomainResource)chargeItemCWithMaxNoTokenOverflow;
 
-                ChargeItem chargeItemDWithShortNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
+                var chargeItemDWithShortNoTokenOverflow = (ChargeItem)chargeItem.DeepCopy();
                 chargeItemDWithShortNoTokenOverflow.Id = $"ChargeItem-Id-{name}-D";
 #if R4 || R5
                 chargeItemDWithShortNoTokenOverflow.Identifier[0].Value = GetTokenValueShortNoOverflow(name); // Short no overflow.
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 riskAssessment.Prediction[0].Probability = new FhirDecimal(111.111M); // Used in token-number-number tests.
                 riskAssessment.Prediction[1].Probability = new FhirDecimal(111.555M); // Used in token-number-number tests.
 
-                RiskAssessment riskAssessmentAWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                var riskAssessmentAWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentAWithTokenOverflow.Id = $"RiskAssessment-Id-{name}-A";
 #if R4 || R5
                 riskAssessmentAWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "A"); // Overflow A.
@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
                 resourceAWithTokenOverflowOut = (T)(DomainResource)riskAssessmentAWithTokenOverflow;
 
-                RiskAssessment riskAssessmentBWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                var riskAssessmentBWithTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentBWithTokenOverflow.Id = $"RiskAssessment-Id-{name}-B";
 #if R4 || R5
                 riskAssessmentBWithTokenOverflow.Identifier[0].Value = GetTokenValueWithOverflow(name, "B"); // Overflow B.
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
                 resourceBWithTokenOverflowOut = (T)(DomainResource)riskAssessmentBWithTokenOverflow;
 
-                RiskAssessment riskAssessmentCWithMaxNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                var riskAssessmentCWithMaxNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentCWithMaxNoTokenOverflow.Id = $"RiskAssessment-Id-{name}-C";
 #if R4 || R5
                 riskAssessmentCWithMaxNoTokenOverflow.Identifier[0].Value = GetTokenValueMaxNoOverflow(name); // Max no overflow.
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
                 resourceCWithMaxNoTokenOverflowOut = (T)(DomainResource)riskAssessmentCWithMaxNoTokenOverflow;
 
-                RiskAssessment riskAssessmentDWithShortNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
+                var riskAssessmentDWithShortNoTokenOverflow = (RiskAssessment)riskAssessment.DeepCopy();
                 riskAssessmentDWithShortNoTokenOverflow.Id = $"RiskAssessment-Id-{name}-D";
 #if R4 || R5
                 riskAssessmentDWithShortNoTokenOverflow.Identifier[0].Value = GetTokenValueShortNoOverflow(name); // Short no overflow.
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             try
             {
-                string name = "Kirk-T-" + Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+                string name = "Kirk-T-" + Guid.NewGuid().ToString().ComputeHash()[..14].ToLower();
 
                 LoadTestResources(name, out Patient patientAWithTokenOverflow, out Patient patientBWithTokenOverflow, out Patient patientCWithMaxNoTokenOverflow, out Patient patientDWithShortNoTokenOverflow);
 
@@ -405,7 +405,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
 
                 // Randomize various names and id-s so tests can be rerun without clearing the database.
-                string rnd = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
+                string rnd = Guid.NewGuid().ToString().ComputeHash()[..14].ToLower();
                 string name = $"{resourceNamePrefix}-{(singleReindex ? 'S' : 'F')}-{rnd}";
 
                 // Prepare search parameter settings.
@@ -442,101 +442,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<T> createdResourceD = await Client.CreateAsync(resourceDWithShortNoTokenOverflow);
                 EnsureSuccessStatusCode(createdResourceD.StatusCode, "Creating resource D.");
 
-                _output.WriteLine("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-                WriteSearchAsync(createdResourceA, "resourceAWithTokenOverflow", resourceAWithTokenOverflow.TypeName);
-                WriteSearchAsync(createdSearchParam, "searchParam", searchParam.TypeName);
-                WriteSearchAsync(createdResourceB, "resourceBWithTokenOverflow", resourceBWithTokenOverflow.TypeName);
-                WriteSearchAsync(createdResourceC, "resourceCWithMaxNoTokenOverflow", resourceCWithMaxNoTokenOverflow.TypeName);
-                WriteSearchAsync(createdResourceD, "resourceDWithShortNoTokenOverflow", resourceDWithShortNoTokenOverflow.TypeName);
-
-                /*
-                // Before reindexing the database we test if we can access or not the created resources, with and without x-ms-use-partial-indices header.
-
-                // When there are multiple instances of the fhir-server running, it could take some time
-                // for the search parameter/reindex updates to propagate to all instances. Hence we are
-                // adding some retries below to account for that delay.
-                int retryCountPreReindex = 0;
-                bool successPreReindex = true;
-                int maxRetryCountPreReindex = 10;
-                maxRetryCountPreReindex = 10;
-                await Task.Delay(TimeSpan.FromSeconds(5));
-
-                do
-                {
-                    successPreReindex = true;
-                    retryCountPreReindex++;
-                    try
-                    {
-                        _output.WriteLine($"---------NAME: {name}");
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"Patient?name={name}");
-
-                        // With x-ms-use-partial-indices header we can search only for resources created after the search parameter was created.
-
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
-
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
-
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
-
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}", new Tuple<string, string>("x-ms-use-partial-indices", "true"));
-
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
-
-                        await ExecuteAndValidateBundle(
-                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}",
-                            false,
-                            false,
-                            new Tuple<string, string>("x-ms-use-partial-indices", "true"),
-                            createdResourceB); // Expected resource B.
-
-                        await ExecuteAndValidateBundle(
-                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}",
-                            false,
-                            false,
-                            new Tuple<string, string>("x-ms-use-partial-indices", "true"),
-                            createdResourceC); // Expected resource C.
-
-                        await ExecuteAndValidateBundle(
-                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}",
-                            false,
-                            false,
-                            new Tuple<string, string>("x-ms-use-partial-indices", "true"),
-                            createdResourceD); // Expected resource D.
-
-                        // Put these two last, so we know that nothing is returned not because there was no time to propagate from other instances.
-
-                        await ExecuteAndValidateBundle(
-                            $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
-                            false,
-                            false,
-                            new Tuple<string, string>("x-ms-use-partial-indices", "true")); // Nothing should be returned.
-
-                        // Without x-ms-use-partial-indices header we cannot search for resources created after the search parameter was created.
-                        Bundle bundle = await Client.SearchAsync($"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}");
-                        OperationOutcome operationOutcome = GetAndValidateOperationOutcome(bundle);
-                        string[] expectedDiagnostics = { string.Format(Core.Resources.SearchParameterNotSupported, searchParameterName, resourceTypeName) };
-                        OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
-                        OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
-                        ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, operationOutcome);
-                    }
-                    catch (Exception ex)
-                    {
-                        string error = $"Pre-reindex attempt {retryCountPreReindex} of {maxRetryCountPreReindex}: Failed to validate bundle: {ex}";
-                        _output.WriteLine(error);
-                        successPreReindex = false;
-                        await Task.Delay(TimeSpan.FromSeconds(10));
-                    }
-                }
-                while (!successPreReindex && retryCountPreReindex < maxRetryCountPreReindex);
-
-                Assert.True(false); //---------------------------------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-                Assert.True(successPreReindex);
-
-                return;*/
-
                 // Start reindexing resources.
 
-#pragma warning disable CS0162 // Unreachable code detected
                 if (singleReindex == false)
                 {
                     Uri reindexJobUri;
@@ -590,7 +497,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     EnsureSuccessStatusCode(createdResourceD.StatusCode, $"Reindexing resource {resourceTypeName}/{createdResourceD.Resource.Id}.");
                     Assert.True(responseD.Resource.Parameter.Count > 0);
                 }
-#pragma warning restore CS0162 // Unreachable code detected
 
                 // When there are multiple instances of the fhir-server running, it could take some time
                 // for the search parameter/reindex updates to propagate to all instances. Hence we are
@@ -610,20 +516,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     retryCount++;
                     try
                     {
-                        _output.WriteLine($"---------NAME: {name}");
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"Patient?name={name}");
-
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow)}${getParameter2(resourceBWithTokenOverflow)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceCWithMaxNoTokenOverflow)}${getParameter2(resourceCWithMaxNoTokenOverflow)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceDWithShortNoTokenOverflow)}${getParameter2(resourceDWithShortNoTokenOverflow)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
-                        await WriteSearchAsync("TestCompositeTokenOverflow", $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceBWithTokenOverflow, false)}${getParameter2(resourceBWithTokenOverflow, false)}", singleReindex ? new Tuple<string, string>("x-ms-use-partial-indices", "true") : null);
-
                         // Resources are now reindexed.
 
                         // After reindexing, if full database is reindexed no need to use x-ms-use-partial-indices, all resources are searchable.
                         // Otherwise, must use x-ms-use-partial-indices header.
-                        // Also, resources A and B have token overflow while C does not. Still all resources are correctly returned.
+                        // Also, resources A and B have token overflow while C does not and D is even much smaller than max no overflow size. Still all resources are correctly returned.
                         await ExecuteAndValidateBundle(
                             $"{resourceTypeName}?{searchParameterName}={getParameter1(resourceAWithTokenOverflow)}${getParameter2(resourceAWithTokenOverflow)}",
                             false,
