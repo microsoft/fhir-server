@@ -8,4 +8,8 @@
     <PackageReference Include="System.Data.SqlClient" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
+  </ItemGroup>
+
 </Project>

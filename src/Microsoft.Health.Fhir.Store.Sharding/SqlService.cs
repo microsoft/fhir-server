@@ -7,9 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.Sharding
@@ -37,111 +35,21 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             return GetConnection(shardId == null ? ConnectionString : ShardletMap.Shards[shardId.Value].ConnectionString, connectionTimeoutSec);
         }
 
-        internal static SqlConnection GetConnection(string connectionString, int connectionTimeoutSec = 600)
+        public string GetConnectionSring(ShardId? shardId = null)
         {
-            var retriesSql = 0;
-            var sw = Stopwatch.StartNew();
-            while (true)
-            {
-                var connection = new SqlConnection(connectionString);
-                try
-                {
-                    connection.Open();
-                    return connection;
-                }
-                catch (SqlException e)
-                {
-                    // We have to retry the connection even if the exception is "Login failed", because
-                    // SQL Azure can throw this exception when a database changes scale or physical location.
-                    var prefix = $"GetConnection.[server={connection.DataSource};database={connection.Database}]: RetriesSQL={retriesSql++}: ";
-                    connection.Dispose();
-                    if (e.IsRetryable() || e.ToString().Contains("login failed", StringComparison.OrdinalIgnoreCase))
-                    {
-                        sw.Restart();
-                    }
-                    else if (sw.Elapsed.TotalSeconds > connectionTimeoutSec)
-                    {
-                        throw;
-                    }
-
-                    Thread.Sleep(5000);
-                }
-                catch (InvalidOperationException e)
-                {
-                    connection.Dispose();
-                    if (!e.IsRetryable()) // not retriable
-                    {
-                        throw;
-                    }
-
-                    Thread.Sleep(5000);
-                }
-            }
-        }
-
-        internal static void ExecuteWithRetries(Action action)
-        {
-            while (true)
-            {
-                try
-                {
-                    action();
-                    break;
-                }
-                catch (SqlException e)
-                {
-                    if (e.IsRetryable())
-                    {
-                        Thread.Sleep(ExceptionExtention.RetryWaitMillisecond);
-                        continue;
-                    }
-
-                    throw;
-                }
-            }
+            return shardId == null ? ConnectionString : ShardletMap.Shards[shardId.Value].ConnectionString;
         }
 
         public void ExecuteSqlWithRetries(ShardId? shardId, SqlCommand cmd, Action<SqlCommand> action, int connectionTimeoutSec = 600)
         {
-            while (true)
-            {
-                try
-                {
-                    using (var connection = GetConnection(shardId, connectionTimeoutSec))
-                    {
-                        cmd.Connection = connection;
-                        action(cmd);
-                    }
-
-                    break;
-                }
-                catch (SqlException e)
-                {
-                    if (e.IsRetryable())
-                    {
-                        Thread.Sleep(ExceptionExtention.RetryWaitMillisecond);
-                        continue;
-                    }
-
-                    throw;
-                }
-            }
+            var connStr = GetConnectionSring(shardId);
+            ExecuteSqlWithRetries(connStr, cmd, action, connectionTimeoutSec);
         }
 
         internal void ExecuteSqlReaderWithRetries(ShardId? shardId, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600)
         {
-            ExecuteSqlWithRetries(
-                    shardId,
-                    cmd,
-                    cmdInt =>
-                        {
-                            using (var reader = cmdInt.ExecuteReader())
-                            {
-                                action(reader);
-                                reader.NextResult(); // this enables catching exception that happens after result set has been returned
-                            }
-                        },
-                    connectionTimeoutSec);
+            var connStr = GetConnectionSring(shardId);
+            ExecuteSqlReaderWithRetries(connStr, cmd, action, connectionTimeoutSec);
         }
 
         private IDictionary<ShardId, IList<ShardletId>> GetShardedShardletIds(IEnumerable<ShardletId> shardletIds)

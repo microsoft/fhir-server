@@ -5,6 +5,9 @@
 using System;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
+using System.Threading;
+using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.SqlUtils
 {
@@ -23,9 +26,111 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
 
         public string DatabaseName => new SqlConnectionStringBuilder(ConnectionString).InitialCatalog;
 
+        public static SqlConnection GetConnection(string connectionString, int connectionTimeoutSec = 600)
+        {
+            var retriesSql = 0;
+            var sw = Stopwatch.StartNew();
+            while (true)
+            {
+                var connection = new SqlConnection(connectionString);
+                try
+                {
+                    connection.Open();
+                    return connection;
+                }
+                catch (SqlException e)
+                {
+                    // We have to retry the connection even if the exception is "Login failed", because
+                    // SQL Azure can throw this exception when a database changes scale or physical location.
+                    var prefix = $"GetConnection.[server={connection.DataSource};database={connection.Database}]: RetriesSQL={retriesSql++}: ";
+                    connection.Dispose();
+                    if (e.IsRetryable() || e.ToString().Contains("login failed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        sw.Restart();
+                    }
+                    else if (sw.Elapsed.TotalSeconds > connectionTimeoutSec)
+                    {
+                        throw;
+                    }
+
+                    Thread.Sleep(5000);
+                }
+                catch (InvalidOperationException e)
+                {
+                    connection.Dispose();
+                    if (!e.IsRetryable()) // not retriable
+                    {
+                        throw;
+                    }
+
+                    Thread.Sleep(5000);
+                }
+            }
+        }
+
+        internal static void ExecuteWithRetries(Action action)
+        {
+            while (true)
+            {
+                try
+                {
+                    action();
+                    break;
+                }
+                catch (SqlException e)
+                {
+                    if (e.IsRetryable())
+                    {
+                        Thread.Sleep(ExceptionExtention.RetryWaitMillisecond);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
+        }
+
+        public static void ExecuteSqlWithRetries(string connectionString, SqlCommand cmd, Action<SqlCommand> action, int connectionTimeoutSec = 600)
+        {
+            while (true)
+            {
+                try
+                {
+                    using var connection = GetConnection(connectionString, connectionTimeoutSec);
+                    cmd.Connection = connection;
+                    action(cmd);
+                    break;
+                }
+                catch (SqlException e)
+                {
+                    if (e.IsRetryable())
+                    {
+                        Thread.Sleep(ExceptionExtention.RetryWaitMillisecond);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
+        }
+
+        public static void ExecuteSqlReaderWithRetries(string connectionString, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600)
+        {
+            ExecuteSqlWithRetries(
+                    connectionString,
+                    cmd,
+                    cmdInt =>
+                    {
+                        using var reader = cmdInt.ExecuteReader();
+                        action(reader);
+                        reader.NextResult(); // this enables catching exception that happens after result set has been returned
+                    },
+                    connectionTimeoutSec);
+        }
+
         public void LogEvent(string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
         {
-            using var conn = new SqlConnection(ConnectionString);
+            using var conn = GetConnection(ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.LogEvent", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             command.Parameters.AddWithValue("@Process", process);
