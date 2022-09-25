@@ -212,8 +212,21 @@ namespace Microsoft.Health.Fhir.Store.Copy
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@MinId", minId);
             cmd.Parameters.AddWithValue("@MaxId", maxId);
-            var results = new List<T>();
-            SqlUtils.SqlService.ExecuteSqlReaderWithRetries(_sourceConnectionString, cmd, reader => { results.Add(toT(reader)); });
+            List<T> results = null;
+            SqlUtils.SqlService.ExecuteSqlWithRetries(
+                _sourceConnectionString,
+                cmd,
+                cmdInt =>
+                {
+                    results = new List<T>();
+                    using var reader = cmdInt.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        results.Add(toT(reader));
+                    }
+
+                    reader.NextResult();
+                });
             return results;
         }
 
