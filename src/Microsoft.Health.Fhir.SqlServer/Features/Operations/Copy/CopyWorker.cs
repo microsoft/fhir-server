@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 _writesEnabled = GetWritesEnabled();
 
                 var tasks = new List<Task>();
-                var workingTasks = 0;
+                var workingTasks = 0L;
                 for (var i = 0; i < _workers; i++)
                 {
                     var worker = i;
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     }));
                 }
 
-                Target.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={workingTasks}");
+                Target.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={Interlocked.Read(ref workingTasks)}");
 
                 //// TODO: Move to watchdog
                 ////tasks.Add(BatchExtensions.StartTask(() =>
