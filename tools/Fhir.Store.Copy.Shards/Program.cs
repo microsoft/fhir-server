@@ -63,6 +63,12 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     Console.WriteLine($"Disabled indexes in {shard.Value.Server}..{shard.Value.Database}.");
                 }
             }
+            else if (method == "rebuildqueue")
+            {
+                Target = new SqlService(TargetConnectionString);
+                Queue = new SqlService(QueueConnectionString);
+                PopulateJobQueue(UnitSize);
+            }
             else
             {
                 Target = new SqlService(TargetConnectionString);
