@@ -131,7 +131,6 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
         public void LogEvent(string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
         {
             using var conn = GetConnection(ConnectionString);
-            conn.Open();
             using var command = new SqlCommand("dbo.LogEvent", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             command.Parameters.AddWithValue("@Process", process);
             command.Parameters.AddWithValue("@Status", status);
