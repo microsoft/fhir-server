@@ -22,6 +22,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests
                 return string.Empty;
             }
 
+            // The following logic does not encode '&' and '=' characters.
+            // It follows the same approach as other client libraries in the market do.
+
             string[] parameters = url.Split('&');
             StringBuilder finalUri = new StringBuilder();
 
