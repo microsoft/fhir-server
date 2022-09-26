@@ -21,41 +21,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
     [Trait(Traits.Category, Categories.Search)]
     public class HttpRequestExtensionsTests
     {
-        /*[Fact]
-        public async Task X()
-        {
-            // https://learn.microsoft.com/en-us/dotnet/api/system.text.encodings.web.urlencoder?view=net-6.0
-
-            const string originalQueryString = $"name:missing=false&_has:PractitionerRole:service:practitioner=foo&active:not=false&location:missing=false&_has:PractitionerRole:service:active=true";
-
-            string x = HttpUtility.UrlEncode(originalQueryString);
-            string y = HttpUtility.HtmlEncode(originalQueryString);
-            string z = Uri.EscapeDataString(originalQueryString);
-            string w = EncodeUrl(originalQueryString);
-
-            string urlEncodedString = EncodeUrl(originalQueryString);
-
-            // Reproducing a prod issue, wh9en a set of parameters is grouped together due encoding.
-            HttpRequest request1 = await GetHttpRequestAsync(urlEncodedString);
-            var parameters1 = GetPreviousQueriesForSearchApproach(request1);
-            Assert.Single(parameters1);
-
-            IReadOnlyList<Tuple<string, string>> expectedParameters = new Tuple<string, string>[]
-            {
-                Tuple.Create("name:missing", "false"),
-                Tuple.Create("_has:PractitionerRole:service:practitioner", "foo"),
-                Tuple.Create("active:not", "false"),
-                Tuple.Create("location:missing", "false"),
-                Tuple.Create("_has:PractitionerRole:service:active", "true"),
-            };
-
-            // Checking URL encoding.
-            HttpRequest request2 = await GetHttpRequestAsync(urlEncodedString);
-            var parameters2 = request2.GetQueriesForSearch();
-            AssertQueryParameters(expectedParameters, parameters2);
-        }
-        */
-
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData("_count=1&ct=foobarbaz+foobarbazCni1WdU46vh6NveXlWhkmAU6AjFNjaKgeFWBkqhwQ5WxkqewaHWRkpe7r6W5mZmpqZKwc6u1lZKLsFOFs5Blq4wfS4BobCmLZKOkpFiXnpqUpW1Uq5mSDblHSUchMrlKyU3NyUamtjAQAAAP//")]
@@ -89,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
             HttpRequest encodedRequest = await GetHttpRequestAsync(encodedQueryString);
             var encodedRequestParameters = encodedRequest.GetQueriesForSearch();
             Assert.Equal(encodedUrlExpectedParameters.Count, encodedRequestParameters.Count);
-            AssertQueryParameters(notEncodedUrlExpectedParameters, encodedRequestParameters);
+            AssertQueryParameters(encodedUrlExpectedParameters, encodedRequestParameters);
         }
 
         [Theory]
