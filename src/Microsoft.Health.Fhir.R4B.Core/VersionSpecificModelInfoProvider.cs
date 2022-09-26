@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core
 {
     /// <summary>
-    /// Provides access to R4 FHIR Models and Resources
+    /// Provides access to R4B FHIR Models and Resources
     /// </summary>
     public partial class VersionSpecificModelInfoProvider
     {
