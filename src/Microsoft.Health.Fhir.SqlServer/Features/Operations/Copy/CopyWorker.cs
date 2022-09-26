@@ -19,27 +19,36 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private int _workers = 1;
         private bool _writesEnabled = false;
         private int _maxRetries = 10;
+        private string _targetConnectionString = string.Empty;
         private string _sourceConnectionString = string.Empty;
+        private bool _sourceIsSharded = false;
 
         public CopyWorker(string connectionString)
         {
             var connStr = SqlUtils.SqlService.GetCanonicalConnectionString(connectionString);
-            if (IsSharded(connStr))
+            var configService = new SqlUtils.SqlService(connStr);
+            _targetConnectionString = GetTargetConnectionString(configService);
+            if (IsSharded(_targetConnectionString))
             {
-                Target = new SqlService(connStr);
-                _sourceConnectionString = GetSourceConnectionString();
+                Target = new SqlService(_targetConnectionString);
+                _sourceConnectionString = GetSourceConnectionString(configService);
                 if (_sourceConnectionString == null)
                 {
                     throw new ArgumentException("_sourceConnectionString == null");
                 }
 
-                Source = new SqlUtils.SqlService(_sourceConnectionString);
+                _sourceIsSharded = IsSharded(_sourceConnectionString);
+
+                if (_sourceIsSharded)
+                {
+                    ShardedSource = new SqlService(_sourceConnectionString);
+                }
 
                 _workers = GetWorkers();
                 _writesEnabled = GetWritesEnabled();
 
                 var tasks = new List<Task>();
-                var workingTasks = 0;
+                var workingTasks = 0L;
                 for (var i = 0; i < _workers; i++)
                 {
                     var worker = i;
@@ -51,7 +60,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
                     }));
                 }
 
-                Target.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={workingTasks}");
+                Thread.Sleep(2000); //// Try to wait till increments happen
+                Target.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={Interlocked.Read(ref workingTasks)}");
 
                 //// TODO: Move to watchdog
                 ////tasks.Add(BatchExtensions.StartTask(() =>
@@ -65,7 +75,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         public SqlService Target { get; private set; }
 
-        public SqlUtils.SqlService Source { get; private set; }
+        public SqlService ShardedSource { get; private set; }
 
         private void AdvanceVisibility(ref int workingTasks)
         {
@@ -92,11 +102,26 @@ namespace Microsoft.Health.Fhir.Store.Copy
             retry:
                 try
                 {
-                    Target.DequeueJob(out jobId, out version, out var resourceTypeId, out var minId, out var maxId, out var suffix);
+                    short? resourceTypeId;
+                    var minId = 0L;
+                    var maxId = 0L;
+                    var suffix = string.Empty;
+                    var sourceTransactionId = new TransactionId(0);
+                    if (_sourceIsSharded)
+                    {
+                        Target.DequeueJob(out jobId, out version, out resourceTypeId, out sourceTransactionId, out suffix);
+                    }
+                    else
+                    {
+                        Target.DequeueJob(out jobId, out version, out resourceTypeId, out minId, out maxId, out suffix);
+                    }
+
                     if (jobId != -1)
                     {
                         transactionId = Target.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
-                        var (resourceCount, totalCount) = Copy(worker, resourceTypeId.Value, jobId, minId, maxId, transactionId, suffix);
+                        var (resourceCount, totalCount) = _sourceIsSharded
+                                                        ? Copy(worker, resourceTypeId.Value, jobId, sourceTransactionId, transactionId, suffix)
+                                                        : Copy(worker, resourceTypeId.Value, jobId, minId, maxId, transactionId, suffix);
                         Target.CommitTransaction(transactionId);
                         Target.CompleteJob(jobId, false, version, resourceCount, totalCount, transactionId.Id);
                     }
@@ -136,6 +161,57 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
 #pragma warning disable SA1107 // Code should not contain multiple statements on one line
 #pragma warning disable SA1127 // Generic type constraints should be on their own line
+        private (int resourceCnt, int totalCnt) Copy(int thread, short resourceTypeId, long jobId, TransactionId sourceTransactionId, TransactionId transactionId, string suffix)
+        {
+            var sw = Stopwatch.StartNew();
+            var st = DateTime.UtcNow;
+            var shardletSequence = new Dictionary<ShardletId, short>();
+            var surrIdMap = new Dictionary<long, (ShardletId ShardletId, short Sequence)>(); // map from surr id to shardlet resource index
+            var resources = GetData(_ => new Resource(_, false, suffix), resourceTypeId, sourceTransactionId);
+
+            foreach (var resource in resources)
+            {
+                var shardletId = ShardletId.GetHashedShardletId(resource.ResourceId);
+                if (!shardletSequence.TryGetValue(shardletId, out var sequence))
+                {
+                    shardletSequence.Add(shardletId, 0);
+                }
+                else
+                {
+                    sequence++;
+                    shardletSequence[shardletId] = sequence;
+                }
+
+                if (!surrIdMap.ContainsKey(resource.ResourceSurrogateId))
+                {
+                    surrIdMap.Add(resource.ResourceSurrogateId, (shardletId, sequence));
+                }
+            }
+
+            resources = resources.Select(_ => { _.TransactionId = transactionId; (var shardletId, var sequence) = surrIdMap[_.ResourceSurrogateId]; _.ShardletId = shardletId; _.Sequence = sequence; return _; }).ToList();
+
+            var referenceSearchParams = GetData(_ => new ReferenceSearchParam(_, false, suffix), resourceTypeId, sourceTransactionId, transactionId);
+            var tokenSearchParams = GetData(_ => new TokenSearchParam(_, false), resourceTypeId, sourceTransactionId, transactionId);
+            var compartmentAssignments = GetData(_ => new CompartmentAssignment(_, false), resourceTypeId, sourceTransactionId, transactionId);
+            var tokenTexts = GetData(_ => new TokenText(_, false), resourceTypeId, sourceTransactionId, transactionId);
+            var dateTimeSearchParams = GetData(_ => new DateTimeSearchParam(_, false), resourceTypeId, sourceTransactionId, transactionId);
+            var tokenQuantityCompositeSearchParams = GetData(_ => new TokenQuantityCompositeSearchParam(_, false), resourceTypeId, sourceTransactionId, transactionId);
+            var quantitySearchParams = GetData(_ => new QuantitySearchParam(_, false), resourceTypeId, sourceTransactionId, transactionId);
+            var stringSearchParams = GetData(_ => new StringSearchParam(_, false), resourceTypeId, sourceTransactionId, transactionId);
+            var tokenTokenCompositeSearchParams = GetData(_ => new TokenTokenCompositeSearchParam(_, false), resourceTypeId, sourceTransactionId, transactionId);
+            var tokenStringCompositeSearchParams = GetData(_ => new TokenStringCompositeSearchParam(_, false), resourceTypeId, sourceTransactionId, transactionId);
+
+            var rows = 0;
+            if (_writesEnabled)
+            {
+                rows = Target.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
+            }
+
+            Console.WriteLine($"Copy.{thread}.{jobId}.{resourceTypeId}.{sourceTransactionId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+
+            return (resources.Count, rows);
+        }
+
         private (int resourceCnt, int totalCnt) Copy(int thread, short resourceTypeId, long jobId, long minId, long maxId, TransactionId transactionId, string suffix)
         {
             var sw = Stopwatch.StartNew();
@@ -201,17 +277,66 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
             return results;
         }
+
+        private IList<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, TransactionId sourceTransactionId, TransactionId transactionId) where T : PrimaryKey
+        {
+            var results = GetData(toT, resourceTypeId, transactionId);
+            if (results.Count == 0)
+            {
+                results = null;
+            }
+            else
+            {
+                results = results.Select(_ => { _.TransactionId = transactionId; return _; }).ToList();
+            }
+
+            return results;
+        }
 #pragma warning restore SA1107 // Code should not contain multiple statements on one line
 #pragma warning restore SA1127 // Generic type constraints should be on their own line
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
+        private IList<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, TransactionId transactionId)
+        {
+            var results = new List<T>();
+            using var cmd = new SqlCommand($"SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND TransactionId = @TransactionId") { CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
+            ShardedSource.ParallelForEachShard(
+                (shardId) =>
+                {
+                    SqlUtils.SqlService.ExecuteSqlWithRetries(
+                    _sourceConnectionString,
+                    cmd,
+                    cmdInt =>
+                    {
+                        var resultsInt = new List<T>();
+                        using var reader = cmdInt.ExecuteReader();
+                        while (reader.Read())
+                        {
+                            results.Add(toT(reader));
+                        }
+
+                        reader.NextResult();
+
+                        lock (results)
+                        {
+                            results.AddRange(resultsInt);
+                        }
+                    });
+                },
+                null);
+            return results;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
         private IList<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
         {
+            List<T> results = null;
             using var cmd = new SqlCommand($"SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId ORDER BY ResourceSurrogateId") { CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@MinId", minId);
             cmd.Parameters.AddWithValue("@MaxId", maxId);
-            List<T> results = null;
             SqlUtils.SqlService.ExecuteSqlWithRetries(
                 _sourceConnectionString,
                 cmd,
@@ -231,6 +356,11 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private static bool IsSharded(string connectionString)
         {
+            if (connectionString == null)
+            {
+                return false;
+            }
+
             // handle case when database does not exist yet
             var builder = new SqlConnectionStringBuilder(connectionString);
             var db = builder.InitialCatalog;
@@ -254,9 +384,17 @@ namespace Microsoft.Health.Fhir.Store.Copy
             }
         }
 
-        private string GetSourceConnectionString()
+        private static string GetTargetConnectionString(SqlUtils.SqlService configService)
         {
-            using var conn = Target.GetConnection(null);
+            using var conn = configService.GetConnection();
+            using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'Copy.TargetConnectionString'", conn);
+            var str = cmd.ExecuteScalar();
+            return str == DBNull.Value ? null : (string)str;
+        }
+
+        private static string GetSourceConnectionString(SqlUtils.SqlService configService)
+        {
+            using var conn = configService.GetConnection();
             using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'Copy.SourceConnectionString'", conn);
             var str = cmd.ExecuteScalar();
             return str == DBNull.Value ? null : (string)str;
