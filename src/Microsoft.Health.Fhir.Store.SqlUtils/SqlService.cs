@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
 
         public string DatabaseName => new SqlConnectionStringBuilder(ConnectionString).InitialCatalog;
 
+        public SqlConnection GetConnection()
+        {
+            return GetConnection(ConnectionString);
+        }
+
         public static SqlConnection GetConnection(string connectionString, int connectionTimeoutSec = 600)
         {
             var retriesSql = 0;

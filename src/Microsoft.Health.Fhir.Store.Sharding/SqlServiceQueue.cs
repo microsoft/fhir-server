@@ -70,6 +70,24 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
 
+        public void DequeueJob(out long jobId, out long version, out short? resourceTypeId, out TransactionId sourceTransactionId, out string suffix)
+        {
+            DequeueJob(out var _, out jobId, out version, out var definition);
+            resourceTypeId = null;
+            sourceTransactionId = new TransactionId(0);
+            suffix = string.Empty;
+            if (definition != null)
+            {
+                var split = definition.Split(";");
+                resourceTypeId = short.Parse(split[0]);
+                sourceTransactionId = new TransactionId(long.Parse(split[1]));
+                if (split.Length > 2)
+                {
+                    suffix = split[2];
+                }
+            }
+        }
+
         public void PutJobHeartbeat(long jobId, int? resourceCount = null)
         {
             using var conn = new SqlConnection(ConnectionString);
