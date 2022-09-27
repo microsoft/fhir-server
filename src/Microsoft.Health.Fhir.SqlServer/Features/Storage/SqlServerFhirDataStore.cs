@@ -113,14 +113,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             lock (_locker)
             {
-                if (CopyWorker == null || CopyWorker.Target == null)
-                {
-                    CopyWorker = new Store.Copy.CopyWorker(config.Value.ConnectionString);
-                }
+                Worker ??= new Store.WatchDogs.Workers(config.Value.ConnectionString);
             }
         }
 
-        public static Store.Copy.CopyWorker CopyWorker { get; private set; }
+        public static Store.WatchDogs.Workers Worker { get; private set; }
 
         public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,

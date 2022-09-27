@@ -12,65 +12,58 @@ using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Store.Sharding;
 using Microsoft.Health.Fhir.Store.Utils;
 
-namespace Microsoft.Health.Fhir.Store.Copy
+namespace Microsoft.Health.Fhir.Store.WatchDogs
 {
     public class CopyWorker
     {
         private int _workers = 1;
         private bool _writesEnabled = false;
         private int _maxRetries = 10;
-        private string _targetConnectionString = string.Empty;
         private string _sourceConnectionString = string.Empty;
         private bool _sourceIsSharded = false;
 
         public CopyWorker(string connectionString)
         {
-            var connStr = SqlUtils.SqlService.GetCanonicalConnectionString(connectionString);
-            var configService = new SqlUtils.SqlService(connStr);
-            _targetConnectionString = GetTargetConnectionString(configService);
-            if (IsSharded(_targetConnectionString))
+            Target = new SqlService(connectionString);
+            _sourceConnectionString = GetSourceConnectionString();
+            if (_sourceConnectionString == null)
             {
-                Target = new SqlService(_targetConnectionString);
-                _sourceConnectionString = GetSourceConnectionString(configService);
-                if (_sourceConnectionString == null)
-                {
-                    throw new ArgumentException("_sourceConnectionString == null");
-                }
-
-                _sourceIsSharded = IsSharded(_sourceConnectionString);
-
-                if (_sourceIsSharded)
-                {
-                    ShardedSource = new SqlService(_sourceConnectionString);
-                }
-
-                _workers = GetWorkers();
-                _writesEnabled = GetWritesEnabled();
-
-                var tasks = new List<Task>();
-                var workingTasks = 0L;
-                for (var i = 0; i < _workers; i++)
-                {
-                    var worker = i;
-                    tasks.Add(BatchExtensions.StartTask(() =>
-                    {
-                        Interlocked.Increment(ref workingTasks);
-                        Copy(worker);
-                        Interlocked.Decrement(ref workingTasks);
-                    }));
-                }
-
-                Thread.Sleep(2000); //// Try to wait till increments happen
-                Target.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={Interlocked.Read(ref workingTasks)}");
-
-                //// TODO: Move to watchdog
-                ////tasks.Add(BatchExtensions.StartTask(() =>
-                ////{
-                ////    AdvanceVisibility(ref workingTasks);
-                ////}));
-
-                ////Task.WaitAll(tasks.ToArray()); // we should never get here
+                throw new ArgumentException("_sourceConnectionString == null");
             }
+
+            _sourceIsSharded = Workers.IsSharded(_sourceConnectionString);
+
+            if (_sourceIsSharded)
+            {
+                ShardedSource = new SqlService(_sourceConnectionString);
+            }
+
+            _workers = GetWorkers();
+            _writesEnabled = GetWritesEnabled();
+
+            var tasks = new List<Task>();
+            var workingTasks = 0L;
+            for (var i = 0; i < _workers; i++)
+            {
+                var worker = i;
+                tasks.Add(BatchExtensions.StartTask(() =>
+                {
+                    Interlocked.Increment(ref workingTasks);
+                    Copy(worker);
+                    Interlocked.Decrement(ref workingTasks);
+                }));
+            }
+
+            Thread.Sleep(2000); //// Try to wait till increments happen
+            Target.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={Interlocked.Read(ref workingTasks)}");
+
+            //// TODO: Move to watchdog
+            ////tasks.Add(BatchExtensions.StartTask(() =>
+            ////{
+            ////    AdvanceVisibility(ref workingTasks);
+            ////}));
+
+            ////Task.WaitAll(tasks.ToArray()); // we should never get here
         }
 
         public SqlService Target { get; private set; }
@@ -99,7 +92,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 var version = 0L;
                 var jobId = 0L;
                 var transactionId = new TransactionId(0);
-            retry:
+retry:
                 try
                 {
                     short? resourceTypeId;
@@ -354,66 +347,28 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return results;
         }
 
-        private static bool IsSharded(string connectionString)
+        private string GetSourceConnectionString()
         {
-            if (connectionString == null)
-            {
-                return false;
-            }
-
-            // handle case when database does not exist yet
-            var builder = new SqlConnectionStringBuilder(connectionString);
-            var db = builder.InitialCatalog;
-            builder.InitialCatalog = "master";
-            using var connDb = new SqlConnection(builder.ToString());
-            connDb.Open();
-            using var cmdDb = new SqlCommand($"IF EXISTS (SELECT * FROM sys.databases WHERE name = @db) SELECT 1 ELSE SELECT 0", connDb);
-            cmdDb.Parameters.AddWithValue("@db", db);
-            var dbExists = (int)cmdDb.ExecuteScalar();
-            if (dbExists == 1)
-            {
-                using var conn = new SqlConnection(connectionString);
-                conn.Open();
-                using var cmd = new SqlCommand("IF object_id('Shards') IS NOT NULL SELECT count(*) FROM dbo.Shards ELSE SELECT 0", conn);
-                var shards = (int)cmd.ExecuteScalar();
-                return shards > 0;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        private static string GetTargetConnectionString(SqlUtils.SqlService configService)
-        {
-            using var conn = configService.GetConnection();
-            using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'Copy.TargetConnectionString'", conn);
-            var str = cmd.ExecuteScalar();
-            return str == DBNull.Value ? null : (string)str;
-        }
-
-        private static string GetSourceConnectionString(SqlUtils.SqlService configService)
-        {
-            using var conn = configService.GetConnection();
+            using var conn = Target.GetConnection();
             using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'Copy.SourceConnectionString'", conn);
             var str = cmd.ExecuteScalar();
-            return str == DBNull.Value ? null : (string)str;
+            return str == null ? null : (string)str;
         }
 
         private int GetWorkers()
         {
-            using var conn = Target.GetConnection(null);
+            using var conn = Target.GetConnection();
             using var cmd = new SqlCommand("SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Copy.Workers'", conn);
             var threads = cmd.ExecuteScalar();
-            return threads == DBNull.Value ? 1 : (int)threads;
+            return threads == null ? 1 : (int)threads;
         }
 
         private bool GetWritesEnabled()
         {
-            using var conn = Target.GetConnection(null);
+            using var conn = Target.GetConnection();
             using var cmd = new SqlCommand("SELECT convert(bit,Number) FROM dbo.Parameters WHERE Id = 'Copy.WritesEnabled'", conn);
             var flag = cmd.ExecuteScalar();
-            return flag == DBNull.Value ? false : (bool)flag;
+            return flag != null && (bool)flag;
         }
     }
 }
