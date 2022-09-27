@@ -1,0 +1,32 @@
+CREATE TABLE TokenText
+(
+    ResourceTypeId              smallint            NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    SearchParamId               smallint            NOT NULL,
+    Text                        varchar(400)        NOT NULL,
+    IsHistory                   boolean                 NOT NULL
+);
+
+CREATE INDEX IXC_TokenText
+ON TokenText
+(
+    ResourceTypeId,
+    TransactionId, ShardletId, Sequence,
+    SearchParamId
+);
+
+ALTER TABLE TokenText CLUSTER ON "ixc_tokentext";
+
+CREATE INDEX IX_TokenText_SearchParamId_Text
+ON TokenText
+(
+    ResourceTypeId,
+    SearchParamId,
+    Text,
+    TransactionId, ShardletId, Sequence
+)
+WHERE IsHistory = FALSE;
+
+SELECT create_distributed_table('TokenText', 'shardletid');

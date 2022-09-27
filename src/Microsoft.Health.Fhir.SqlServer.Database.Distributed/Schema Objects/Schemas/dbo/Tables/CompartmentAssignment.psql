@@ -1,0 +1,27 @@
+CREATE TABLE CompartmentAssignment
+(
+    ResourceTypeId              smallint            NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    CompartmentTypeId           smallint             NOT NULL,
+    ReferenceResourceId         varchar(64)         NOT NULL,
+    IsHistory                   boolean                 NOT NULL,
+
+    CONSTRAINT PKC_CompartmentAssignment PRIMARY KEY (ResourceTypeId, TransactionId, ShardletId, Sequence, CompartmentTypeId, ReferenceResourceId) 
+);
+
+ALTER TABLE CompartmentAssignment CLUSTER ON "pkc_compartmentassignment";
+
+CREATE INDEX IX_ResourceTypeId_CompartmentTypeId_ReferenceResourceId_TransactionId_ShardletId_Sequence
+ON CompartmentAssignment
+(
+    ResourceTypeId,
+    CompartmentTypeId,
+    ReferenceResourceId,
+    TransactionId, ShardletId, Sequence
+)
+WHERE IsHistory = FALSE;
+
+SELECT create_distributed_table('compartmentassignment', 'shardletid');
+

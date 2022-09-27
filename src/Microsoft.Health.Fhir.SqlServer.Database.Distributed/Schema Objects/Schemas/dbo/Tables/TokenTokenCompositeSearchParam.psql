@@ -1,0 +1,44 @@
+CREATE TABLE TokenTokenCompositeSearchParam
+(
+    ResourceTypeId              smallint NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    SearchParamId               smallint NOT NULL,
+    SystemId1                   int NULL,
+    Code1                       varchar(128)  NOT NULL,
+    SystemId2                   int NULL,
+    Code2                       varchar(128)  NOT NULL,
+    IsHistory                   boolean NOT NULL
+);
+
+CREATE INDEX IXC_TransactionId_ShardletId_Sequence_SearchParamId
+ON TokenTokenCompositeSearchParam
+(
+    TransactionId,
+    ShardletId,
+    Sequence,
+    SearchParamId
+);
+
+ALTER TABLE TokenTokenCompositeSearchParam CLUSTER ON "ixc_transactionid_shardletid_sequence_searchparamid";
+
+CREATE INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2 --TODO: Change name
+ON TokenTokenCompositeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    Code1,
+    Code2,
+    TransactionId,
+    ShardletId,
+    Sequence
+)
+INCLUDE
+(
+    SystemId1,
+    SystemId2
+)
+WHERE IsHistory = FALSE;
+
+SELECT create_distributed_table('TokenTokenCompositeSearchParam', 'shardletid');

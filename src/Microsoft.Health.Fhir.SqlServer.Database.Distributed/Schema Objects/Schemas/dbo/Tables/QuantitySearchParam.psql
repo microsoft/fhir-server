@@ -1,0 +1,73 @@
+CREATE TABLE QuantitySearchParam
+(
+    ResourceTypeId smallint NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NULL,
+    QuantityCodeId int NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NOT NULL,
+    HighValue decimal(18,6) NOT NULL,
+    IsHistory boolean NOT NULL
+);
+
+CREATE  INDEX IXC_QuantitySearchParam
+ON QuantitySearchParam
+(
+    ResourceTypeId,
+    TransactionId, ShardletId, Sequence,
+    SearchParamId
+);
+
+ALTER TABLE QuantitySearchParam CLUSTER ON "ixc_quantitysearchparam";
+
+CREATE INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
+ON QuantitySearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    QuantityCodeId,
+    SingleValue,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    SystemId
+)
+WHERE IsHistory = FALSE AND SingleValue IS NOT NULL;
+
+CREATE INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
+ON QuantitySearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    QuantityCodeId,
+    LowValue,
+    HighValue,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    SystemId
+)
+WHERE IsHistory = FALSE;
+
+CREATE INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
+ON QuantitySearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    QuantityCodeId,
+    HighValue,
+    LowValue,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    SystemId
+)
+WHERE IsHistory = FALSE;
+
+SELECT create_distributed_table('quantitysearchparam', 'shardletid');

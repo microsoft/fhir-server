@@ -1,0 +1,96 @@
+CREATE TABLE DateTimeSearchParam
+(
+    ResourceTypeId smallint NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    SearchParamId smallint NOT NULL,
+    StartDateTime TIMESTAMP(6) NOT NULL,
+    EndDateTime TIMESTAMP(6) NOT NULL,
+    IsLongerThanADay boolean NOT NULL,
+    IsHistory boolean NOT NULL,
+    IsMin boolean CONSTRAINT date_IsMin_Constraint DEFAULT FALSE NOT NULL,
+    IsMax boolean CONSTRAINT date_IsMax_Constraint DEFAULT FALSE NOT NULL
+);
+
+
+CREATE INDEX IXC_DateTimeSearchParam
+ON DateTimeSearchParam
+(
+    ResourceTypeId,
+    TransactionId, ShardletId, Sequence,
+    SearchParamId
+);
+
+ALTER TABLE DateTimeSearchParam CLUSTER ON "ixc_datetimesearchparam";
+
+
+CREATE INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
+ON DateTimeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    StartDateTime,
+    EndDateTime,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    IsLongerThanADay,
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = FALSE;
+
+CREATE INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
+ON DateTimeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    EndDateTime,
+    StartDateTime,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    IsLongerThanADay,
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = FALSE;
+
+
+CREATE INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
+ON DateTimeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    StartDateTime,
+    EndDateTime,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = FALSE AND IsLongerThanADay = TRUE;
+
+CREATE INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
+ON DateTimeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    EndDateTime,
+    StartDateTime,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = FALSE AND IsLongerThanADay = TRUE;
+
+
+SELECT create_distributed_table('datetimesearchparam', 'shardletid');

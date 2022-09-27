@@ -1,0 +1,55 @@
+CREATE TABLE TokenStringCompositeSearchParam
+(
+    ResourceTypeId smallint NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(128)  NOT NULL,
+    Text2 varchar(256) NOT NULL,
+    TextOverflow2 TEXT  NULL,
+    IsHistory boolean NOT NULL
+);
+
+CREATE  INDEX IXC_TokenStringCompositeSearchParam
+ON TokenStringCompositeSearchParam
+(
+    TransactionId, ShardletId, Sequence,
+    SearchParamId
+);
+
+ALTER TABLE TokenStringCompositeSearchParam CLUSTER ON "ixc_tokenstringcompositesearchparam";
+
+CREATE INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
+ON TokenStringCompositeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    Code1,
+    Text2,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    SystemId1,
+    TextOverflow2 -- will not be needed when all servers are targeting at least this version.
+)
+WHERE IsHistory = FALSE;
+
+CREATE INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
+ON TokenStringCompositeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    Code1,
+    Text2,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    SystemId1
+)
+WHERE IsHistory = FALSE AND TextOverflow2 IS NOT NULL;
+
+SELECT create_distributed_table('TokenStringCompositeSearchParam', 'shardletid');

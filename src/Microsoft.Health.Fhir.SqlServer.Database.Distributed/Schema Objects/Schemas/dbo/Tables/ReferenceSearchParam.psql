@@ -1,0 +1,42 @@
+CREATE TABLE ReferenceSearchParam
+(
+    ResourceTypeId                      smallint                NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    SearchParamId                       smallint                NOT NULL,
+    BaseUri                             varchar(128)            NULL,
+    ReferenceResourceTypeId             smallint                NULL,
+    ReferenceResourceId                 varchar(64)             NOT NULL,
+    ReferenceResourceVersion            int                     NULL,
+    IsHistory                           boolean                     NOT NULL
+);
+
+CREATE INDEX IXC_ReferenceSearchParam
+ON ReferenceSearchParam
+(
+    ResourceTypeId,
+    TransactionId, ShardletId, Sequence,
+    SearchParamId
+);
+
+ALTER TABLE ReferenceSearchParam CLUSTER ON "ixc_referencesearchparam";
+
+CREATE INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
+ON ReferenceSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    ReferenceResourceId,
+    ReferenceResourceTypeId,
+    BaseUri,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    ReferenceResourceVersion
+)
+WHERE IsHistory = FALSE;
+
+
+SELECT create_distributed_table('referencesearchparam', 'shardletid');

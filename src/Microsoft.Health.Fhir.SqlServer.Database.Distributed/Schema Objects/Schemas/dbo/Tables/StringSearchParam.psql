@@ -1,0 +1,57 @@
+CREATE TABLE StringSearchParam
+(
+    ResourceTypeId              smallint            NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Text varchar(256)  NOT NULL,
+    TextOverflow TEXT  NULL,
+    IsHistory boolean NOT NULL,
+    IsMin boolean CONSTRAINT string_IsMin_Constraint DEFAULT FALSE NOT NULL,
+    IsMax boolean CONSTRAINT string_IsMax_Constraint DEFAULT FALSE NOT NULL
+);
+
+
+CREATE  INDEX IXC_StringSearchParam
+ON StringSearchParam
+(
+    ResourceTypeId,
+    TransactionId, ShardletId, Sequence,
+    SearchParamId
+);
+
+ALTER TABLE StringSearchParam CLUSTER ON "ixc_stringsearchparam";
+
+CREATE INDEX IX_StringSearchParam_SearchParamId_Text
+ON StringSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    Text,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    TextOverflow, -- will not be needed when all servers are targeting at least this version.
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = FALSE;
+
+CREATE INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
+ON StringSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    Text,
+    TransactionId, ShardletId, Sequence
+)
+INCLUDE
+(
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = FALSE AND TextOverflow IS NOT NULL;
+
+SELECT create_distributed_table('StringSearchParam', 'shardletid');

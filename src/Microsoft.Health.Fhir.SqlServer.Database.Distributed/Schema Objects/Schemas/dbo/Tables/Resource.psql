@@ -1,0 +1,47 @@
+CREATE TABLE Resource
+(
+    ResourceTypeId              smallint                NOT NULL,
+    ResourceId                  varchar(64)             NOT NULL,
+    Version                     int                     NOT NULL,
+    IsHistory                   boolean                     NOT NULL,
+    TransactionId               bigint              NOT NULL,
+    ShardletId                  smallint             NOT NULL,
+    Sequence                    smallint            NOT NULL,
+    IsDeleted                   boolean                     NOT NULL,
+    RequestMethod               varchar(10)             NULL,
+    SearchParamHash             varchar(64)             NULL,
+
+    CONSTRAINT PKC_Resource PRIMARY KEY (ResourceTypeId, TransactionId, ShardletId, Sequence) -- SQLINES LICENSE FOR EVALUATION USE ONLY
+
+);
+
+ALTER TABLE Resource CLUSTER ON "pkc_resource";
+
+CREATE  INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON Resource
+(
+    ResourceTypeId,
+    ResourceId,
+    Version
+);
+
+CREATE INDEX IX_Resource_ResourceTypeId_ResourceId ON Resource
+(
+    ResourceTypeId,
+    ResourceId
+)
+INCLUDE -- We want the query in UpsertResource, which is done with UPDLOCK AND HOLDLOCK, to not require a key lookup
+(
+    Version,
+    IsDeleted
+)
+WHERE IsHistory = FALSE
+
+CREATE INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId ON Resource
+(
+    ResourceTypeId,
+    TransactionId, ShardletId, Sequence
+)
+WHERE IsHistory = FALSE AND IsDeleted = FALSE;
+
+SELECT create_distributed_table('resource', 'shardletid');
+
