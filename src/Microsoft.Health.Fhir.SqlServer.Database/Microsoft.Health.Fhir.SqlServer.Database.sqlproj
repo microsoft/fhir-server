@@ -45,6 +45,7 @@
     <DefineTrace>true</DefineTrace>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <NoWarn>1503;NU5104</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
@@ -86,6 +87,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Scripts\setupdb.cmd" />
+    <None Include="Scripts\setupdb.cmd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>
