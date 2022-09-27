@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             if (IsSharded(_targetConnectionString))
             {
                 Target = new SqlService(_targetConnectionString);
-                _sourceConnectionString = GetSourceConnectionString(configService);
+                _sourceConnectionString = GetSourceConnectionString();
                 if (_sourceConnectionString == null)
                 {
                     throw new ArgumentException("_sourceConnectionString == null");
@@ -393,9 +393,9 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return str == DBNull.Value ? null : (string)str;
         }
 
-        private static string GetSourceConnectionString(SqlUtils.SqlService configService)
+        private string GetSourceConnectionString()
         {
-            using var conn = configService.GetConnection();
+            using var conn = Target.GetConnection();
             using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'Copy.SourceConnectionString'", conn);
             var str = cmd.ExecuteScalar();
             return str == DBNull.Value ? null : (string)str;
@@ -403,7 +403,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private int GetWorkers()
         {
-            using var conn = Target.GetConnection(null);
+            using var conn = Target.GetConnection();
             using var cmd = new SqlCommand("SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Copy.Workers'", conn);
             var threads = cmd.ExecuteScalar();
             return threads == DBNull.Value ? 1 : (int)threads;
@@ -411,7 +411,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private bool GetWritesEnabled()
         {
-            using var conn = Target.GetConnection(null);
+            using var conn = Target.GetConnection();
             using var cmd = new SqlCommand("SELECT convert(bit,Number) FROM dbo.Parameters WHERE Id = 'Copy.WritesEnabled'", conn);
             var flag = cmd.ExecuteScalar();
             return flag == DBNull.Value ? false : (bool)flag;
