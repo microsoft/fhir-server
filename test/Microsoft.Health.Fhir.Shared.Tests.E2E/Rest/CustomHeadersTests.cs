@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.CustomHeaders)]
+    [Trait(Traits.Category, Categories.Web)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomHeadersTests : IClassFixture<HttpIntegrationTestFixture>
     {

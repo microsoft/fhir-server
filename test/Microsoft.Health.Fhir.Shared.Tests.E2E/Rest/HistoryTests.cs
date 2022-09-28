@@ -35,9 +35,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Some tests have Thread.Sleep to avoid query time to fall in future
     /// </summary>
     [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [Trait(Traits.Category, Categories.Search)]
     [CollectionDefinition("History", DisableParallelization = true)]
     [Collection("History")]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class HistoryTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         private FhirResponse<Observation> _createdResource;

@@ -9,12 +9,16 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.JobManagement.UnitTests
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.AnonymizedExport)]
     public class JobHostingTests
     {
         private ILogger<JobHosting> _logger;

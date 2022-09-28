@@ -15,9 +15,9 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.CompartmentSearch)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CompartmentTests : SearchTestsBase<CompartmentTestFixture>
     {
         public CompartmentTests(CompartmentTestFixture fixture)

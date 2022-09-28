@@ -31,7 +31,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait("Traits.OwningTeam", OwningTeam.ChinaTeam)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class AnonymizedExportTests : IClassFixture<ExportTestFixture>

@@ -15,9 +15,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string CompartmentSearch = nameof(CompartmentSearch);
 
-        public const string ConditionalCreate = nameof(ConditionalCreate);
-
-        public const string ConditionalUpdate = nameof(ConditionalUpdate);
+        public const string ConditionalOperations = nameof(ConditionalOperations);
 
         public const string ConvertData = nameof(ConvertData);
 

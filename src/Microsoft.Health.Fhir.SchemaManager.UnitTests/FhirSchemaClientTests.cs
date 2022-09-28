@@ -4,14 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Schema.Manager.Model;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SchemaManager.UnitTests;
 
+[Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+[Trait(Traits.Category, Categories.Operations)]
 public class FhirSchemaClientTests
 {
     private readonly IScriptProvider _scriptProvider = Substitute.For<IScriptProvider>();

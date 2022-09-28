@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="xunit.assert" />
     <PackageReference Include="xunit.extensibility.core" />
@@ -17,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.SchemaManager\Microsoft.Health.Fhir.SchemaManager.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
   </ItemGroup>
 
 </Project>

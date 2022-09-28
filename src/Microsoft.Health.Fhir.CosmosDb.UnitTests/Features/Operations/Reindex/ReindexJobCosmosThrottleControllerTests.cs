@@ -13,12 +13,16 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
 {
     [CollectionDefinition("ReindexThrottle", DisableParallelization = true)]
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Index)]
     public class ReindexJobCosmosThrottleControllerTests
     {
         private ITestOutputHelper _output;

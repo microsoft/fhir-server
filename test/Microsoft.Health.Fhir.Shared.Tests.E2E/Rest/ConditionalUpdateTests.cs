@@ -19,8 +19,8 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.ConditionalOperations)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    [Trait(Traits.Category, Categories.ConditionalUpdate)]
     public class ConditionalUpdateTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
         private readonly TestFhirClient _client;

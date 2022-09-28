@@ -8,6 +8,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -17,6 +18,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// STU3 requires different errors to be returned for resource versioning conflicts than R4 and R5.
     /// This test class is split up by FHIR version to accommodate this.
     /// </summary>
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public partial class FhirStorageVersioningPolicyTests
     {
         [Fact]

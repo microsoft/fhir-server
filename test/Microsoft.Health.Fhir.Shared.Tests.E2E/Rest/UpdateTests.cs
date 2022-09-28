@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// This class covers update tests
     /// </summary>
     [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public partial class UpdateTests : IClassFixture<HttpIntegrationTestFixture>
     {
