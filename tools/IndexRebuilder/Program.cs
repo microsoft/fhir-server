@@ -7,8 +7,6 @@ using System;
 using System.Configuration;
 using System.Data.SqlClient;
 using System.Diagnostics;
-using Microsoft.Health.Fhir.SqlServer.Database;
-using SqlService = Microsoft.Health.Fhir.Store.SqlUtils.SqlService;
 
 namespace Microsoft.Health.Fhir.IndexRebuilder
 {
@@ -34,14 +32,11 @@ EXECUTE(@cmd)
 
         public static void Main(string[] args)
         {
-            Console.WriteLine($"IndexRebuilder.Start: Store(sharded={IsSharded})={SqlService.ShowConnectionString(ConnectionString)} Threads={Threads} at {DateTime.UtcNow:s}");
+            Console.WriteLine($"IndexRebuilder.Start: Store(sharded={IsSharded})={ConnectionString} Threads={Threads} at {DateTime.UtcNow:s}");
 
             var method = args.Length > 0 ? args[0] : "rebuild";
             switch (method)
             {
-                case "setupdb":
-                    SetupDatabase();
-                    break;
                 case "disable":
                     DisableIndexes();
                     break;
@@ -53,75 +48,34 @@ EXECUTE(@cmd)
             }
         }
 
-        private static void SetupDatabase()
-        {
-            if (IsSharded)
-            {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
-                foreach (var shard in shardedStore.ShardletMap.Shards)
-                {
-                    SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
-                }
-            }
-            else
-            {
-                SetupDb.Publish(ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
-            }
-        }
-
         private static void DisableIndexes()
         {
-            if (IsSharded)
-            {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
-                foreach (var shard in shardedStore.ShardletMap.Shards.Values)
-                {
-                    DisableIndexes(shard.ConnectionString);
-                }
-            }
-            else
-            {
-                DisableIndexes(ConnectionString);
-            }
+            DisableIndexes(ConnectionString);
         }
 
         private static void DisableIndexes(string connectionString)
         {
-            Console.WriteLine($"IndexRebuilder.DisableIndexes.Started: Store={SqlService.ShowConnectionString(connectionString)}");
+            Console.WriteLine($"IndexRebuilder.DisableIndexes.Started: Store={connectionString}");
             using var conn = new SqlConnection(connectionString);
             using var cmd = new SqlCommand(DisableIndexesCmd, conn);
             cmd.Parameters.AddWithValue("@IndexToKeep", IndexToKeep);
             conn.Open();
             cmd.ExecuteNonQuery();
-            Console.WriteLine($"IndexRebuilder.DisableIndexes.Completed: Store={SqlService.ShowConnectionString(connectionString)}");
+            Console.WriteLine($"IndexRebuilder.DisableIndexes.Completed: Store={connectionString}");
         }
 
         private static void RebuildIndexes()
         {
             var sw = Stopwatch.StartNew();
             Console.WriteLine($"To monitor progress please run in the target database(s): {EventLogQuery}");
-            if (IsSharded)
-            {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
-                shardedStore.ParallelForEachShard(
-                    shardId =>
-                    {
-                        var connStr = shardedStore.ShardletMap.Shards[shardId].ConnectionString;
-                        RebuildIndexes(connStr, sw);
-                    },
-                    null);
-            }
-            else
-            {
-                RebuildIndexes(ConnectionString, sw);
-            }
+            RebuildIndexes(ConnectionString, sw);
         }
 
         private static void RebuildIndexes(string connectionString, Stopwatch sw)
         {
             var indexRebuilder = new IndexRebuilder(connectionString, Threads, RebuildClustered);
             indexRebuilder.Run(out var cancel, out var tables);
-            Console.WriteLine($"IndexRebuilder.{(cancel.IsSet ? "FAILED" : "End")}: Store={SqlService.ShowConnectionString(connectionString)} Threads={Threads} Tables={tables} at {DateTime.Now:s} elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
+            Console.WriteLine($"IndexRebuilder.{(cancel.IsSet ? "FAILED" : "End")}: Store={connectionString} Threads={Threads} Tables={tables} at {DateTime.Now:s} elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
         }
     }
 }

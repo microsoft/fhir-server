@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -50,7 +49,7 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
             SwitchPartitionsInAllTables();
         }
 
-        private CancelRequest RunCommands(IList<(string Table, IList<string> SqlCommands)> commands)
+        private CancelRequest RunCommands(IList<(string Table, string Index, string SqlCommand)> commands)
         {
             var cancelInt = new CancelRequest();
             BatchExtensions.ParallelForEach(
@@ -58,28 +57,16 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
                 _threads,
                 (thread, sqlPlus) =>
                 {
-                    if (sqlPlus.SqlCommands.Any(_ => _.EndsWith("REBUILD", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        foreach (var rebuildIndex in sqlPlus.SqlCommands)
-                        {
-                            ExecuteSqlCommand(sqlPlus.Table, rebuildIndex, cancelInt);
-                        }
-                    }
-                    else
-                    {
-                        var cmd = sqlPlus.SqlCommands.Single(); // there should be single cmd in the list
-                        ExecuteSqlCommand(sqlPlus.Table, cmd, cancelInt);
-                    }
+                    ExecuteSqlCommand(sqlPlus.Table, sqlPlus.SqlCommand, cancelInt);
                 },
                 cancelInt);
 
             return cancelInt;
         }
 
-        private IList<(string Table, IList<string> SqlCommands)> GetCommandsForRebuildIndexes(bool rebuildClustered) // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
+        private IList<(string Table, string Index, string SqlCommand)> GetCommandsForRebuildIndexes(bool rebuildClustered) // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
         {
-            var resultsDic = new Dictionary<string, List<string>>();
-            var tablesWithPreservedOrder = new List<string>();
+            var results = new List<(string Table, string Index, string SqlCommand)>();
             using (var conn = new SqlConnection(_connectionString))
             {
                 conn.Open();
@@ -89,33 +76,9 @@ namespace Microsoft.Health.Fhir.IndexRebuilder
                 while (reader.Read())
                 {
                     var table = reader.GetString(0);
-                    var sql = reader.GetString(1);
-                    if (resultsDic.ContainsKey(table))
-                    {
-                        resultsDic[table].Add(sql);
-                    }
-                    else
-                    {
-                        tablesWithPreservedOrder.Add(table);
-                        resultsDic.Add(table, new List<string> { sql });
-                    }
-                }
-            }
-
-            var results = new List<(string table, IList<string> commands)>();
-            foreach (var table in tablesWithPreservedOrder)
-            {
-                // unbundle index creates
-                if (resultsDic[table].Any(_ => _.StartsWith("CREATE", StringComparison.OrdinalIgnoreCase)))
-                {
-                    foreach (var cmd in resultsDic[table])
-                    {
-                        results.Add((table, new List<string> { cmd }));
-                    }
-                }
-                else
-                {
-                    results.Add((table, resultsDic[table]));
+                    var index = reader.GetString(1);
+                    var sql = reader.GetString(2);
+                    results.Add((table, index, sql));
                 }
             }
 

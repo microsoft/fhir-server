@@ -161,14 +161,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Re
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IndexRebuilder", "tools\IndexRebuilder\IndexRebuilder.csproj", "{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SqlServer.SetupDb", "src\Microsoft.Health.Fhir.SqlServer.SetupDb\Microsoft.Health.Fhir.SqlServer.SetupDb.csproj", "{DE3DD1AD-49D5-4229-ABEA-176E2FE38A74}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Store.Sharding", "src\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj", "{38E8C4F9-0572-457E-92E2-165E8E0BC2D5}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Store.SqlUtils", "src\Microsoft.Health.Fhir.Store.SqlUtils\Microsoft.Health.Fhir.Store.SqlUtils.csproj", "{BE33AF66-31AD-4710-84E3-BE0DD59A21EC}"
-EndProject
-Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Microsoft.Health.Fhir.SqlServer.Database", "src\Microsoft.Health.Fhir.SqlServer.Database\Microsoft.Health.Fhir.SqlServer.Database.sqlproj", "{6927C29D-1C15-4404-98C6-E25D97A1E5AD}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -367,24 +359,6 @@ Global
 		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DE3DD1AD-49D5-4229-ABEA-176E2FE38A74}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DE3DD1AD-49D5-4229-ABEA-176E2FE38A74}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DE3DD1AD-49D5-4229-ABEA-176E2FE38A74}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DE3DD1AD-49D5-4229-ABEA-176E2FE38A74}.Release|Any CPU.Build.0 = Release|Any CPU
-		{38E8C4F9-0572-457E-92E2-165E8E0BC2D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{38E8C4F9-0572-457E-92E2-165E8E0BC2D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{38E8C4F9-0572-457E-92E2-165E8E0BC2D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{38E8C4F9-0572-457E-92E2-165E8E0BC2D5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BE33AF66-31AD-4710-84E3-BE0DD59A21EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BE33AF66-31AD-4710-84E3-BE0DD59A21EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BE33AF66-31AD-4710-84E3-BE0DD59A21EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BE33AF66-31AD-4710-84E3-BE0DD59A21EC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6927C29D-1C15-4404-98C6-E25D97A1E5AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6927C29D-1C15-4404-98C6-E25D97A1E5AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6927C29D-1C15-4404-98C6-E25D97A1E5AD}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
-		{6927C29D-1C15-4404-98C6-E25D97A1E5AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6927C29D-1C15-4404-98C6-E25D97A1E5AD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6927C29D-1C15-4404-98C6-E25D97A1E5AD}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -459,10 +433,6 @@ Global
 		{86130CF7-35BA-45B3-8BE7-B83D382B32C3} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{2CAC8D57-180F-4DD4-B11D-6B2AB65B2A48} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
-		{DE3DD1AD-49D5-4229-ABEA-176E2FE38A74} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
-		{38E8C4F9-0572-457E-92E2-165E8E0BC2D5} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
-		{BE33AF66-31AD-4710-84E3-BE0DD59A21EC} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
-		{6927C29D-1C15-4404-98C6-E25D97A1E5AD} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True
