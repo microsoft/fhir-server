@@ -61,20 +61,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var practitionerIds = collection
                 .Select(e => e.Resource as PractitionerRole)
                 .Select(p => p.Practitioner.Reference)
-                .Select(r => r.Substring(r.IndexOf("/") + 1));
+                .Select(r => r.Substring(r.IndexOf("/") + 1))
+                .Distinct();
 
             foreach (string id in practitionerIds)
             {
-                string query1 = $"name:missing=false&_has:PractitionerRole:service:practitioner={id}&active:not=false&location:missing=false&_has:PractitionerRole:service:active=true";
+                string query1 = $"name:missing=false&_has:PractitionerRole:service:practitioner={id}&active:not=false&location:missing=false&_has:PractitionerRole:service:active=true&_total=accurate";
                 Bundle queryResult1 = await Client.SearchAsync(ResourceType.HealthcareService, query1);
 
                 string query2 = HttpFhirUtility.EncodeUrl(query1);
                 Bundle queryResult2 = await Client.SearchAsync(ResourceType.HealthcareService, query2);
 
                 Assert.Equal(queryResult1.Entry.Count, queryResult2.Entry.Count);
+                Assert.Equal(queryResult1.Total, queryResult2.Total);
+
                 for (int i = 0; i < queryResult1.Entry.Count; i++)
                 {
                     Assert.Equal(queryResult1.Entry[i].Resource.Id, queryResult2.Entry[i].Resource.Id);
+                }
+
+                Assert.Equal(queryResult1.Link.Count, queryResult2.Link.Count);
+
+                if (queryResult1.NextLink != null)
+                {
+                    // "Next links" URIs are already encoded.
+                    Assert.NotNull(queryResult1.NextLink);
+                    Assert.NotNull(queryResult2.NextLink);
+
+                    Bundle nextQueryResult1 = await Client.SearchAsync(ResourceType.HealthcareService, queryResult1.NextLink.Query.Substring(1));
+                    Bundle nextQueryResult2 = await Client.SearchAsync(ResourceType.HealthcareService, queryResult2.NextLink.Query.Substring(1));
+
+                    Assert.Equal(nextQueryResult1.Entry.Count, nextQueryResult2.Entry.Count);
+
+                    for (int i = 0; i < nextQueryResult1.Entry.Count; i++)
+                    {
+                        Assert.Equal(nextQueryResult1.Entry[i].Resource.Id, nextQueryResult2.Entry[i].Resource.Id);
+                    }
                 }
             }
         }
