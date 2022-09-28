@@ -204,8 +204,8 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      appServiceName: $(DeploymentEnvironmentNameR4B)
 
 - stage: testR5
   displayName: 'Run R5 Tests'
