@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
         }
 
         /// <summary>
-        /// This methods runs the previous approach adopted to extract query string parameters from an URI.
+        /// This method runs the previous approach adopted to extract query string parameters from an URI.
         /// This method is only used to ensure the new approach using <see cref="HttpUtility"/> follows the expected behavior and does not cause regressions.
         /// </summary>
         private static IReadOnlyList<Tuple<string, string>> GetPreviousQueriesForSearchApproach(HttpRequest request)
