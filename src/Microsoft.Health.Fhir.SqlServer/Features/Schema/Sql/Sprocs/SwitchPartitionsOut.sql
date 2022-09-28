@@ -64,23 +64,25 @@ BEGIN TRY
       EXECUTE('SELECT * INTO dbo.'+@TblInt+' FROM dbo.'+@Tbl+' WHERE 1 = 2')
       EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Select Into',@Rows=@@rowcount
       DELETE FROM @CheckConstraints
-      INSERT INTO @CheckConstraints SELECT CHK.name as CheckName, CHK.definition as CheckDefinition from sys.check_constraints CHK where CHK.parent_object_id=object_id(@Tbl)
+      
+      INSERT INTO @CheckConstraints SELECT name, definition FROM sys.check_constraints WHERE parent_object_id = object_id(@Tbl) 
       WHILE EXISTS (SELECT * FROM @CheckConstraints)
       BEGIN
         SELECT TOP 1 @checkName=CheckName, @definition=CheckDefinition from @CheckConstraints
-        SET @Txt = 'ALTER TABLE '+@TblInt+' ADD CONSTRAINT '+@checkName+convert(varchar,@ResourceTypeId)+' CHECK '+@definition
+        SET @Txt = 'ALTER TABLE '+@TblInt+' ADD CHECK '+@definition
         EXECUTE(@Txt)
         EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='ALTER',@Text=@Txt
 
         DELETE FROM @CheckConstraints WHERE CheckName=@checkName
       END
       DELETE FROM @Names
+
       INSERT INTO @Names SELECT name FROM sys.columns WHERE object_id = object_id(@Tbl) AND is_sparse = 1
       WHILE EXISTS (SELECT * FROM @Names) 
       BEGIN
         SET @Name = (SELECT TOP 1 name FROM @Names ORDER BY name)
 
-        -- This is not generic but works for old anf current schema
+        -- This is not generic but works for old and current schema
         SET @Txt = (SELECT 'ALTER TABLE dbo.'+@TblInt+' ALTER COLUMN '+@Name+' '+T.name+'('+convert(varchar,C.precision)+','+convert(varchar,C.scale)+') SPARSE NULL'
                       FROM sys.types T JOIN sys.columns C ON C.system_type_id = T.system_type_id
                       WHERE C.object_id = object_id(@Tbl)

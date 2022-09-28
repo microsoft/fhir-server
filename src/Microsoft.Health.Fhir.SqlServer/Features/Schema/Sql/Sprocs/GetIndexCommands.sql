@@ -1,6 +1,5 @@
-﻿--IF object_id('GetIndexCommands') IS NOT NULL DROP PROCEDURE dbo.GetIndexCommands
-CREATE   PROCEDURE [dbo].[GetIndexCommands]
-@Tbl VARCHAR (100), @Ind VARCHAR (200), @AddPartClause BIT, @IncludeClustered BIT, @Txt VARCHAR (MAX)=NULL OUTPUT
+﻿GO
+CREATE PROCEDURE dbo.GetIndexCommands @Tbl varchar(100), @Ind varchar(200), @AddPartClause bit, @IncludeClustered bit, @Txt varchar(max) = NULL OUT
 WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;

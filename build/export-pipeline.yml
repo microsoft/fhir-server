@@ -35,7 +35,7 @@ stages:
       inputs:
         command: build
         arguments: '--configuration $(buildConfiguration) /warnaserror'
-    - template: ./jobs/package.yml
+    - template: ./jobs/package-integration-tests.yml
 
 - stage: redeployStu3
   displayName: 'Redeploy STU3 Site'
