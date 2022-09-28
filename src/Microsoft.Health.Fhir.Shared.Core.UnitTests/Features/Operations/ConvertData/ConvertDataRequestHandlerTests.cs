@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using DataType = Microsoft.Health.Fhir.Liquid.Converter.Models.DataType;
@@ -23,6 +24,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.ConvertData
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class ConvertDataRequestHandlerTests
     {
         [Fact]

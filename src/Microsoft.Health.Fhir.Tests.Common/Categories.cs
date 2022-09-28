@@ -39,9 +39,17 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Import = nameof(Import);
 
+        public const string Index = nameof(Index);
+
         public const string MemberMatch = nameof(MemberMatch);
 
+        public const string Operations = nameof(Operations);
+
+        public const string Patch = nameof(Patch);
+
         public const string Search = nameof(Search);
+
+        public const string Security = nameof(Security);
 
         public const string SmartOnFhir = nameof(SmartOnFhir);
 

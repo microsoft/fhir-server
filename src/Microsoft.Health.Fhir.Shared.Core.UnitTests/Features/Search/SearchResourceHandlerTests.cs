@@ -11,12 +11,16 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class SearchResourceHandlerTests
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();

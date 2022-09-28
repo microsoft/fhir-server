@@ -14,11 +14,15 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterDefinitionBuilderTests
     {
         private readonly FhirJsonParser _jsonParser = new FhirJsonParser();

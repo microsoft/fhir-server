@@ -9,11 +9,15 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class ResourceReferenceToReferenceSearchValueConverterTests
     {
         private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();

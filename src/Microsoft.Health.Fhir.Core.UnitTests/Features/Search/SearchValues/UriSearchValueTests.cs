@@ -7,10 +7,13 @@ using System;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class UriSearchValueTests
     {
         private const string ParamNameUri = "uri";

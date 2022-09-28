@@ -20,12 +20,15 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Index)]
     public class ReindexUtilitiesTests
     {
         private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();

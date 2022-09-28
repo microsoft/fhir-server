@@ -13,7 +13,9 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 #pragma warning disable IDE0005 // Using directive is unnecessary.
@@ -23,6 +25,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class ValidateCapabilityPreProcessorTests
     {
         private readonly IConformanceProvider _conformanceProvider;

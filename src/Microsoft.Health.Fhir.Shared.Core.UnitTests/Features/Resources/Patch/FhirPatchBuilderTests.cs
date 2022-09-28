@@ -6,10 +6,14 @@ using System;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Patch)]
     public class FhirPatchBuilderTests
     {
         [Fact]

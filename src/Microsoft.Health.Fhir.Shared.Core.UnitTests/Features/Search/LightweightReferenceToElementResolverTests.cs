@@ -17,6 +17,8 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class LightweightReferenceToElementResolverTests
     {
         private readonly LightweightReferenceToElementResolver _resolver;

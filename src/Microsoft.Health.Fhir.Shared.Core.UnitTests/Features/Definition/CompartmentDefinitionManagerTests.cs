@@ -11,11 +11,14 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class CompartmentDefinitionManagerTests
     {
         private CompartmentDefinitionManager _validBuiltCompartment;

@@ -17,13 +17,17 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Import)]
     public class CancelImportRequestHandlerTests
     {
         private const long JobId = 12345;

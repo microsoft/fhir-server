@@ -5,13 +5,17 @@
 
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
 using Task=System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
-    #if !Stu3
+#if !Stu3
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class CanonicalToUriSearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<CanonicalToUriSearchValueConverter, Canonical>
     {
         [Fact]

@@ -6,13 +6,17 @@
 using System.Collections.Generic;
 using System.Net;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class EnumLiteralJsonConverterTests
     {
         [Fact]
