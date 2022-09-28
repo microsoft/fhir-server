@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Features
 {
-    internal static class KnownHeaders
+    public static class KnownHeaders
     {
         // FHIR Headers
         public const string IfNoneExist = "If-None-Exist";
@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Prefer = "Prefer";
         public const string RequestId = "X-Request-Id";
         public const string CorrelationId = "X-Correlation-Id";
+        public const string InstanceId = "X-Instance-Id";
 
         // Microsoft Headers (external to our application)
         public const string RetryAfterMilliseconds = "x-ms-retry-after-ms";
