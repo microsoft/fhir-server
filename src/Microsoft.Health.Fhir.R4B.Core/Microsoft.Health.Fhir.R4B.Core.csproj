@@ -11,7 +11,7 @@
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
-    <PackageReference Include="Hl7.Fhir.Specification.R4B" />
+    <PackageReference Include="Hl7.Fhir.Specification.R4B" PrivateAssets="build;analyzers" />
     <PackageReference Include="Hl7.Fhir.R4B" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
