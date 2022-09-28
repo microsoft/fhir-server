@@ -151,12 +151,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
         public async Task GivenAnUrlWithDuplicatedParameters_WhenEncoded_ThenCompareTheExpectedResults()
         {
             const int expectedNumberOfParameters = 2;
-            string queryString = "name:missing=false&name:missing=true";
+            string queryString = "name=foo&name=bar";
 
             IReadOnlyList<Tuple<string, string>> expectedParameters = new Tuple<string, string>[]
             {
-                Tuple.Create("name:missing", "false"),
-                Tuple.Create("name:missing", "true"),
+                Tuple.Create("name", "foo"),
+                Tuple.Create("name", "bar"),
             };
 
             Assert.Equal(expectedNumberOfParameters, expectedParameters.Count);
