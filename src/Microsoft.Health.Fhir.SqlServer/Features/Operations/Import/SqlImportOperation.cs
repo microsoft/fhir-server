@@ -367,6 +367,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task<string> ExecuteSqlCommand(string tableName, string indexName, string command, CancellationToken cancellationToken)
         {
+            _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index start at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
             try
             {
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -382,10 +383,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
-            catch (SqlException)
+            catch (SqlException ex)
             {
+                _logger.LogError(ex, "rebuild execute failed");
                 throw;
             }
+
+            _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index complete at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
 
             return indexName;
         }
