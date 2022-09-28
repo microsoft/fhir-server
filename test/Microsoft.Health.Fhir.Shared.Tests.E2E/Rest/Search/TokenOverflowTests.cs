@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -426,7 +427,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 EnsureSuccessStatusCode(createdResourceA.StatusCode, "Creating resource A.");
 
                 // POST custom composite search parameter.
-                // FhirResponse<SearchParameter> createdSearchParam = null; // await Client.CreateAsync(searchParam);
                 FhirResponse<SearchParameter> createdSearchParam = await Client.CreateAsync(searchParam);
                 EnsureSuccessStatusCode(createdSearchParam.StatusCode, "Creating custom composite search parameter.");
 
@@ -454,7 +454,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     await WaitForReindexStatus(reindexJobUri, "Completed");
 
                     FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                    Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
+                    Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
                     _output.WriteLine("ReindexJobDocument:");
                     var serializer = new FhirJsonSerializer();
                     _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
@@ -465,7 +465,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with name or id containing '{name}'.");
 
                     bool floatParse = float.TryParse(
-                        reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
+                        reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == JobRecordProperties.ResourcesSuccessfullyReindexed).Value.ToString(),
                         out float resourcesReindexed);
 
                     _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
@@ -584,7 +584,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             do
             {
                 reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "status")?.Value.ToString();
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Status)?.Value.ToString();
                 checkReindexCount++;
                 await Task.Delay(1000);
             }

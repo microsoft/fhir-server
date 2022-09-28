@@ -16,6 +16,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
 
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 if (instanceId != null)
                 {
-                    string instanceKey = "X-Instance-Id";
+                    string instanceKey = KnownHeaders.InstanceId;
                     if (!context.Response.Headers.ContainsKey(instanceKey))
                     {
                         context.Response.Headers.Add(instanceKey, new StringValues(instanceId));
