@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <summary>
     /// NOTE: These tests will fail if security is disabled..
     /// </summary>
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Authorization)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture>

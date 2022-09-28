@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -22,6 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <summary>
     /// This class covers update tests
     /// </summary>
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public partial class UpdateTests : IClassFixture<HttpIntegrationTestFixture>
     {

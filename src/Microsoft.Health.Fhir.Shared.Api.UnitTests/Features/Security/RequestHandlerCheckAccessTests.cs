@@ -17,11 +17,13 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     public class RequestHandlerCheckAccessTests
     {
         // These do not follow the pattern because they do not require authorization

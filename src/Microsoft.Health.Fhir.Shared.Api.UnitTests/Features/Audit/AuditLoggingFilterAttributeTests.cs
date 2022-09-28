@@ -15,11 +15,13 @@ using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.UnitTests.Features.Filters;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     public class AuditLoggingFilterAttributeTests
     {
         private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();

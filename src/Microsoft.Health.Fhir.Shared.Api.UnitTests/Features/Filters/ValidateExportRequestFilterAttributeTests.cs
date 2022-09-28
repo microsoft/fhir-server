@@ -14,11 +14,17 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Export)]
+    [Trait(Traits.Category, Categories.Validate)]
+    [Trait(Traits.Category, Categories.Web)]
     public class ValidateExportRequestFilterAttributeTests
     {
         private const string CorrectAcceptHeaderValue = ContentType.JSON_CONTENT_HEADER;

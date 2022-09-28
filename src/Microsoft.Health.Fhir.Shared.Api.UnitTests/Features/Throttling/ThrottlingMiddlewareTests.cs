@@ -24,6 +24,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
@@ -32,6 +33,7 @@ using OperationOutcome = Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     public class ThrottlingMiddlewareTests : IAsyncLifetime
     {
         private HttpContext _httpContext = new DefaultHttpContext();

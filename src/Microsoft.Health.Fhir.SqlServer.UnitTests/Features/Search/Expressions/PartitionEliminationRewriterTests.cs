@@ -24,6 +24,7 @@ using static Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.CompartmentSearch)]
     public class PartitionEliminationRewriterTests

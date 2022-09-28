@@ -16,6 +16,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.CustomHeaders)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomHeadersTests : IClassFixture<HttpIntegrationTestFixture>

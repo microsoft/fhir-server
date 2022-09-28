@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     /// <summary>
     /// Provides Audit specific tests.
     /// </summary
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class AuditTests : IClassFixture<AuditTestFixture>
     {

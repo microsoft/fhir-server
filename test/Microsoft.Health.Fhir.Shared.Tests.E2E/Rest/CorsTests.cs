@@ -18,6 +18,7 @@ using HttpMethod = System.Net.Http.HttpMethod;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Cors)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CorsTests : IClassFixture<HttpIntegrationTestFixture>
