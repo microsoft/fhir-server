@@ -3,7 +3,7 @@
    <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <AspNetPackageVersion>6.0.9</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>6.1.114</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.1.116</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
   </PropertyGroup>
@@ -70,7 +70,7 @@
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.3.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="160.6161.0" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.47027.0" />
