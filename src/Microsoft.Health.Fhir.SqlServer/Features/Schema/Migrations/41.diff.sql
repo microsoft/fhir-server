@@ -1,786 +1,1128 @@
-﻿GO
-CREATE OR ALTER PROCEDURE [dbo].[GetIndexCommands]
-@Tbl VARCHAR (100), @Ind VARCHAR (200), @AddPartClause BIT, @IncludeClustered BIT, @Txt VARCHAR (MAX)=NULL OUTPUT
-WITH EXECUTE AS SELF
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetIndexCommands', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' Ind=' + isnull(@Ind, 'NULL'), @st AS DATETIME = getUTCdate(), @DataComp AS VARCHAR (100), @FilterDef AS VARCHAR (200), @CommandForKey AS VARCHAR (200), @CommandForInc AS VARCHAR (200), @TblId AS INT, @IndId AS INT, @colname AS VARCHAR (100), @PartClause AS VARCHAR (100);
-DECLARE @KeyColsTable TABLE (
-    KeyCol VARCHAR (200));
-DECLARE @IncColsTable TABLE (
-    IncCol VARCHAR (200));
-DECLARE @Table_index TABLE (
-    object_id INT,
-    index_id  INT);
-DECLARE @Indexes TABLE (
-    Ind VARCHAR (200) PRIMARY KEY,
-    Txt VARCHAR (MAX));
-DECLARE @Temp TABLE (
-    object_id INT          ,
-    index_id  INT          ,
-    KeyCols   VARCHAR (200),
-    IncCols   VARCHAR (200));
-BEGIN TRY
-    IF @Tbl IS NULL
-        RAISERROR ('@Tbl IS NULL', 18, 127);
-    INSERT INTO @Table_index
-    SELECT I.object_id,
-           I.index_id
-    FROM   sys.indexes AS I
-           INNER JOIN
-           sys.objects AS O
-           ON I.object_id = O.object_id
-    WHERE  O.name = @Tbl
-           AND I.name = @Ind;
-    WHILE EXISTS (SELECT *
-                  FROM   @Table_index)
-        BEGIN
-            SELECT TOP 1 @TblId = object_id,
-                         @IndId = index_id
-            FROM   @Table_index;
-            SET @CommandForKey = '';
-            SET @CommandForInc = '';
-            DELETE @KeyColsTable;
-            INSERT INTO @KeyColsTable
-            SELECT   C.name
-            FROM     sys.index_columns AS IC
-                     INNER JOIN
-                     sys.indexes AS I
-                     ON IC.object_id = I.object_id
-                        AND IC.index_id = I.index_id, sys.columns AS C
-            WHERE    C.column_id = IC.column_id
-                     AND C.object_id = IC.object_id
-                     AND IC.object_id = @TblId
-                     AND IC.index_id = @IndId
-                     AND IC.key_ordinal > 0
-                     AND IC.is_included_column = 0
-            ORDER BY key_ordinal;
-            WHILE EXISTS (SELECT *
-                          FROM   @KeyColsTable)
-                BEGIN
-                    SELECT TOP 1 @colname = KeyCol
-                    FROM   @KeyColsTable;
-                    SET @CommandForKey = @CommandForKey + @colname + ',';
-                    DELETE @KeyColsTable
-                    WHERE  KeyCol = @colname;
-                END
-            DELETE @IncColsTable;
-            INSERT INTO @IncColsTable
-            SELECT   C.name
-            FROM     sys.index_columns AS IC
-                     INNER JOIN
-                     sys.indexes AS I
-                     ON IC.object_id = I.object_id
-                        AND IC.index_id = I.index_id, sys.columns AS C
-            WHERE    C.column_id = IC.column_id
-                     AND C.object_id = IC.object_id
-                     AND IC.object_id = @TblId
-                     AND IC.index_id = @IndId
-                     AND IC.is_included_column = 1
-            ORDER BY key_ordinal;
-            WHILE EXISTS (SELECT *
-                          FROM   @IncColsTable)
-                BEGIN
-                    SELECT TOP 1 @colname = IncCol
-                    FROM   @IncColsTable;
-                    SET @CommandForInc = @CommandForInc + @colname + ',';
-                    DELETE @IncColsTable
-                    WHERE  IncCol = @colname;
-                END
-            SET @DataComp = isnull((SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END
-                                    FROM   sys.partitions AS P
-                                    WHERE  P.object_id = @TblId
-                                           AND P.index_id = @IndId), (SELECT TOP 1 NULLIF (PropertyValue, 'NONE')
-                                                                      FROM   dbo.IndexProperties, sys.objects AS O, sys.indexes AS I
-                                                                      WHERE  IndexTableName = O.Name
-                                                                             AND IndexName = I.Name
-                                                                             AND O.name = @Tbl
-                                                                             AND I.name = @Ind
-                                                                             AND PropertyName = 'DATA_COMPRESSION'));
-            SELECT @FilterDef = replace(replace(replace(replace(I.filter_definition, '[', ''), ']', ''), '(', ''), ')', '')
-            FROM   sys.indexes AS I
-            WHERE  I.object_id = @TblId
-                   AND I.index_id = @IndId;
-            SELECT @PartClause = CASE WHEN EXISTS (SELECT *
-                                                   FROM   sys.partition_schemes AS S, sys.indexes AS I
-                                                   WHERE  S.data_space_id = I.data_space_id
-                                                          AND S.name = 'PartitionScheme_ResourceTypeId'
-                                                          AND I.object_id = @TblId
-                                                          AND I.name = @Ind) THEN ' ON PartitionScheme_ResourceTypeId (ResourceTypeId)' ELSE '' END;
-            INSERT INTO @Indexes
-            SELECT @Ind AS Ind,
-                   CASE WHEN is_primary_key = 1 THEN 'ALTER TABLE dbo.[' + @Tbl + '] ADD PRIMARY KEY ' + CASE WHEN I.type = 1 THEN ' CLUSTERED' ELSE '' END ELSE 'CREATE' + CASE WHEN is_unique = 1 THEN ' UNIQUE' ELSE '' END + CASE WHEN I.type = 1 THEN ' CLUSTERED' ELSE '' END + ' INDEX ' + @Ind + ' ON dbo.[' + @Tbl + ']' END + ' (' + LEFT(@CommandForKey, len(@CommandForKey) - 1) + ')' + CASE WHEN @CommandForInc <> '' THEN ' INCLUDE (' + LEFT(@CommandForInc, len(@CommandForInc) - 1) + ')' ELSE '' END + CASE WHEN @FilterDef IS NOT NULL THEN ' WHERE ' + @FilterDef ELSE '' END + CASE WHEN @DataComp IS NOT NULL THEN ' WITH (DATA_COMPRESSION = ' + @DataComp + ')' ELSE '' END + CASE WHEN @AddPartClause = 1 THEN @PartClause ELSE '' END AS Txt
-            FROM   sys.indexes AS I
-                   INNER JOIN
-                   sys.objects AS O
-                   ON I.object_id = O.object_id
-            WHERE  O.object_id = @TblId
-                   AND I.index_id = @IndId
-                   AND (@IncludeClustered = 1
-                        OR index_id > 1);
-            DELETE @Table_index
-            WHERE  object_id = @TblId;
-        END
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Indexes', @Action = 'Insert', @Rows = @@rowcount;
-    IF @Ind IS NULL
-        SELECT Ind,
-               Txt
-        FROM   @Indexes;
-    ELSE
-        SET @Txt = (SELECT Txt
-                    FROM   @Indexes);
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Text = @Txt;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
+﻿SET XACT_ABORT ON
+BEGIN TRANSACTION
 
+EXEC dbo.LogSchemaMigrationProgress 'Migrating to schema 40.'
 
-
-GO
-CREATE OR ALTER PROCEDURE [dbo].[ExecuteCommandForRebuildIndexes]
-@Tbl VARCHAR (100), @Ind VARCHAR (1000), @Cmd VARCHAR (MAX)
-WITH EXECUTE AS SELF
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'ExecuteCommandForRebuildIndexes', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL'), @st AS DATETIME, @Retries AS INT = 0, @Action AS VARCHAR (100), @msg AS VARCHAR (1000);
-RetryOnTempdbError:
-BEGIN TRY
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @Cmd;
-    SET @st = getUTCdate();
-    IF @Tbl IS NULL
-        RAISERROR ('@Tbl IS NULL', 18, 127);
-    IF @Cmd IS NULL
-        RAISERROR ('@Cmd IS NULL', 18, 127);
-    SET @Action = CASE WHEN @Cmd LIKE 'UPDATE STAT%' THEN 'Update statistics' WHEN @Cmd LIKE 'CREATE%INDEX%' THEN 'Create Index' WHEN @Cmd LIKE 'ALTER%INDEX%REBUILD%' THEN 'Rebuild Index' WHEN @Cmd LIKE 'ALTER%TABLE%ADD%' THEN 'Add Constraint' END;
-    IF @Action IS NULL
-        BEGIN
-            SET @msg = 'Not supported command = ' + CONVERT (VARCHAR (900), @Cmd);
-            RAISERROR (@msg, 18, 127);
-        END
-    IF @Action = 'Create Index'
-        WAITFOR DELAY '00:00:05';
-    EXECUTE (@Cmd);
-    SELECT @Ind;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Action = @Action, @Status = 'End', @Start = @st, @Text = @Cmd;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    IF error_number() = 40544
-        BEGIN
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st, @ReRaisError = 0, @Retry = @Retries;
-            SET @Retries = @Retries + 1;
-            IF @Tbl = 'TokenText_96'
-                WAITFOR DELAY '01:00:00';
-            ELSE
-                WAITFOR DELAY '00:10:00';
-            GOTO RetryOnTempdbError;
-        END
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
-
-
-GO
-CREATE OR ALTER PROCEDURE [dbo].[GetCommandsForRebuildIndexes]
-@RebuildClustered BIT
-WITH EXECUTE AS SELF
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetCommandsForRebuildIndexes', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId RC=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @Tbl AS VARCHAR (100), @TblInt AS VARCHAR (100), @Ind AS VARCHAR (200), @IndId AS INT, @Supported AS BIT, @Txt AS VARCHAR (MAX), @Rows AS BIGINT, @Pages AS BIGINT, @ResourceTypeId AS SMALLINT, @IndexesCnt AS INT, @DataComp AS VARCHAR (100);
-BEGIN TRY
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
-    DECLARE @Commands TABLE (
-        Tbl   VARCHAR (100),
-        Ind   VARCHAR (200),
-        Txt   VARCHAR (MAX),
-        Pages BIGINT       );
-    DECLARE @ResourceTypes TABLE (
-        ResourceTypeId SMALLINT PRIMARY KEY);
-    DECLARE @Indexes TABLE (
-        Ind   VARCHAR (200) PRIMARY KEY,
-        IndId INT          );
-    DECLARE @Tables TABLE (
-        name      VARCHAR (100) PRIMARY KEY,
-        Supported BIT          );
-    INSERT INTO @Tables
-    EXECUTE dbo.GetPartitionedTables @IncludeNotDisabled = 1, @IncludeNotSupported = 1;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Tables', @Action = 'Insert', @Rows = @@rowcount;
-    WHILE EXISTS (SELECT *
-                  FROM   @Tables)
-        BEGIN
-            SELECT   TOP 1 @Tbl = name,
-                           @Supported = Supported
-            FROM     @Tables
-            ORDER BY name;
-            IF @Supported = 0
-                BEGIN
-                    INSERT INTO @Commands
-                    SELECT @Tbl,
-                           name,
-                           'ALTER INDEX ' + name + ' ON dbo.' + @Tbl + ' REBUILD' + CASE WHEN (SELECT PropertyValue
-                                                                                               FROM   dbo.IndexProperties
-                                                                                               WHERE  IndexTableName = @Tbl
-                                                                                                      AND IndexName = name) = 'PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END,
-                           CONVERT (BIGINT, 9e18)
-                    FROM   sys.indexes
-                    WHERE  object_id = object_id(@Tbl)
-                           AND (is_disabled = 1
-                                AND index_id > 1
-                                AND @RebuildClustered = 0
-                                OR index_id = 1
-                                   AND @RebuildClustered = 1);
-                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Commands', @Action = 'Insert', @Rows = @@rowcount, @Text = 'Not supported tables with disabled indexes';
-                END
-            ELSE
-                BEGIN
-                    DELETE @ResourceTypes;
-                    INSERT INTO @ResourceTypes
-                    SELECT CONVERT (SMALLINT, substring(name, charindex('_', name) + 1, 6)) AS ResourceTypeId
-                    FROM   sys.sysobjects
-                    WHERE  name LIKE @Tbl + '[_]%';
-                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@ResourceTypes', @Action = 'Insert', @Rows = @@rowcount;
-                    WHILE EXISTS (SELECT *
-                                  FROM   @ResourceTypes)
-                        BEGIN
-                            SET @ResourceTypeId = (SELECT   TOP 1 ResourceTypeId
-                                                   FROM     @ResourceTypes
-                                                   ORDER BY ResourceTypeId);
-                            SET @TblInt = @Tbl + '_' + CONVERT (VARCHAR, @ResourceTypeId);
-                            SET @Pages = (SELECT dpages
-                                          FROM   sysindexes
-                                          WHERE  id = object_id(@TblInt)
-                                                 AND indid IN (0, 1));
-                            DELETE @Indexes;
-                            INSERT INTO @Indexes
-                            SELECT name,
-                                   index_id
-                            FROM   sys.indexes
-                            WHERE  object_id = object_id(@Tbl)
-                                   AND (index_id > 1
-                                        AND @RebuildClustered = 0
-                                        OR index_id = 1
-                                           AND @RebuildClustered = 1);
-                            SET @IndexesCnt = 0;
-                            WHILE EXISTS (SELECT *
-                                          FROM   @Indexes)
-                                BEGIN
-                                    SELECT   TOP 1 @Ind = Ind,
-                                                   @IndId = IndId
-                                    FROM     @Indexes
-                                    ORDER BY Ind;
-                                    IF @IndId = 1
-                                        BEGIN
-                                            SET @Txt = 'ALTER INDEX ' + @Ind + ' ON dbo.' + @TblInt + ' REBUILD' + CASE WHEN (SELECT PropertyValue
-                                                                                                                              FROM   dbo.IndexProperties
-                                                                                                                              WHERE  IndexTableName = @Tbl
-                                                                                                                                     AND IndexName = @Ind) = 'PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END;
-                                            INSERT INTO @Commands
-                                            SELECT @TblInt,
-                                                   @Ind,
-                                                   @Txt,
-                                                   @Pages;
-                                            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Add command', @Rows = @@rowcount, @Text = @Txt;
-                                        END
-                                    ELSE
-                                        IF NOT EXISTS (SELECT *
-                                                       FROM   sys.indexes
-                                                       WHERE  object_id = object_id(@TblInt)
-                                                              AND name = @Ind)
-                                            BEGIN
-                                                EXECUTE dbo.GetIndexCommands @Tbl = @Tbl, @Ind = @Ind, @AddPartClause = 0, @IncludeClustered = 0, @Txt = @Txt OUTPUT;
-                                                SET @Txt = replace(@Txt, '[' + @Tbl + ']', @TblInt);
-                                                IF @Txt IS NOT NULL
-                                                    BEGIN
-                                                        SET @IndexesCnt = @IndexesCnt + 1;
-                                                        INSERT INTO @Commands
-                                                        SELECT @TblInt,
-                                                               @Ind,
-                                                               @Txt,
-                                                               @Pages;
-                                                        EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Add command', @Rows = @@rowcount, @Text = @Txt;
-                                                    END
-                                            END
-                                    DELETE @Indexes
-                                    WHERE  Ind = @Ind;
-                                END
-                            IF @IndexesCnt > 1
-                                BEGIN
-                                    INSERT INTO @Commands
-                                    SELECT @TblInt,
-                                           'UPDATE STAT',
-                                           'UPDATE STATISTICS dbo.' + @TblInt,
-                                           @Pages;
-                                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Add command', @Rows = @@rowcount, @Text = 'Add stats update';
-                                END
-                            DELETE @ResourceTypes
-                            WHERE  ResourceTypeId = @ResourceTypeId;
-                        END
-                END
-            DELETE @Tables
-            WHERE  name = @Tbl;
-        END
-    SELECT   Tbl,
-             Ind,
-             Txt
-    FROM     @Commands
-    ORDER BY Pages DESC, Tbl, CASE WHEN Txt LIKE 'UPDATE STAT%' THEN 0 ELSE 1 END;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Commands', @Action = 'Select', @Rows = @@rowcount;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
-
-GO
-CREATE OR ALTER PROCEDURE [dbo].[GetPartitionedTables]
-@IncludeNotDisabled BIT, @IncludeNotSupported BIT
-WITH EXECUTE AS SELF
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetPartitionedTables', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId D=' + isnull(CONVERT (VARCHAR, @IncludeNotDisabled), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @IncludeNotSupported), 'NULL'), @st AS DATETIME = getUTCdate();
-DECLARE @NotSupportedTables TABLE (
-    id INT PRIMARY KEY);
-BEGIN TRY
-    INSERT INTO @NotSupportedTables
-    SELECT DISTINCT O.object_id
-    FROM   sys.indexes AS I
-           INNER JOIN
-           sys.objects AS O
-           ON O.object_id = I.object_id
-    WHERE  O.type = 'u'
-           AND EXISTS (SELECT *
-                       FROM   sys.partition_schemes AS PS
-                       WHERE  PS.data_space_id = I.data_space_id
-                              AND name = 'PartitionScheme_ResourceTypeId')
-           AND (NOT EXISTS (SELECT *
-                            FROM   sys.index_columns AS IC
-                                   INNER JOIN
-                                   sys.columns AS C
-                                   ON C.object_id = IC.object_id
-                                      AND C.column_id = IC.column_id
-                            WHERE  IC.object_id = I.object_id
-                                   AND IC.index_id = I.index_id
-                                   AND IC.key_ordinal > 0
-                                   AND IC.is_included_column = 0
-                                   AND C.name = 'ResourceTypeId')
-                OR EXISTS (SELECT *
-                           FROM   sys.indexes AS NSI
-                           WHERE  NSI.object_id = O.object_id
-                                  AND NOT EXISTS (SELECT *
-                                                  FROM   sys.partition_schemes AS PS
-                                                  WHERE  PS.data_space_id = NSI.data_space_id
-                                                         AND name = 'PartitionScheme_ResourceTypeId')));
-    SELECT   CONVERT (VARCHAR (100), O.name),
-             CONVERT (BIT, CASE WHEN EXISTS (SELECT *
-                                             FROM   @NotSupportedTables AS NSI
-                                             WHERE  NSI.id = O.object_id) THEN 0 ELSE 1 END)
-    FROM     sys.indexes AS I
-             INNER JOIN
-             sys.objects AS O
-             ON O.object_id = I.object_id
-    WHERE    O.type = 'u'
-             AND I.index_id IN (0, 1)
-             AND EXISTS (SELECT *
-                         FROM   sys.partition_schemes AS PS
-                         WHERE  PS.data_space_id = I.data_space_id
-                                AND name = 'PartitionScheme_ResourceTypeId')
-             AND EXISTS (SELECT *
-                         FROM   sys.index_columns AS IC
-                                INNER JOIN
-                                sys.columns AS C
-                                ON C.object_id = I.object_id
-                                   AND C.column_id = IC.column_id
-                                   AND IC.is_included_column = 0
-                                   AND C.name = 'ResourceTypeId')
-             AND (@IncludeNotSupported = 1
-                  OR NOT EXISTS (SELECT *
-                                 FROM   @NotSupportedTables AS NSI
-                                 WHERE  NSI.id = O.object_id))
-             AND (@IncludeNotDisabled = 1
-                  OR EXISTS (SELECT *
-                             FROM   sys.indexes AS D
-                             WHERE  D.object_id = O.object_id
-                                    AND D.is_disabled = 1))
-    ORDER BY 1;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
-
-
-GO
-CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsIn]
-@Tbl VARCHAR (100)
-WITH EXECUTE AS SELF
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsIn', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL'), @st AS DATETIME = getUTCdate(), @ResourceTypeId AS SMALLINT, @Rows AS BIGINT, @Txt AS VARCHAR (1000), @TblInt AS VARCHAR (100), @Ind AS VARCHAR (200), @IndId AS INT, @DataComp AS VARCHAR (100);
-DECLARE @Indexes TABLE (
-    IndId INT           PRIMARY KEY,
-    name  VARCHAR (200));
-DECLARE @ResourceTypes TABLE (
-    ResourceTypeId SMALLINT PRIMARY KEY);
-BEGIN TRY
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
-    IF @Tbl IS NULL
-        RAISERROR ('@Tbl IS NULL', 18, 127);
-    INSERT INTO @Indexes
-    SELECT index_id,
-           name
-    FROM   sys.indexes
-    WHERE  object_id = object_id(@Tbl)
-           AND is_disabled = 1;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Indexes', @Action = 'Insert', @Rows = @@rowcount;
-    WHILE EXISTS (SELECT *
-                  FROM   @Indexes)
-        BEGIN
-            SELECT   TOP 1 @IndId = IndId,
-                           @Ind = name
-            FROM     @Indexes
-            ORDER BY IndId;
-            SET @DataComp = CASE WHEN (SELECT PropertyValue
-                                       FROM   dbo.IndexProperties
-                                       WHERE  IndexTableName = @Tbl
-                                              AND IndexName = @Ind) = 'PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END;
-            SET @Txt = 'IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''' + @Tbl + ''') AND name = ''' + @Ind + ''' AND is_disabled = 1) ALTER INDEX ' + @Ind + ' ON dbo.' + @Tbl + ' REBUILD' + @DataComp;
-            EXECUTE (@Txt);
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @Ind, @Action = 'Rebuild', @Text = @Txt;
-            DELETE @Indexes
-            WHERE  IndId = @IndId;
-        END
-    INSERT INTO @ResourceTypes
-    SELECT CONVERT (SMALLINT, substring(name, charindex('_', name) + 1, 6)) AS ResourceTypeId
-    FROM   sys.objects AS O
-    WHERE  name LIKE @Tbl + '[_]%'
-           AND EXISTS (SELECT *
-                       FROM   sysindexes
-                       WHERE  id = O.object_id
-                              AND indid IN (0, 1)
-                              AND rows > 0);
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '#ResourceTypes', @Action = 'Select Into', @Rows = @@rowcount;
-    WHILE EXISTS (SELECT *
-                  FROM   @ResourceTypes)
-        BEGIN
-            SET @ResourceTypeId = (SELECT TOP 1 ResourceTypeId
-                                   FROM   @ResourceTypes);
-            SET @TblInt = @Tbl + '_' + CONVERT (VARCHAR, @ResourceTypeId);
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt;
-            SET @Txt = 'ALTER TABLE dbo.' + @TblInt + ' SWITCH TO dbo.' + @Tbl + ' PARTITION $partition.PartitionFunction_ResourceTypeId(' + CONVERT (VARCHAR, @ResourceTypeId) + ')';
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @Tbl, @Action = 'Switch in start', @Text = @Txt;
-            EXECUTE (@Txt);
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @Tbl, @Action = 'Switch in', @Text = @Txt;
-            IF EXISTS (SELECT *
-                       FROM   sysindexes
-                       WHERE  id = object_id(@TblInt)
-                              AND rows > 0)
-                BEGIN
-                    SET @Txt = @TblInt + ' is not empty after switch';
-                    RAISERROR (@Txt, 18, 127);
-                END
-            EXECUTE ('DROP TABLE dbo.' + @TblInt);
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Drop';
-            DELETE @ResourceTypes
-            WHERE  ResourceTypeId = @ResourceTypeId;
-        END
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
-
-GO
-CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsInAllTables]
-WITH EXECUTE AS SELF
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsInAllTables', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId', @st AS DATETIME = getUTCdate(), @Tbl AS VARCHAR (100);
-BEGIN TRY
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
-    DECLARE @Tables TABLE (
-        name      VARCHAR (100) PRIMARY KEY,
-        supported BIT          );
-    INSERT INTO @Tables
-    EXECUTE dbo.GetPartitionedTables @IncludeNotDisabled = 1, @IncludeNotSupported = 0;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Tables', @Action = 'Insert', @Rows = @@rowcount;
-    WHILE EXISTS (SELECT *
-                  FROM   @Tables)
-        BEGIN
-            SET @Tbl = (SELECT   TOP 1 name
-                        FROM     @Tables
-                        ORDER BY name);
-            EXECUTE dbo.SwitchPartitionsIn @Tbl = @Tbl;
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = 'SwitchPartitionsIn', @Action = 'Execute', @Text = @Tbl;
-            DELETE @Tables
-            WHERE  name = @Tbl;
-        END
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
-
-GO
-CREATE OR ALTER PROCEDURE dbo.SwitchPartitionsOut
-@Tbl VARCHAR (100), @RebuildClustered BIT
-WITH EXECUTE AS SELF
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsOut', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' ND=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @ResourceTypeId AS SMALLINT, @Rows AS BIGINT, @Txt AS VARCHAR (MAX), @TblInt AS VARCHAR (100), @IndId AS INT, @Ind AS VARCHAR (200), @Name AS VARCHAR (100), @checkName AS VARCHAR (200), @definition AS VARCHAR (200);
-DECLARE @Indexes TABLE (
-    IndId      INT           PRIMARY KEY,
-    name       VARCHAR (200),
-    IsDisabled BIT          );
-DECLARE @IndexesRT TABLE (
-    IndId      INT           PRIMARY KEY,
-    name       VARCHAR (200),
-    IsDisabled BIT          );
-DECLARE @ResourceTypes TABLE (
-    ResourceTypeId             SMALLINT PRIMARY KEY,
-    partition_number_roundtrip INT     ,
-    partition_number           INT     ,
-    row_count                  BIGINT  );
-DECLARE @Names TABLE (
-    name VARCHAR (100) PRIMARY KEY);
-DECLARE @CheckConstraints TABLE (
-    CheckName       VARCHAR (200),
-    CheckDefinition VARCHAR (200));
-BEGIN TRY
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
-    IF @Tbl IS NULL
-        RAISERROR ('@Tbl IS NULL', 18, 127);
-    IF @RebuildClustered IS NULL
-        RAISERROR ('@RebuildClustered IS NULL', 18, 127);
-    INSERT INTO @Indexes
-    SELECT index_id,
-           name,
-           is_disabled
-    FROM   sys.indexes
-    WHERE  object_id = object_id(@Tbl)
-           AND (is_disabled = 0
-                OR @RebuildClustered = 1);
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Indexes', @Action = 'Insert', @Rows = @@rowcount;
-    INSERT INTO @ResourceTypes
-    SELECT partition_number - 1 AS ResourceTypeId,
-           $PARTITION.PartitionFunction_ResourceTypeId (partition_number - 1) AS partition_number_roundtrip,
-           partition_number,
-           row_count
-    FROM   sys.dm_db_partition_stats
-    WHERE  object_id = object_id(@Tbl)
-           AND index_id = 1
-           AND row_count > 0;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@ResourceTypes', @Action = 'Insert', @Rows = @@rowcount, @Text = 'For partition switch';
-    IF EXISTS (SELECT *
-               FROM   @ResourceTypes
-               WHERE  partition_number_roundtrip <> partition_number)
-        RAISERROR ('Partition sanity check failed', 18, 127);
-    WHILE EXISTS (SELECT *
-                  FROM   @ResourceTypes)
-        BEGIN
-            SELECT   TOP 1 @ResourceTypeId = ResourceTypeId,
-                           @Rows = row_count
-            FROM     @ResourceTypes
-            ORDER BY ResourceTypeId;
-            SET @TblInt = @Tbl + '_' + CONVERT (VARCHAR, @ResourceTypeId);
-            SET @Txt = 'Starting @ResourceTypeId=' + CONVERT (VARCHAR, @ResourceTypeId) + ' row_count=' + CONVERT (VARCHAR, @Rows);
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Text = @Txt;
-            IF NOT EXISTS (SELECT *
-                           FROM   sysindexes
-                           WHERE  id = object_id(@TblInt)
-                                  AND rows > 0)
-                BEGIN
-                    IF object_id(@TblInt) IS NOT NULL
-                        BEGIN
-                            EXECUTE ('DROP TABLE dbo.' + @TblInt);
-                            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Drop';
-                        END
-                    EXECUTE ('SELECT * INTO dbo.' + @TblInt + ' FROM dbo.' + @Tbl + ' WHERE 1 = 2');
-                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Select Into', @Rows = @@rowcount;
-                    DELETE @CheckConstraints;
-                    INSERT INTO @CheckConstraints
-                    SELECT name,
-                           definition
-                    FROM   sys.check_constraints
-                    WHERE  parent_object_id = object_id(@Tbl);
-                    WHILE EXISTS (SELECT *
-                                  FROM   @CheckConstraints)
-                        BEGIN
-                            SELECT TOP 1 @checkName = CheckName,
-                                         @definition = CheckDefinition
-                            FROM   @CheckConstraints;
-                            SET @Txt = 'ALTER TABLE ' + @TblInt + ' ADD CHECK ' + @definition;
-                            EXECUTE (@Txt);
-                            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'ALTER', @Text = @Txt;
-                            DELETE @CheckConstraints
-                            WHERE  CheckName = @checkName;
-                        END
-                    DELETE @Names;
-                    INSERT INTO @Names
-                    SELECT name
-                    FROM   sys.columns
-                    WHERE  object_id = object_id(@Tbl)
-                           AND is_sparse = 1;
-                    WHILE EXISTS (SELECT *
-                                  FROM   @Names)
-                        BEGIN
-                            SET @Name = (SELECT   TOP 1 name
-                                         FROM     @Names
-                                         ORDER BY name);
-                            SET @Txt = (SELECT 'ALTER TABLE dbo.' + @TblInt + ' ALTER COLUMN ' + @Name + ' ' + T.name + '(' + CONVERT (VARCHAR, C.precision) + ',' + CONVERT (VARCHAR, C.scale) + ') SPARSE NULL'
-                                        FROM   sys.types AS T
-                                               INNER JOIN
-                                               sys.columns AS C
-                                               ON C.system_type_id = T.system_type_id
-                                        WHERE  C.object_id = object_id(@Tbl)
-                                               AND C.name = @Name);
-                            EXECUTE (@Txt);
-                            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'ALTER', @Text = @Txt;
-                            DELETE @Names
-                            WHERE  name = @Name;
-                        END
-                END
-            INSERT INTO @IndexesRT
-            SELECT *
-            FROM   @Indexes
-            WHERE  IsDisabled = 0;
-            WHILE EXISTS (SELECT *
-                          FROM   @IndexesRT)
-                BEGIN
-                    SELECT   TOP 1 @IndId = IndId,
-                                   @Ind = name
-                    FROM     @IndexesRT
-                    ORDER BY IndId;
-                    IF NOT EXISTS (SELECT *
-                                   FROM   sys.indexes
-                                   WHERE  object_id = object_id(@TblInt)
-                                          AND name = @Ind)
-                        BEGIN
-                            EXECUTE dbo.GetIndexCommands @Tbl = @Tbl, @Ind = @Ind, @AddPartClause = 0, @IncludeClustered = 1, @Txt = @Txt OUTPUT;
-                            SET @Txt = replace(@Txt, '[' + @Tbl + ']', @TblInt);
-                            EXECUTE (@Txt);
-                            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'Create Index', @Text = @Txt;
-                        END
-                    DELETE @IndexesRT
-                    WHERE  IndId = @IndId;
-                END
-            SET @Txt = 'ALTER TABLE dbo.' + @TblInt + ' ADD CHECK (ResourceTypeId >= ' + CONVERT (VARCHAR, @ResourceTypeId) + ' AND ResourceTypeId < ' + CONVERT (VARCHAR, @ResourceTypeId) + ' + 1)';
-            EXECUTE (@Txt);
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @Tbl, @Action = 'Add check', @Text = @Txt;
-            SET @Txt = 'ALTER TABLE dbo.' + @Tbl + ' SWITCH PARTITION $partition.PartitionFunction_ResourceTypeId(' + CONVERT (VARCHAR, @ResourceTypeId) + ') TO dbo.' + @TblInt;
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @Tbl, @Action = 'Switch out start', @Text = @Txt;
-            EXECUTE (@Txt);
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @Tbl, @Action = 'Switch out end', @Text = @Txt;
-            DELETE @ResourceTypes
-            WHERE  ResourceTypeId = @ResourceTypeId;
-        END
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
-
-
-GO
-CREATE OR ALTER PROCEDURE [dbo].[SwitchPartitionsOutAllTables]
-@RebuildClustered BIT
-WITH EXECUTE AS SELF
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsOutAllTables', @Mode AS VARCHAR (200) = 'PS=PartitionScheme_ResourceTypeId ND=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @Tbl AS VARCHAR (100);
-BEGIN TRY
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
-    DECLARE @Tables TABLE (
-        name      VARCHAR (100) PRIMARY KEY,
-        supported BIT          );
-    INSERT INTO @Tables
-    EXECUTE dbo.GetPartitionedTables @IncludeNotDisabled = @RebuildClustered, @IncludeNotSupported = 0;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Tables', @Action = 'Insert', @Rows = @@rowcount;
-    WHILE EXISTS (SELECT *
-                  FROM   @Tables)
-        BEGIN
-            SET @Tbl = (SELECT   TOP 1 name
-                        FROM     @Tables
-                        ORDER BY name);
-            EXECUTE dbo.SwitchPartitionsOut @Tbl = @Tbl, @RebuildClustered = @RebuildClustered;
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = 'SwitchPartitionsOut', @Action = 'Execute', @Text = @Tbl;
-            DELETE @Tables
-            WHERE  name = @Tbl;
-        END
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
-    THROW;
-END CATCH
-
-GO
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'IndexProperties')
+ALTER TABLE dbo.TokenSearchParam ALTER COLUMN Code varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+IF COL_LENGTH('dbo.TokenSearchParam', 'CodeOverflow') IS NULL
 BEGIN
-    CREATE TABLE dbo.IndexProperties
+    ALTER TABLE dbo.TokenSearchParam ADD CodeOverflow varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+END
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenSearchParam_CodeOverflow')
+BEGIN    
+    ALTER TABLE dbo.TokenSearchParam ADD CONSTRAINT CHK_TokenSearchParam_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
+END
+IF TYPE_ID(N'BulkTokenSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE
     (
-     IndexTableName     varchar(100)     NOT NULL
-    ,IndexName     varchar(200)     NOT NULL
-    ,PropertyName  varchar(100)     NOT NULL
-    ,PropertyValue varchar(100)     NOT NULL
-    ,CreateDate    datetime         NOT NULL CONSTRAINT DF_IndexProperties_CreateDate DEFAULT getUTCdate()
-    
-     CONSTRAINT PKC_IndexProperties_TableName_IndexName_PropertyName PRIMARY KEY CLUSTERED (IndexTableName, IndexName, PropertyName)
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId int NULL,
+        Code varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        CodeOverflow varchar(max) COLLATE Latin1_General_100_CS_AS NULL
     )
-    ON [PRIMARY]
+END
+
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ALTER COLUMN Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+IF COL_LENGTH('dbo.ReferenceTokenCompositeSearchParam', 'CodeOverflow2') IS NULL
+BEGIN
+    ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+END
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2')
+BEGIN    
+    ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CONSTRAINT CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256 OR CodeOverflow2 IS NULL)
+END
+IF TYPE_ID(N'BulkReferenceTokenCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
+        ReferenceResourceTypeId1 smallint NULL,
+        ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceVersion1 int NULL,
+        SystemId2 int NULL,
+        Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    )
+END
+
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+IF COL_LENGTH('dbo.TokenDateTimeCompositeSearchParam', 'CodeOverflow1') IS NULL
+BEGIN
+    ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+END
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1')
+BEGIN    
+    ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CONSTRAINT CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
+END
+IF TYPE_ID(N'BulkTokenDateTimeCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NULL,
+        Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        StartDateTime2 datetimeoffset(7) NOT NULL,
+        EndDateTime2 datetimeoffset(7) NOT NULL,
+        IsLongerThanADay2 bit NOT NULL
+    )
+END
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
+    THROW;
+END CATCH
+
+ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+IF COL_LENGTH('dbo.TokenNumberNumberCompositeSearchParam', 'CodeOverflow1') IS NULL
+BEGIN
+    ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+END
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenNumberNumberCompositeSearchParam_CodeOverflow1')
+BEGIN    
+    ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam ADD CONSTRAINT CHK_TokenNumberNumberCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
+END
+IF TYPE_ID(N'BulkTokenNumberNumberCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NULL,
+        Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        SingleValue2 decimal(18,6) NULL,
+        LowValue2 decimal(18,6) NULL,
+        HighValue2 decimal(18,6) NULL,
+        SingleValue3 decimal(18,6) NULL,
+        LowValue3 decimal(18,6) NULL,
+        HighValue3 decimal(18,6) NULL,
+        HasRange bit NOT NULL
+    )
+END
+
+ALTER TABLE dbo.TokenQuantityCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+IF COL_LENGTH('dbo.TokenQuantityCompositeSearchParam', 'CodeOverflow1') IS NULL
+BEGIN
+    ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+END
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenQuantityCompositeSearchParam_CodeOverflow1')
+BEGIN    
+    ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CONSTRAINT CHK_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
+END
+IF TYPE_ID(N'BulkTokenQuantityCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NULL,
+        Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        SystemId2 int NULL,
+        QuantityCodeId2 int NULL,
+        SingleValue2 decimal(18,6) NULL,
+        LowValue2 decimal(18,6) NULL,
+        HighValue2 decimal(18,6) NULL
+    )
+END
+
+ALTER TABLE dbo.TokenStringCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+IF COL_LENGTH('dbo.TokenStringCompositeSearchParam', 'CodeOverflow1') IS NULL
+BEGIN
+    ALTER TABLE dbo.TokenStringCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+END
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenStringCompositeSearchParam_CodeOverflow1')
+BEGIN    
+    ALTER TABLE dbo.TokenStringCompositeSearchParam ADD CONSTRAINT CHK_TokenStringCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
+END
+IF TYPE_ID(N'BulkTokenStringCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NULL,
+        Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+        TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
+    )
+END
+
+ALTER TABLE dbo.TokenTokenCompositeSearchParam ALTER COLUMN Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+IF COL_LENGTH('dbo.TokenTokenCompositeSearchParam', 'CodeOverflow1') IS NULL
+BEGIN
+    ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+END
+ALTER TABLE dbo.TokenTokenCompositeSearchParam ALTER COLUMN Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+IF COL_LENGTH('dbo.TokenTokenCompositeSearchParam', 'CodeOverflow2') IS NULL
+BEGIN
+    ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+END
+GO
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenTokenCompositeSearchParam_CodeOverflow1')
+BEGIN    
+    ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
+END
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_TokenTokenCompositeSearchParam_CodeOverflow2')
+BEGIN    
+    ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256 OR CodeOverflow2 IS NULL)
+END
+IF TYPE_ID(N'BulkTokenTokenCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NULL,
+        Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+        SystemId2 int NULL,
+        Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL
+    )
 END
 GO
 
-GO
-CREATE OR ALTER PROCEDURE [dbo].[InitializeIndexProperties]
+ALTER PROCEDURE dbo.BulkReindexResources_2
+@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
-INSERT INTO dbo.IndexProperties (IndexTableName, IndexName, PropertyName, PropertyValue)
-SELECT Tbl,
-       Ind,
-       'DATA_COMPRESSION',
-       isnull(data_comp, 'NONE')
-FROM   (SELECT O.Name AS Tbl,
-               I.Name AS Ind,
-               (SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END
-                FROM   sys.partitions AS P
-                WHERE  P.object_id = I.object_id
-                       AND I.index_id = P.index_id) AS data_comp
-        FROM   sys.indexes AS I
-               INNER JOIN
-               sys.objects AS O
-               ON O.object_id = I.object_id
-        WHERE  O.type = 'u'
-               AND EXISTS (SELECT *
-                           FROM   sys.partition_schemes AS PS
-                           WHERE  PS.data_space_id = I.data_space_id
-                                  AND name = 'PartitionScheme_ResourceTypeId')) AS A
-WHERE  NOT EXISTS (SELECT *
-                   FROM   dbo.IndexProperties
-                   WHERE  IndexTableName = Tbl
-                          AND IndexName = Ind);
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+DECLARE @computedValues TABLE (
+    Offset              INT          NOT NULL,
+    ResourceTypeId      SMALLINT     NOT NULL,
+    VersionProvided     BIGINT       NULL,
+    SearchParamHash     VARCHAR (64) NOT NULL,
+    ResourceSurrogateId BIGINT       NULL,
+    VersionInDatabase   BIGINT       NULL);
+INSERT INTO @computedValues
+SELECT resourceToReindex.Offset,
+       resourceToReindex.ResourceTypeId,
+       resourceToReindex.ETag,
+       resourceToReindex.SearchParamHash,
+       resourceInDB.ResourceSurrogateId,
+       resourceInDB.Version
+FROM   @resourcesToReindex AS resourceToReindex
+       LEFT OUTER JOIN
+       dbo.Resource AS resourceInDB WITH (UPDLOCK, INDEX (IX_Resource_ResourceTypeId_ResourceId))
+       ON resourceInDB.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND resourceInDB.ResourceId = resourceToReindex.ResourceId
+          AND resourceInDB.IsHistory = 0;
+DECLARE @versionDiff AS INT;
+SET @versionDiff = (SELECT COUNT(*)
+                    FROM   @computedValues
+                    WHERE  VersionProvided IS NOT NULL
+                           AND VersionProvided <> VersionInDatabase);
+IF (@versionDiff > 0)
+    BEGIN
+        DELETE @computedValues
+        WHERE  VersionProvided IS NOT NULL
+               AND VersionProvided <> VersionInDatabase;
+    END
+UPDATE resourceInDB
+SET    resourceInDB.SearchParamHash = resourceToReindex.SearchParamHash
+FROM   @computedValues AS resourceToReindex
+       INNER JOIN
+       dbo.Resource AS resourceInDB
+       ON resourceInDB.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND resourceInDB.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.ResourceWriteClaim AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.CompartmentAssignment AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.ReferenceSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.TokenSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.TokenText AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.StringSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.UriSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.NumberSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.QuantitySearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.DateTimeSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.ReferenceTokenCompositeSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.TokenTokenCompositeSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.TokenDateTimeCompositeSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.TokenQuantityCompositeSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.TokenStringCompositeSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+DELETE searchIndex
+FROM   dbo.TokenNumberNumberCompositeSearchParam AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
+          AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId;
+INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+SELECT DISTINCT resourceToReindex.ResourceSurrogateId,
+                searchIndex.ClaimTypeId,
+                searchIndex.ClaimValue
+FROM   @resourceWriteClaims AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.CompartmentAssignment (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.CompartmentTypeId,
+                searchIndex.ReferenceResourceId,
+                0
+FROM   @compartmentAssignments AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.BaseUri,
+                searchIndex.ReferenceResourceTypeId,
+                searchIndex.ReferenceResourceId,
+                searchIndex.ReferenceResourceVersion,
+                0
+FROM   @referenceSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.SystemId,
+                searchIndex.Code,
+                searchIndex.CodeOverflow,
+                0
+FROM   @tokenSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.Text,
+                0
+FROM   @tokenTextSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.Text,
+                searchIndex.TextOverflow,
+                0,
+                searchIndex.IsMin,
+                searchIndex.IsMax
+FROM   @stringSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.Uri,
+                0
+FROM   @uriSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.SingleValue,
+                searchIndex.LowValue,
+                searchIndex.HighValue,
+                0
+FROM   @numberSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.SystemId,
+                searchIndex.QuantityCodeId,
+                searchIndex.SingleValue,
+                searchIndex.LowValue,
+                searchIndex.HighValue,
+                0
+FROM   @quantitySearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.StartDateTime,
+                searchIndex.EndDateTime,
+                searchIndex.IsLongerThanADay,
+                0,
+                searchIndex.IsMin,
+                searchIndex.IsMax
+FROM   @dateTimeSearchParms AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.BaseUri1,
+                searchIndex.ReferenceResourceTypeId1,
+                searchIndex.ReferenceResourceId1,
+                searchIndex.ReferenceResourceVersion1,
+                searchIndex.SystemId2,
+                searchIndex.Code2,
+                searchIndex.CodeOverflow2,
+                0
+FROM   @referenceTokenCompositeSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.SystemId1,
+                searchIndex.Code1,
+                searchIndex.CodeOverflow1,
+                searchIndex.SystemId2,
+                searchIndex.Code2,
+                searchIndex.CodeOverflow2,
+                0
+FROM   @tokenTokenCompositeSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.SystemId1,
+                searchIndex.Code1,
+                searchIndex.CodeOverflow1,
+                searchIndex.StartDateTime2,
+                searchIndex.EndDateTime2,
+                searchIndex.IsLongerThanADay2,
+                0
+FROM   @tokenDateTimeCompositeSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.SystemId1,
+                searchIndex.Code1,
+                searchIndex.CodeOverflow1,
+                searchIndex.SingleValue2,
+                searchIndex.SystemId2,
+                searchIndex.QuantityCodeId2,
+                searchIndex.LowValue2,
+                searchIndex.HighValue2,
+                0
+FROM   @tokenQuantityCompositeSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.SystemId1,
+                searchIndex.Code1,
+                searchIndex.CodeOverflow1,
+                searchIndex.Text2,
+                searchIndex.TextOverflow2,
+                0
+FROM   @tokenStringCompositeSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+SELECT DISTINCT resourceToReindex.ResourceTypeId,
+                resourceToReindex.ResourceSurrogateId,
+                searchIndex.SearchParamId,
+                searchIndex.SystemId1,
+                searchIndex.Code1,
+                searchIndex.CodeOverflow1,
+                searchIndex.SingleValue2,
+                searchIndex.LowValue2,
+                searchIndex.HighValue2,
+                searchIndex.SingleValue3,
+                searchIndex.LowValue3,
+                searchIndex.HighValue3,
+                searchIndex.HasRange,
+                0
+FROM   @tokenNumberNumberCompositeSearchParams AS searchIndex
+       INNER JOIN
+       @computedValues AS resourceToReindex
+       ON searchIndex.Offset = resourceToReindex.Offset;
+SELECT @versionDiff;
+COMMIT TRANSACTION;
 
+GO
+
+ALTER PROCEDURE dbo.ReindexResource_2
+@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
+AS
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+DECLARE @resourceSurrogateId AS BIGINT;
+DECLARE @version AS BIGINT;
+SELECT @resourceSurrogateId = ResourceSurrogateId,
+       @version = Version
+FROM   dbo.Resource WITH (UPDLOCK, HOLDLOCK)
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceId = @resourceId
+       AND IsHistory = 0;
+IF (@etag IS NOT NULL
+    AND @etag <> @version)
+    BEGIN
+        THROW 50412, 'Precondition failed', 1;
+    END
+UPDATE dbo.Resource
+SET    SearchParamHash = @searchParamHash
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.ResourceWriteClaim
+WHERE  ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.CompartmentAssignment
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.ReferenceSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.TokenSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.TokenText
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.StringSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.UriSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.NumberSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.QuantitySearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.DateTimeSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.ReferenceTokenCompositeSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.TokenTokenCompositeSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.TokenDateTimeCompositeSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.TokenQuantityCompositeSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.TokenStringCompositeSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+DELETE dbo.TokenNumberNumberCompositeSearchParam
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceSurrogateId = @resourceSurrogateId;
+INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+SELECT @resourceSurrogateId,
+       ClaimTypeId,
+       ClaimValue
+FROM   @resourceWriteClaims;
+INSERT INTO dbo.CompartmentAssignment (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                CompartmentTypeId,
+                ReferenceResourceId,
+                0
+FROM   @compartmentAssignments;
+INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                BaseUri,
+                ReferenceResourceTypeId,
+                ReferenceResourceId,
+                ReferenceResourceVersion,
+                0
+FROM   @referenceSearchParams;
+INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId,
+                Code,
+                CodeOverflow,
+                0
+FROM   @tokenSearchParams;
+INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                Text,
+                0
+FROM   @tokenTextSearchParams;
+INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                Text,
+                TextOverflow,
+                0,
+                IsMin,
+                IsMax
+FROM   @stringSearchParams;
+INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                Uri,
+                0
+FROM   @uriSearchParams;
+INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SingleValue,
+                LowValue,
+                HighValue,
+                0
+FROM   @numberSearchParams;
+INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId,
+                QuantityCodeId,
+                SingleValue,
+                LowValue,
+                HighValue,
+                0
+FROM   @quantitySearchParams;
+INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                StartDateTime,
+                EndDateTime,
+                IsLongerThanADay,
+                0,
+                IsMin,
+                IsMax
+FROM   @dateTimeSearchParms;
+INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                BaseUri1,
+                ReferenceResourceTypeId1,
+                ReferenceResourceId1,
+                ReferenceResourceVersion1,
+                SystemId2,
+                Code2,
+                CodeOverflow2,
+                0
+FROM   @referenceTokenCompositeSearchParams;
+INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                SystemId2,
+                Code2,
+                CodeOverflow2,
+                0
+FROM   @tokenTokenCompositeSearchParams;
+INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                StartDateTime2,
+                EndDateTime2,
+                IsLongerThanADay2,
+                0
+FROM   @tokenDateTimeCompositeSearchParams;
+INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                SingleValue2,
+                SystemId2,
+                QuantityCodeId2,
+                LowValue2,
+                HighValue2,
+                0
+FROM   @tokenQuantityCompositeSearchParams;
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                Text2,
+                TextOverflow2,
+                0
+FROM   @tokenStringCompositeSearchParams;
+INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                SingleValue2,
+                LowValue2,
+                HighValue2,
+                SingleValue3,
+                LowValue3,
+                HighValue3,
+                HasRange,
+                0
+FROM   @tokenNumberNumberCompositeSearchParams;
+COMMIT TRANSACTION;
+
+GO
+
+ALTER PROCEDURE dbo.UpsertResource_7
+@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY, @isResourceChangeCaptureEnabled BIT=0, @comparedVersion INT=NULL
+AS
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+DECLARE @previousResourceSurrogateId AS BIGINT;
+DECLARE @previousVersion AS BIGINT;
+DECLARE @previousIsDeleted AS BIT;
+SELECT @previousResourceSurrogateId = ResourceSurrogateId,
+       @previousVersion = Version,
+       @previousIsDeleted = IsDeleted
+FROM   dbo.Resource WITH (UPDLOCK, HOLDLOCK)
+WHERE  ResourceTypeId = @resourceTypeId
+       AND ResourceId = @resourceId
+       AND IsHistory = 0;
+DECLARE @version AS INT;
+IF (@previousResourceSurrogateId IS NULL)
+    BEGIN
+        SET @version = 1;
+    END
+ELSE
+    BEGIN
+        IF (@isDeleted = 0)
+            BEGIN
+                IF (@comparedVersion IS NULL
+                    OR @comparedVersion <> @previousVersion)
+                    BEGIN
+                        THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+                    END
+            END
+        SET @version = @previousVersion + 1;
+        IF (@keepHistory = 1)
+            BEGIN
+                UPDATE dbo.Resource
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.CompartmentAssignment
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.ReferenceSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.TokenSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.TokenText
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.StringSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.UriSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.NumberSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.QuantitySearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.DateTimeSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.ReferenceTokenCompositeSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.TokenTokenCompositeSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.TokenDateTimeCompositeSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.TokenQuantityCompositeSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.TokenStringCompositeSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                UPDATE dbo.TokenNumberNumberCompositeSearchParam
+                SET    IsHistory = 1
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+            END
+        ELSE
+            BEGIN
+                DELETE dbo.Resource
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.ResourceWriteClaim
+                WHERE  ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.CompartmentAssignment
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.ReferenceSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.TokenSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.TokenText
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.StringSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.UriSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.NumberSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.QuantitySearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.DateTimeSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.ReferenceTokenCompositeSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.TokenTokenCompositeSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.TokenDateTimeCompositeSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.TokenQuantityCompositeSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.TokenStringCompositeSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+                DELETE dbo.TokenNumberNumberCompositeSearchParam
+                WHERE  ResourceTypeId = @resourceTypeId
+                       AND ResourceSurrogateId = @previousResourceSurrogateId;
+            END
+    END
+DECLARE @resourceSurrogateId AS BIGINT = @baseResourceSurrogateId + ( NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence);
+DECLARE @isRawResourceMetaSet AS BIT;
+IF (@version = 1)
+    BEGIN
+        SET @isRawResourceMetaSet = 1;
+    END
+ELSE
+    BEGIN
+        SET @isRawResourceMetaSet = 0;
+    END
+INSERT  INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash)
+VALUES                   (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, @isDeleted, @requestMethod, @rawResource, @isRawResourceMetaSet, @searchParamHash);
+INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+SELECT @resourceSurrogateId,
+       ClaimTypeId,
+       ClaimValue
+FROM   @resourceWriteClaims;
+INSERT INTO dbo.CompartmentAssignment (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                CompartmentTypeId,
+                ReferenceResourceId,
+                0
+FROM   @compartmentAssignments;
+INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                BaseUri,
+                ReferenceResourceTypeId,
+                ReferenceResourceId,
+                ReferenceResourceVersion,
+                0
+FROM   @referenceSearchParams;
+INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId,
+                Code,
+                CodeOverflow,
+                0
+FROM   @tokenSearchParams;
+INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                Text,
+                0
+FROM   @tokenTextSearchParams;
+INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                Text,
+                TextOverflow,
+                0,
+                IsMin,
+                IsMax
+FROM   @stringSearchParams;
+INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                Uri,
+                0
+FROM   @uriSearchParams;
+INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SingleValue,
+                LowValue,
+                HighValue,
+                0
+FROM   @numberSearchParams;
+INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId,
+                QuantityCodeId,
+                SingleValue,
+                LowValue,
+                HighValue,
+                0
+FROM   @quantitySearchParams;
+INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                StartDateTime,
+                EndDateTime,
+                IsLongerThanADay,
+                0,
+                IsMin,
+                IsMax
+FROM   @dateTimeSearchParms;
+INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                BaseUri1,
+                ReferenceResourceTypeId1,
+                ReferenceResourceId1,
+                ReferenceResourceVersion1,
+                SystemId2,
+                Code2,
+                CodeOverflow2,
+                0
+FROM   @referenceTokenCompositeSearchParams;
+INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                SystemId2,
+                Code2,
+                CodeOverflow2,
+                0
+FROM   @tokenTokenCompositeSearchParams;
+INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                StartDateTime2,
+                EndDateTime2,
+                IsLongerThanADay2,
+                0
+FROM   @tokenDateTimeCompositeSearchParams;
+INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                SingleValue2,
+                SystemId2,
+                QuantityCodeId2,
+                LowValue2,
+                HighValue2,
+                0
+FROM   @tokenQuantityCompositeSearchParams;
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                Text2,
+                TextOverflow2,
+                0
+FROM   @tokenStringCompositeSearchParams;
+INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+SELECT DISTINCT @resourceTypeId,
+                @resourceSurrogateId,
+                SearchParamId,
+                SystemId1,
+                Code1,
+                CodeOverflow1,
+                SingleValue2,
+                LowValue2,
+                HighValue2,
+                SingleValue3,
+                LowValue3,
+                HighValue3,
+                HasRange,
+                0
+FROM   @tokenNumberNumberCompositeSearchParams;
+SELECT @version;
+IF (@isResourceChangeCaptureEnabled = 1)
+    BEGIN
+        EXECUTE dbo.CaptureResourceChanges @isDeleted = @isDeleted, @version = @version, @resourceId = @resourceId, @resourceTypeId = @resourceTypeId;
+    END
+COMMIT TRANSACTION;
 
 GO
 CREATE OR ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit, @IsCompleted bit = NULL
@@ -841,7 +1183,7 @@ BEGIN TRY
         WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
     SET @Rows = @@rowcount
 
-    COMMIT TRANSACTION
+COMMIT TRANSACTION
   END
 
   EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds

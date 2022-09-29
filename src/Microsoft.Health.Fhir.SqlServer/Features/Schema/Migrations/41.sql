@@ -91,6 +91,13 @@ CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE (
     SystemId      INT           NULL,
     Code          VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
+CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE (
+    Offset        INT           NOT NULL,
+    SearchParamId SMALLINT      NOT NULL,
+    SystemId      INT           NULL,
+    Code          VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow  VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
+
 CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE (
     Offset        INT            NOT NULL,
     SearchParamId SMALLINT       NOT NULL,
@@ -157,6 +164,17 @@ CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_1 AS TABLE (
     SystemId2                 INT           NULL,
     Code2                     VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
+CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_2 AS TABLE (
+    Offset                    INT           NOT NULL,
+    SearchParamId             SMALLINT      NOT NULL,
+    BaseUri1                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
+    ReferenceResourceTypeId1  SMALLINT      NULL,
+    ReferenceResourceId1      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion1 INT           NULL,
+    SystemId2                 INT           NULL,
+    Code2                     VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow2             VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
+
 CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE (
     Offset        INT           NOT NULL,
     SearchParamId SMALLINT      NOT NULL,
@@ -165,11 +183,31 @@ CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE (
     SystemId2     INT           NULL,
     Code2         VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
+CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_2 AS TABLE (
+    Offset        INT           NOT NULL,
+    SearchParamId SMALLINT      NOT NULL,
+    SystemId1     INT           NULL,
+    Code1         VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
+    SystemId2     INT           NULL,
+    Code2         VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow2 VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
+
 CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 AS TABLE (
     Offset            INT                NOT NULL,
     SearchParamId     SMALLINT           NOT NULL,
     SystemId1         INT                NULL,
     Code1             VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
+    StartDateTime2    DATETIMEOFFSET (7) NOT NULL,
+    EndDateTime2      DATETIMEOFFSET (7) NOT NULL,
+    IsLongerThanADay2 BIT                NOT NULL);
+
+CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 AS TABLE (
+    Offset            INT                NOT NULL,
+    SearchParamId     SMALLINT           NOT NULL,
+    SystemId1         INT                NULL,
+    Code1             VARCHAR (256)      COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1     VARCHAR (MAX)      COLLATE Latin1_General_100_CS_AS NULL,
     StartDateTime2    DATETIMEOFFSET (7) NOT NULL,
     EndDateTime2      DATETIMEOFFSET (7) NOT NULL,
     IsLongerThanADay2 BIT                NOT NULL);
@@ -185,6 +223,18 @@ CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_1 AS TABLE (
     LowValue2       DECIMAL (18, 6) NULL,
     HighValue2      DECIMAL (18, 6) NULL);
 
+CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE (
+    Offset          INT             NOT NULL,
+    SearchParamId   SMALLINT        NOT NULL,
+    SystemId1       INT             NULL,
+    Code1           VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1   VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL,
+    SystemId2       INT             NULL,
+    QuantityCodeId2 INT             NULL,
+    SingleValue2    DECIMAL (18, 6) NULL,
+    LowValue2       DECIMAL (18, 6) NULL,
+    HighValue2      DECIMAL (18, 6) NULL);
+
 CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE (
     Offset        INT            NOT NULL,
     SearchParamId SMALLINT       NOT NULL,
@@ -193,11 +243,34 @@ CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE (
     Text2         NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL);
 
+CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE (
+    Offset        INT            NOT NULL,
+    SearchParamId SMALLINT       NOT NULL,
+    SystemId1     INT            NULL,
+    Code1         VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 VARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL,
+    Text2         NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextOverflow2 NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL);
+
 CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE (
     Offset        INT             NOT NULL,
     SearchParamId SMALLINT        NOT NULL,
     SystemId1     INT             NULL,
     Code1         VARCHAR (128)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SingleValue2  DECIMAL (18, 6) NULL,
+    LowValue2     DECIMAL (18, 6) NULL,
+    HighValue2    DECIMAL (18, 6) NULL,
+    SingleValue3  DECIMAL (18, 6) NULL,
+    LowValue3     DECIMAL (18, 6) NULL,
+    HighValue3    DECIMAL (18, 6) NULL,
+    HasRange      BIT             NOT NULL);
+
+CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE (
+    Offset        INT             NOT NULL,
+    SearchParamId SMALLINT        NOT NULL,
+    SystemId1     INT             NULL,
+    Code1         VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL,
     SingleValue2  DECIMAL (18, 6) NULL,
     LowValue2     DECIMAL (18, 6) NULL,
     HighValue2    DECIMAL (18, 6) NULL,
@@ -330,7 +403,7 @@ CREATE TABLE dbo.EventLog (
     EventDate    DATETIME        NOT NULL,
     Process      VARCHAR (100)   NOT NULL,
     Status       VARCHAR (10)    NOT NULL,
-    Mode         VARCHAR (200)   NULL,
+    Mode         VARCHAR (100)   NULL,
     Action       VARCHAR (20)    NULL,
     Target       VARCHAR (100)   NULL,
     Rows         BIGINT          NULL,
@@ -539,9 +612,14 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
     ReferenceResourceId1      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 INT           NULL,
     SystemId2                 INT           NULL,
-    Code2                     VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory                 BIT           NOT NULL
+    Code2                     VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    IsHistory                 BIT           NOT NULL,
+    CodeOverflow2             VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+    ADD CONSTRAINT CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256
+                                                                               OR CodeOverflow2 IS NULL);
 
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -747,12 +825,17 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     SystemId1           INT           NULL,
-    Code1               VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code1               VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2      DATETIME2 (7) NOT NULL,
     EndDateTime2        DATETIME2 (7) NOT NULL,
     IsLongerThanADay2   BIT           NOT NULL,
-    IsHistory           BIT           NOT NULL
+    IsHistory           BIT           NOT NULL,
+    CodeOverflow1       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                              OR CodeOverflow1 IS NULL);
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -787,7 +870,7 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
     ResourceSurrogateId BIGINT          NOT NULL,
     SearchParamId       SMALLINT        NOT NULL,
     SystemId1           INT             NULL,
-    Code1               VARCHAR (128)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code1               VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
     SingleValue2        DECIMAL (18, 6) NULL,
     LowValue2           DECIMAL (18, 6) NULL,
     HighValue2          DECIMAL (18, 6) NULL,
@@ -795,8 +878,13 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
     LowValue3           DECIMAL (18, 6) NULL,
     HighValue3          DECIMAL (18, 6) NULL,
     HasRange            BIT             NOT NULL,
-    IsHistory           BIT             NOT NULL
+    IsHistory           BIT             NOT NULL,
+    CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenNumberNumberCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                                  OR CodeOverflow1 IS NULL);
 
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -821,14 +909,19 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam (
     ResourceSurrogateId BIGINT          NOT NULL,
     SearchParamId       SMALLINT        NOT NULL,
     SystemId1           INT             NULL,
-    Code1               VARCHAR (128)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code1               VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2           INT             NULL,
     QuantityCodeId2     INT             NULL,
     SingleValue2        DECIMAL (18, 6) NULL,
     LowValue2           DECIMAL (18, 6) NULL,
     HighValue2          DECIMAL (18, 6) NULL,
-    IsHistory           BIT             NOT NULL
+    IsHistory           BIT             NOT NULL,
+    CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenQuantityCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                              OR CodeOverflow1 IS NULL);
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -859,9 +952,14 @@ CREATE TABLE dbo.TokenSearchParam (
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     SystemId            INT           NULL,
-    Code                VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT           NOT NULL
+    Code                VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    IsHistory           BIT           NOT NULL,
+    CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenSearchParam
+    ADD CONSTRAINT CHK_TokenSearchParam_CodeOverflow CHECK (LEN(Code) = 256
+                                                            OR CodeOverflow IS NULL);
 
 ALTER TABLE dbo.TokenSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -879,11 +977,16 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam (
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     SystemId1           INT            NULL,
-    Code1               VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code1               VARCHAR (256)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2               NVARCHAR (256) COLLATE Latin1_General_CI_AI NOT NULL,
     TextOverflow2       NVARCHAR (MAX) COLLATE Latin1_General_CI_AI NULL,
-    IsHistory           BIT            NOT NULL
+    IsHistory           BIT            NOT NULL,
+    CodeOverflow1       VARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenStringCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenStringCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                            OR CodeOverflow1 IS NULL);
 
 ALTER TABLE dbo.TokenStringCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -925,11 +1028,21 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam (
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     SystemId1           INT           NULL,
-    Code1               VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code1               VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2           INT           NULL,
-    Code2               VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT           NOT NULL
+    Code2               VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    IsHistory           BIT           NOT NULL,
+    CodeOverflow1       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
+    CodeOverflow2       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.TokenTokenCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                           OR CodeOverflow1 IS NULL);
+
+ALTER TABLE dbo.TokenTokenCompositeSearchParam
+    ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256
+                                                                           OR CodeOverflow2 IS NULL);
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
@@ -1138,7 +1251,7 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.BulkReindexResources_2
-@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -1307,12 +1420,13 @@ FROM   @referenceSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
+INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.SystemId,
                 searchIndex.Code,
+                searchIndex.CodeOverflow,
                 0
 FROM   @tokenSearchParams AS searchIndex
        INNER JOIN
@@ -1391,7 +1505,7 @@ FROM   @dateTimeSearchParms AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
+INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
@@ -1401,30 +1515,34 @@ SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 searchIndex.ReferenceResourceVersion1,
                 searchIndex.SystemId2,
                 searchIndex.Code2,
+                searchIndex.CodeOverflow2,
                 0
 FROM   @referenceTokenCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
+INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.SystemId1,
                 searchIndex.Code1,
+                searchIndex.CodeOverflow1,
                 searchIndex.SystemId2,
                 searchIndex.Code2,
+                searchIndex.CodeOverflow2,
                 0
 FROM   @tokenTokenCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.SystemId1,
                 searchIndex.Code1,
+                searchIndex.CodeOverflow1,
                 searchIndex.StartDateTime2,
                 searchIndex.EndDateTime2,
                 searchIndex.IsLongerThanADay2,
@@ -1433,12 +1551,13 @@ FROM   @tokenDateTimeCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.SystemId1,
                 searchIndex.Code1,
+                searchIndex.CodeOverflow1,
                 searchIndex.SingleValue2,
                 searchIndex.SystemId2,
                 searchIndex.QuantityCodeId2,
@@ -1449,12 +1568,13 @@ FROM   @tokenQuantityCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.SystemId1,
                 searchIndex.Code1,
+                searchIndex.CodeOverflow1,
                 searchIndex.Text2,
                 searchIndex.TextOverflow2,
                 0
@@ -1462,12 +1582,13 @@ FROM   @tokenStringCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.SystemId1,
                 searchIndex.Code1,
+                searchIndex.CodeOverflow1,
                 searchIndex.SingleValue2,
                 searchIndex.LowValue2,
                 searchIndex.HighValue2,
@@ -1831,11 +1952,9 @@ BEGIN TRY
                    Definition,
                    DefinitionHash,
                    CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END AS Status
-            FROM   (SELECT @MaxJobId + row_number() OVER (ORDER BY Dummy) AS JobId,
+            FROM   (SELECT @MaxJobId + row_number() OVER (ORDER BY substring(Definition, 1, 1)) AS JobId,
                            *
-                    FROM   (SELECT *,
-                                   0 AS Dummy
-                            FROM   @Input) AS A) AS A
+                    FROM   @Input) AS A
             WHERE  NOT EXISTS (SELECT *
                                FROM   dbo.JobQueue AS B
                                WHERE  B.QueueType = @QueueType
@@ -3033,7 +3152,7 @@ IF @isDisabled = 1
 
 GO
 CREATE PROCEDURE dbo.ReindexResource_2
-@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -3124,12 +3243,13 @@ SELECT DISTINCT @resourceTypeId,
                 ReferenceResourceVersion,
                 0
 FROM   @referenceSearchParams;
-INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
+INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId,
                 Code,
+                CodeOverflow,
                 0
 FROM   @tokenSearchParams;
 INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
@@ -3187,7 +3307,7 @@ SELECT DISTINCT @resourceTypeId,
                 IsMin,
                 IsMax
 FROM   @dateTimeSearchParms;
-INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
+INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
@@ -3197,35 +3317,40 @@ SELECT DISTINCT @resourceTypeId,
                 ReferenceResourceVersion1,
                 SystemId2,
                 Code2,
+                CodeOverflow2,
                 0
 FROM   @referenceTokenCompositeSearchParams;
-INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
+INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 SystemId2,
                 Code2,
+                CodeOverflow2,
                 0
 FROM   @tokenTokenCompositeSearchParams;
-INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 StartDateTime2,
                 EndDateTime2,
                 IsLongerThanADay2,
                 0
 FROM   @tokenDateTimeCompositeSearchParams;
-INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 SingleValue2,
                 SystemId2,
                 QuantityCodeId2,
@@ -3233,22 +3358,24 @@ SELECT DISTINCT @resourceTypeId,
                 HighValue2,
                 0
 FROM   @tokenQuantityCompositeSearchParams;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 Text2,
                 TextOverflow2,
                 0
 FROM   @tokenStringCompositeSearchParams;
-INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 SingleValue2,
                 LowValue2,
                 HighValue2,
@@ -3768,7 +3895,7 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpsertResource_7
-@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0, @comparedVersion INT=NULL
+@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requireETagOnUpdate BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY, @isResourceChangeCaptureEnabled BIT=0, @comparedVersion INT=NULL
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -3954,12 +4081,13 @@ SELECT DISTINCT @resourceTypeId,
                 ReferenceResourceVersion,
                 0
 FROM   @referenceSearchParams;
-INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
+INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId,
                 Code,
+                CodeOverflow,
                 0
 FROM   @tokenSearchParams;
 INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
@@ -4017,7 +4145,7 @@ SELECT DISTINCT @resourceTypeId,
                 IsMin,
                 IsMax
 FROM   @dateTimeSearchParms;
-INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
+INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
@@ -4027,35 +4155,40 @@ SELECT DISTINCT @resourceTypeId,
                 ReferenceResourceVersion1,
                 SystemId2,
                 Code2,
+                CodeOverflow2,
                 0
 FROM   @referenceTokenCompositeSearchParams;
-INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
+INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 SystemId2,
                 Code2,
+                CodeOverflow2,
                 0
 FROM   @tokenTokenCompositeSearchParams;
-INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 StartDateTime2,
                 EndDateTime2,
                 IsLongerThanADay2,
                 0
 FROM   @tokenDateTimeCompositeSearchParams;
-INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 SingleValue2,
                 SystemId2,
                 QuantityCodeId2,
@@ -4063,22 +4196,24 @@ SELECT DISTINCT @resourceTypeId,
                 HighValue2,
                 0
 FROM   @tokenQuantityCompositeSearchParams;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 Text2,
                 TextOverflow2,
                 0
 FROM   @tokenStringCompositeSearchParams;
-INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 SystemId1,
                 Code1,
+                CodeOverflow1,
                 SingleValue2,
                 LowValue2,
                 HighValue2,

@@ -268,9 +268,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Not rerebuild index by default
                 if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
-                    IList<(string tableName, string indexName, string command)> commandsForRebuildIndexes = new List<(string tableName, string indexName, string command)>();
                     await SwitchPartitionsOutAllTables(_importTaskConfiguration.RebuildClustered, cancellationToken);
-                    commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(_importTaskConfiguration.RebuildClustered, cancellationToken);
+                    var commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(_importTaskConfiguration.RebuildClustered, cancellationToken);
                     if (_importTaskConfiguration.RebuildClustered)
                     {
                         commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(false, cancellationToken);
