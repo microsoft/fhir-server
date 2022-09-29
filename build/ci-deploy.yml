@@ -97,6 +97,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true
 
 - stage: deployR4
   displayName: 'Deploy R4 Site'
@@ -134,6 +135,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true
 
 - stage: deployR5
   displayName: 'Deploy R5 Site'
@@ -171,3 +173,4 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true
