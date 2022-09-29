@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             IsHistory = false;
         }
 
-        public CompartmentAssignment(SqlDataReader reader, bool isSharded)
+        public CompartmentAssignment(SqlDataReader reader, bool isSharded, string suffix = null)
         {
             if (isSharded)
             {
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 ShardletId = new ShardletId(reader.GetByte(2));
                 Sequence = reader.GetInt16(3);
                 CompartmentTypeId = reader.GetByte(4);
-                ReferenceResourceId = reader.GetString(5);
+                ReferenceResourceId = suffix == null ? reader.GetString(5) : $"{reader.GetString(5)}{suffix}";
                 IsHistory = reader.GetBoolean(6);
             }
             else
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 ResourceTypeId = reader.GetInt16(0);
                 ResourceSurrogateId = reader.GetInt64(1);
                 CompartmentTypeId = reader.GetByte(2);
-                ReferenceResourceId = reader.GetString(3);
+                ReferenceResourceId = suffix == null ? reader.GetString(3) : $"{reader.GetString(3)}{suffix}";
                 IsHistory = reader.GetBoolean(4);
             }
         }

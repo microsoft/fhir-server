@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -28,7 +27,13 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         {
             if (isSharded)
             {
-                throw new NotImplementedException();
+                ResourceTypeId = reader.GetInt16(0);
+                TransactionId = new TransactionId(reader.GetInt64(1));
+                ShardletId = new ShardletId(reader.GetByte(2));
+                Sequence = reader.GetInt16(3);
+                SearchParamId = reader.GetInt16(4);
+                Text = reader.GetString(5);
+                IsHistory = reader.GetBoolean(6);
             }
             else
             {
