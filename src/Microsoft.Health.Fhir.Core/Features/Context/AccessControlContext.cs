@@ -10,13 +10,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 {
     public class AccessControlContext
     {
-        // Value indicated whether or not fine grained access control policies should be applied
+        /// <summary>
+        /// Value indicated whether or not fine grained access control policies should be applied
+        /// </summary>
         public bool ApplyFineGrainedAccessControl { get; set; }
 
-        // the string values that were passed in as scopes
+        /// <summary>
+        /// the string values that were passed in as scopes
+        /// </summary>
         public ICollection<string> ClinicalScopes { get; } = new List<string>();
 
-        // A collection of the allowed resource types and which action is allowed on that type
+        /// <summary>
+        /// A collection of the allowed resource types and which action is allowed on that type
+        /// </summary>
         public ICollection<ScopeRestriction> AllowedResourceActions { get; } = new List<ScopeRestriction>();
 
         /// <summary>

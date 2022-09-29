@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         private readonly RequestDelegate _next;
 
         // Regex based on SMART on FHIR clinical scopes v1.0, http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
-        private readonly Regex clinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|.)(?<resource>\*|([a-zA-Z]*))\.(?<accessLevel>read|write|\*)", RegexOptions.Compiled);
+        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|.)(?<resource>\*|([a-zA-Z]*))\.(?<accessLevel>read|write|\*)", RegexOptions.Compiled);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next)
         {
@@ -34,6 +34,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
         public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, AuthorizationConfiguration authorizationConfiguration)
         {
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(authorizationConfiguration, nameof(authorizationConfiguration));
+
             if (fhirRequestContextAccessor.RequestContext.Principal != null
                 && authorizationConfiguration.Enabled)
             {
@@ -45,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 DataActions permittedDataActions = 0;
                 foreach (Claim claim in principal.FindAll(authorizationConfiguration.ScopesClaim))
                 {
-                    var matches = clinicalScopeRegEx.Matches(claim.Value);
+                    var matches = ClinicalScopeRegEx.Matches(claim.Value);
                     foreach (Match match in matches)
                     {
                         fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);

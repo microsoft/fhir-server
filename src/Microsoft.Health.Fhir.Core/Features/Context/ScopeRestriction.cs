@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
@@ -12,6 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
     {
         public ScopeRestriction(string resource, DataActions allowedAction, string user)
         {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
             Resource = resource;
             AllowedDataAction |= allowedAction;
             User = user;

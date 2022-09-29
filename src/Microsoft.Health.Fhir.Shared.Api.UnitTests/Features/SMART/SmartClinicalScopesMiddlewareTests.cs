@@ -73,6 +73,38 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "user/Encounter.*", new List<ScopeRestriction>() { new ScopeRestriction("Encounter", DataActions.Read | DataActions.Write, "user") } };
             yield return new object[] { "patient.Patient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read, "patient") } };
             yield return new object[] { "patient.*.read", new List<ScopeRestriction>() { new ScopeRestriction("*", DataActions.Read, "patient") } };
+            yield return new object[]
+            {
+                "patient$Patient.read practitioner/Observation.write",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read, "patient"),
+                },
+            };
+            yield return new object[]
+            {
+                "patient$Patient.rd practitioner/Observation.wr",
+                new List<ScopeRestriction>()
+                {
+                },
+            };
+            yield return new object[]
+            {
+                "User$Patient.read patient/Observation.wr",
+                new List<ScopeRestriction>()
+                {
+                },
+            };
+            yield return new object[]
+            {
+                "patient/Patient.read launch/patient user/Observation.read offline_access openid user/Encounter.* fhirUser",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read, "user"),
+                    new ScopeRestriction("Encounter", DataActions.Read | DataActions.Write, "user"),
+                },
+            };
         }
     }
 }
