@@ -47,6 +47,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitString(StringExpression expression, object context)
         {
+            if (expression.FieldName == FieldName.TokenCode)
+            {
+                return expression;
+            }
+
+            // TODO: We decided to do token differently and then go back and do string same way as token. No need for TokenOverflowRewritter.cs.
+
             switch (expression.StringOperator)
             {
                 case StringOperator.Equals:
