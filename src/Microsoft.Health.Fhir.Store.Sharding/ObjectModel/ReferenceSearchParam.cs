@@ -41,7 +41,16 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         {
             if (isSharded)
             {
-                throw new NotImplementedException();
+                ResourceTypeId = reader.GetInt16(0);
+                TransactionId = new TransactionId(reader.GetInt64(1));
+                ShardletId = new ShardletId(reader.GetByte(2));
+                Sequence = reader.GetInt16(3);
+                SearchParamId = reader.GetInt16(4);
+                BaseUri = reader.IsDBNull(5) ? null : reader.GetString(5);
+                ReferenceResourceTypeId = reader.GetInt16(6);
+                ReferenceResourceId = suffix == null ? reader.GetString(7) : $"{reader.GetString(7)}{suffix}";
+                ReferenceResourceVersion = reader.IsDBNull(8) ? null : reader.GetInt32(8);
+                IsHistory = reader.GetBoolean(9);
             }
             else
             {
