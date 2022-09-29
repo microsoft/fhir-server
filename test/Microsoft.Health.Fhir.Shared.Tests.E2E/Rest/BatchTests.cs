@@ -212,24 +212,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     },
                 },
             };
-            _client.HttpClient.DefaultRequestHeaders.Remove(Core.Features.KnownHeaders.ProfileValidation);
-            if (headerValue.Equals("true"))
-            {
-                _client.HttpClient.DefaultRequestHeaders.Add(Core.Features.KnownHeaders.ProfileValidation, profileValidation);
-            }
-
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle);
-            Assert.NotNull(fhirResponse);
-            Bundle bundleResource = fhirResponse.Resource;
 
             if (headerValue.Equals("true") && profileValidation.Equals("true"))
             {
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithHeader(bundle, profileValidation);
+                Assert.NotNull(fhirResponse);
+                Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+                Bundle bundleResource = fhirResponse.Resource;
+
                 Assert.Equal("400", bundleResource.Entry[0].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[1].Response.Status);
                 Assert.Equal("400", bundleResource.Entry[2].Response.Status);
             }
             else
             {
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithHeader(bundle, "false");
+                Assert.NotNull(fhirResponse);
+                Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+                Bundle bundleResource = fhirResponse.Resource;
                 Assert.Equal("201", bundleResource.Entry[0].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[1].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[2].Response.Status);
@@ -278,20 +278,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     },
                 },
             };
-            _client.HttpClient.DefaultRequestHeaders.Remove(Core.Features.KnownHeaders.ProfileValidation);
-            if (headerValue.Equals("true"))
-            {
-                _client.HttpClient.DefaultRequestHeaders.Add(Core.Features.KnownHeaders.ProfileValidation, profileValidation);
-            }
 
             if (headerValue.Equals("true") && profileValidation.Equals("true"))
             {
-                using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsync(bundle));
+                using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsyncWithHeader(bundle, profileValidation));
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             }
             else
             {
-                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle);
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithHeader(bundle, "false");
                 Assert.NotNull(fhirResponse);
                 Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 

@@ -493,6 +493,22 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
+        public async Task<FhirResponse<Bundle>> PostBundleAsyncWithHeader(Resource bundle, string profileValidation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
+            {
+                Content = CreateStringContent(bundle),
+            };
+            message.Headers.Add(Core.Features.KnownHeaders.ProfileValidation, profileValidation);
+            message.Headers.Accept.Add(_mediaType);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<Bundle>(response);
+        }
+
         public async Task<(FhirResponse<Parameters> reponse, Uri uri)> PostReindexJobAsync(
             Parameters parameters,
             string uniqueResource = null,
