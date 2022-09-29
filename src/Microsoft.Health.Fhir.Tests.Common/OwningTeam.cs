@@ -9,7 +9,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
     {
         public const string Fhir = nameof(Fhir);
 
-        // Find the best name to the "ChinaTeam".
-        public const string ChinaTeam = nameof(ChinaTeam);
+        public const string FhirImport = nameof(FhirImport);
     }
 }

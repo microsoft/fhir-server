@@ -19,7 +19,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 {
-    [Trait("Traits.OwningTeam", OwningTeam.ChinaTeam)]
+    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
     [Trait(Traits.Category, Categories.Export)]
     public class ExportAnonymizerFactoryTests

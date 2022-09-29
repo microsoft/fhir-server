@@ -22,7 +22,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     public class ImportProcessingJobTests
     {

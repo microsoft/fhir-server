@@ -25,7 +25,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     public class SqlServerBulkImportOperationTests
     {

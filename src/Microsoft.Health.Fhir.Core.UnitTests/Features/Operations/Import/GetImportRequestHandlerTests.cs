@@ -27,7 +27,7 @@ using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     public class GetImportRequestHandlerTests
     {
