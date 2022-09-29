@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -21,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
 {
@@ -73,12 +75,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                 using IScoped<ISearchService> search = _searchServiceFactory();
                 results = await search.Value.SearchAsync(searchOptions, cancellationToken);
             }
-
-            // Generic catch for any exception happened during search.
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, $"{nameof(SqlException)} in MemberMatch service.");
+                throw;
+            }
+            catch (InvalidSearchOperationException ex)
+            {
+                _logger.LogError(ex, $"{nameof(InvalidSearchOperationException)} in MemberMatch service.");
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Generic problem in MemberMatch service.");
-                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
+                throw new MemberMatchMatchingException(Core.Resources.GenericMemberMatch);
             }
 
             return CreatePatientWithIdentity(patient, results);

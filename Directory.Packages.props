@@ -41,6 +41,7 @@
     <PackageVersion Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="5.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
