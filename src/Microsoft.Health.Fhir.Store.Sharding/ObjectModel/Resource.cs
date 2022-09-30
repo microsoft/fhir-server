@@ -113,4 +113,36 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
     }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
+    public static class CitusResourceExtension
+    {
+        public static int BulkLoadTable(this IEnumerable<Resource> resources, Npgsql.NpgsqlConnection connection)
+        {
+            int c = 0;
+
+            using (var writer = connection.BeginBinaryImport("COPY resource FROM STDIN (FORMAT BINARY)"))
+            {
+                foreach (var row in resources)
+                {
+                    writer.StartRow();
+                    writer.Write(row.ResourceTypeId);
+                    writer.Write(row.ResourceId);
+                    writer.Write(row.Version);
+                    writer.Write(row.IsHistory);
+                    writer.Write(row.TransactionId.Id);
+                    writer.Write(row.ShardletId.Id);
+                    writer.Write(row.Sequence);
+                    writer.Write(row.IsDeleted);
+                    writer.Write(row.RequestMethod);
+                    writer.Write(row.SearchParamHash);
+                    c++;
+                }
+
+                writer.Complete();
+            }
+
+            return c;
+        }
+    }
 }

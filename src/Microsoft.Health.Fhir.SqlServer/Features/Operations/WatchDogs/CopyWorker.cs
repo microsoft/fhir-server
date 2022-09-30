@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         private bool _writesEnabled = false;
         private int _maxRetries = 10;
         private string _sourceConnectionString = string.Empty;
+        private string _citusConnectionString = string.Empty;
         private bool _sourceIsSharded = false;
 
         public CopyWorker(string connectionString)
@@ -36,6 +37,12 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             if (_sourceIsSharded)
             {
                 ShardedSource = new SqlService(_sourceConnectionString);
+            }
+
+            _citusConnectionString = GetCitusConnectionString();
+            if (_citusConnectionString != null)
+            {
+                TargetCitus = new CitusService(_citusConnectionString);
             }
 
             _workers = GetWorkers();
@@ -69,6 +76,8 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         public SqlService Target { get; private set; }
 
         public SqlService ShardedSource { get; private set; }
+
+        public CitusService TargetCitus { get; private set; }
 
         private void AdvanceVisibility(ref int workingTasks)
         {
@@ -333,6 +342,14 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             using var cmd = new SqlCommand("SELECT convert(bit,Number) FROM dbo.Parameters WHERE Id = 'Copy.WritesEnabled'", conn);
             var flag = cmd.ExecuteScalar();
             return flag != null && (bool)flag;
+        }
+
+        private string GetCitusConnectionString()
+        {
+            using var conn = Target.GetConnection();
+            using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'Copy.CitusConnectionString'", conn);
+            var str = cmd.ExecuteScalar();
+            return str == null ? null : (string)str;
         }
     }
 }
