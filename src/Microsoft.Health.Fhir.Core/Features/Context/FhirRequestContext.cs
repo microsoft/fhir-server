@@ -73,5 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public bool IsBackgroundTask { get; set; }
 
         public IDictionary<string, object> Properties => _properties ??= new Dictionary<string, object>();
+
+        public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
     }
 }

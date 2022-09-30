@@ -16,5 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool Enabled { get; set; }
 
         public IReadOnlyList<Role> Roles { get; internal set; } = ImmutableList<Role>.Empty;
+
+        public string ScopesClaim { get; set; } = "scp";
     }
 }
