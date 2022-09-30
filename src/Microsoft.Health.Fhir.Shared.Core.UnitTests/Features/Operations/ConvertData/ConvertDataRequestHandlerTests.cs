@@ -24,7 +24,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.ConvertData
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class ConvertDataRequestHandlerTests
     {

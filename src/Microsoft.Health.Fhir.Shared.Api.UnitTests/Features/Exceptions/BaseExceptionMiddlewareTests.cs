@@ -22,7 +22,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Web)]
     public class BaseExceptionMiddlewareTests
     {

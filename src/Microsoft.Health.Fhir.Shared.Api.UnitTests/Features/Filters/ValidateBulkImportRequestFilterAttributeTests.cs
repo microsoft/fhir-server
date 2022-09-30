@@ -18,7 +18,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
-    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     [Trait(Traits.Category, Categories.Validate)]
     [Trait(Traits.Category, Categories.Web)]

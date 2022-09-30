@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class ResourceSurrogateIdHelperTests
     {

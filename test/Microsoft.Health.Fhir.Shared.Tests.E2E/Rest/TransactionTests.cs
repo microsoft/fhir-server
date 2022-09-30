@@ -22,7 +22,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.Transaction)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]

@@ -23,7 +23,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class ResourceWrapperFactoryTests
     {

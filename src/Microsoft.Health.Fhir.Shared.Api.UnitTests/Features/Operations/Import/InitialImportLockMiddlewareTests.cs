@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
 {
-    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     public class InitialImportLockMiddlewareTests
     {

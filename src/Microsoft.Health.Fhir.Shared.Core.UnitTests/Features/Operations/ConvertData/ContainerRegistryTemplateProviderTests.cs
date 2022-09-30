@@ -21,7 +21,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.ConvertData
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class ContainerRegistryTemplateProviderTests
     {

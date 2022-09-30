@@ -20,7 +20,7 @@ using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterDefinitionBuilderTests

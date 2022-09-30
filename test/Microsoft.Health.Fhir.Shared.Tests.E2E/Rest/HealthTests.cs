@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class HealthTests : IClassFixture<HttpIntegrationTestFixture>

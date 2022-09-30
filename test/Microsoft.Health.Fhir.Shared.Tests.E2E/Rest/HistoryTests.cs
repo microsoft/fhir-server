@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// hence using the NextLink to keep querying for the next set
     /// Some tests have Thread.Sleep to avoid query time to fall in future
     /// </summary>
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [CollectionDefinition("History", DisableParallelization = true)]
     [Collection("History")]

@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Patch)]
     public class FhirPatchDeleteTests
     {

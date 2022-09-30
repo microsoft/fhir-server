@@ -21,7 +21,7 @@ using Xunit.Abstractions;
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
 {
     [CollectionDefinition("ReindexThrottle", DisableParallelization = true)]
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Index)]
     public class ReindexJobCosmosThrottleControllerTests
     {

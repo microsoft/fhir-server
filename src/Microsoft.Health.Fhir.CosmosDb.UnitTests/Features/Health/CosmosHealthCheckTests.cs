@@ -26,7 +26,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class CosmosHealthCheckTests
     {

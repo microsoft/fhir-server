@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     /// <summary>
     /// shared conformance tests
     /// </summary>
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public partial class ConformanceBuilderTests
     {

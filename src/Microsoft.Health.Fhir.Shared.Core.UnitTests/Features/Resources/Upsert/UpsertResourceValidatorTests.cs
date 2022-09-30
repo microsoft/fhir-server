@@ -24,7 +24,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Validate)]
     public class UpsertResourceValidatorTests
     {

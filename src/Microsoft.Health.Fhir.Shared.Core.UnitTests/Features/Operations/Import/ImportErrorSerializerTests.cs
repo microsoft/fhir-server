@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 {
-    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     public class ImportErrorSerializerTests
     {

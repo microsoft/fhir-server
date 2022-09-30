@@ -17,7 +17,7 @@ using Xunit;
 
 namespace Microsoft.Health.JobManagement.UnitTests
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
     public class JobHostingTests
     {

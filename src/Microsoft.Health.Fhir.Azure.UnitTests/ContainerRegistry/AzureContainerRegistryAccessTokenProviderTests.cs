@@ -21,7 +21,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class AzureContainerRegistryAccessTokenProviderTests
     {

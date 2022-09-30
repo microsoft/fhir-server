@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
@@ -19,6 +20,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
     /// <summary>
     /// Integration tests for a resource change capture feature.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class SqlServerFhirResourceChangeCaptureEnabledTests : IClassFixture<SqlServerFhirResourceChangeCaptureFixture>
     {
         private readonly SqlServerFhirResourceChangeCaptureFixture _fixture;

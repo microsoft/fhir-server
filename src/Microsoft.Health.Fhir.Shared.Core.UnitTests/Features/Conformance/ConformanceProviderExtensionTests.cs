@@ -16,7 +16,7 @@ using ResourceVersionPolicy = Hl7.Fhir.Model.CapabilityStatement.ResourceVersion
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class ConformanceProviderExtensionTests
     {

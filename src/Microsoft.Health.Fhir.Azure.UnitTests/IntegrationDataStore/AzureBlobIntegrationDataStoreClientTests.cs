@@ -21,7 +21,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class AzureBlobIntegrationDataStoreClientTests
     {

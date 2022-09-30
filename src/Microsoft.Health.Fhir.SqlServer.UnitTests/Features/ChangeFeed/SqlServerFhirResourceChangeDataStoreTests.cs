@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
     /// <summary>
     /// Unit tests to validates input parameters of a GetRecordsAsync function.
     /// </summary>
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public class SqlServerFhirResourceChangeDataStoreTests
     {

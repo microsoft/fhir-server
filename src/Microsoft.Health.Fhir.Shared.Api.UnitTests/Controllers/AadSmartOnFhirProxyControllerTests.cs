@@ -28,7 +28,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public class AadSmartOnFhirProxyControllerTests
     {

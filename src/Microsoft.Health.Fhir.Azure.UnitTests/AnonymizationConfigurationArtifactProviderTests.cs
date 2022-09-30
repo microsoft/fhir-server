@@ -31,7 +31,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Azure.UnitTests
 {
-    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
     public class AnonymizationConfigurationArtifactProviderTests
     {

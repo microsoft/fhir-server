@@ -23,7 +23,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Patch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class FhirPathPatchTests : IClassFixture<HttpIntegrationTestFixture>

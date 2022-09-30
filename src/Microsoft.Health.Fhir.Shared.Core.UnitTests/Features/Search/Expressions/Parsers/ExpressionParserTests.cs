@@ -21,7 +21,7 @@ using SearchParamType = Hl7.Fhir.Model.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     public class ExpressionParserTests
     {

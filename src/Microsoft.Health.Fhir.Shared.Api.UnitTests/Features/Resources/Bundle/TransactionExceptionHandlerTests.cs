@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Batch)]
     public class TransactionExceptionHandlerTests
     {

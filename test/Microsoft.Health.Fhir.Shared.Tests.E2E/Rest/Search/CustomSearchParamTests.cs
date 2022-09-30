@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [CollectionDefinition(Categories.CustomSearch, DisableParallelization = true)]
     [Collection(Categories.CustomSearch)]
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.CustomSearch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]

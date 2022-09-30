@@ -9,6 +9,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
     {
         public const string AnonymizedExport = nameof(AnonymizedExport);
 
+        public const string AssemblyValidation = nameof(AssemblyValidation);
+
+        public const string Audit = nameof(Audit);
+
         public const string Authorization = nameof(Authorization);
 
         public const string Batch = nameof(Batch);
@@ -29,6 +33,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string CustomSearch = nameof(CustomSearch);
 
+        public const string DataSourceValidation = nameof(DataSourceValidation);
+
         public const string Export = nameof(Export);
 
         public const string ExportDataValidation = nameof(ExportDataValidation);
@@ -44,6 +50,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Operations = nameof(Operations);
 
         public const string Patch = nameof(Patch);
+
+        public const string Schema = nameof(Schema);
 
         public const string Search = nameof(Search);
 

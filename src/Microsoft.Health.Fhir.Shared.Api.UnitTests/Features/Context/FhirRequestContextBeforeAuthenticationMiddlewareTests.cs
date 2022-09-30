@@ -19,7 +19,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Web)]
     public class FhirRequestContextBeforeAuthenticationMiddlewareTests
     {

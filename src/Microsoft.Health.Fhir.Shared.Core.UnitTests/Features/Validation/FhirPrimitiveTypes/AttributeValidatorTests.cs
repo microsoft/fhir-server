@@ -15,7 +15,7 @@ using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Validation.FhirPrimitiveTypes
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Validate)]
     public class AttributeValidatorTests
     {

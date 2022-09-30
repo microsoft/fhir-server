@@ -24,7 +24,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
-    [Trait("Traits.OwningTeam", OwningTeam.FhirImport)]
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
     [Trait(Traits.Category, Categories.Export)]
     public class ExportAnonymizerTests

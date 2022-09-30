@@ -19,7 +19,7 @@ using Claim = System.Security.Claims.Claim;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Security)]
     public class PrincipalClaimsExtractorTests
     {

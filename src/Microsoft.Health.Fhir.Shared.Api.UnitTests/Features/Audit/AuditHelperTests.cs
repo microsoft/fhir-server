@@ -21,7 +21,8 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Audit)]
     public class AuditHelperTests
     {
         private const string AuditEventType = AuditEventSubType.Create;

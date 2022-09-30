@@ -16,7 +16,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
 {
-    [Trait("Traits.OwningTeam", OwningTeam.Fhir)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.CompartmentSearch)]
     [Trait(Traits.Category, Categories.Web)]
     public class CompartmentTypesRouteConstraintTests : RouteTestBase
