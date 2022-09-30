@@ -172,11 +172,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("true", "true")]
-        [InlineData("true", "false")]
-        [InlineData("false", "true")]
-        [InlineData("false", "false")]
-        public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(string headerValue, string profileValidation)
+        [InlineData("true")]
+        [InlineData("false")]
+        public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(string profileValidation)
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -213,23 +211,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            if (headerValue.Equals("true") && profileValidation.Equals("true"))
-            {
-                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithHeader(bundle, profileValidation);
-                Assert.NotNull(fhirResponse);
-                Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-                Bundle bundleResource = fhirResponse.Resource;
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithValidationHeader(bundle, profileValidation);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+            Bundle bundleResource = fhirResponse.Resource;
 
+            if (profileValidation.Equals("true"))
+            {
                 Assert.Equal("400", bundleResource.Entry[0].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[1].Response.Status);
                 Assert.Equal("400", bundleResource.Entry[2].Response.Status);
             }
             else
             {
-                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithHeader(bundle, "false");
-                Assert.NotNull(fhirResponse);
-                Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-                Bundle bundleResource = fhirResponse.Resource;
                 Assert.Equal("201", bundleResource.Entry[0].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[1].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[2].Response.Status);
@@ -237,12 +231,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("true", "true")]
-        [InlineData("true", "false")]
-        [InlineData("false", "true")]
-        [InlineData("false", "false")]
+        [InlineData("true")]
+        [InlineData("false")]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenATransactionBundle_WithProfileValidationFlag_ReturnsABundleResponse(string headerValue, string profileValidation)
+        public async Task GivenATransactionBundle_WithProfileValidationFlag_ReturnsABundleResponse(string profileValidation)
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -279,14 +271,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            if (headerValue.Equals("true") && profileValidation.Equals("true"))
+            if (profileValidation.Equals("true"))
             {
-                using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsyncWithHeader(bundle, profileValidation));
+                using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsyncWithValidationHeader(bundle, profileValidation));
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             }
             else
             {
-                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithHeader(bundle, "false");
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithValidationHeader(bundle, "false");
                 Assert.NotNull(fhirResponse);
                 Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
