@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -75,11 +74,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                 using IScoped<ISearchService> search = _searchServiceFactory();
                 results = await search.Value.SearchAsync(searchOptions, cancellationToken);
             }
-            catch (SqlException ex)
-            {
-                _logger.LogError(ex, $"{nameof(SqlException)} in MemberMatch service.");
-                throw;
-            }
             catch (InvalidSearchOperationException ex)
             {
                 _logger.LogError(ex, $"{nameof(InvalidSearchOperationException)} in MemberMatch service.");
@@ -87,6 +81,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             }
             catch (Exception ex)
             {
+                if (ex.Message.Contains("The query processor ran out of internal resources and could not produce a query plan.", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogError(ex, $"{nameof(SqlQueryPlanException)} in MemberMatch service.");
+                    throw;
+                }
+
                 _logger.LogError(ex, "Generic problem in MemberMatch service.");
                 throw new MemberMatchMatchingException(Core.Resources.GenericMemberMatch);
             }
