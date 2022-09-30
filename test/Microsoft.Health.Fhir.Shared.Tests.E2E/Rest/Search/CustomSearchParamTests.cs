@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -484,7 +485,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // this becomes null when the uniqueResource gets passed in
             if (reindexJobUri != null)
             {
-                response = await WaitForReindexStatus(reindexJobUri, "Completed");
+                response = await WaitForReindexStatus(Client, reindexJobUri, "Completed");
 
                 _output.WriteLine("ReindexJobDocument:");
                 var serializer = new FhirJsonSerializer();
@@ -510,7 +511,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return (response, reindexJobUri);
         }
 
-        private async Task<FhirResponse<Parameters>> WaitForReindexStatus(Uri reindexJobUri, params string[] desiredStatus)
+        internal static async Task<FhirResponse<Parameters>> WaitForReindexStatus(TestFhirClient client, Uri reindexJobUri, params string[] desiredStatus)
         {
             int checkReindexCount = 0;
             int maxCount = 30;
@@ -527,7 +528,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     await Task.Delay(delay);
                 }
 
-                reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
+                reindexJobResult = await client.CheckReindexAsync(reindexJobUri);
                 currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Status)?.Value.ToString();
                 checkReindexCount++;
             }
@@ -537,7 +538,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             if (checkReindexCount >= maxCount)
             {
-                throw new Exception($"ReindexJob did not complete within {checkReindexCount} attempts and a duration of {sw.Elapsed.Duration()}");
+                throw new Exception($"ReindexJob did not complete within {checkReindexCount} attempts and a duration of {sw.Elapsed.Duration()}. This may cause other tests using Reindex to fail.");
             }
 
             return reindexJobResult;

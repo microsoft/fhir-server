@@ -6,7 +6,6 @@
 using System;
 using System.Linq;
 using System.Net;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
@@ -451,7 +450,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     // Start a reindex job
                     (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
 
-                    await WaitForReindexStatus(reindexJobUri, "Completed");
+                    await CustomSearchParamTests.WaitForReindexStatus(Client, reindexJobUri, "Completed");
 
                     FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
                     Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
@@ -461,7 +460,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                     Assert.Contains(createdSearchParam.Resource.Url, param?.Value?.ToString());
 
-                    reindexJobResult = await WaitForReindexStatus(reindexJobUri, "Completed");
+                    reindexJobResult = await CustomSearchParamTests.WaitForReindexStatus(Client, reindexJobUri, "Completed");
                     _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with name or id containing '{name}'.");
 
                     bool floatParse = float.TryParse(
@@ -574,28 +573,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 _output.WriteLine($"Stack Trace: {e.StackTrace}");
                 throw;
             }
-        }
-
-        private async Task<FhirResponse<Parameters>> WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
-        {
-            int checkReindexCount = 0;
-            string currentStatus;
-            FhirResponse<Parameters> reindexJobResult = null;
-            do
-            {
-                reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Status)?.Value.ToString();
-                checkReindexCount++;
-                await Task.Delay(1000);
-            }
-            while (!desiredStatus.Contains(currentStatus) && checkReindexCount < 20);
-
-            if (checkReindexCount >= 20)
-            {
-                throw new Exception("ReindexJob did not complete within 20 seconds.");
-            }
-
-            return reindexJobResult;
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
