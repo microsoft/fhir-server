@@ -59,6 +59,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\RouteTestBase.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\RequestHandlerCheckAccessTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\SMART\SmartClinicalScopesMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Throttling\ThrottlingMiddlewareTests.cs" />
   </ItemGroup>
   <ItemGroup>
