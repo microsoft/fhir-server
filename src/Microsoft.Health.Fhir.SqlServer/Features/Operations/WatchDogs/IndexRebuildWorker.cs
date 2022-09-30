@@ -52,18 +52,18 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
         private void RebuildIndexes(string connectionString)
         {
-            while (true)
+            retry:
+            try
             {
-                try
-                {
-                    var indexRebuilder = new IndexRebuilder(connectionString, _threads, false);
-                    indexRebuilder.Run(out var cancel, out var tables);
-                }
-                catch (SqlException e)
-                {
-                    SqlService.LogEvent($"RebuildIndexes", "Error", SqlService.ShowConnectionString(connectionString), text: e.ToString());
-                    Thread.Sleep(60000);
-                }
+                var indexRebuilder = new IndexRebuilder(connectionString, _threads, false);
+                indexRebuilder.Run(out var cancel, out var tables);
+                Thread.Sleep(60000);
+            }
+            catch (SqlException e)
+            {
+                SqlService.LogEvent($"RebuildIndexes", "Error", SqlService.ShowConnectionString(connectionString), text: e.ToString());
+                Thread.Sleep(60000);
+                goto retry;
             }
         }
 

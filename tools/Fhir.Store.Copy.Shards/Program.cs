@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly string SourceConnectionString = ConfigurationManager.ConnectionStrings["SourceDatabase"].ConnectionString;
         private static readonly string TargetConnectionString = ConfigurationManager.ConnectionStrings["TargetDatabase"].ConnectionString;
         private static readonly string QueueConnectionString = ConfigurationManager.ConnectionStrings["QueueDatabase"].ConnectionString;
+        private static readonly string ShardsFilter = ConfigurationManager.AppSettings["ShardsFilter"];
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
         private static readonly int UnitSize = int.Parse(ConfigurationManager.AppSettings["UnitSize"]);
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
             Console.WriteLine($"Target=[{TargetConnectionString}]");
             Console.WriteLine($"Queue=[{QueueConnectionString}]");
-            var method = args.Length > 0 ? args[0] : "merge";
+            var method = args.Length > 0 ? args[0] : "query";
             if (method == "setupdb")
             {
                 SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.Central.dacpac");
@@ -69,13 +70,148 @@ namespace Microsoft.Health.Fhir.Store.Copy
                 Queue = new SqlService(QueueConnectionString);
                 PopulateJobQueue(UnitSize);
             }
-            else
+            else if (method == "merge")
             {
                 Target = new SqlService(TargetConnectionString);
                 Queue = new SqlService(QueueConnectionString);
                 PopulateJobQueue(UnitSize);
                 Copy();
             }
+            else
+            {
+                Target = new SqlService(TargetConnectionString);
+                Console.WriteLine($"RunQuery: started at {DateTime.UtcNow:s}...");
+                RunQuery();
+            }
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
+        private static void RunQuery()
+        {
+            var shardIds = ShardsFilter.Split(",").Select(_ => new ShardId(byte.Parse(_))).ToList();
+            if (shardIds.Count == 0)
+            {
+                shardIds = Target.ShardIds.ToList();
+            }
+
+            Console.WriteLine($"RunQuery: ShardIds={string.Join(',', shardIds)}.");
+
+            var sw = Stopwatch.StartNew();
+            var top = 11;
+            var q0 = $@"
+DECLARE @p0 smallint = 1016 -- http://hl7.org/fhir/SearchParameter/Patient-name
+DECLARE @p1 nvarchar(256) = 'Kesha802' -- 281
+DECLARE @p2 smallint = 103 -- Patient
+DECLARE @p3 smallint = 217 -- http://hl7.org/fhir/SearchParameter/clinical-patient
+DECLARE @p4 smallint = 96 -- Observation
+DECLARE @p5 smallint = 202 -- http://hl7.org/fhir/SearchParameter/clinical-code
+DECLARE @p6 varchar(128) = '9279-1'
+DECLARE @p7 int = {top}
+                ";
+            var q1 = @"
+SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
+  FROM dbo.Resource Patient
+  WHERE Patient.IsHistory = 0
+    AND Patient.ResourceTypeId = @p2 -- Patient
+    AND EXISTS 
+          (SELECT *
+             FROM dbo.StringSearchParam
+             WHERE IsHistory = 0
+               AND ResourceTypeId = @p2 -- Patient
+               AND SearchParamId = @p0 -- type of name
+               AND Text LIKE @p1 -- name text
+               AND TransactionId = Patient.TransactionId AND ShardletId = Patient.ShardletId AND Sequence = Patient.Sequence
+          )
+  OPTION (RECOMPILE)
+                ";
+            var q2 = @"
+SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence 
+  FROM @ResourceKeys Patient
+  WHERE EXISTS 
+          (SELECT *
+             FROM dbo.ReferenceSearchParam Observ
+             WHERE IsHistory = 0
+               AND ResourceTypeId = @p4 -- Observation
+               AND SearchParamId = @p3 -- clinical-patient
+               AND ReferenceResourceTypeId = @p2 -- Patient
+               AND ReferenceResourceId = Patient.ResourceId
+               AND EXISTS
+                     (SELECT *
+                        FROM dbo.TokenSearchParam
+                        WHERE IsHistory = 0
+                          AND ResourceTypeId = @p4 -- Observation
+                          AND SearchParamId = @p5 -- clinical-code
+                          AND Code = @p6 -- code text
+                          AND TransactionId = Observ.TransactionId AND ShardletId = Observ.ShardletId AND Sequence = Observ.Sequence
+                     )
+          )
+  OPTION (RECOMPILE)
+                ";
+
+            // get resource keys
+            var resourceKeys = new List<ResourceKey>();
+            SqlService.ParallelForEachShard(
+                shardIds,
+                (shardId) =>
+                {
+                    using var cmd = new SqlCommand(@$"{q0}{q1}") { CommandTimeout = 600 };
+                    Target.ExecuteSqlWithRetries(
+                        shardId,
+                        cmd,
+                        cmdInt =>
+                        {
+                            var keys = new List<ResourceKey>();
+                            using var reader = cmdInt.ExecuteReader();
+                            while (reader.Read())
+                            {
+                                keys.Add(new ResourceKey(reader));
+                            }
+
+                            reader.NextResult();
+
+                            lock (resourceKeys)
+                            {
+                                resourceKeys.AddRange(keys);
+                            }
+                        });
+                },
+                null);
+
+            // Check resource keys
+            var checkedResourceKeys = new List<ResourceKey>();
+            SqlService.ParallelForEachShard(
+                shardIds,
+                (shardId) =>
+                {
+                    using var cmd = new SqlCommand(@$"{q0}{q2}") { CommandTimeout = 600 };
+                    var resourceKeysParam = new SqlParameter { ParameterName = "@ResourceKeys" };
+                    resourceKeysParam.AddResourceKeyList(resourceKeys);
+                    cmd.Parameters.Add(resourceKeysParam);
+                    Target.ExecuteSqlWithRetries(
+                        shardId,
+                        cmd,
+                        cmdInt =>
+                        {
+                            var keys = new List<ResourceKey>();
+                            using var reader = cmdInt.ExecuteReader();
+                            while (reader.Read())
+                            {
+                                keys.Add(new ResourceKey(reader));
+                            }
+
+                            reader.NextResult();
+
+                            lock (checkedResourceKeys)
+                            {
+                                checkedResourceKeys.AddRange(keys);
+                            }
+                        });
+                },
+                null);
+
+            // return final
+            var final = checkedResourceKeys.OrderBy(_ => _.TransactionId.Id).ThenBy(_ => _.ShardletId.Id).ThenBy(_ => _.Sequence).Take(top).ToList();
+            Console.WriteLine($"RunQuery: completed in {(int)sw.Elapsed.TotalMilliseconds} milliseconds at {DateTime.UtcNow:s}.");
         }
 
         private static void TruncateTables(ShardId shardId)
@@ -181,9 +317,14 @@ END
                 try
                 {
                     resourceTypeId = null;
-                    Queue.DequeueJob(out jobId, out version, out resourceTypeId, out minId, out var maxId, out var _);
+                    Queue.DequeueJob(out jobId, out version, out var definition);
                     if (jobId != -1)
                     {
+                        var split = definition.Split(";");
+                        resourceTypeId = short.Parse(split[0]);
+                        minId = long.Parse(split[1]);
+                        var maxId = long.Parse(split[2]);
+                        var suffix = split.Length > 3 ? split[3] : null;
                         if (!QueueOnly)
                         {
                             for (var t = 0; t < transactionsPerJob; t++)
