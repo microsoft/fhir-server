@@ -450,7 +450,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     // Start a reindex job
                     (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
 
-                    await CustomSearchParamTests.WaitForReindexStatus(Client, reindexJobUri, "Completed");
+                    await Client.WaitForReindexStatus(reindexJobUri, "Completed");
 
                     FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
                     Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.SearchParams);
@@ -460,7 +460,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                     Assert.Contains(createdSearchParam.Resource.Url, param?.Value?.ToString());
 
-                    reindexJobResult = await CustomSearchParamTests.WaitForReindexStatus(Client, reindexJobUri, "Completed");
+                    reindexJobResult = await Client.WaitForReindexStatus(reindexJobUri, "Completed");
                     _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with name or id containing '{name}'.");
 
                     bool floatParse = float.TryParse(

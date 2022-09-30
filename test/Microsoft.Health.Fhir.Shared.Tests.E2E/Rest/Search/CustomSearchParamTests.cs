@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -17,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -485,7 +483,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // this becomes null when the uniqueResource gets passed in
             if (reindexJobUri != null)
             {
-                response = await WaitForReindexStatus(Client, reindexJobUri, "Completed");
+                response = await Client.WaitForReindexStatus(reindexJobUri, "Completed");
 
                 _output.WriteLine("ReindexJobDocument:");
                 var serializer = new FhirJsonSerializer();
@@ -509,39 +507,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             return (response, reindexJobUri);
-        }
-
-        internal static async Task<FhirResponse<Parameters>> WaitForReindexStatus(TestFhirClient client, Uri reindexJobUri, params string[] desiredStatus)
-        {
-            int checkReindexCount = 0;
-            int maxCount = 30;
-            var delay = TimeSpan.FromSeconds(10);
-            var sw = new Stopwatch();
-            string currentStatus;
-            FhirResponse<Parameters> reindexJobResult;
-            sw.Start();
-
-            do
-            {
-                if (checkReindexCount > 0)
-                {
-                    await Task.Delay(delay);
-                }
-
-                reindexJobResult = await client.CheckReindexAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Status)?.Value.ToString();
-                checkReindexCount++;
-            }
-            while (!desiredStatus.Contains(currentStatus) && checkReindexCount < maxCount);
-
-            sw.Stop();
-
-            if (checkReindexCount >= maxCount)
-            {
-                throw new Exception($"ReindexJob did not complete within {checkReindexCount} attempts and a duration of {sw.Elapsed.Duration()}. This may cause other tests using Reindex to fail.");
-            }
-
-            return reindexJobResult;
         }
 
         private async Task DeleteSearchParameterAndVerify(SearchParameter searchParam)

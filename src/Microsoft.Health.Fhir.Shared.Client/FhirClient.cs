@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -15,6 +16,8 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
@@ -516,6 +519,41 @@ namespace Microsoft.Health.Fhir.Client
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             return await CreateResponseAsync<Parameters>(response);
+        }
+
+        public async Task<FhirResponse<Parameters>> WaitForReindexStatus(Uri reindexJobUri, params string[] desiredStatus)
+        {
+            int checkReindexCount = 0;
+            int maxCount = 30;
+            var delay = TimeSpan.FromSeconds(10);
+            var sw = new Stopwatch();
+            string currentStatus;
+            FhirResponse<Parameters> reindexJobResult;
+            sw.Start();
+
+            do
+            {
+                if (checkReindexCount > 0)
+                {
+                    await Task.Delay(delay);
+                }
+
+                reindexJobResult = await CheckReindexAsync(reindexJobUri);
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Status)?.Value.ToString();
+                checkReindexCount++;
+            }
+            while (!desiredStatus.Contains(currentStatus) && checkReindexCount < maxCount);
+
+            sw.Stop();
+
+            if (checkReindexCount >= maxCount)
+            {
+#pragma warning disable CA2201 // Do not raise reserved exception types. This is used in a test and has a specific message.
+                throw new Exception($"ReindexJob did not complete within {checkReindexCount} attempts and a duration of {sw.Elapsed.Duration()}. This may cause other tests using Reindex to fail.");
+#pragma warning restore CA2201 // Do not raise reserved exception types
+            }
+
+            return reindexJobResult;
         }
 
         /// <summary>
