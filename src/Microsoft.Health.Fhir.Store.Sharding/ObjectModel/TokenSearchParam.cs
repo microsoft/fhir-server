@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 SearchParamId = reader.GetInt16(4);
                 SystemId = reader.IsDBNull(5) ? null : reader.GetInt32(5);
                 Code = reader.GetString(6);
-                IsHistory = reader.GetBoolean(6);
+                IsHistory = reader.GetBoolean(7);
             }
             else
             {
