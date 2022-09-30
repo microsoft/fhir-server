@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class CitusService
     {
-        private string _connectionString;
+        private readonly string _connectionString;
 
         public CitusService(string connectionString)
         {
@@ -32,11 +32,20 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         {
             int c = 0;
 
-            using (var conn = new NpgsqlConnection(_connectionString))
+            using (var connection = new NpgsqlConnection(_connectionString))
             {
-                conn.Open();
+                connection.Open();
 
-                c += resources.BulkLoadTable(conn);
+                c += connection.BulkLoadTable(resources, "resource");
+                c += connection.BulkLoadTable(referenceSearchParams, "referencesearchparam");
+                c += connection.BulkLoadTable(compartmentAssignments, "compartmentassignment");
+                c += connection.BulkLoadTable(tokenTexts, "tokentext");
+                c += connection.BulkLoadTable(dateTimeSearchParams, "datetimesearchparam");
+                c += connection.BulkLoadTable(tokenQuantityCompositeSearchParams, "tokenquantitycompositesearchparam");
+                c += connection.BulkLoadTable(quantitySearchParams, "quantitysearchparam");
+                c += connection.BulkLoadTable(stringSearchParams, "stringsearchparam");
+                c += connection.BulkLoadTable(tokenTokenCompositeSearchParams, "tokentokencompositesearchparam");
+                c += connection.BulkLoadTable(tokenStringCompositeSearchParams, "tokenstringcompositesearchparam");
             }
 
             return c;

@@ -120,4 +120,42 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
     }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
+    public static class CitusTokenSearchParamExtension
+    {
+        public static int BulkLoadTable(this Npgsql.NpgsqlConnection connection, IEnumerable<TokenSearchParam> rows, string tableName)
+        {
+            int c = 0;
+
+            using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
+            {
+                foreach (var row in rows)
+                {
+                    writer.StartRow();
+                    writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
+                    writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    if (row.SystemId.HasValue)
+                    {
+                        writer.Write(row.SystemId.Value, NpgsqlTypes.NpgsqlDbType.Integer);
+                    }
+                    else
+                    {
+                        writer.WriteNull();
+                    }
+
+                    writer.Write(row.Code, NpgsqlTypes.NpgsqlDbType.Varchar);
+                    writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
+                    c++;
+                }
+
+                writer.Complete();
+            }
+
+            return c;
+        }
+    }
 }

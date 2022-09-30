@@ -142,4 +142,52 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
     }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
+    public static class CitusTokenStringCompositeSearchParamExtension
+    {
+        public static int BulkLoadTable(this Npgsql.NpgsqlConnection connection, IEnumerable<TokenStringCompositeSearchParam> rows, string tableName)
+        {
+            int c = 0;
+
+            using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
+            {
+                foreach (var row in rows)
+                {
+                    writer.StartRow();
+                    writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
+                    writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    if (row.SystemId1.HasValue)
+                    {
+                        writer.Write(row.SystemId1.Value, NpgsqlTypes.NpgsqlDbType.Integer);
+                    }
+                    else
+                    {
+                        writer.WriteNull();
+                    }
+
+                    writer.Write(row.Code1, NpgsqlTypes.NpgsqlDbType.Varchar);
+                    writer.Write(row.Text2, NpgsqlTypes.NpgsqlDbType.Varchar);
+                    if (row.TextOverflow2 != null)
+                    {
+                        writer.Write(row.TextOverflow2, NpgsqlTypes.NpgsqlDbType.Text);
+                    }
+                    else
+                    {
+                        writer.WriteNull();
+                    }
+
+                    writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
+                    c++;
+                }
+
+                writer.Complete();
+            }
+
+            return c;
+        }
+    }
 }

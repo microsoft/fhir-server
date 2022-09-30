@@ -162,4 +162,61 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
     }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
+    public static class CitusQuantitySearchParamExtension
+    {
+        public static int BulkLoadTable(this Npgsql.NpgsqlConnection connection, IEnumerable<QuantitySearchParam> rows, string tableName)
+        {
+            int c = 0;
+
+            using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
+            {
+                foreach (var row in rows)
+                {
+                    writer.StartRow();
+                    writer.Write(row.ResourceTypeId);
+                    writer.Write(row.TransactionId.Id);
+                    writer.Write(row.ShardletId.Id);
+                    writer.Write(row.Sequence);
+                    writer.Write(row.SearchParamId);
+                    if (row.SystemId.HasValue)
+                    {
+                        writer.Write(row.SystemId.Value);
+                    }
+                    else
+                    {
+                        writer.WriteNull();
+                    }
+
+                    if (row.QuantityCodeId.HasValue)
+                    {
+                        writer.Write(row.QuantityCodeId.Value);
+                    }
+                    else
+                    {
+                        writer.WriteNull();
+                    }
+
+                    if (row.SingleValue.HasValue)
+                    {
+                        writer.Write(row.SingleValue.Value);
+                    }
+                    else
+                    {
+                        writer.WriteNull();
+                    }
+
+                    writer.Write(row.LowValue);
+                    writer.Write(row.HighValue);
+                    writer.Write(row.IsHistory);
+                    c++;
+                }
+
+                writer.Complete();
+            }
+
+            return c;
+        }
+    }
 }

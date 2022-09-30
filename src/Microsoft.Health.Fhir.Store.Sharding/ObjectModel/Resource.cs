@@ -117,25 +117,25 @@ namespace Microsoft.Health.Fhir.Store.Sharding
     [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
     public static class CitusResourceExtension
     {
-        public static int BulkLoadTable(this IEnumerable<Resource> resources, Npgsql.NpgsqlConnection connection)
+        public static int BulkLoadTable(this Npgsql.NpgsqlConnection connection, IEnumerable<Resource> rows, string tableName)
         {
             int c = 0;
 
-            using (var writer = connection.BeginBinaryImport("COPY resource FROM STDIN (FORMAT BINARY)"))
+            using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
             {
-                foreach (var row in resources)
+                foreach (var row in rows)
                 {
                     writer.StartRow();
-                    writer.Write(row.ResourceTypeId);
-                    writer.Write(row.ResourceId);
-                    writer.Write(row.Version);
-                    writer.Write(row.IsHistory);
-                    writer.Write(row.TransactionId.Id);
-                    writer.Write(row.ShardletId.Id);
-                    writer.Write(row.Sequence);
-                    writer.Write(row.IsDeleted);
-                    writer.Write(row.RequestMethod);
-                    writer.Write(row.SearchParamHash);
+                    writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.ResourceId, NpgsqlTypes.NpgsqlDbType.Varchar);
+                    writer.Write(row.Version, NpgsqlTypes.NpgsqlDbType.Integer);
+                    writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
+                    writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
+                    writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
+                    writer.Write(row.IsDeleted, NpgsqlTypes.NpgsqlDbType.Boolean);
+                    writer.Write(row.RequestMethod, NpgsqlTypes.NpgsqlDbType.Varchar);
+                    writer.Write(row.SearchParamHash, NpgsqlTypes.NpgsqlDbType.Varchar);
                     c++;
                 }
 
