@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 
                 c += connection.BulkLoadTable(resources, "resource");
                 c += connection.BulkLoadTable(referenceSearchParams, "referencesearchparam");
+                c += connection.BulkLoadTable(tokenSearchParams, "tokensearchparam");
                 c += connection.BulkLoadTable(compartmentAssignments, "compartmentassignment");
                 c += connection.BulkLoadTable(tokenTexts, "tokentext");
                 c += connection.BulkLoadTable(dateTimeSearchParams, "datetimesearchparam");
