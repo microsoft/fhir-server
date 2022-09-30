@@ -27,7 +27,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class CosmosHealthCheckTests
     {
         private readonly Container _container = Substitute.For<Container>();

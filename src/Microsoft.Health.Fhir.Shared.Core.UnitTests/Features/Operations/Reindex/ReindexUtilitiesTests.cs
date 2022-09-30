@@ -28,7 +28,7 @@ using Xunit.Abstractions;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Index)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexUtilitiesTests
     {
         private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();

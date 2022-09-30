@@ -27,7 +27,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class CosmosResponseProcessorTests
     {
         private readonly Dictionary<string, StringValues> _requestHeaders = new Dictionary<string, StringValues>();

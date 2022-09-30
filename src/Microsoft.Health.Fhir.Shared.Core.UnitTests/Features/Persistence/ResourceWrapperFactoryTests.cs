@@ -24,7 +24,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.Search)]
     public class ResourceWrapperFactoryTests
     {
         private readonly IRawResourceFactory _rawResourceFactory;

@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
     /// Tests Resource Handlers
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public partial class ResourceHandlerTests
     {
         private readonly IFhirDataStore _fhirDataStore;

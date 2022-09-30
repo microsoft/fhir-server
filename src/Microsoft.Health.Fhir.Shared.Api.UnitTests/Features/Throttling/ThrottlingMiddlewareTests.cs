@@ -35,7 +35,8 @@ using OperationOutcome = Hl7.Fhir.Model.OperationOutcome;
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.Throttling)]
+    [Trait(Traits.Category, Categories.Web)]
     public class ThrottlingMiddlewareTests : IAsyncLifetime
     {
         private HttpContext _httpContext = new DefaultHttpContext();

@@ -30,7 +30,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Index)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexSingleResourceRequestHandlerTests
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;

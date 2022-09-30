@@ -24,7 +24,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.Serialization)]
     public class ResourceDeserializerTests
     {
         private readonly RawResourceFactory _rawResourceFactory;

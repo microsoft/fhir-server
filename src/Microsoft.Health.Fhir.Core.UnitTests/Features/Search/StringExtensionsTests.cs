@@ -13,7 +13,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    [Trait(Traits.Category, Categories.Operations)]
     public class StringExtensionsTests
     {
         private const string ParamNameS = "s";

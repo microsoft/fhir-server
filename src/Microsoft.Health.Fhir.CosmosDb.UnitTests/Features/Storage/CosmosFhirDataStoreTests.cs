@@ -39,7 +39,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class CosmosFhirDataStoreTests
     {
         private readonly ICosmosQueryFactory _cosmosQueryFactory;

@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// This test class is split up by FHIR version to accommodate this.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public partial class FhirStorageVersioningPolicyTests
     {
         [Fact]

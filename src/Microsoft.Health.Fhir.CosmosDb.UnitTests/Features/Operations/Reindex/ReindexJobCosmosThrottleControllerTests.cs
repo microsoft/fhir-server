@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
 {
     [CollectionDefinition("ReindexThrottle", DisableParallelization = true)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Index)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexJobCosmosThrottleControllerTests
     {
         private ITestOutputHelper _output;

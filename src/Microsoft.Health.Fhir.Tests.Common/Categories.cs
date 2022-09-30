@@ -33,7 +33,17 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string CustomSearch = nameof(CustomSearch);
 
+        public const string DataConversion = nameof(DataConversion);
+
+        /// <summary>
+        /// Set of tests validating data source functionalities (like, SQL, Cosmos, Storage Accounts).
+        /// </summary>
         public const string DataSourceValidation = nameof(DataSourceValidation);
+
+        /// <summary>
+        /// Set of tests validating FHIR domain related logic.
+        /// </summary>
+        public const string DomainLogicValidation = nameof(DomainLogicValidation);
 
         public const string Export = nameof(Export);
 
@@ -43,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Import = nameof(Import);
 
-        public const string Index = nameof(Index);
+        public const string IndexAndReindex = nameof(IndexAndReindex);
 
         public const string MemberMatch = nameof(MemberMatch);
 
@@ -57,9 +67,16 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Security = nameof(Security);
 
+        /// <summary>
+        /// Set of tests validating serialization and deserialization logic.
+        /// </summary>
+        public const string Serialization = nameof(Serialization);
+
         public const string SmartOnFhir = nameof(SmartOnFhir);
 
         public const string Transaction = nameof(Transaction);
+
+        public const string Throttling = nameof(Throttling);
 
         public const string Validate = nameof(Validate);
 

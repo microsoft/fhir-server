@@ -21,7 +21,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Index)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class FhirOperationDataStoreReindexTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime

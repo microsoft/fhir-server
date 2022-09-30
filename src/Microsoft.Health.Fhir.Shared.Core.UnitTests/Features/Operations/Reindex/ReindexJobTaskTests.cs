@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
     [CollectionDefinition("ReindexTaskTests", DisableParallelization = true)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Index)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexJobTaskTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
     {
         private readonly string _base64EncodedToken = ContinuationTokenConverter.Encode("token");

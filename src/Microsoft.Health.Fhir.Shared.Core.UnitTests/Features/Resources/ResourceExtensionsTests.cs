@@ -14,7 +14,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.Search)]
     public class ResourceExtensionsTests
     {
         private readonly ResourceReference _organization1 = new ResourceReference("Organization/1");

@@ -14,7 +14,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class StorageExceptionParserTests
     {
         [InlineData(HttpStatusCode.Forbidden)]

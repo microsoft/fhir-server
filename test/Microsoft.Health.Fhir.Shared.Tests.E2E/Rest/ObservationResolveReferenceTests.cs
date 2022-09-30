@@ -20,7 +20,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DomainLogicValidation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class ObservationResolveReferenceTests : IClassFixture<HttpIntegrationTestFixture>
     {

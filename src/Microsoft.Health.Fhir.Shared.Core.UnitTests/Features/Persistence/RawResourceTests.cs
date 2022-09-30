@@ -16,7 +16,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public class RawResourceTests
     {
         [Fact]

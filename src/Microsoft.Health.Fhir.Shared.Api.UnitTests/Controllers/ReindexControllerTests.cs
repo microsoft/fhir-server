@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Web)]
-    [Trait(Traits.Category, Categories.Index)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexControllerTests
     {
         private ReindexController _reindexEnabledController;

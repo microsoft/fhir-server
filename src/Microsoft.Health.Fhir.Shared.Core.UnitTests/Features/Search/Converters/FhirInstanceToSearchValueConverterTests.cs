@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.DataConversion)]
     public abstract class FhirInstanceToSearchValueConverterTests<TElement>
         where TElement : Element, new()
     {

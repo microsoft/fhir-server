@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Provides R4 specific tests.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {
         [Fact]

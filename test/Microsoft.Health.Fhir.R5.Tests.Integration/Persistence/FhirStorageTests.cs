@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// Persistence tests for R5
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         [Fact]

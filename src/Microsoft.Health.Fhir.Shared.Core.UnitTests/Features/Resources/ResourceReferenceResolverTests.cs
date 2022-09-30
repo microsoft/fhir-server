@@ -24,7 +24,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public class ResourceReferenceResolverTests
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();

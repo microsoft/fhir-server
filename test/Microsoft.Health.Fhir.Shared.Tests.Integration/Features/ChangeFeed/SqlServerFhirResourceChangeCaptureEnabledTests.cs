@@ -21,7 +21,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
     /// Integration tests for a resource change capture feature.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.DomainLogicValidation)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerFhirResourceChangeCaptureEnabledTests : IClassFixture<SqlServerFhirResourceChangeCaptureFixture>
     {
         private readonly SqlServerFhirResourceChangeCaptureFixture _fixture;
