@@ -128,5 +128,6 @@
     <Build Include="Schema Objects\Schemas\dbo\Tables\TokenTokenCompositeSearchParam.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\MergeResources.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutShardTransaction.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\ResourceKeyList.sql" />
   </ItemGroup>
 </Project>
