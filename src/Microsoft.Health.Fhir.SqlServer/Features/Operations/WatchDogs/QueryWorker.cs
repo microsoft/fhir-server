@@ -104,7 +104,7 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                AND TransactionId = Patient.TransactionId AND ShardletId = Patient.ShardletId AND Sequence = Patient.Sequence
           )
   OPTION (RECOMPILE)
-EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Status='End',@Start=@st,@Rows=@@rowcount
+EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
             var q2 = $@"
 DECLARE @st datetime = getUTCdate()
@@ -129,7 +129,7 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                      )
           )
   OPTION (RECOMPILE)
-EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@Status='End',@Start=@st,@Rows=@@rowcount
+EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
 
             // get resource keys
