@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -211,10 +212,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters, isAsyncOperation);
 
-            bool limitReindex = false; // Are we running in the test environment?
+            bool limitReindex = true; // Are we running in the test environment?
             if (limitReindex == true)
             {
-                string limitReindexIdsString = null; // Was the list of limiting resource ids supplied?
+                string limitReindexIdsString = "59c92313-0f35-4396-9d6b-f39f142c8b50,a635340f-5534-4903-b2dd-7b85e61d4c09"; // Was the list of limiting resource ids supplied?
                 if (limitReindexIdsString != null)
                 {
                     string[] limitReindexIds = limitReindexIdsString.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
@@ -222,27 +223,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     foreach (string id in limitReindexIds)
                     {
                         limitReindexIdSubExpressions.Add(
-                            new SearchParameterExpression(
-                                new SearchParameterInfo(
-                                    "_id",
-                                    "_id",
-                                    ValueSets.SearchParamType.Token,
-                                    new Uri("http://hl7.org/fhir/SearchParameter/Resource-id"),
-                                    new List<SearchParameterComponentInfo>(),
-                                    "Resource.id",
-                                    new List<string>(),
-                                    new List<string>() { "Resource" },
-                                    "Test reindexing limiter id"),
-                                new StringExpression(
-                                    StringOperator.Equals,
-                                    FieldName.TokenCode,
-                                    null,
-                                    id,
-                                    true))); // True to ignore case, id is guid.
+                            new StringExpression(
+                                StringOperator.Equals,
+                                FieldName.TokenCode,
+                                null,
+                                id,
+                                true)); // True to ignore case, id is guid.
                     }
 
                     var limitReindexIdExpressions = new MultiaryExpression(MultiaryOperator.Or, limitReindexIdSubExpressions);
-                    var limitReindexSubExpressions = new List<Expression>() { searchOptions.Expression, limitReindexIdExpressions };
+
+                    var searchParameterExpression = new SearchParameterExpression(
+                        new SearchParameterInfo(
+                            "_id",
+                            "_id",
+                            ValueSets.SearchParamType.Token,
+                            new Uri("http://hl7.org/fhir/SearchParameter/Resource-id"),
+                            new List<SearchParameterComponentInfo>(),
+                            "Resource.id",
+                            new List<string>(),
+                            new List<string>() { "Resource" },
+                            "Test reindexing limiter id"),
+                        limitReindexIdExpressions);
+
+                    var limitReindexSubExpressions = new List<Expression>() { searchOptions.Expression, searchParameterExpression };
                     var limitReindexExpression = new MultiaryExpression(MultiaryOperator.And, limitReindexSubExpressions);
                     searchOptions.Expression = limitReindexExpression;
                 }
