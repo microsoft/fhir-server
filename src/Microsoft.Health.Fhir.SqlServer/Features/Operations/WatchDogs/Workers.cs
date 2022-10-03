@@ -12,6 +12,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         private string _targetConnectionString = string.Empty;
         private CopyWorker _copyWorker;
         private IndexRebuildWorker _indexRebuildWorker;
+        private QueryWorker _queryWorker;
 
         public Workers(string connectionString)
         {
@@ -22,6 +23,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             {
                 _copyWorker = new CopyWorker(_targetConnectionString);
                 _indexRebuildWorker = new IndexRebuildWorker(_targetConnectionString);
+                _queryWorker = new QueryWorker(_targetConnectionString);
             }
         }
 
