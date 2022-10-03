@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading;
-using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Store.Sharding;
 using Microsoft.Health.Fhir.Store.Utils;
 
@@ -104,7 +103,7 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                AND TransactionId = Patient.TransactionId AND ShardletId = Patient.ShardletId AND Sequence = Patient.Sequence
           )
   OPTION (RECOMPILE)
-EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Status='End',@Start=@st,@Rows=@@rowcount
+EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
             var q2 = $@"
 DECLARE @st datetime = getUTCdate()
@@ -129,13 +128,12 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                      )
           )
   OPTION (RECOMPILE)
-EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@Status='End',@Start=@st,@Rows=@@rowcount
+EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
 
-            // get resource keys
+            // get resource keys from all shards
             var firstResourceKeys = new List<ResourceKey>();
             SqlService.ParallelForEachShard(
-                _shardIds,
                 (shardId) =>
                 {
                     using var cmd = new SqlCommand(@$"{q0}{q1}") { CommandTimeout = 600 };
