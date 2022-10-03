@@ -13,7 +13,9 @@ using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using static System.Net.WebRequestMethods;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -208,6 +210,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false)
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters, isAsyncOperation);
+
+            bool limitReindex = false; // Are we running in the test environment?
+            if (limitReindex == true)
+            {
+                string limitReindexIdsString = null; // Was the list of limiting resource ids supplied?
+                if (limitReindexIdsString != null)
+                {
+                    string[] limitReindexIds = limitReindexIdsString.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                    var limitReindexIdSubExpressions = new List<Expression>();
+                    foreach (string id in limitReindexIds)
+                    {
+                        limitReindexIdSubExpressions.Add(
+                            new SearchParameterExpression(
+                                new SearchParameterInfo(
+                                    "_id",
+                                    "_id",
+                                    ValueSets.SearchParamType.Token,
+                                    new Uri("http://hl7.org/fhir/SearchParameter/Resource-id"),
+                                    new List<SearchParameterComponentInfo>(),
+                                    "Resource.id",
+                                    new List<string>(),
+                                    new List<string>() { "Resource" },
+                                    "Test reindexing limiter id"),
+                                new StringExpression(
+                                    StringOperator.Equals,
+                                    FieldName.TokenCode,
+                                    null,
+                                    id,
+                                    true))); // True to ignore case, id is guid.
+                    }
+
+                    var limitReindexIdExpressions = new MultiaryExpression(MultiaryOperator.Or, limitReindexIdSubExpressions);
+                    var limitReindexSubExpressions = new List<Expression>() { searchOptions.Expression, limitReindexIdExpressions };
+                    var limitReindexExpression = new MultiaryExpression(MultiaryOperator.And, limitReindexSubExpressions);
+                    searchOptions.Expression = limitReindexExpression;
+                }
+            }
 
             if (countOnly)
             {
