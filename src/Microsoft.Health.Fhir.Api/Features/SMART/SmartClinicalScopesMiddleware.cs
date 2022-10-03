@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -32,10 +33,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, AuthorizationConfiguration authorizationConfiguration)
+        public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfigurationOptions)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(authorizationConfiguration, nameof(authorizationConfiguration));
+            EnsureArg.IsNotNull(securityConfigurationOptions, nameof(securityConfigurationOptions));
+
+            var authorizationConfiguration = securityConfigurationOptions.Value.Authorization;
 
             if (fhirRequestContextAccessor.RequestContext.Principal != null
                 && authorizationConfiguration.Enabled)
