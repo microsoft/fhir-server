@@ -347,6 +347,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             AddHeaderIfNeeded(HeaderNames.IfNoneMatch, entry.Request.IfNoneMatch, httpContext);
             AddHeaderIfNeeded(KnownHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
+            if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.ContainsKey(KnownHeaders.ProfileValidation)
+                    && _fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var hValue))
+            {
+                AddHeaderIfNeeded(KnownHeaders.ProfileValidation, hValue, httpContext);
+            }
+
             if (requestMethod == HTTPVerb.POST
                 || requestMethod == HTTPVerb.PUT)
             {

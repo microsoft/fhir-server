@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 BaseUri = new Uri("https://localhost/"),
                 CorrelationId = Guid.NewGuid().ToString(),
                 ResponseHeaders = new HeaderDictionary(),
+                RequestHeaders = new HeaderDictionary(),
             };
 
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
