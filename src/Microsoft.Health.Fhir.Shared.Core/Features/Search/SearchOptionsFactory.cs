@@ -260,6 +260,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
+            // check resource type restrictions from SMART clinical scopes
+            if (_contextAccessor.RequestContext?.AccessControlContext.ApplyFineGrainedAccessControl == true)
+            {
+                var clinicalScopeResources = new List<ResourceType>();
+                foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
+                {
+                    if (!Enum.TryParse<ResourceType>(restriction.Resource, out var clinicalScopeResourceType))
+                    {
+                        throw new ResourceNotSupportedException(restriction.Resource);
+                    }
+
+                    clinicalScopeResources.Add(clinicalScopeResourceType);
+                }
+
+                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+            }
+
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
             searchExpressions.AddRange(searchParams.Parameters.Select(
