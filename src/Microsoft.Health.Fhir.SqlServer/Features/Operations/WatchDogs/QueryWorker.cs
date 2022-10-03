@@ -88,7 +88,8 @@ DECLARE @p5 smallint = 202 -- http://hl7.org/fhir/SearchParameter/clinical-code
 DECLARE @p6 varchar(128) = '{code}'
 DECLARE @p7 int = {top}
                 ";
-            var q1 = @"
+            var q1 = $@"
+DECLARE @st datetime = getUTCdate()
 SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
   FROM dbo.Resource Patient
   WHERE Patient.IsHistory = 0
@@ -103,8 +104,10 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                AND TransactionId = Patient.TransactionId AND ShardletId = Patient.ShardletId AND Sequence = Patient.Sequence
           )
   OPTION (RECOMPILE)
+EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Status='End',@Start=@st,@Rows=@@rowcount
                 ";
-            var q2 = @"
+            var q2 = $@"
+DECLARE @st datetime = getUTCdate()
 SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence 
   FROM @ResourceKeys Patient
   WHERE EXISTS 
@@ -126,6 +129,7 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                      )
           )
   OPTION (RECOMPILE)
+EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@Status='End',@Start=@st,@Rows=@@rowcount
                 ";
 
             // get resource keys
