@@ -242,17 +242,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task PublishNotification(Hl7.Fhir.Model.Bundle responseBundle, BundleType bundleType)
         {
-            var apiCallResults = new Dictionary<string, int>();
+            var apiCallResults = new Dictionary<string, List<BundleSubCallMetricData>>();
             foreach (var entry in responseBundle.Entry)
             {
                 var status = entry.Response.Status;
                 if (apiCallResults.ContainsKey(status))
                 {
-                    apiCallResults[status]++;
+                    apiCallResults[status].Add(new BundleSubCallMetricData()
+                    {
+                        FhirOperation = string.Concat(entry?.Request?.Method, entry?.Request?.Url),
+                        ResourceType = entry?.Request?.TypeName,
+                    });
                 }
                 else
                 {
-                    apiCallResults[status] = 1;
+                    apiCallResults[status] = new List<BundleSubCallMetricData>();
+                    apiCallResults[status].Add(new BundleSubCallMetricData()
+                    {
+                        FhirOperation = string.Concat(entry?.Request?.Method, entry?.Request?.Url),
+                        ResourceType = entry?.Request?.TypeName,
+                    });
                 }
             }
 

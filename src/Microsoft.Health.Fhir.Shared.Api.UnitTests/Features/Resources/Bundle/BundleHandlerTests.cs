@@ -459,11 +459,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var results = notification.ApiCallResults;
 
-            Assert.Equal(code200s, results["200"]);
+            Assert.Equal(code200s, results["200"].Count());
 
             if (code404s > 0)
             {
-                Assert.Equal(code404s, results["404"]);
+                Assert.Equal(code404s, results["404"].Count());
             }
             else
             {
