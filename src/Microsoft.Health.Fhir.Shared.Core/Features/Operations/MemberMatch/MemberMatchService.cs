@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
 {
@@ -73,12 +74,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                 using IScoped<ISearchService> search = _searchServiceFactory();
                 results = await search.Value.SearchAsync(searchOptions, cancellationToken);
             }
-
-            // Generic catch for any exception happened during search.
+            catch (InvalidSearchOperationException ex)
+            {
+                _logger.LogError(ex, $"{nameof(InvalidSearchOperationException)} in MemberMatch service.");
+                throw;
+            }
             catch (Exception ex)
             {
+                if (ex.Message.Contains("The query processor ran out of internal resources and could not produce a query plan.", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogError(ex, $"{nameof(SqlQueryPlanException)} in MemberMatch service.");
+                    throw;
+                }
+
                 _logger.LogError(ex, "Generic problem in MemberMatch service.");
-                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
+                throw new MemberMatchMatchingException(Core.Resources.GenericMemberMatch);
             }
 
             return CreatePatientWithIdentity(patient, results);
