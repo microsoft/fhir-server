@@ -267,7 +267,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                             using var reader = cmdInt.ExecuteReader();
                             while (reader.Read())
                             {
-                                results.Add(toT(reader));
+                                resultsInt.Add(toT(reader));
                             }
 
                             reader.NextResult();
