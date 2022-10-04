@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirClaimsExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportControllerTests.cs" />
@@ -59,6 +60,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\RouteTestBase.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\RequestHandlerCheckAccessTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\SMART\SmartClinicalScopesMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Throttling\ThrottlingMiddlewareTests.cs" />
   </ItemGroup>
   <ItemGroup>

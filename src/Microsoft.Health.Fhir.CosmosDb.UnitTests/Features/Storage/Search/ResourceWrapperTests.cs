@@ -20,6 +20,8 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class ResourceWrapperTests
     {
         private readonly RawResourceFactory _rawResourceFactory;

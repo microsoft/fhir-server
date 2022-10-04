@@ -8,9 +8,12 @@
     ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
-    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
+    CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
+
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CONSTRAINT CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256 OR CodeOverflow2 IS NULL)
 
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 

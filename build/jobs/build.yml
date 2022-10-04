@@ -35,25 +35,31 @@ steps:
       testRunTitle: 'Unit Tests'
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
-  - task: PowerShell@2
-    inputs:
-      targetType: 'filePath'
-      filePath: $(System.DefaultWorkingDirectory)/build/Run-Tests-WithCoverage.ps1
+  - task: DotNetCoreCLI@2
     displayName: 'dotnet test with coverage'
-  - task: PublishTestResults@2
     inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '**/*.trx'
-      searchFolder: '$(Agent.BuildDirectory)/TestResults/'
+      command: test
+      projects: '**/*UnitTests/*.csproj'
+      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal'
+      testRunTitle: 'Unit Tests'
+  - task: reportgenerator@5
+    displayName: 'aggregate code coverage'
+    condition: succeededOrFailed()
+    inputs:
+      reports: '$(Agent.TempDirectory)/*/coverage.cobertura.xml'
+      reporttypes: 'Cobertura'
+      targetdir: '$(Agent.TempDirectory)/coverage'
   - task: PublishCodeCoverageResults@1
-    displayName: 'publish code coverage results'
+    displayName: 'publish code coverage'
+    condition: succeededOrFailed()
     inputs:
       codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(Agent.BuildDirectory)/TestResults/coverage.cobertura.xml'
+      failIfCoverageEmpty: true
+      summaryFileLocation: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
   - task: PublishBuildArtifacts@1
-    displayName: 'publish coverage.json'
+    displayName: 'publish Cobertura.xml'
     inputs:
-      pathToPublish: '$(Agent.BuildDirectory)/TestResults/coverage.json'
+      pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
 

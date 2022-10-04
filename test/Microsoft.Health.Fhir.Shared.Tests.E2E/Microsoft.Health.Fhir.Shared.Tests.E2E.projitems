@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />

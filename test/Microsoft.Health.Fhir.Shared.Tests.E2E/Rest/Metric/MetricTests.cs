@@ -5,12 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -24,6 +21,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class MetricTests : IClassFixture<MetricTestFixture>, IAsyncLifetime
     {

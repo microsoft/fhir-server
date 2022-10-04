@@ -48,12 +48,31 @@
     <None Remove="TestFiles\Normative\Profile-CarePlan-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore.json" />
+    <None Remove="TestFiles\Normative\Profile-Patient-uscore-noGender.json" />
+    <None Remove="TestFiles\Normative\Profile-Patient-uscore-noidentifier.json" />
     <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
     <None Remove="TestFiles\Normative\Medication.json" />
     <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <None Remove="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
+    <None Remove="TestFiles\Normative\TokenOverflowChargeItem.json" />
+    <None Remove="TestFiles\Normative\TokenOverflowPatient.json" />
+    <None Remove="TestFiles\Normative\TokenOverflowRiskAssessment.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomReferenceTokenSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomReferenceTokenSearchParameterStu3.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameterStu3.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenNumberNumberSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenNumberNumberSearchParameterStu3.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenQuantitySearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenQuantitySearchParameterStu3.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenStringSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenStringSearchParameterStu3.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenOverflowTokenSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenOverflowTokenSearchParameterStu3.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenTokenOverflowSearchParameter.json" />
+    <None Remove="TestFiles\Normative\CompositeCustomTokenTokenOverflowSearchParameterStu3.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <None Remove="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
     <None Remove="TestFiles\Normative\SearchParameterInvalidBase.json" />
@@ -267,9 +286,28 @@
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noidentifier.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noGender.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
+    <EmbeddedResource Include="TestFiles\Normative\TokenOverflowChargeItem.json" />
+    <EmbeddedResource Include="TestFiles\Normative\TokenOverflowPatient.json" />
+    <EmbeddedResource Include="TestFiles\Normative\TokenOverflowRiskAssessment.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomReferenceTokenSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomReferenceTokenSearchParameterStu3.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenDateTimeSearchParameterStu3.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenNumberNumberSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenNumberNumberSearchParameterStu3.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenQuantitySearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenQuantitySearchParameterStu3.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenStringSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenStringSearchParameterStu3.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenOverflowTokenSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenOverflowTokenSearchParameterStu3.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenTokenOverflowSearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CompositeCustomTokenTokenOverflowSearchParameterStu3.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidType.json" />
@@ -461,10 +499,11 @@
     <EmbeddedResource Include="TestFiles\Stu3\WeightInPounds.json" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="NSubstitute" Version="4.4.0" />
-    <PackageReference Include="xunit" Version="2.4.2" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
+    <PackageReference Include="Microsoft.Health.Abstractions" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />

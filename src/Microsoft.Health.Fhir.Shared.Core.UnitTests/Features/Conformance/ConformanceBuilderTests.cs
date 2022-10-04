@@ -17,6 +17,8 @@ using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     /// <summary>
     /// shared conformance tests
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public partial class ConformanceBuilderTests
     {
         private readonly ICapabilityStatementBuilder _builder;

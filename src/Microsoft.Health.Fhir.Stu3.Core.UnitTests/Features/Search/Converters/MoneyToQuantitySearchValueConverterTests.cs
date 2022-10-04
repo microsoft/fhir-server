@@ -6,13 +6,17 @@
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class MoneyToQuantitySearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<MoneyToQuantitySearchValueConverter, Money>
     {
         [Fact]

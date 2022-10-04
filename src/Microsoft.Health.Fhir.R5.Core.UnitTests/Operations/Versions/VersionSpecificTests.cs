@@ -5,6 +5,8 @@
 
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.R5.Core.UnitTests.Operations.Versions
@@ -12,6 +14,8 @@ namespace Microsoft.Health.Fhir.R5.Core.UnitTests.Operations.Versions
     /// <summary>
     /// Provides R5 specific tests.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class VersionSpecificTests
     {
         private readonly IModelInfoProvider _provider;

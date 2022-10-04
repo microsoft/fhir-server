@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Deserializers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpFhirUtility.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Mocks\CapabilityStatementMock.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Samples.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Search\SearchValueValidationHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SetModelInfoProviderAssemblyFixture.cs" />
