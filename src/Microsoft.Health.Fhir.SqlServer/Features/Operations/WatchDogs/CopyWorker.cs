@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
         public CopyWorker(string connectionString)
         {
-            Target = new SqlService(connectionString);
+            TargetCentral = new SqlService(connectionString);
             _sourceConnectionString = GetSourceConnectionString();
             if (_sourceConnectionString == null)
             {
@@ -43,26 +43,31 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             if (_citusConnectionString != null)
             {
                 TargetCitus = new CitusService(_citusConnectionString);
+
+                TargetCentral.LogEvent("Copy", "Warn", string.Empty, text: "Citus connection string found");
             }
 
             _workers = GetWorkers();
             _writesEnabled = GetWritesEnabled();
 
-            var tasks = new List<Task>();
-            var workingTasks = 0L;
-            for (var i = 0; i < _workers; i++)
+            if (_writesEnabled)
             {
-                var worker = i;
-                tasks.Add(BatchExtensions.StartTask(() =>
+                var tasks = new List<Task>();
+                var workingTasks = 0L;
+                for (var i = 0; i < _workers; i++)
                 {
-                    Interlocked.Increment(ref workingTasks);
-                    Copy(worker);
-                    Interlocked.Decrement(ref workingTasks);
-                }));
-            }
+                    var worker = i;
+                    tasks.Add(BatchExtensions.StartTask(() =>
+                    {
+                        Interlocked.Increment(ref workingTasks);
+                        Copy(worker);
+                        Interlocked.Decrement(ref workingTasks);
+                    }));
+                }
 
-            Thread.Sleep(2000); //// Try to wait till increments happen
-            Target.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={Interlocked.Read(ref workingTasks)}");
+                Thread.Sleep(2000); //// Try to wait till increments happen
+                TargetCentral.LogEvent($"Copy", "Warn", string.Empty, text: $"workingTasks={Interlocked.Read(ref workingTasks)}");
+            }
 
             //// TODO: Move to watchdog
             ////tasks.Add(BatchExtensions.StartTask(() =>
@@ -73,18 +78,20 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             ////Task.WaitAll(tasks.ToArray()); // we should never get here
         }
 
-        public SqlService Target { get; private set; }
+        private SqlService TargetCentral { get; set; }
 
-        public SqlService ShardedSource { get; private set; }
+        private SqlService ShardedSource { get; set; }
 
-        public CitusService TargetCitus { get; private set; }
+        private CitusService TargetCitus { get; set; }
+
+        private bool IsCopyingToCitus => TargetCitus != null;
 
         private void AdvanceVisibility(ref int workingTasks)
         {
             var affected = 1;
             while (workingTasks > 0 || affected > 0)
             {
-                affected = Target.AdvanceTransactionVisibility();
+                affected = TargetCentral.AdvanceTransactionVisibility();
                 if (affected == 0)
                 {
                     Thread.Sleep(1000);
@@ -104,7 +111,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             retry:
                 try
                 {
-                    Target.DequeueJob(out jobId, out version, out var definition);
+                    TargetCentral.DequeueJob(out jobId, out version, out var definition);
                     if (jobId != -1)
                     {
                         var resourceTypeId = (short)0;
@@ -124,12 +131,12 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                             var minId = long.Parse(split[1]);
                             var maxId = long.Parse(split[2]);
                             var suffix = split.Length > 3 ? split[3] : null;
-                            transactionId = Target.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
+                            transactionId = TargetCentral.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
                             (resourceCount, totalCount) = Copy(worker, resourceTypeId, jobId, minId, maxId, transactionId, suffix);
-                            Target.CommitTransaction(transactionId);
+                            TargetCentral.CommitTransaction(transactionId);
                         }
 
-                        Target.CompleteJob(jobId, false, version, resourceCount, totalCount, transactionId.Id);
+                        TargetCentral.CompleteJob(jobId, false, version, resourceCount, totalCount, transactionId.Id);
                     }
                     else
                     {
@@ -138,7 +145,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                 }
                 catch (Exception e)
                 {
-                    Target.LogEvent($"Copy", "Error", $"{worker}.{jobId}", text: e.ToString());
+                    TargetCentral.LogEvent($"Copy", "Error", $"{worker}.{jobId}", text: e.ToString());
                     retries++;
                     var isRetryable = e.IsRetryable();
                     if (isRetryable)
@@ -154,12 +161,12 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
                     if (transactionId.Id != 0)
                     {
-                        Target.CommitTransaction(transactionId, e.ToString());
+                        TargetCentral.CommitTransaction(transactionId, e.ToString());
                     }
 
                     if (jobId != -1)
                     {
-                        Target.CompleteJob(jobId, true, version);
+                        TargetCentral.CompleteJob(jobId, true, version);
                     }
                 }
             }
@@ -180,9 +187,28 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             var tokenTokenCompositeSearchParams = GetData(_ => new TokenTokenCompositeSearchParam(_, true), resourceTypeId, transactionId);
             var tokenStringCompositeSearchParams = GetData(_ => new TokenStringCompositeSearchParam(_, true), resourceTypeId, transactionId);
             var rows = 0;
+
             if (_writesEnabled)
             {
-                rows = Target.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
+                if (IsCopyingToCitus)
+                {
+                    rows = TargetCitus.MergeResources(
+                        resources,
+                        referenceSearchParams,
+                        tokenSearchParams,
+                        compartmentAssignments,
+                        tokenTexts,
+                        dateTimeSearchParams,
+                        tokenQuantityCompositeSearchParams,
+                        quantitySearchParams,
+                        stringSearchParams,
+                        tokenTokenCompositeSearchParams,
+                        tokenStringCompositeSearchParams);
+                }
+                else
+                {
+                    rows = TargetCentral.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
+                }
             }
 
             Console.WriteLine($"Copy.{thread}.{jobId}.{resourceTypeId}.{transactionId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
@@ -232,7 +258,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             var rows = 0;
             if (_writesEnabled)
             {
-                rows = Target.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
+                rows = TargetCentral.MergeResources(transactionId, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams);
             }
 
             Console.WriteLine($"Copy.{thread}.{jobId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
@@ -275,7 +301,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                             using var reader = cmdInt.ExecuteReader();
                             while (reader.Read())
                             {
-                                results.Add(toT(reader));
+                                resultsInt.Add(toT(reader));
                             }
 
                             reader.NextResult();
@@ -322,7 +348,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
         private string GetSourceConnectionString()
         {
-            using var conn = Target.GetConnection();
+            using var conn = TargetCentral.GetConnection();
             using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'Copy.SourceConnectionString'", conn);
             var str = cmd.ExecuteScalar();
             return str == null ? null : (string)str;
@@ -330,7 +356,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
         private int GetWorkers()
         {
-            using var conn = Target.GetConnection();
+            using var conn = TargetCentral.GetConnection();
             using var cmd = new SqlCommand("SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Copy.Workers'", conn);
             var threads = cmd.ExecuteScalar();
             return threads == null ? 1 : (int)threads;
@@ -338,7 +364,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
         private bool GetWritesEnabled()
         {
-            using var conn = Target.GetConnection();
+            using var conn = TargetCentral.GetConnection();
             using var cmd = new SqlCommand("SELECT convert(bit,Number) FROM dbo.Parameters WHERE Id = 'Copy.WritesEnabled'", conn);
             var flag = cmd.ExecuteScalar();
             return flag != null && (bool)flag;
@@ -346,7 +372,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
         private string GetCitusConnectionString()
         {
-            using var conn = Target.GetConnection();
+            using var conn = TargetCentral.GetConnection();
             using var cmd = new SqlCommand("SELECT Char FROM dbo.Parameters WHERE Id = 'Copy.CitusConnectionString'", conn);
             var str = cmd.ExecuteScalar();
             return str == null ? null : (string)str;
