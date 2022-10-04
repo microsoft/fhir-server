@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.CustomSearch)]
-    [Trait(Traits.Category, Categories.Search)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
     {
