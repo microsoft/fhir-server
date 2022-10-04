@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     await Task.Delay(TimeSpan.FromMinutes(1));
 
-                    if (!_cancellationTokenSource.IsCancellationRequested)
+                    if (_cancellationTokenSource.IsCancellationRequested)
                     {
                         return;
                     }
