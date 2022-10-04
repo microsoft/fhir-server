@@ -106,6 +106,8 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
 EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
             var q2 = $@"
+DECLARE @Rows int = (SELECT count(*) FROM @ResourceKeys)
+
 EXECUTE dbo.LogEvent @Process='Query.Second.Start',@Mode='name={name} code={code}',@Status='Warn',@Start=@CallStartTime
 
 DECLARE @st datetime = getUTCdate()
