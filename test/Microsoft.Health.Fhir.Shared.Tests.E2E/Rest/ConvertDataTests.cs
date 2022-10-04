@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <summary>
     /// End to end tests using default template collection only (no container registry configurations needed).
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.ConvertData)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ConvertDataTests : IClassFixture<HttpIntegrationTestFixture>

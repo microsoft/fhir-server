@@ -9,6 +9,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -17,6 +18,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <summary>
     /// Provides R5 specific tests.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DomainLogicValidation)]
     public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {
         [Fact]

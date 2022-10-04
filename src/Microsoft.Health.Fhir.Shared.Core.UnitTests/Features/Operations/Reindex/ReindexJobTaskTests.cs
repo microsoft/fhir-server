@@ -23,6 +23,8 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -31,6 +33,8 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
     [CollectionDefinition("ReindexTaskTests", DisableParallelization = true)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexJobTaskTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
     {
         private readonly string _base64EncodedToken = ContinuationTokenConverter.Encode("token");
