@@ -106,11 +106,9 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
 EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
             var q2 = $@"
-DECLARE @st datetime = getUTCdate()
-DECLARE @Rows int = (SELECT count(*) FROM @ResourceKeys)
-EXECUTE dbo.LogEvent @Process='Query.Second.0',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@Rows
+EXECUTE dbo.LogEvent @Process='Query.Second.Start',@Mode='name={name} code={code}',@Status='Warn',@Start=@CallStartTime
 
-SET @st = getUTCdate()
+DECLARE @st datetime = getUTCdate()
 SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence 
   FROM @ResourceKeys Patient
   WHERE EXISTS 
@@ -165,6 +163,7 @@ EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@St
 
             // Check resource keys
             var checkedResourceKeys = new List<ResourceKey>();
+            var callStartTime = DateTime.UtcNow;
             SqlService.ParallelForEachShard(
                 _shardIds,
                 (shardId) =>
@@ -172,6 +171,7 @@ EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@St
                     using var cmd = new SqlCommand(@$"{q0}{q2}") { CommandTimeout = 600 };
                     var resourceKeysParam = new SqlParameter { ParameterName = "@ResourceKeys" };
                     resourceKeysParam.AddResourceKeyList(firstResourceKeys);
+                    cmd.Parameters.AddWithValue("@CallStartTime", callStartTime);
                     cmd.Parameters.Add(resourceKeysParam);
                     SqlService.ExecuteSqlWithRetries(
                         shardId,
