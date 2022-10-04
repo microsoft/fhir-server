@@ -107,6 +107,10 @@ EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Sta
                 ";
             var q2 = $@"
 DECLARE @st datetime = getUTCdate()
+DECLARE @Rows int = (SELECT count(*) FROM @ResourceKeys)
+EXECUTE dbo.LogEvent @Process='Query.Second.0',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@Rows
+
+SET @st = getUTCdate()
 SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence 
   FROM @ResourceKeys Patient
   WHERE EXISTS 
