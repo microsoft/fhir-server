@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="System.Data.SqlClient" />
     <PackageReference Include="npgsql" />
+    <PackageReference Include="Ensure.That" />
   </ItemGroup>
 
   <ItemGroup>
