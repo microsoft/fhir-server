@@ -5,8 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -195,24 +197,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
         {
-            if (_metadata == null)
+            // There is a chance that the BackgroundLoop handler sets _metadata to null between when it is checked and returned, so the value is stored in a local variable.
+            ResourceElement metadata;
+            if ((metadata = _metadata) != null)
             {
-                _ = await GetCapabilityStatementOnStartup(cancellationToken);
-
-                await _metadataSemaphore.WaitAsync(cancellationToken);
-                try
-                {
-                    _metadata = _builder.Build().ToResourceElement();
-                    return _metadata;
-                }
-                finally
-                {
-                    _metadataSemaphore.Release();
-                }
+                return metadata;
             }
 
-            // There is a chance that the BackgroundLoop handler sets metadata to null between when it is checked and returned, but the alternative was leading to deadlocks where the creation of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built. But the metadata builder was waiting on the rebuild handler.
-            return _metadata;
+            _ = await GetCapabilityStatementOnStartup(cancellationToken);
+
+            // The semaphore is only used for building the metadata because claiming it before the GetCapabilityStatementOnStartup was leading to deadlocks where the creation
+            // of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built.
+            // But the metadata builder was waiting on the rebuild handler.
+            await _metadataSemaphore.WaitAsync(cancellationToken);
+            try
+            {
+                _metadata = _builder.Build().ToResourceElement();
+                return _metadata;
+            }
+            finally
+            {
+                _metadataSemaphore.Release();
+            }
         }
     }
 }
