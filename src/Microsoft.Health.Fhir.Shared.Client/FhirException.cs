@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Client
             StringBuilder message = new StringBuilder();
 
             string diagnostic = OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics;
-            string operationId = GetOperationId();
+            string operationId = GetActivityId();
 
             message.Append(StatusCode);
             if (!string.IsNullOrWhiteSpace(diagnostic))
@@ -60,26 +60,26 @@ namespace Microsoft.Health.Fhir.Client
                 message.Append(": ").Append(diagnostic);
             }
 
-            message.Append(" (").Append(operationId).Append(')');
+            message.Append(" (").Append(operationId).AppendLine(")");
 
             message.AppendLine("==============================================");
-            message.Append("Url: ").AppendLine(Response.Response.RequestMessage?.RequestUri.ToString() ?? "NO_URI_AVAILABLE");
-            message.Append("Response code: ").AppendLine(Response.Response.StatusCode.ToString());
+            message.Append("Url: (").Append(Response.Response.RequestMessage?.Method.Method ?? "NO_HTTP_METHOD_AVAILABLE").Append(") ").AppendLine(Response.Response.RequestMessage?.RequestUri.ToString() ?? "NO_URI_AVAILABLE");
+            message.Append("Response code: ").Append(Response.Response.StatusCode.ToString()).Append('(').Append((int)Response.Response.StatusCode).AppendLine(")");
             message.Append("Reason phrase: ").AppendLine(Response.Response.ReasonPhrase ?? "NO_REASON_PHRASE");
-
+            message.Append("Timestamp: ").AppendLine(DateTime.UtcNow.ToString("o"));
             message.AppendLine("==============================================");
 
             return message.ToString();
         }
 
-        private string GetOperationId()
+        private string GetActivityId()
         {
             if (Response.Headers.TryGetValues("X-Request-Id", out var values))
             {
                 return values.First();
             }
 
-            return "NO_FHIR_OPERATION_ID_FOR_THIS_TRANSACTION";
+            return "NO_FHIR_ACTIVITY_ID_FOR_THIS_TRANSACTION";
         }
     }
 }
