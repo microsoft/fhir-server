@@ -12,11 +12,11 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 {
@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
         private readonly OperationsConfiguration _operationsConfiguration;
+        private readonly Func<IExportJobTask> _exportJobTaskFactory;
         private readonly ILoggerFactory _loggerFactory;
 
         public JobFactory(
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IOptions<OperationsConfiguration> operationsConfig,
             IMediator mediator,
+            Func<IExportJobTask> exportJobTaskFactory,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
@@ -56,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _importResourceLoader = importResourceLoader;
@@ -68,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             _contextAccessor = contextAccessor;
             _mediator = mediator;
             _operationsConfiguration = operationsConfig.Value;
+            _exportJobTaskFactory = exportJobTaskFactory;
             _loggerFactory = loggerFactory;
         }
 
@@ -141,8 +144,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             ExportJobRecord exportData = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
             if (exportData.TypeId == (int)JobType.ExportOrchestrator)
             {
-                return new ExportOrchestratorJob(
-                    );
+                return new ExportOrchestratorJob(jobInfo, _queueClient, _loggerFactory);
             }
             else
             {
@@ -152,7 +154,15 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
         private IJob CreateExportProcesingJob(JobInfo jobInfo)
         {
-
+            ExportJobRecord exportData = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            if (exportData.TypeId == (int)JobType.ExportProcessing)
+            {
+                return new ExportProcessingJob(jobInfo, _exportJobTaskFactory);
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 }

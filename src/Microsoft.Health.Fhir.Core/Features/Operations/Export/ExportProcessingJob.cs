@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -11,7 +8,7 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
-    class ExportProcessingJob : IJob
+    public class ExportProcessingJob : IJob
     {
         private JobInfo _jobInfo;
         private Func<IExportJobTask> _exportJobTaskFactory;
@@ -35,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // The etag passed to the ExportJobTask is unused, the actual etag is managed in the JobHosting class.
             exportJobTask.UpdateExportJob = UpdateExportJob;
             Task exportTask = exportJobTask.ExecuteAsync(record, WeakETag.FromVersionId("0"), cancellationToken);
-            return exportTask.ContinueWith(
+            return exportTask.ContinueWith<string>(
                 (Task parent) =>
                 {
                     switch (_record.Status)
@@ -45,13 +42,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         case OperationStatus.Failed:
                             throw new JobExecutionException(_record.FailureDetails.FailureReason);
                         case OperationStatus.Canceled:
+                            // This throws a RetriableJobException so the job handler doesn't change the job status. The job will not be retried as cancelled jobs are ignored.
+                            throw new RetriableJobException("Export job cancelled.");
                         case OperationStatus.Queued:
                         case OperationStatus.Running:
-                            throw new RetriableJobException("Export job failed. See logs from ExportJobTask.");
+                            throw new RetriableJobException("Export job finished in non-terminal state. See logs from ExportJobTask.");
                         default:
+#pragma warning disable CA2201 // Do not raise reserved exception types. This exception shouldn't be reached, but a switch statement needs a default condition. Nothing really fits here.
                             throw new Exception("Job status not set.");
-                    };
-                }, cancellationToken);
+#pragma warning restore CA2201 // Do not raise reserved exception types
+                    }
+                },
+                cancellationToken,
+                TaskContinuationOptions.None,
+                TaskScheduler.Current);
         }
 
         private Task<ExportJobOutcome> UpdateExportJob(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken)
