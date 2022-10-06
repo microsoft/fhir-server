@@ -33,14 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly CoreFeatureConfiguration _configuration;
-        private readonly IKnowSupportedProfiles _supportedProfiles;
+        private readonly ISupportedProfilesStore _supportedProfiles;
 
         private CapabilityStatementBuilder(
             ListedCapabilityStatement statement,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IOptions<CoreFeatureConfiguration> configuration,
-            IKnowSupportedProfiles supportedProfiles)
+            ISupportedProfilesStore supportedProfiles)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _supportedProfiles = supportedProfiles;
         }
 
-        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IOptions<CoreFeatureConfiguration> configuration, IKnowSupportedProfiles supportedProfiles)
+        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IOptions<CoreFeatureConfiguration> configuration, ISupportedProfilesStore supportedProfiles)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -338,6 +338,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public ICapabilityStatementBuilder SyncProfiles(bool disableCacheRefresh = false)
         {
             _statement.Profile.Clear();
+
+            if (!disableCacheRefresh)
+            {
+                _supportedProfiles.Refresh();
+            }
+
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
                 // Parameters is a non-persisted resource used to pass information into and back from an operation
