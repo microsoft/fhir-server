@@ -2,40 +2,37 @@
 
   <!-- Nuget related properties.-->
   <PropertyGroup>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Product>Microsoft FHIR Server for Azure</Product>
-    <RepositoryUrl>https://github.com/microsoft/fhir-server/</RepositoryUrl>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsAsErrors />
-    <!-- allow pre-release dependencies -->
-    <NoWarn>$(NoWarn);NU5104</NoWarn>
-    <DebugType>Portable</DebugType>
-    <LangVersion>latest</LangVersion>
-    <HighEntropyVA>true</HighEntropyVA>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <Authors>Microsoft Health Team</Authors>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <Authors>Microsoft Health Team</Authors>
     <Company>Microsoft Corporation</Company>
     <Copyright>Copyright © Microsoft Corporation. All rights reserved.</Copyright>
+    <DebugType>Portable</DebugType>
     <Deterministic>true</Deterministic>
-    <!--This will target the latest patch release of the runtime released with the current SDK.  -->
-    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
-  </PropertyGroup>
-  <!-- Shared dependencies versions.-->
-  <PropertyGroup>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <HighEntropyVA>true</HighEntropyVA>
+    <LangVersion>latest</LangVersion>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <NoWarn>$(NoWarn);NU5104</NoWarn>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Product>Microsoft FHIR Server for Azure</Product>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <RepositoryUrl>https://github.com/microsoft/fhir-server/</RepositoryUrl>
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)\CodeCoverage.runsettings</RunSettingsFilePath>
     <TargetFramework>net6.0</TargetFramework>
-    <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
-    <HealthcareSharedPackageVersion>6.1.77</HealthcareSharedPackageVersion>
-    <AspNetPackageVersion>6.0.7</AspNetPackageVersion>
-    <Hl7FhirVersion>4.1.0</Hl7FhirVersion>
+    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
   </PropertyGroup>
+ 
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test'))">
       <PropertyGroup>
         <IsPackable>false</IsPackable>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)\CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
       </PropertyGroup>
+      <ItemGroup>
+        <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
+      </ItemGroup>
     </When>
     <Otherwise>
       <PropertyGroup>
@@ -48,11 +45,9 @@
   </Choose>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)\stylecop.json" Link="stylecop.json" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
-    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.435" PrivateAssets="All" />
-  </ItemGroup>
 </Project>

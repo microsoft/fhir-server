@@ -1,0 +1,107 @@
+parameters:
+  analyzeARMTemplates: true
+  analyzeBinaries: true
+  analyzePackages: true
+  runAntiMalware: true
+  credScanDirectory: '$(Build.SourcesDirectory)'
+
+steps:
+- ${{ if eq(parameters.analyzeBinaries, 'true') }}:
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Download Binaries'
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(Agent.TempDirectory)/artifacts'
+      artifactName: 'deploy'
+
+- ${{ if eq(parameters.analyzePackages, 'true') }}:
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Download NuGet Packages'
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(Build.SourcesDirectory)/artifacts'
+      artifactName: 'nuget'
+
+- ${{ if eq(parameters.analyzeBinaries, 'true') }}:
+  - task: ExtractFiles@1
+    displayName: 'Extract Stu3 Web Server Binaries'
+    inputs:
+      archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.Stu3.Web.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/Stu3'
+  - task: ExtractFiles@1
+    displayName: 'Extract R4 Web Server Binaries'
+    inputs:
+      archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R4.Web.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r4'
+  - task: ExtractFiles@1
+    displayName: 'Extract R5 Web Server Binaries'
+    inputs:
+      archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R5.Web.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r5'
+
+- ${{ if eq(parameters.runAntiMalware, 'true') }}:
+  - task: AntiMalware@4
+    inputs:
+      InputType: 'Basic'
+      ScanType: 'CustomScan'
+      FileDirPath: '$(Build.SourcesDirectory)'
+      EnableServices: true
+      TreatSignatureUpdateFailureAs: 'Standard'
+      SignatureFreshness: 'OneDay'
+      TreatStaleSignatureAs: 'Error'
+
+- ${{ if eq(parameters.analyzeARMTemplates, 'true') }}:
+  - task: Armory@2
+    inputs:
+      targetDirectory: '$(Build.SourcesDirectory)\samples\templates'
+      targetFiles: 'f|*.json'
+      excludePassesFromLog: false
+
+- task: CredScan@3
+  inputs:
+    scanFolder: ${{ parameters.credScanDirectory }}
+    outputFormat: 'sarif'
+    suppressionsFile: 'CredScanSuppressions.json'
+    verboseOutput: true
+
+- task: SdtReport@2
+  inputs:
+    GdnExportAllTools: false
+    GdnExportGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
+    GdnExportGdnToolCredScan: true
+
+- task: PublishSecurityAnalysisLogs@3
+  inputs:
+    ArtifactName: 'CodeAnalysisLogs'
+    ArtifactType: 'Container'
+    AllTools: false
+    AntiMalware: ${{ eq(parameters.runAntiMalware, 'true') }}
+    APIScan: false
+    Armory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
+    Bandit: false
+    BinSkim: false
+    CodesignValidation: false
+    CredScan: true
+    CSRF: false
+    ESLint: false
+    Flawfinder: false
+    FortifySCA: false
+    FxCop: false
+    ModernCop: false
+    MSRD: false
+    PoliCheck: false
+    RoslynAnalyzers: false
+    SDLNativeRules: false
+    Semmle: false
+    SpotBugs: false
+    TSLint: false
+    WebScout: false
+    ToolLogsNotFoundAction: 'Standard'
+
+- task: PostAnalysis@2
+  inputs:
+    GdnBreakAllTools: false
+    GdnBreakGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
+    GdnBreakGdnToolCredScan: true

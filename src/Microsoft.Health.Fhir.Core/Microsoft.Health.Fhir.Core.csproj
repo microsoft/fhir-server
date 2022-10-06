@@ -31,27 +31,27 @@
     <EmbeddedResource Include="Features\Security\roles.schema.json" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="0.17.1" />
-    <PackageReference Include="Ensure.That" Version="10.1.0" />
-    <PackageReference Include="FluentValidation" Version="11.1.0" />
-    <PackageReference Include="MediatR" Version="9.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="$(RuntimePackageVersion)" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.Health.Core" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Hl7.Fhir.Support.Poco" Version="$(Hl7FhirVersion)" />
-    <PackageReference Include="Hl7.Fhir.Serialization" Version="$(Hl7FhirVersion)" />
-    <PackageReference Include="Hl7.FhirPath" Version="$(Hl7FhirVersion)" />
-    <PackageReference Include="Microsoft.Health.Fhir.Liquid.Converter" Version="5.0.3.4" />
-    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
-    <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.14" />
-    <PackageReference Include="Polly" Version="7.2.3" />
-    <PackageReference Include="System.Collections.Immutable" Version="6.0.0" />
-    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="Ensure.That" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="Microsoft.AspNetCore.JsonPatch" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Health.Abstractions" />
+    <PackageReference Include="Microsoft.Health.Core" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
+    <PackageReference Include="Hl7.Fhir.Support.Poco" />
+    <PackageReference Include="Hl7.Fhir.Serialization" />
+    <PackageReference Include="Hl7.FhirPath" />
+    <PackageReference Include="Microsoft.Health.Fhir.Liquid.Converter" />
+    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
+    <PackageReference Include="Newtonsoft.Json.Schema" />
+    <PackageReference Include="Polly" />
+    <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />

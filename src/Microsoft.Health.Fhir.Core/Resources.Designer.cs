@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
+        ///   Looks up a localized string similar to Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
         /// </summary>
         internal static string ChangesToSearchParametersNotAllowedWhileReindexing {
             get {
@@ -449,6 +449,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Member match encountered an unknown exception while performing the search..
+        /// </summary>
+        internal static string GenericMemberMatch {
+            get {
+                return ResourceManager.GetString("GenericMemberMatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Parameter {0} cannot a be a value in the future..
         /// </summary>
         internal static string HistoryParameterBeforeCannotBeFuture {
@@ -571,6 +580,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string IncludeMissingType {
             get {
                 return ResourceManager.GetString("IncludeMissingType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The target resource type cannot be empty..
+        /// </summary>
+        internal static string IncludeRevIncludeInvalidTargetResourceType {
+            get {
+                return ResourceManager.GetString("IncludeRevIncludeInvalidTargetResourceType", resourceCulture);
             }
         }
         
@@ -1007,6 +1025,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Timespan in export request contains too much data to export in a single request. Please try reducing the time range and try again..
+        /// </summary>
+        internal static string RequestEntityTooLargeExceptionDuringExport {
+            get {
+                return ResourceManager.GetString("RequestEntityTooLargeExceptionDuringExport", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource creation is not allowed..
         /// </summary>
         internal static string ResourceCreationNotAllowed {
@@ -1327,6 +1354,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SortParameterValueIsNotValidSearchParameter {
             get {
                 return ResourceManager.GetString("SortParameterValueIsNotValidSearchParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry..
+        /// </summary>
+        internal static string SqlQueryProcessorRanOutOfInternalResourcesException {
+            get {
+                return ResourceManager.GetString("SqlQueryProcessorRanOutOfInternalResourcesException", resourceCulture);
             }
         }
         

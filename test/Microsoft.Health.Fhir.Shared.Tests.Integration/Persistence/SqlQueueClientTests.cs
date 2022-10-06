@@ -11,8 +11,10 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
@@ -40,6 +42,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange,
     }
 
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlQueueClientTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private SqlServerFhirStorageTestsFixture _fixture;

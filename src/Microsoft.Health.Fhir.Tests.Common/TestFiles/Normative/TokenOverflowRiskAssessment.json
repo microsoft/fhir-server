@@ -1,0 +1,66 @@
+{
+    "resourceType": "RiskAssessment",
+    "id": "genetic",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      <p>Probability of developing breast cancer before the age indicated:</p>\n      <table>\n        <thead>\n          <tr>\n            <th>Age</th>\n            <th>Probability (%)</th>\n          </tr>\n        </thead>\n        <tbody>\n          <tr>\n            <td>current-53</td>\n            <td>0.0168</td>\n          </tr>\n          <tr>\n            <td>54-57</td>\n            <td>0.0368</td>\n          </tr>\n          <tr>\n            <td>58-62</td>\n            <td>0.0594</td>\n          </tr>\n          <tr>\n            <td>63-67</td>\n            <td>0.0838</td>\n          </tr>\n          <tr>\n            <td>68-72</td>\n            <td>0.1089</td>\n          </tr>\n          <tr>\n            <td>73-77</td>\n            <td>0.1327</td>\n          </tr>\n          <tr>\n            <td>78-82</td>\n            <td>0.1530</td>\n          </tr>\n          <tr>\n            <td>83-87</td>\n            <td>0.1663</td>\n          </tr>\n        </tbody>\n      </table>\n    </div>"
+    },
+    "status": "final",
+    "method": {
+        "coding": [
+            {
+                "code": "BRCAPRO"
+            }
+        ]
+    },
+    "subject": {
+        "reference": "Patient/b248b1b2-1686-4b94-9936-37d7a5f94b51"
+    },
+    "occurrenceDateTime": "2006-01-13T23:01:00Z",
+    "basis": [
+        {
+            "reference": "List/prognosis"
+        }
+    ],
+    "identifier": [
+        {
+            "value": "id"
+        }
+    ],
+    "prediction": [
+        {
+            "outcome": {
+                "text": "Breast Cancer"
+            },
+            "probabilityDecimal": 0.000168,
+            "whenRange": {
+                "high": {
+                    "value": 53,
+                    "unit": "years",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "a"
+                }
+            }
+        },
+        {
+            "outcome": {
+                "text": "Breast Cancer"
+            },
+            "probabilityDecimal": 0.000368,
+            "whenRange": {
+                "low": {
+                    "value": 54,
+                    "unit": "years",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "a"
+                },
+                "high": {
+                    "value": 57,
+                    "unit": "years",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "a"
+                }
+            }
+        }
+    ]
+}

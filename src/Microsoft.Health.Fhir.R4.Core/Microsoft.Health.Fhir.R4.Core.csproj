@@ -11,18 +11,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="0.17.1" />
-    <PackageReference Include="Ensure.That" Version="10.1.0" />
-    <PackageReference Include="FluentValidation" Version="11.1.0" />
-    <PackageReference Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" PrivateAssets="build;analyzers" />
-    <PackageReference Include="MediatR" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="$(RuntimePackageVersion)" />
-    <PackageReference Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
-    <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.0.0.33" />
-    <PackageReference Include="System.Collections.Immutable" Version="6.0.0" />
-    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="Ensure.That" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Hl7.Fhir.Specification.R4" PrivateAssets="build;analyzers"/>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Hl7.Fhir.R4" />
+    <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" />
+    <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>

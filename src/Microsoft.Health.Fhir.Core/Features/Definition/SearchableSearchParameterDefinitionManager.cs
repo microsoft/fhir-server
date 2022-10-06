@@ -20,10 +20,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// </summary>
     public class SearchableSearchParameterDefinitionManager : ISearchParameterDefinitionManager
     {
-        private readonly SearchParameterDefinitionManager _inner;
+        private readonly ISearchParameterDefinitionManager _inner;
         private RequestContextAccessor<IFhirRequestContext> _fhirReqeustContextAccessor;
 
-        public SearchableSearchParameterDefinitionManager(SearchParameterDefinitionManager inner, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        public SearchableSearchParameterDefinitionManager(ISearchParameterDefinitionManager inner, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));

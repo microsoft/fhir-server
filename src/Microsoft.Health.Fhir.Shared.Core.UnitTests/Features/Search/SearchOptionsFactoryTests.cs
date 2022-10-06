@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     /// <summary>
     /// Test class for SearchOptionsFactory.Create
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     public partial class SearchOptionsFactoryTests
     {
@@ -466,6 +467,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchOptions options = CreateSearchOptions();
             Assert.Equal(_coreFeatures.DefaultIncludeCountPerSearch, options.IncludeCount);
+        }
+
+        [Fact]
+        public void GivenSearchParameterText_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        {
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Text, "mobile"),
+            };
+
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            Assert.NotNull(options);
+            Assert.Equal(1, options.UnsupportedSearchParams.Count);
         }
 
         private SearchOptions CreateSearchOptions(

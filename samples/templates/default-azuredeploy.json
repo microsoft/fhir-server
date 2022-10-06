@@ -320,7 +320,7 @@
                     "name": "MSDeploy",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[concat(variables('appServiceResourceId'), '/siteextensions/AspNetCoreRuntime.5.0.x86')]",
+                        "[concat(variables('appServiceResourceId'), '/siteextensions/AspNetCoreRuntime.6.0.x86')]",
                         "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'CosmosDb--Host')]"
                     ],
                     "properties": {
@@ -329,11 +329,11 @@
                 },
                 {
                     "type": "siteextensions",
-                    "name": "AspNetCoreRuntime.5.0.x86",
+                    "name": "AspNetCoreRuntime.6.0.x86",
                     "apiVersion": "2018-11-01",
                     "location": "[resourceGroup().location]",
                     "properties": {
-                        "version": "6.0.5"
+                        "version": "6.0.9"
                     },
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",

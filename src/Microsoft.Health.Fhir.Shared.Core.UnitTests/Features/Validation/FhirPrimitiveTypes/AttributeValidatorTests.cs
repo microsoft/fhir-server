@@ -9,11 +9,14 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Validation.FhirPrimitiveTypes
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Validate)]
     public class AttributeValidatorTests
     {
         private IModelAttributeValidator _modelAttributeValidator;

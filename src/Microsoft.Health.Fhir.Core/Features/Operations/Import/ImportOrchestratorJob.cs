@@ -27,7 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         public const short ImportOrchestratorTypeId = 2;
 
-        private const int DefaultPollingFrequencyInSeconds = 60;
         private const long DefaultResourceSizePerByte = 64;
 
         private readonly IMediator _mediator;
@@ -74,11 +73,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _jobInfo = jobInfo;
             _importConfiguration = importConfiguration;
             _logger = loggerFactory.CreateLogger<ImportOrchestratorJob>();
+
+            PollingFrequencyInSeconds = _importConfiguration.PollingFrequencyInSeconds;
         }
 
         public string RunId { get; set; }
 
-        public int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
+        public int PollingFrequencyInSeconds { get; set; }
 
         public async Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -366,8 +367,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _orchestratorJobResult.RunningJobIds.ExceptWith(completedJobIds);
                 progress.Report(JsonConvert.SerializeObject(_orchestratorJobResult));
             }
-
-            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+            else
+            {
+                // Only wait if no completed job (optimized for small jobs)
+                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+            }
         }
 
         private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Models.InputResource input, CancellationToken cancellationToken)

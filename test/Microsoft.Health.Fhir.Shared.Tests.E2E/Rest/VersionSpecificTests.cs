@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -14,6 +16,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// <summary>
     /// Provides version specific tests.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {

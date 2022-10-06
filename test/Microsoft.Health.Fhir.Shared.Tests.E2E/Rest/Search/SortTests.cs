@@ -22,6 +22,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class SortTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
@@ -762,6 +764,85 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenPatientWithManagingOrg_WhenSearchedWithOrgNameAndSortedByName_ThenPatientsAreReturned()
+        {
+            // Arrange Patients with linked Managing Organization
+            var tag = Guid.NewGuid().ToString();
+
+            var org = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            org.Identifier.Add(new Identifier("http://e2etest", tag));
+            org.Name = "TESTINGCHAINEDSORT";
+            var orgResponse = await Client.CreateAsync(org);
+
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.ManagingOrganization = new ResourceReference($"{KnownResourceTypes.Organization}/{orgResponse.Resource.Id}");
+
+            var patients = new List<Patient>();
+
+            SetPatientInfo(patient, "Seattle", "Robinson", tag);
+            patients.Add((await Client.CreateAsync(patient)).Resource);
+
+            SetPatientInfo(patient, "Portland", "Williams", tag);
+            patients.Add((await Client.CreateAsync(patient)).Resource);
+
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Patient?organization.identifier={tag}&organization.name=TESTINGCHAINEDSORT&_sort=name",
+                false,
+                patients.OrderBy(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
+
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Patient?organization.identifier={tag}&organization.name=TESTINGCHAINEDSORT&_sort=-name",
+                false,
+                patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenOrg_WhenSearchedWithPartOfAndSortedByName_ThenOrgsAreReturned()
+        {
+            var tagP = Guid.NewGuid().ToString();
+            var orgP = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            orgP.Identifier.Add(new Identifier("http://e2etest", tagP));
+            orgP.Name = "Parent";
+            var orgResponseP = await Client.CreateAsync(orgP);
+
+            var tag1 = Guid.NewGuid().ToString();
+            var org1 = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            org1.Identifier.Add(new Identifier("http://e2etest", tag1));
+            org1.Name = "MSFT1";
+            org1.PartOf = new ResourceReference($"{KnownResourceTypes.Organization}/{orgResponseP.Resource.Id}");
+            var orgResponse1 = await Client.CreateAsync(org1);
+
+            var orgs = new List<Organization>();
+            orgs.Add(orgResponse1.Resource);
+
+            var tag2 = Guid.NewGuid().ToString();
+            var org2 = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            org2.Identifier.Add(new Identifier("http://e2etest", tag2));
+            org2.Name = "MSFT2";
+            org2.PartOf = new ResourceReference($"{KnownResourceTypes.Organization}/{orgResponseP.Resource.Id}");
+            var orgResponse2 = await Client.CreateAsync(org2);
+            orgs.Add(orgResponse2.Resource);
+
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Organization?partof.identifier={tagP}&partof.name=Parent&_sort=name",
+                false,
+                orgs.OrderBy(x => x.Name).Cast<Resource>().ToArray());
+
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Organization?partof.identifier={tagP}&partof.name=Parent&_sort=-name",
+                false,
+                orgs.OrderByDescending(x => x.Name).Cast<Resource>().ToArray());
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -771,7 +852,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "New York", "Williamas", tag, DateTime.Now.Subtract(TimeSpan.FromDays(40))),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, DateTime.Now.Subtract(TimeSpan.FromDays(30))));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private async Task<Patient[]> CreatePaginatedPatients(string tag)
@@ -791,7 +872,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private async Task<Patient[]> CreatePatientsWithSameBirthdate(string tag)
@@ -804,7 +885,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Seattle", "Alex", tag),
                 p => SetPatientInfo(p, "Portland", "Rock", tag));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
@@ -818,7 +899,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
@@ -833,7 +914,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            return patients;
+            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
         }
 
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
