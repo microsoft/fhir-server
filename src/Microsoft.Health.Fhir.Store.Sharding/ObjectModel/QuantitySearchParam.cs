@@ -170,50 +170,53 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         {
             int c = 0;
 
-            using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
+            if (rows != null)
             {
-                foreach (var row in rows)
+                using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
                 {
-                    writer.StartRow();
-                    writer.Write(row.ResourceTypeId);
-                    writer.Write(row.TransactionId.Id);
-                    writer.Write(row.ShardletId.Id);
-                    writer.Write(row.Sequence);
-                    writer.Write(row.SearchParamId);
-                    if (row.SystemId.HasValue)
+                    foreach (var row in rows)
                     {
-                        writer.Write(row.SystemId.Value);
-                    }
-                    else
-                    {
-                        writer.WriteNull();
+                        writer.StartRow();
+                        writer.Write(row.ResourceTypeId);
+                        writer.Write(row.TransactionId.Id);
+                        writer.Write(row.ShardletId.Id);
+                        writer.Write(row.Sequence);
+                        writer.Write(row.SearchParamId);
+                        if (row.SystemId.HasValue)
+                        {
+                            writer.Write(row.SystemId.Value);
+                        }
+                        else
+                        {
+                            writer.WriteNull();
+                        }
+
+                        if (row.QuantityCodeId.HasValue)
+                        {
+                            writer.Write(row.QuantityCodeId.Value);
+                        }
+                        else
+                        {
+                            writer.WriteNull();
+                        }
+
+                        if (row.SingleValue.HasValue)
+                        {
+                            writer.Write(row.SingleValue.Value);
+                        }
+                        else
+                        {
+                            writer.WriteNull();
+                        }
+
+                        writer.Write(row.LowValue);
+                        writer.Write(row.HighValue);
+                        writer.Write(row.IsHistory);
+                        c++;
                     }
 
-                    if (row.QuantityCodeId.HasValue)
-                    {
-                        writer.Write(row.QuantityCodeId.Value);
-                    }
-                    else
-                    {
-                        writer.WriteNull();
-                    }
-
-                    if (row.SingleValue.HasValue)
-                    {
-                        writer.Write(row.SingleValue.Value);
-                    }
-                    else
-                    {
-                        writer.WriteNull();
-                    }
-
-                    writer.Write(row.LowValue);
-                    writer.Write(row.HighValue);
-                    writer.Write(row.IsHistory);
-                    c++;
+                    writer.Complete();
                 }
-
-                writer.Complete();
             }
 
             return c;

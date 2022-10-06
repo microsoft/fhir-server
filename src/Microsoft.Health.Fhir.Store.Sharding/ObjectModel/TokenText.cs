@@ -102,22 +102,25 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         {
             int c = 0;
 
-            using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
+            if (rows != null)
             {
-                foreach (var row in rows)
+                using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
                 {
-                    writer.StartRow();
-                    writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                    writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
-                    writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
-                    writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
-                    writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                    writer.Write(row.Text, NpgsqlTypes.NpgsqlDbType.Varchar);
-                    writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
-                    c++;
-                }
+                    foreach (var row in rows)
+                    {
+                        writer.StartRow();
+                        writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                        writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
+                        writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
+                        writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
+                        writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                        writer.Write(row.Text, NpgsqlTypes.NpgsqlDbType.Varchar);
+                        writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
+                        c++;
+                    }
 
-                writer.Complete();
+                    writer.Complete();
+                }
             }
 
             return c;

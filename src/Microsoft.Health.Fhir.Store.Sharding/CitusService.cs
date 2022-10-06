@@ -30,18 +30,6 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             IEnumerable<TokenTokenCompositeSearchParam> tokenTokenCompositeSearchParams,
             IEnumerable<TokenStringCompositeSearchParam> tokenStringCompositeSearchParams)
         {
-            EnsureThat.EnsureArg.IsNotNull(resources, nameof(resources));
-            EnsureThat.EnsureArg.IsNotNull(referenceSearchParams, nameof(referenceSearchParams));
-            EnsureThat.EnsureArg.IsNotNull(tokenSearchParams, nameof(tokenSearchParams));
-            EnsureThat.EnsureArg.IsNotNull(compartmentAssignments, nameof(compartmentAssignments));
-            EnsureThat.EnsureArg.IsNotNull(tokenTexts, nameof(tokenTexts));
-            EnsureThat.EnsureArg.IsNotNull(dateTimeSearchParams, nameof(dateTimeSearchParams));
-            EnsureThat.EnsureArg.IsNotNull(tokenQuantityCompositeSearchParams, nameof(tokenQuantityCompositeSearchParams));
-            EnsureThat.EnsureArg.IsNotNull(quantitySearchParams, nameof(quantitySearchParams));
-            EnsureThat.EnsureArg.IsNotNull(stringSearchParams, nameof(stringSearchParams));
-            EnsureThat.EnsureArg.IsNotNull(tokenTokenCompositeSearchParams, nameof(tokenTokenCompositeSearchParams));
-            EnsureThat.EnsureArg.IsNotNull(tokenStringCompositeSearchParams, nameof(tokenStringCompositeSearchParams));
-
             int c = 0;
 
             using (var connection = new NpgsqlConnection(_connectionString))

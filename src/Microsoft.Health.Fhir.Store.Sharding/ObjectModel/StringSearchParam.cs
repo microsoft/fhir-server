@@ -162,49 +162,52 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         {
             int c = 0;
 
-            using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
+            if (rows != null)
             {
-                foreach (var row in rows)
+                using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
                 {
-                    writer.StartRow();
-                    writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                    writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
-                    writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
-                    writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
-                    writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                    writer.Write(row.Text, NpgsqlTypes.NpgsqlDbType.Varchar);
-                    if (row.TextOverflow != null)
+                    foreach (var row in rows)
                     {
-                        writer.Write(row.TextOverflow, NpgsqlTypes.NpgsqlDbType.Text);
-                    }
-                    else
-                    {
-                        writer.WriteNull();
+                        writer.StartRow();
+                        writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                        writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
+                        writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
+                        writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
+                        writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
+                        writer.Write(row.Text, NpgsqlTypes.NpgsqlDbType.Varchar);
+                        if (row.TextOverflow != null)
+                        {
+                            writer.Write(row.TextOverflow, NpgsqlTypes.NpgsqlDbType.Text);
+                        }
+                        else
+                        {
+                            writer.WriteNull();
+                        }
+
+                        writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
+                        if (row.IsMin.HasValue)
+                        {
+                            writer.Write(row.IsMin.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
+                        }
+                        else
+                        {
+                            writer.WriteNull();
+                        }
+
+                        if (row.IsMax.HasValue)
+                        {
+                            writer.Write(row.IsMax.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
+                        }
+                        else
+                        {
+                            writer.WriteNull();
+                        }
+
+                        c++;
                     }
 
-                    writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
-                    if (row.IsMin.HasValue)
-                    {
-                        writer.Write(row.IsMin.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
-                    }
-                    else
-                    {
-                        writer.WriteNull();
-                    }
-
-                    if (row.IsMax.HasValue)
-                    {
-                        writer.Write(row.IsMax.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
-                    }
-                    else
-                    {
-                        writer.WriteNull();
-                    }
-
-                    c++;
+                    writer.Complete();
                 }
-
-                writer.Complete();
             }
 
             return c;
