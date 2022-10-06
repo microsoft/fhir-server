@@ -155,8 +155,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public ICapabilityStatementBuilder AddGlobalSearchParameters()
         {
-            _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
+            // _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
             _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = KnownQueryParameterNames.Count, Type = SearchParamType.Number });
+
+            IEnumerable<SearchParameterInfo> searchParams = _searchParameterDefinitionManager.GetSearchParameters(KnownResourceTypes.DomainResource);
+
+            if (searchParams.Any())
+            {
+                foreach (var sp in searchParams.Select(x => new SearchParamComponent
+                         {
+                             Name = x.Name,
+                             Type = x.Type,
+                             Definition = x.Url,
+                             Documentation = x.Description,
+                         }))
+                {
+                    _statement.Rest.Server().SearchParam.Add(sp);
+                }
+            }
 
             return this;
         }
@@ -187,7 +203,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             continue;
                         }
 
-                        c.SearchParam.Add(searchParam);
+                        if (!searchParam.Name.StartsWith("_", StringComparison.Ordinal))
+                        {
+                            c.SearchParam.Add(searchParam);
+                        }
                     }
                 });
                 AddResourceInteraction(resourceType, TypeRestfulInteraction.SearchType);
