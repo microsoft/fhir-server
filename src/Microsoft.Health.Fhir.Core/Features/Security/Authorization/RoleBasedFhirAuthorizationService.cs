@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         public ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken)
         {
             ClaimsPrincipal principal = _requestContextAccessor.RequestContext.Principal;
+            bool applySMARTAcess = _requestContextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl;
 
             DataActions permittedDataActions = 0;
             foreach (Claim claim in principal.FindAll(_rolesClaimName))
@@ -53,7 +54,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
                 }
             }
 
-            return new ValueTask<DataActions>(dataActions & permittedDataActions);
+            if (applySMARTAcess)
+            {
+                return new ValueTask<DataActions>(dataActions & permittedDataActions & CheckSMARTAccess(dataActions));
+            }
+            else
+            {
+                return new ValueTask<DataActions>(dataActions & permittedDataActions);
+            }
+        }
+
+        private DataActions CheckSMARTAccess(DataActions dataActions)
+        {
+            var allowedResourceActions = _requestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions;
+            var requestedRouteame = _requestContextAccessor.RequestContext.RouteName;
+
+            foreach (ScopeRestriction scopeRestriction in allowedResourceActions)
+            {
+                if (scopeRestriction.Resource == requestedRouteame)
+                {
+                    return dataActions & scopeRestriction.AllowedDataAction;
+                }
+            }
+
+            return DataActions.None;
         }
     }
 }
