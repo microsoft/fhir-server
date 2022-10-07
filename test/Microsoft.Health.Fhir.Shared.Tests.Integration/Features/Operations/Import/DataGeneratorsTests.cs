@@ -8,16 +8,23 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Reflection;
+using Hl7.FhirPath.Sprache;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import
 {
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
+    [Trait(Traits.Category, Categories.Import)]
     public class DataGeneratorsTests
     {
+        private delegate void AddRow<TR>(DataTable result, short resourceTypeId, long resourceSurrogateId, TR inputRow);
+
         [Fact]
         public void GivenDateTimeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
@@ -241,40 +248,52 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public void GivenListReferenceTokenCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
         {
-            List<BulkReferenceTokenCompositeSearchParamTableTypeV1Row> input = new List<BulkReferenceTokenCompositeSearchParamTableTypeV1Row>()
+            List<BulkReferenceTokenCompositeSearchParamTableTypeV2Row> input = new List<BulkReferenceTokenCompositeSearchParamTableTypeV2Row>()
             {
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 1, "test", 1, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test1", 1, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 0, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test1", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 0, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 0, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, "test1"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, null, 1, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", null, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, null, 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", null, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, null, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, null),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 1, "test", 1, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test1", 1, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 0, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test1", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 0, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 0, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, "test1", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, "test", "test1"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, null, 1, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", null, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, null, 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", null, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, null, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, null, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, "test", null),
 
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 1, "test", 1, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test1", 1, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 0, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test1", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 0, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 0, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, "test1"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, null, 1, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", null, "test", 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, null, 1, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", null, 1, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, null, "test"),
-                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, null),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 1, "test", 1, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test1", 1, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 0, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test1", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 0, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 0, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, "test1", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, "test", "test1"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, null, 1, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", null, "test", 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, null, 1, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", null, 1, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, null, "test", "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, null, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(0, 0, "test", 1, "test", 1, 1, "test", null),
             };
 
-            Assert.Equal(14, ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(16, ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -309,207 +328,283 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             DateTimeOffset startDateTime = DateTimeOffset.Now;
             DateTimeOffset endDateTime = DateTimeOffset.Now.AddSeconds(1);
-            List<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row>()
+            List<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row> input = new List<BulkTokenDateTimeCompositeSearchParamTableTypeV2Row>()
             {
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", endDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, startDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, false),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, null, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, null, startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", endDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, startDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, false),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, startDateTime, endDateTime, true),
 
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", endDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, startDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, false),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, null, "test", startDateTime, endDateTime, true),
-                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, null, startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", endDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, startDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", startDateTime, endDateTime, false),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, startDateTime, endDateTime, true),
             };
 
-            Assert.Equal(9, TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(11, TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
         public void GivenListTokenNumberNumberCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
         {
-            List<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row>()
+            List<BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row> input = new List<BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row>()
             {
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 0, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 0, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 0, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 0, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 0, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 1, false),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, null, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, null, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, null, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, null, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 0, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 0, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 0, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 0, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 0, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1, 0, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1, 1, false),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", null, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, null, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, null, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, null, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, null, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1, null, true),
 
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 0, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 0, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 0, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 0, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 0, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 1, false),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, 1, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null, 1, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, null, 1, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, null, 1, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, null, 1, true),
-                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, null, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 0, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 0, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 0, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 0, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 0, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1, 0, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1, 1, false),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", null, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, null, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, null, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, null, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, null, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1, null, true),
             };
 
-            Assert.Equal(19, TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(21, TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
         public void GivenListTokenQuantityCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
         {
-            List<BulkTokenQuantityCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenQuantityCompositeSearchParamTableTypeV1Row>()
+            List<BulkTokenQuantityCompositeSearchParamTableTypeV2Row> input = new List<BulkTokenQuantityCompositeSearchParamTableTypeV2Row>()
             {
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 0, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 0, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 0, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 0),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, null, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, null, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, null),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 0, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 0, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 0, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 0, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 0),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", null, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, null, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, null, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, null, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, null),
 
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 0, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 0, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 0, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 0),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, 1, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null, 1, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, null, 1, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, null, 1),
-                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, null),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 0, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 0, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 0, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 0, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, 0),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", null, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, null, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, null, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, null, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, 1, 1, 1, null),
             };
 
-            Assert.Equal(16, TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(18, TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
         public void GivenListTokenSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
         {
-            List<BulkTokenSearchParamTableTypeV1Row> input = new List<BulkTokenSearchParamTableTypeV1Row>()
+            List<BulkTokenSearchParamTableTypeV2Row> input = new List<BulkTokenSearchParamTableTypeV2Row>()
             {
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 1, 1, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 0, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test1"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, null, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 1, 1, "test", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 0, "test", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test1", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", "test1"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, null, "test", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, null, "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", null),
 
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 1, 1, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 0, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test1"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, null, "test"),
-                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, null),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 1, 1, "test", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 0, "test", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test1", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", "test1"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, null, "test", "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, null, "test"),
+                new BulkTokenSearchParamTableTypeV2Row(0, 0, 1, "test", null),
             };
 
-            Assert.Equal(6, TokenSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(8, TokenSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
         public void GivenListTokenStringCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
         {
-            List<BulkTokenStringCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenStringCompositeSearchParamTableTypeV1Row>()
+            List<BulkTokenStringCompositeSearchParamTableTypeV2Row> input = new List<BulkTokenStringCompositeSearchParamTableTypeV2Row>()
             {
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test1", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test1"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, null, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, null, "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", null),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test1", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test", "test1"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", null, "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test", null),
 
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test1", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test1"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, null, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, null, "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", null),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test1", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test", "test1"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", null, "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test", null),
             };
 
-            Assert.Equal(10, TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(12, TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenStringCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
         public void GivenListTokenTokenCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
         {
-            List<BulkTokenTokenCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenTokenCompositeSearchParamTableTypeV1Row>()
+            List<BulkTokenTokenCompositeSearchParamTableTypeV2Row> input = new List<BulkTokenTokenCompositeSearchParamTableTypeV2Row>()
             {
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, "test1"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 0, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, "test1", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, "test", "test1"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", null, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, null, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, "test", null),
 
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, "test1"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, "test"),
-                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 0, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, "test1", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, "test", "test1"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, null, "test", "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, null, "test", 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", null, 1, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", null, "test", "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, null, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", 1, "test", null),
             };
 
-            Assert.Equal(10, TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(14, TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+
+            ValidateDataTableData(
+                input,
+                10000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                20000, // IMPORTANT, should be set to fill the row field with numbers different than any other numbers in the row!
+                new TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator(),
+                (result, resourceTypeId, resourceSurrogateId, inputRow) =>
+                TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resourceTypeId, resourceSurrogateId, inputRow));
         }
 
         [Fact]
@@ -553,20 +648,22 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public void GivenCaseModifiedListTokenStringCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
         {
-            List<BulkTokenStringCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenStringCompositeSearchParamTableTypeV1Row>()
+            List<BulkTokenStringCompositeSearchParamTableTypeV2Row> input = new List<BulkTokenStringCompositeSearchParamTableTypeV2Row>()
             {
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "TEST", "TEST"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", "TEST", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", "test", "TEST"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", "Test", "tEst"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "TEST", "TEST"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", "TEST", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", "test", "TEST"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", "Test", "tEst"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", "Test", "tEst"),
 
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", "test", "test"),
-                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 1, 1, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 0, "test", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test1", "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV2Row(0, 0, 1, "test", "test1", "test", "test"),
             };
 
-            Assert.Equal(4, TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            Assert.Equal(5, TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
         }
 
         [Fact]
@@ -613,6 +710,68 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             {
                 Column column = (Column)field.GetValue(tableDefination);
                 Assert.Equal(realColumnRecords[column.Metadata.Name], column.Metadata.SqlDbType.GetGeneralType().ToString());
+            }
+        }
+
+        private void ValidateDataTableData<TR, TG>(List<TR> input, short resourceTypeId, long resourceSurrogateId, TG generator, AddRow<TR> fillDataTable)
+            where TG : TableBulkCopyDataGenerator
+        {
+            DataTable result = generator.GenerateDataTable();
+            for (int i = 0; i < input.Count; i++)
+            {
+                TR inputRow = input[i];
+                checked
+                {
+                    fillDataTable(result, (short)(resourceTypeId + i), resourceSurrogateId + i, inputRow);
+                }
+            }
+
+            Assert.Equal(input.Count, result.Rows.Count);
+
+            PropertyInfo[] columnProperties = typeof(TR).GetProperties(BindingFlags.Instance | BindingFlags.NonPublic);
+
+            IEnumerable<string> inCols = columnProperties.Select(x => x.Name);
+            IEnumerable<string> resultCols = result.Columns.Cast<DataColumn>().Select(x => x.ColumnName);
+            IEnumerable<string> intersectCols = inCols.Intersect(resultCols);
+            HashSet<string> inColsOnly = new HashSet<string>(inCols.Except(intersectCols));
+            HashSet<string> resultColsOnly = new HashSet<string>(resultCols.Except(intersectCols));
+            Assert.True(inColsOnly.SetEquals(new string[] { "Offset" }));
+            Assert.True(resultColsOnly.SetEquals(new string[] { "IsHistory", "ResourceTypeId", "ResourceSurrogateId"}));
+
+            for (int i = 0; i < input.Count; i++)
+            {
+                TR inputRow = input[i];
+                DataRow resultRow = result.Rows[i];
+                foreach (PropertyInfo propertyInfo in columnProperties)
+                {
+                    string name = propertyInfo.Name;
+                    if (name != "Offset")
+                    {
+                        object inputValue = propertyInfo.GetValue(inputRow);
+                        object resultValue = resultRow[name];
+                        if (inputValue == null)
+                        {
+                            Assert.Equal(typeof(DBNull), resultValue.GetType());
+                        }
+                        else
+                        {
+                            if (resultValue.GetType() == typeof(DateTime))
+                            {
+                                resultValue = (DateTimeOffset)(DateTime)resultValue;
+                            }
+
+                            Assert.Equal(inputValue, resultValue);
+                        }
+                    }
+                    else
+                    {
+                        Assert.Equal(0, propertyInfo.GetValue(inputRow));
+                    }
+                }
+
+                Assert.Equal(false, resultRow["IsHistory"]);
+                Assert.Equal(resourceTypeId + i, (short)resultRow["ResourceTypeId"]);
+                Assert.Equal(resourceSurrogateId + i, resultRow["ResourceSurrogateId"]);
             }
         }
     }

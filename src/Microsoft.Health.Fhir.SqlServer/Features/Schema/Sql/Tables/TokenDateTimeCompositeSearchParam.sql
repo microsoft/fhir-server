@@ -4,12 +4,15 @@
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
-    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
+
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CONSTRAINT CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 

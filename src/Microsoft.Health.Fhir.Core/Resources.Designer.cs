@@ -449,6 +449,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Member match encountered an unknown exception while performing the search..
+        /// </summary>
+        internal static string GenericMemberMatch {
+            get {
+                return ResourceManager.GetString("GenericMemberMatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Parameter {0} cannot a be a value in the future..
         /// </summary>
         internal static string HistoryParameterBeforeCannotBeFuture {
@@ -1345,6 +1354,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SortParameterValueIsNotValidSearchParameter {
             get {
                 return ResourceManager.GetString("SortParameterValueIsNotValidSearchParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry..
+        /// </summary>
+        internal static string SqlQueryProcessorRanOutOfInternalResourcesException {
+            get {
+                return ResourceManager.GetString("SqlQueryProcessorRanOutOfInternalResourcesException", resourceCulture);
             }
         }
         

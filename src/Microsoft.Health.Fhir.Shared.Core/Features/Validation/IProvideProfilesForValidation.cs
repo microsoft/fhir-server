@@ -8,10 +8,8 @@ using Hl7.Fhir.Specification.Source;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public interface IProvideProfilesForValidation : IResourceResolver, IKnowSupportedProfiles
+    public interface IProvideProfilesForValidation : IResourceResolver, ISupportedProfilesStore
     {
         IReadOnlySet<string> GetProfilesTypes();
-
-        void Refresh();
     }
 }

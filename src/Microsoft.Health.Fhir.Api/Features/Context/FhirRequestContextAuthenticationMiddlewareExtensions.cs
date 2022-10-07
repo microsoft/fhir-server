@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Health.Fhir.Api.Features.Smart;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
 {
@@ -20,6 +21,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             builder.UseAuthentication();
 
             builder.UseMiddleware<FhirRequestContextAfterAuthenticationMiddleware>();
+
+            builder.UseMiddleware<SmartClinicalScopesMiddleware>();
 
             return builder;
         }

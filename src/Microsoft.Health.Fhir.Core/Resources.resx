@@ -649,4 +649,10 @@
   <data name="RequestEntityTooLargeExceptionDuringExport" xml:space="preserve">
     <value>Timespan in export request contains too much data to export in a single request. Please try reducing the time range and try again.</value>
   </data>
+  <data name="GenericMemberMatch" xml:space="preserve">
+    <value>Member match encountered an unknown exception while performing the search.</value>
+  </data>
+  <data name="SqlQueryProcessorRanOutOfInternalResourcesException" xml:space="preserve">
+    <value>The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry.</value>
+  </data>
 </root>
