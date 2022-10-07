@@ -44,13 +44,54 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             retry:
                 try
                 {
-                    RunQuerySingleThread();
+                    RunXShards(1);
+                    RunXShards(2);
+                    RunXShards(4);
+                    RunXShards(8);
+                    RunXShards(16);
+                    RunXShards(32);
                 }
                 catch (Exception e)
                 {
                     SqlService.LogEvent($"Query", "Error", string.Empty, text: e.ToString());
                     Thread.Sleep(10000);
                     goto retry;
+                }
+            }
+        }
+
+        private void RunXShards(int shards)
+        {
+            for (var l = 0; l < 10; l++)
+            {
+                if (shards == 1)
+                {
+                    foreach (var shardId in _shardIds) // 1 shard
+                    {
+                        RunQuerySingleThread(new[] { shardId });
+                    }
+                }
+                else if (shards == 32)
+                {
+                    RunQuerySingleThread(_shardIds);
+                }
+                else
+                {
+                    IList<ShardId> shardIds = null;
+                    foreach (var shardId in _shardIds)
+                    {
+                        if (shardId.Id % shards == 0)
+                        {
+                            shardIds = new List<ShardId>();
+                        }
+
+                        shardIds.Add(shardId);
+
+                        if (shardId.Id % shards == shards - 1)
+                        {
+                            RunQuerySingleThread(shardIds);
+                        }
+                    }
                 }
             }
         }
@@ -73,8 +114,9 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
-        private void RunQuerySingleThread(string name = "Kesha802", string code = "9279-1")
+        private void RunQuerySingleThread(IList<ShardId> shardIds, string name = "Kesha802", string code = "9279-1")
         {
+            var mode = $"shards={shardIds.Count}[{string.Join(',', shardIds)}] name={name} code={code}";
             var st = DateTime.UtcNow;
             var top = 11;
             var q0 = $@"
@@ -103,14 +145,17 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                AND TransactionId = Patient.TransactionId AND ShardletId = Patient.ShardletId AND Sequence = Patient.Sequence
           )
   OPTION (RECOMPILE)
-EXECUTE dbo.LogEvent @Process='Query.First',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@@rowcount
+EXECUTE dbo.LogEvent @Process='Query.First',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
             var q2 = $@"
 DECLARE @Rows int = (SELECT count(*) FROM @ResourceKeys)
 
-EXECUTE dbo.LogEvent @Process='Query.Second.Start',@Mode='name={name} code={code}',@Status='Warn',@Start=@CallStartTime
+EXECUTE dbo.LogEvent @Process='Query.Second.Start',@Mode='{mode}',@Status='Warn',@Start=@CallStartTime
 
 DECLARE @st datetime = getUTCdate()
+DECLARE @ConfirmedKeys ResourceKeyList
+
+INSERT INTO @ConfirmedKeys
 SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence 
   FROM @ResourceKeys Patient
   WHERE EXISTS 
@@ -132,7 +177,11 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                      )
           )
   OPTION (RECOMPILE)
-EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@Status='Warn',@Start=@st,@Rows=@@rowcount
+EXECUTE dbo.LogEvent @Process='Query.Second.Insert',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
+
+SET @st = getUTCdate()
+SELECT * FROM @ConfirmedKeys
+EXECUTE dbo.LogEvent @Process='Query.Second.Select',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
 
             // get resource keys from all shards
@@ -167,7 +216,7 @@ EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@St
             var checkedResourceKeys = new List<ResourceKey>();
             var callStartTime = DateTime.UtcNow;
             SqlService.ParallelForEachShard(
-                _shardIds,
+                shardIds,
                 (shardId) =>
                 {
                     using var cmd = new SqlCommand(@$"{q0}{q2}") { CommandTimeout = 600 };
@@ -199,7 +248,7 @@ EXECUTE dbo.LogEvent @Process='Query.Second',@Mode='name={name} code={code}',@St
 
             // return final
             var final = checkedResourceKeys.GroupBy(_ => _.ResourceId).Select(_ => _.First()).OrderBy(_ => _.TransactionId.Id).ThenBy(_ => _.ShardletId.Id).ThenBy(_ => _.Sequence).Take(top).ToList();
-            SqlService.LogEvent("Query", "Warn", $"name={name} code={code}", rows: checkedResourceKeys.Count, text: $"firstResourceKeys={firstResourceKeys.Count}", startTime: st);
+            SqlService.LogEvent("Query", "Warn", mode, rows: checkedResourceKeys.Count, text: $"firstResourceKeys={firstResourceKeys.Count}", startTime: st);
         }
     }
 }
