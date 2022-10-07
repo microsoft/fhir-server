@@ -337,12 +337,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public ICapabilityStatementBuilder SyncProfiles(bool disableCacheRefresh = false)
         {
-            _statement.Profile.Clear();
-
             if (!disableCacheRefresh)
             {
                 _supportedProfiles.Refresh();
             }
+
+            // This line needs to come after the refresh because the refresh can trigger this method to run and can add duplicate values to the Profile in STU3.
+            _statement.Profile.Clear();
 
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
