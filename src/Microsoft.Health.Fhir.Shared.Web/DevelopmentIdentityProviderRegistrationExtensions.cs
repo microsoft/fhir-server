@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using AngleSharp.Common;
 using EnsureThat;
 using IdentityServer4.Models;
 using IdentityServer4.Test;
@@ -18,6 +19,8 @@ using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -43,18 +46,25 @@ namespace Microsoft.Health.Fhir.Web
             configuration.GetSection("DevelopmentIdentityProvider").Bind(developmentIdentityProviderConfiguration);
             services.AddSingleton(Options.Create(developmentIdentityProviderConfiguration));
 
+            var smartScopes = GenerateSmartClinicalScopes();
+
             if (developmentIdentityProviderConfiguration.Enabled)
             {
                 services.AddIdentityServer()
                     .AddDeveloperSigningCredential()
-                    .AddInMemoryApiScopes(new[] { new ApiScope(DevelopmentIdentityProviderConfiguration.Audience), new ApiScope(WrongAudienceClient),  })
+                    .AddInMemoryApiScopes(new[]
+                    {
+                        new ApiScope(DevelopmentIdentityProviderConfiguration.Audience),
+                        new ApiScope(WrongAudienceClient),
+                        new ApiScope("fhirUser"),
+                    }.Concat(smartScopes))
                     .AddInMemoryApiResources(new[]
                     {
                         new ApiResource(
                             DevelopmentIdentityProviderConfiguration.Audience,
-                            userClaims: new[] { authorizationConfiguration.RolesClaim })
+                            userClaims: new[] { authorizationConfiguration.RolesClaim, "fhirUser" })
                         {
-                            Scopes = { DevelopmentIdentityProviderConfiguration.Audience },
+                            Scopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, "fhirUser" }.Concat(smartScopes.Select(s => s.Name)).ToList(),
                         },
                         new ApiResource(
                             WrongAudienceClient,
@@ -63,14 +73,18 @@ namespace Microsoft.Health.Fhir.Web
                             Scopes = { WrongAudienceClient },
                         },
                     })
-                    .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select(user =>
-                        new TestUser
+                    .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select((user) =>
                         {
-                            Username = user.Id,
-                            Password = user.Id,
-                            IsActive = true,
-                            SubjectId = user.Id,
-                            Claims = user.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).ToList(),
+                            var userClaims = user.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).ToList();
+                            userClaims.Add(new Claim("fhirUser", "https://localhost:44348/Patient/" + user.Id));
+                            return new TestUser
+                            {
+                                Username = user.Id,
+                                Password = user.Id,
+                                IsActive = true,
+                                SubjectId = user.Id,
+                                Claims = userClaims,
+                            };
                         }).ToList())
                     .AddInMemoryClients(
                         developmentIdentityProviderConfiguration.ClientApplications.Select(
@@ -86,10 +100,17 @@ namespace Microsoft.Health.Fhir.Web
                                     ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
 
                                     // scopes that client has access to
-                                    AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient },
+                                    AllowedScopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient, "fhirUser"}.Concat(smartScopes.Select(s => s.Name)).ToList(),
 
                                     // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(r => new ClientClaim(authorizationConfiguration.RolesClaim, r)).Concat(new[] { new ClientClaim("appid", applicationConfiguration.Id), }).ToList(),
+                                    Claims = applicationConfiguration.Roles.Select(
+                                        r => new ClientClaim(authorizationConfiguration.RolesClaim, r))
+                                            .Concat(new[]
+                                                    {
+                                                        new ClientClaim("appid", applicationConfiguration.Id),
+                                                        new ClientClaim("fhirUser", "https://localhost:44348/Patient/" + applicationConfiguration.Id),
+                                                    })
+                                            .ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
                                 }));
@@ -141,6 +162,28 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath, existingConfiguration));
+        }
+
+        private static IReadOnlyCollection<ApiScope> GenerateSmartClinicalScopes()
+        {
+            ModelExtensions.SetModelInfoProvider();
+            var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
+            var scopes = new List<ApiScope>();
+
+            scopes.Add(new ApiScope("patient/*.*"));
+            scopes.Add(new ApiScope("practitioner/*.*"));
+
+            foreach (var resourceType in resourceTypes)
+            {
+                scopes.Add(new ApiScope($"patient/{resourceType}.*"));
+                scopes.Add(new ApiScope($"practitioner/{resourceType}.*"));
+                scopes.Add(new ApiScope($"patient/{resourceType}.read"));
+                scopes.Add(new ApiScope($"practitioner/{resourceType}.read"));
+                scopes.Add(new ApiScope($"patient/{resourceType}.write"));
+                scopes.Add(new ApiScope($"practitioner/{resourceType}.write"));
+            }
+
+            return scopes;
         }
 
         private class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource

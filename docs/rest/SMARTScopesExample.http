@@ -1,0 +1,37 @@
+# Example of setting up new search parameters, running reindex, and using the new search parameters.
+
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the smartUser bearer token, for testing scopes
+# @name bearer
+POST https://{{hostname}}/connect/token
+#POST https://{{hostname}}/AadSmartOnFhirProxy/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.read fhirUser fhir-api practitioner/Encounter.*
+
+### Get a Patient
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get Observation
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+### Get the globalAdminServicePrincipal to verify scopes not enforced
+# @name bearer
+POST https://{{hostname}}/connect/token
+#POST https://{{hostname}}/AadSmartOnFhirProxy/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=patient/Observation.read fhirUser fhir-api practitioner/Encounter.*

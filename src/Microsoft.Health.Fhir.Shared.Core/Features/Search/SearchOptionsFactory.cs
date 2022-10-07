@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             // check resource type restrictions from SMART clinical scopes
-            if (_contextAccessor.RequestContext?.AccessControlContext.ApplyFineGrainedAccessControl == true)
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
                 var clinicalScopeResources = new List<ResourceType>();
                 foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
