@@ -156,7 +156,7 @@ DECLARE @st datetime = getUTCdate()
 DECLARE @ConfirmedKeys ResourceKeyList
 
 INSERT INTO @ConfirmedKeys
-SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence 
+SELECT TOP (@p7) ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence 
   FROM @ResourceKeys Patient
   WHERE EXISTS 
           (SELECT *
@@ -176,6 +176,7 @@ SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
                           AND TransactionId = Observ.TransactionId AND ShardletId = Observ.ShardletId AND Sequence = Observ.Sequence
                      )
           )
+  ORDER BY TransactionId, ShardletId, Sequence 
   OPTION (RECOMPILE)
 EXECUTE dbo.LogEvent @Process='Query.Second.Insert',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
 
