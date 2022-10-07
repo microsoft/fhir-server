@@ -150,7 +150,7 @@ EXECUTE dbo.LogEvent @Process='Query.First',@Mode='{mode}',@Status='Warn',@Start
             var q2 = $@"
 DECLARE @Rows int = (SELECT count(*) FROM @ResourceKeys)
 
-EXECUTE dbo.LogEvent @Process='Query.Second.Start',@Mode='{mode}',@Status='Warn',@Start=@CallStartTime
+EXECUTE dbo.LogEvent @Process='Query.Second.Start',@Mode='{mode}',@Status='Warn',@Start=@CallStartTime,@Rows=@Rows
 
 DECLARE @st datetime = getUTCdate()
 DECLARE @ConfirmedKeys ResourceKeyList
