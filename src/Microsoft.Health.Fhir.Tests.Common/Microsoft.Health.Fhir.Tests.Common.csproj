@@ -125,6 +125,10 @@
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
     <None Remove="TestFiles\R4\Immunization.json" />
     <None Remove="TestFiles\R4\Parameter-Convert-Data.json" />
+    <None Remove="TestFiles\R4\SmartCommon.json" />
+    <None Remove="TestFiles\R4\SmartPatientA.json" />
+    <None Remove="TestFiles\R4\SmartPatientB.json" />
+    <None Remove="TestFiles\R4\SmartPatientC.json" />
     <None Remove="TestFiles\R5\Appointment.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.xml" />
@@ -389,6 +393,10 @@
     <EmbeddedResource Include="TestFiles\Normative\Sequence.json" />
     <EmbeddedResource Include="TestFiles\Normative\Parameter-Convert-Data.json" />
     <EmbeddedResource Include="TestFiles\R4\Immunization.json" />
+    <EmbeddedResource Include="TestFiles\R4\SmartCommon.json" />
+    <EmbeddedResource Include="TestFiles\R4\SmartPatientA.json" />
+    <EmbeddedResource Include="TestFiles\R4\SmartPatientB.json" />
+    <EmbeddedResource Include="TestFiles\R4\SmartPatientC.json" />
     <EmbeddedResource Include="TestFiles\R5\Appointment.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
