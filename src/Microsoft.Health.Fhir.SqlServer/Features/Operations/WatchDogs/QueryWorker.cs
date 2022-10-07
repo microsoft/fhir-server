@@ -70,29 +70,27 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                     {
                         RunQuerySingleThread(new[] { shardId });
                     }
-
-                    return;
                 }
-
-                if (shards == 32)
+                else if (shards == 32)
                 {
                     RunQuerySingleThread(_shardIds);
-                    return;
                 }
-
-                IList<ShardId> shardIds = null;
-                foreach (var shardId in _shardIds)
+                else
                 {
-                    if (shardId.Id % shards == 0)
+                    IList<ShardId> shardIds = null;
+                    foreach (var shardId in _shardIds)
                     {
-                        shardIds = new List<ShardId>();
-                    }
+                        if (shardId.Id % shards == 0)
+                        {
+                            shardIds = new List<ShardId>();
+                        }
 
-                    shardIds.Add(shardId);
+                        shardIds.Add(shardId);
 
-                    if (shardId.Id % shards == shards - 1)
-                    {
-                        RunQuerySingleThread(shardIds);
+                        if (shardId.Id % shards == shards - 1)
+                        {
+                            RunQuerySingleThread(shardIds);
+                        }
                     }
                 }
             }
