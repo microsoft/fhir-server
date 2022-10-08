@@ -9,6 +9,10 @@ using System.Data;
 using System.Data.SqlClient;
 using Microsoft.SqlServer.Server;
 
+using Npgsql;
+
+using Polly;
+
 namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class Resource : PrimaryKey
@@ -117,35 +121,18 @@ namespace Microsoft.Health.Fhir.Store.Sharding
     [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
     public static class CitusResourceExtension
     {
-        public static int BulkLoadTable(this Npgsql.NpgsqlConnection connection, IEnumerable<Resource> rows, string tableName)
+        public static void WriteRow(NpgsqlBinaryImporter writer, Resource row)
         {
-            int c = 0;
-
-            if (rows != null)
-            {
-                using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
-                {
-                    foreach (var row in rows)
-                    {
-                        writer.StartRow();
-                        writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.ResourceId, NpgsqlTypes.NpgsqlDbType.Varchar);
-                        writer.Write(row.Version, NpgsqlTypes.NpgsqlDbType.Integer);
-                        writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
-                        writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
-                        writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.IsDeleted, NpgsqlTypes.NpgsqlDbType.Boolean);
-                        writer.Write(row.RequestMethod, NpgsqlTypes.NpgsqlDbType.Varchar);
-                        writer.Write(row.SearchParamHash, NpgsqlTypes.NpgsqlDbType.Varchar);
-                        c++;
-                    }
-
-                    writer.Complete();
-                }
-            }
-
-            return c;
+            writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.ResourceId, NpgsqlTypes.NpgsqlDbType.Varchar);
+            writer.Write(row.Version, NpgsqlTypes.NpgsqlDbType.Integer);
+            writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
+            writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
+            writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.IsDeleted, NpgsqlTypes.NpgsqlDbType.Boolean);
+            writer.Write(row.RequestMethod, NpgsqlTypes.NpgsqlDbType.Varchar);
+            writer.Write(row.SearchParamHash, NpgsqlTypes.NpgsqlDbType.Varchar);
         }
     }
 }

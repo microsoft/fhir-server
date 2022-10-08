@@ -9,6 +9,8 @@ using System.Data;
 using System.Data.SqlClient;
 using Microsoft.SqlServer.Server;
 
+using Npgsql;
+
 namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class TokenQuantityCompositeSearchParam : PrimaryKey
@@ -232,94 +234,77 @@ namespace Microsoft.Health.Fhir.Store.Sharding
     [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
     public static class CitusTokenQuantityCompositeSearchParamExtension
     {
-        public static int BulkLoadTable(this Npgsql.NpgsqlConnection connection, IEnumerable<TokenQuantityCompositeSearchParam> rows, string tableName)
+        public static void WriteRow(NpgsqlBinaryImporter writer, TokenQuantityCompositeSearchParam row)
         {
-            int c = 0;
-
-            if (rows != null)
+            writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
+            writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
+            if (row.SystemId1.HasValue)
             {
-                using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
-                {
-                    foreach (var row in rows)
-                    {
-                        writer.StartRow();
-                        writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
-                        writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        if (row.SystemId1.HasValue)
-                        {
-                            writer.Write(row.SystemId1.Value, NpgsqlTypes.NpgsqlDbType.Integer);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        if (row.Code1 != null)
-                        {
-                            writer.Write(row.Code1, NpgsqlTypes.NpgsqlDbType.Varchar);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        if (row.SystemId2.HasValue)
-                        {
-                            writer.Write(row.SystemId2.Value, NpgsqlTypes.NpgsqlDbType.Integer);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        if (row.QuantityCodeId2.HasValue)
-                        {
-                            writer.Write(row.QuantityCodeId2.Value, NpgsqlTypes.NpgsqlDbType.Integer);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        if (row.SingleValue2.HasValue)
-                        {
-                            writer.Write(row.SingleValue2.Value, NpgsqlTypes.NpgsqlDbType.Numeric);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        if (row.LowValue2.HasValue)
-                        {
-                            writer.Write(row.LowValue2.Value, NpgsqlTypes.NpgsqlDbType.Numeric);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        if (row.HighValue2.HasValue)
-                        {
-                            writer.Write(row.HighValue2.Value, NpgsqlTypes.NpgsqlDbType.Numeric);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
-                        c++;
-                    }
-
-                    writer.Complete();
-                }
+                writer.Write(row.SystemId1.Value, NpgsqlTypes.NpgsqlDbType.Integer);
+            }
+            else
+            {
+                writer.WriteNull();
             }
 
-            return c;
+            if (row.Code1 != null)
+            {
+                writer.Write(row.Code1, NpgsqlTypes.NpgsqlDbType.Varchar);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+
+            if (row.SystemId2.HasValue)
+            {
+                writer.Write(row.SystemId2.Value, NpgsqlTypes.NpgsqlDbType.Integer);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+
+            if (row.QuantityCodeId2.HasValue)
+            {
+                writer.Write(row.QuantityCodeId2.Value, NpgsqlTypes.NpgsqlDbType.Integer);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+
+            if (row.SingleValue2.HasValue)
+            {
+                writer.Write(row.SingleValue2.Value, NpgsqlTypes.NpgsqlDbType.Numeric);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+
+            if (row.LowValue2.HasValue)
+            {
+                writer.Write(row.LowValue2.Value, NpgsqlTypes.NpgsqlDbType.Numeric);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+
+            if (row.HighValue2.HasValue)
+            {
+                writer.Write(row.HighValue2.Value, NpgsqlTypes.NpgsqlDbType.Numeric);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+
+            writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
         }
     }
 }

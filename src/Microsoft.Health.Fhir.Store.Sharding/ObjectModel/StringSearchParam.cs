@@ -9,6 +9,8 @@ using System.Data;
 using System.Data.SqlClient;
 using Microsoft.SqlServer.Server;
 
+using Npgsql;
+
 namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class StringSearchParam : PrimaryKey
@@ -156,61 +158,43 @@ namespace Microsoft.Health.Fhir.Store.Sharding
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
-    public static class CitusStringSearchParamxtension
+    public static class CitusStringSearchParamExtension
     {
-        public static int BulkLoadTable(this Npgsql.NpgsqlConnection connection, IEnumerable<StringSearchParam> rows, string tableName)
+        public static void WriteRow(NpgsqlBinaryImporter writer, StringSearchParam row)
         {
-            int c = 0;
-
-            if (rows != null)
+            writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
+            writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
+            writer.Write(row.Text, NpgsqlTypes.NpgsqlDbType.Varchar);
+            if (row.TextOverflow != null)
             {
-                using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
-                {
-                    foreach (var row in rows)
-                    {
-                        writer.StartRow();
-                        writer.Write(row.ResourceTypeId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.TransactionId.Id, NpgsqlTypes.NpgsqlDbType.Bigint);
-                        writer.Write(row.ShardletId.Id, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.Sequence, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.SearchParamId, NpgsqlTypes.NpgsqlDbType.Smallint);
-                        writer.Write(row.Text, NpgsqlTypes.NpgsqlDbType.Varchar);
-                        if (row.TextOverflow != null)
-                        {
-                            writer.Write(row.TextOverflow, NpgsqlTypes.NpgsqlDbType.Text);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
-                        if (row.IsMin.HasValue)
-                        {
-                            writer.Write(row.IsMin.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        if (row.IsMax.HasValue)
-                        {
-                            writer.Write(row.IsMax.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
-                        }
-                        else
-                        {
-                            writer.WriteNull();
-                        }
-
-                        c++;
-                    }
-
-                    writer.Complete();
-                }
+                writer.Write(row.TextOverflow, NpgsqlTypes.NpgsqlDbType.Text);
+            }
+            else
+            {
+                writer.WriteNull();
             }
 
-            return c;
+            writer.Write(row.IsHistory, NpgsqlTypes.NpgsqlDbType.Boolean);
+            if (row.IsMin.HasValue)
+            {
+                writer.Write(row.IsMin.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
+
+            if (row.IsMax.HasValue)
+            {
+                writer.Write(row.IsMax.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
+            }
+            else
+            {
+                writer.WriteNull();
+            }
         }
     }
 }
