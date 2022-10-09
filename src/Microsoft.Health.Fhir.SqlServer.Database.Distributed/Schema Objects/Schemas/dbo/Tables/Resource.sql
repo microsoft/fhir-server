@@ -10,14 +10,14 @@ CREATE TABLE dbo.Resource
     ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version                     int                     NOT NULL,
     IsHistory                   bit                     NOT NULL,
-    TransactionId               bigint              NOT NULL,
-    ShardletId                  tinyint             NOT NULL,
-    Sequence                    smallint            NOT NULL,
+    TransactionId               bigint                  NOT NULL,
+    ShardletId                  tinyint                 NOT NULL,
+    Sequence                    smallint                NOT NULL,
     IsDeleted                   bit                     NOT NULL,
     RequestMethod               varchar(10)             NULL,
-    SearchParamHash             varchar(64)             NULL,
+    SearchParamHash             varchar(64)             NULL
 
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, TransactionId, ShardletId, Sequence) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId),
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, TransactionId, ShardletId, Sequence) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 GO
 --ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )
@@ -50,3 +50,5 @@ CREATE INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId ON dbo.Resource
 )
 WHERE IsHistory = 0 AND IsDeleted = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO
+
