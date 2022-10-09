@@ -131,58 +131,102 @@ DECLARE @p7 int = {top}
                 ";
             var q1 = $@"
 DECLARE @st datetime = getUTCdate()
-SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
-  FROM dbo.Resource Patient
-  WHERE Patient.IsHistory = 0
-    AND Patient.ResourceTypeId = @p2 -- Patient
-    AND EXISTS 
-          (SELECT *
-             FROM dbo.StringSearchParam
-             WHERE IsHistory = 0
-               AND ResourceTypeId = @p2 -- Patient
-               AND SearchParamId = @p0 -- type of name
-               AND Text LIKE @p1 -- name text
-               AND TransactionId = Patient.TransactionId AND ShardletId = Patient.ShardletId AND Sequence = Patient.Sequence
-          )
-  OPTION (RECOMPILE)
+
+EXECUTE sp_executeSQL 
+N'
+SELECT Patient.*
+  FROM (SELECT ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
+          FROM dbo.Resource Patient
+          WHERE Patient.IsHistory = 0
+            AND Patient.ResourceTypeId = @p2 -- Patient
+            AND EXISTS 
+                  (SELECT *
+                     FROM dbo.StringSearchParam
+                     WHERE IsHistory = 0
+                       AND ResourceTypeId = @p2 -- Patient
+                       AND SearchParamId = @p0 -- type of name
+                       AND Text LIKE @p1 -- name text
+                       AND TransactionId = Patient.TransactionId AND ShardletId = Patient.ShardletId AND Sequence = Patient.Sequence
+                  )
+       ) Patient
+       CROSS APPLY (SELECT TOP 1 TransactionId
+                      FROM dbo.Resource WITH (FORCESEEK)
+                      WHERE IsHistory = 0
+                        AND ResourceTypeId = @p2
+                        AND ResourceId = Patient.ResourceId
+                        AND TransactionId <= 40000000000
+                      ORDER BY TransactionId DESC, ShardletId DESC, Sequence DESC
+                    ) Curr
+  WHERE Patient.TransactionId - Curr.TransactionId = 0 -- minus is to guarantee that where clause is used as filtering condition only 
+'
+ ,N'@p0 smallint, @p1 nvarchar(256), @p2 smallint, @p3 smallint, @p4 smallint, @p5 smallint, @p6 varchar(128)'
+ ,@p0 = @p0
+ ,@p1 = @p1
+ ,@p2 = @p2
+ ,@p3 = @p3
+ ,@p4 = @p4
+ ,@p5 = @p5
+ ,@p6 = @p6
+
 EXECUTE dbo.LogEvent @Process='Query.First',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
             var q2 = $@"
 DECLARE @Rows int = (SELECT count(*) FROM @ResourceKeys)
-
 EXECUTE dbo.LogEvent @Process='Query.Second.Start',@Mode='{mode}',@Status='Warn',@Start=@CallStartTime,@Rows=@Rows
 
 DECLARE @st datetime = getUTCdate()
-DECLARE @ConfirmedKeys ResourceKeyList
+EXECUTE sp_executeSQL 
+N'
+DECLARE @DummyTop bigint = convert(bigint,9223372036854775807)
 
-INSERT INTO @ConfirmedKeys
 SELECT TOP (@p7) ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence 
-  FROM @ResourceKeys Patient
+  FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) Patient
   WHERE EXISTS 
           (SELECT *
-             FROM dbo.ReferenceSearchParam Observ
-             WHERE IsHistory = 0
-               AND ResourceTypeId = @p4 -- Observation
-               AND SearchParamId = @p3 -- clinical-patient
-               AND ReferenceResourceTypeId = @p2 -- Patient
-               AND ReferenceResourceId = Patient.ResourceId
-               AND EXISTS
-                     (SELECT *
-                        FROM dbo.TokenSearchParam
-                        WHERE IsHistory = 0
-                          AND ResourceTypeId = @p4 -- Observation
-                          AND SearchParamId = @p5 -- clinical-code
-                          AND Code = @p6 -- code text
-                          AND TransactionId = Observ.TransactionId AND ShardletId = Observ.ShardletId AND Sequence = Observ.Sequence
-                     )
+             FROM (SELECT *
+                     FROM dbo.ReferenceSearchParam Observ
+                     WHERE Observ.IsHistory = 0
+                       AND Observ.ResourceTypeId = @p4 -- Observation
+                       AND SearchParamId = @p3 -- clinical-patient
+                       AND ReferenceResourceTypeId = @p2 -- Patient
+                       AND ReferenceResourceId = Patient.ResourceId
+                       AND EXISTS
+                             (SELECT *
+                                FROM dbo.TokenSearchParam
+                                WHERE IsHistory = 0
+                                  AND ResourceTypeId = @p4 -- Observation
+                                  AND SearchParamId = @p5 -- clinical-code
+                                  AND Code = @p6 -- code text
+                                  AND TransactionId = Observ.TransactionId AND ShardletId = Observ.ShardletId AND Sequence = Observ.Sequence
+                             )
+                  ) Observ
+                  JOIN dbo.Resource Res ON Res.IsHistory = 0 AND Res.ResourceTypeId = @p4 AND Res.TransactionId = Observ.TransactionId AND Res.ShardletId = Observ.ShardletId AND Res.Sequence = Observ.Sequence
+                  CROSS APPLY (SELECT TOP 1 TransactionId, ShardletId, Sequence
+                                 FROM dbo.Resource
+                                 WHERE IsHistory = 0
+                                   AND ResourceTypeId = @p4
+                                   AND ResourceId = Res.ResourceId
+                                   AND TransactionId <= 40000000000
+                                 ORDER BY TransactionId DESC, ShardletId DESC, Sequence DESC
+                               ) Curr
+             WHERE Observ.TransactionId - Curr.TransactionId = 0 -- minus is to guarantee that where clause is used as filtering condition only 
           )
   ORDER BY TransactionId, ShardletId, Sequence 
-  OPTION (RECOMPILE)
-EXECUTE dbo.LogEvent @Process='Query.Second.Insert',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
+  OPTION (OPTIMIZE FOR (@DummyTop = 1))
+  --OPTION (RECOMPILE)
+ '
+ ,N'@p0 smallint, @p1 nvarchar(256), @p2 smallint, @p3 smallint, @p4 smallint, @p5 smallint, @p6 varchar(128), @p7 int, @ResourceKeys ResourceKeyList READONLY'
+ ,@p0 = @p0
+ ,@p1 = @p1
+ ,@p2 = @p2
+ ,@p3 = @p3
+ ,@p4 = @p4
+ ,@p5 = @p5
+ ,@p6 = @p6
+ ,@p7 = @p7
+ ,@ResourceKeys = @ResourceKeys
 
-SET @st = getUTCdate()
-SELECT * FROM @ConfirmedKeys
-EXECUTE dbo.LogEvent @Process='Query.Second.Select',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
+EXECUTE dbo.LogEvent @Process='Query.Second.End',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
 
             // get resource keys from all shards
