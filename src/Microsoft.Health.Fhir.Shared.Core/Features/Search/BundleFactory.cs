@@ -70,7 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     httpVerb = Bundle.HTTPVerb.PUT;
                 }
 #endif
-                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
+
+                // resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
                 if (hasVerb)
                 {
                     resource.Request = new Bundle.RequestComponent
