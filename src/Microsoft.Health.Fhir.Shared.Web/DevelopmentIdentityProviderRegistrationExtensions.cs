@@ -171,16 +171,16 @@ namespace Microsoft.Health.Fhir.Web
             var scopes = new List<ApiScope>();
 
             scopes.Add(new ApiScope("patient/*.*"));
-            scopes.Add(new ApiScope("practitioner/*.*"));
+            scopes.Add(new ApiScope("user/*.*"));
 
             foreach (var resourceType in resourceTypes)
             {
                 scopes.Add(new ApiScope($"patient/{resourceType}.*"));
-                scopes.Add(new ApiScope($"practitioner/{resourceType}.*"));
+                scopes.Add(new ApiScope($"user/{resourceType}.*"));
                 scopes.Add(new ApiScope($"patient/{resourceType}.read"));
-                scopes.Add(new ApiScope($"practitioner/{resourceType}.read"));
+                scopes.Add(new ApiScope($"user/{resourceType}.read"));
                 scopes.Add(new ApiScope($"patient/{resourceType}.write"));
-                scopes.Add(new ApiScope($"practitioner/{resourceType}.write"));
+                scopes.Add(new ApiScope($"user/{resourceType}.write"));
             }
 
             return scopes;
