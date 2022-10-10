@@ -3,7 +3,7 @@
    <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <AspNetPackageVersion>6.0.9</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>6.1.118</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.1.126</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
   </PropertyGroup>
