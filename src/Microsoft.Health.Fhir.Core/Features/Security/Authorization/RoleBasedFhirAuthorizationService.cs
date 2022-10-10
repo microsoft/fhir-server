@@ -54,30 +54,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
                 }
             }
 
-            if (applySMARTAcess)
+            if (applySMARTAcess && _requestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions.Any())
             {
-                return new ValueTask<DataActions>(dataActions & permittedDataActions & CheckSMARTAccess(dataActions));
+                return new ValueTask<DataActions>(dataActions & permittedDataActions & SMARTScopeFhirAuthorizationService.CheckSMARTScopeAccess(_requestContextAccessor, dataActions));
             }
             else
             {
                 return new ValueTask<DataActions>(dataActions & permittedDataActions);
             }
-        }
-
-        private DataActions CheckSMARTAccess(DataActions dataActions)
-        {
-            var allowedResourceActions = _requestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions;
-            var requestedRouteame = _requestContextAccessor.RequestContext.RouteName;
-
-            foreach (ScopeRestriction scopeRestriction in allowedResourceActions)
-            {
-                if (scopeRestriction.Resource == requestedRouteame)
-                {
-                    return dataActions & scopeRestriction.AllowedDataAction;
-                }
-            }
-
-            return DataActions.None;
         }
     }
 }

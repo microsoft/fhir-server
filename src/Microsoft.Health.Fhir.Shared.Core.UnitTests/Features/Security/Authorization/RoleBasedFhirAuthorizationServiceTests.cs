@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
             claims.Add(new Claim("roles", "Read"));
             var expectedPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims));
 
-            defaultFhirRequestContext.RouteName = KnownResourceTypes.Patient;
+            defaultFhirRequestContext.ResourceType = KnownResourceTypes.Patient;
             defaultFhirRequestContext.Principal = expectedPrincipal;
 
             _fhirRequestContextAccessor.RequestContext.Returns(defaultFhirRequestContext);
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
             claims.Add(new Claim("roles", "Read"));
             var expectedPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims));
 
-            defaultFhirRequestContext.RouteName = KnownResourceTypes.Patient;
+            defaultFhirRequestContext.ResourceType = KnownResourceTypes.Patient;
             defaultFhirRequestContext.Principal = expectedPrincipal;
 
             _fhirRequestContextAccessor.RequestContext.Returns(defaultFhirRequestContext);
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
             claims.Add(new Claim("roles", "Write"));
             var expectedPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims));
 
-            defaultFhirRequestContext.RouteName = KnownResourceTypes.Patient;
+            defaultFhirRequestContext.ResourceType = KnownResourceTypes.Patient;
             defaultFhirRequestContext.Principal = expectedPrincipal;
 
             _fhirRequestContextAccessor.RequestContext.Returns(defaultFhirRequestContext);
@@ -138,6 +138,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
 
             var result = await _roleBasedFhirAuthorizationService.CheckAccess(DataActions.Write, CancellationToken.None);
             Assert.Equal(DataActions.None, result);
+        }
+
+        [Fact]
+        public async Task GivenUserWriteDA_WhenInvokedForPatientWrite_SMARTScopePatientReadAndWrite_ThenReturnedWriteDataAction()
+        {
+            var defaultFhirRequestContext = new DefaultFhirRequestContext();
+            defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+
+            var claims = new List<Claim>();
+            claims.Add(new Claim("roles", "Write"));
+            var expectedPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            defaultFhirRequestContext.ResourceType = KnownResourceTypes.Patient;
+            defaultFhirRequestContext.Principal = expectedPrincipal;
+
+            _fhirRequestContextAccessor.RequestContext.Returns(defaultFhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "user1"));
+            _fhirRequestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Write, "user1"));
+
+            var result = await _roleBasedFhirAuthorizationService.CheckAccess(DataActions.Write, CancellationToken.None);
+            Assert.Equal(DataActions.Write, result);
         }
     }
 }
