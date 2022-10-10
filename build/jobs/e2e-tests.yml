@@ -7,11 +7,9 @@ parameters:
   type: string
 
 steps:
-  - task: ExtractFiles@1
-    displayName: 'Extract E2E Test Binaries'
-    inputs:
-      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
-      destinationFolder: '$(Agent.TempDirectory)/E2ETests/'
+  - template: e2e-tests-extract.yml
+    parameters:
+      version: ${{parameters.version}}
 
   - task: AzurePowerShell@4
     displayName: 'Set Variables'
