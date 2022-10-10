@@ -13,11 +13,11 @@ using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.WatchDogs
 {
-    internal class QueryWorker
+    public class QueryWorker
     {
         private readonly IList<ShardId> _shardIds;
 
-        internal QueryWorker(string connStr)
+        public QueryWorker(string connStr)
         {
             SqlService = new SqlService(connStr);
             _shardIds = GetShardIds();
