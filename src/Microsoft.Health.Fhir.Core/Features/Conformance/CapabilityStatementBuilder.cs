@@ -80,6 +80,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Version = versionString,
             };
 
+            if (modelInfoProvider.Version.Equals(FhirSpecification.Stu3) || modelInfoProvider.Version.Equals(FhirSpecification.R4))
+            {
+                ((DefaultOptionHashSet<string>)statement.Status).DefaultOption = "active";
+            }
+
             statement.FhirVersion = modelInfoProvider.SupportedVersion.VersionString;
             statement.Date = ProductVersionInfo.CreationTime.ToString("O");
             return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles);
