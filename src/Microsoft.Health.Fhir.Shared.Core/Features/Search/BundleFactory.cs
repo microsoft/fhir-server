@@ -71,7 +71,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
 #endif
 
-                // resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
                 resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
                 if (hasVerb)
                 {
