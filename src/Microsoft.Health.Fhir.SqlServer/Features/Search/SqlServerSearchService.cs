@@ -568,11 +568,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                var ranges = new List<Tuple<long, long>(numberOfRanges);
+                var ranges = new List<Tuple<long, long>>(numberOfRanges);
                 while (await reader.ReadAsync(cancellationToken))
                 {
-
+                    ranges.Add(new Tuple<long, long>(reader.GetInt64(1), reader.GetInt64(2)));
                 }
+
+                return ranges;
+            }
             catch (Exception)
             {
                 throw;

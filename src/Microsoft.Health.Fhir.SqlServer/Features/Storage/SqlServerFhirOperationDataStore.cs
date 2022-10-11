@@ -18,12 +18,10 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
-using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Newtonsoft.Json;
 
@@ -32,7 +30,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     internal class SqlServerFhirOperationDataStore : IFhirOperationDataStore
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private readonly SchemaInformation _schemaInformation;
         private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
         private readonly IQueueClient _queueClient;

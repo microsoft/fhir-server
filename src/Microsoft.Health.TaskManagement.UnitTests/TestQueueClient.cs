@@ -85,7 +85,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             while (dequeuedJobs.Count < numberOfJobsToDequeue)
             {
-                var jobInfo = await DequeueAsync(queueType, 0, worker, heartbeatTimeoutSec, cancellationToken);
+                var jobInfo = await DequeueAsync(queueType, worker, heartbeatTimeoutSec, cancellationToken);
 
                 if (jobInfo != null)
                 {

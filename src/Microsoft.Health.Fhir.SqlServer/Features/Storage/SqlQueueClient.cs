@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             while (dequeuedJobs.Count < numberOfJobsToDequeue)
             {
-                var jobInfo = await DequeueAsync(queueType, 0, worker, heartbeatTimeoutSec, cancellationToken);
+                var jobInfo = await DequeueAsync(queueType, worker, heartbeatTimeoutSec, cancellationToken);
 
                 if (jobInfo != null)
                 {
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return dequeuedJobs;
         }
 
-        public async Task<JobInfo> DequeueAsync(byte queueType, byte? startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
         {
             try
             {
