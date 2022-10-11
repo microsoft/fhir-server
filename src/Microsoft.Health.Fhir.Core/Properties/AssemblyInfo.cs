@@ -11,10 +11,12 @@ using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Core")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Core")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Core")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Core")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Core.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Core.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Core.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Core.UnitTests")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb")]
@@ -22,15 +24,18 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Api")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Api")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Api")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Api")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Api.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Api.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Api.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Api.UnitTests")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Tests.Integration")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Tests.Integration")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Tests.Integration")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Tests.Integration")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb.UnitTests")]
@@ -39,6 +44,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Integration")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Tests.E2E")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Tests.E2E")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Tests.E2E")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Tests.E2E")]
 

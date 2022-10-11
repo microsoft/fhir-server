@@ -17,6 +17,13 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
             var resourceInfo = Assembly.GetExecutingAssembly().GetManifestResourceInfo(resourceName);
 
+            if (resourceInfo == null && ModelInfoProvider.Version == FhirSpecification.R4B)
+            {
+                // Try R4 version
+                resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.R4.{fileName}.{extension}";
+                resourceInfo = Assembly.GetExecutingAssembly().GetManifestResourceInfo(resourceName);
+            }
+
             if (resourceInfo == null)
             {
                 // There isn't a version specific over-ride for the requested test file, attempt to find it in the Normative test files.

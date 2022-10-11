@@ -62,8 +62,8 @@ jobs:
         $webAppName = "${{ parameters.webAppName }}"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
-            appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "B3"
+            appServicePlanName = "${{ parameters.appServicePlanName }}-${{ parameters.version }}"
+            appServicePlanSku = "B2"
             numberOfInstances = 2
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"

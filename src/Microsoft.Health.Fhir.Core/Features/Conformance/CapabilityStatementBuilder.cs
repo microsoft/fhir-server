@@ -67,6 +67,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             FileVersionInfo version = ProductVersionInfo.Version;
             var versionString = $"{version.FileMajorPart}.{version.FileMinorPart}.{version.FileBuildPart}";
 
+            if (modelInfoProvider.Version == FhirSpecification.Stu3 ||
+                modelInfoProvider.Version == FhirSpecification.R4)
+            {
+                ((DefaultOptionHashSet<string>)statement.Status).DefaultOption = "active";
+            }
+
             statement.Name = string.Format(Core.Resources.CapabilityStatementNameFormat, statement.Publisher, configuration.Value.SoftwareName, versionString);
             statement.Software = new SoftwareComponent
             {

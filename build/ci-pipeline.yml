@@ -73,7 +73,7 @@ stages:
       tag: $(ImageTag)
 
 - stage: redeployStu3
-  displayName: 'Redeploy STU3 Site'
+  displayName: 'Redeploy STU3 CosmosDB Site'
   dependsOn:
   - DockerBuild
   jobs:
@@ -97,7 +97,7 @@ stages:
       imageTag: $(ImageTag)
 
 - stage: redeployR4
-  displayName: 'Redeploy R4 Site'
+  displayName: 'Redeploy R4 CosmosDB Site'
   dependsOn:
   - DockerBuild
   jobs:
@@ -120,8 +120,32 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
+- stage: redeployR4B
+  displayName: 'Redeploy R4B CosmosDB Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R4B
+      webAppName: $(DeploymentEnvironmentNameR4B)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployR4BSql
+  displayName: 'Redeploy R4B SQL Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R4B
+      webAppName: $(DeploymentEnvironmentNameR4BSql)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
 - stage: redeployR5
-  displayName: 'Redeploy R5 Site'
+  displayName: 'Redeploy R5 CosmosDB Site'
   dependsOn:
   - DockerBuild
   jobs:
@@ -170,6 +194,19 @@ stages:
       keyVaultName: $(DeploymentEnvironmentNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
 
+- stage: testR4B
+  displayName: 'Run R4B Tests'
+  dependsOn:
+  - BuildUnitTests
+  - redeployR4B
+  - redeployR4BSql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R4B
+      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      appServiceName: $(DeploymentEnvironmentNameR4B)
+
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
@@ -188,6 +225,7 @@ stages:
   dependsOn:
   - testStu3
   - testR4
+  - testR4B
   - testR5
   jobs:
   - template: ./jobs/docker-add-tag.yml
