@@ -93,9 +93,9 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             var tokenStringCompositeSearchParamsSharded = ShardList(tokenStringCompositeSearchParams, res => res.ShardletId);
 
             var affectedRows = ShardletMap.Shards.ToDictionary(_ => _.Key, _ => 0);
-            using (var scope = new TransactionScope(TransactionScopeOption.Required, new TransactionOptions() { Timeout = TimeSpan.FromSeconds(3600) }))
-            {
-                ForEachShard(
+            ////using (var scope = new TransactionScope(TransactionScopeOption.Required, new TransactionOptions() { Timeout = TimeSpan.FromSeconds(3600) }))
+            ////{
+            ParallelForEachShard(
                 (shardId) =>
                 {
                     if (resourcesSharded[shardId] != null)
@@ -119,10 +119,11 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                     {
                         PutShardTransaction(transactionId, shardId);
                     }
-                });
+                },
+                null);
                 ////scope.Dispose();
-                scope.Complete();
-            }
+            ////    scope.Complete();
+            ////}
 
             return affectedRows.Sum(_ => _.Value);
         }
