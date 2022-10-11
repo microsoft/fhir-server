@@ -25,13 +25,14 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         public CopyWorker(string connectionString)
         {
             Target = new SqlService(connectionString);
+            var central = new SqlUtils.SqlService(connectionString);
             _sourceConnectionString = GetSourceConnectionString();
             if (_sourceConnectionString == null)
             {
                 throw new ArgumentException("_sourceConnectionString == null");
             }
 
-            _sourceIsSharded = Workers.IsSharded(_sourceConnectionString);
+            _sourceIsSharded = Workers.IsSharded(_sourceConnectionString, central);
 
             if (_sourceIsSharded)
             {

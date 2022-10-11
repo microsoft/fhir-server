@@ -259,37 +259,40 @@ EXECUTE dbo.LogEvent @Process='Query.Second.End',@Mode='{mode}',@Status='Warn',@
 
             // Check resource keys
             var checkedResourceKeys = new List<ResourceKey>();
-            var callStartTime = DateTime.UtcNow;
-            SqlService.ParallelForEachShard(
-                shardIds,
-                (shardId) =>
-                {
-                    using var cmd = new SqlCommand(@$"{q0}{q2}") { CommandTimeout = 600 };
-                    var resourceKeysParam = new SqlParameter { ParameterName = "@ResourceKeys" };
-                    resourceKeysParam.AddResourceKeyList(firstResourceKeys);
-                    cmd.Parameters.AddWithValue("@CallStartTime", callStartTime);
-                    cmd.Parameters.Add(resourceKeysParam);
-                    SqlService.ExecuteSqlWithRetries(
-                        shardId,
-                        cmd,
-                        cmdInt =>
-                        {
-                            var keys = new List<ResourceKey>();
-                            using var reader = cmdInt.ExecuteReader();
-                            while (reader.Read())
+            if (firstResourceKeys.Count > 0)
+            {
+                var callStartTime = DateTime.UtcNow;
+                SqlService.ParallelForEachShard(
+                    shardIds,
+                    (shardId) =>
+                    {
+                        using var cmd = new SqlCommand(@$"{q0}{q2}") { CommandTimeout = 600 };
+                        var resourceKeysParam = new SqlParameter { ParameterName = "@ResourceKeys" };
+                        resourceKeysParam.AddResourceKeyList(firstResourceKeys);
+                        cmd.Parameters.AddWithValue("@CallStartTime", callStartTime);
+                        cmd.Parameters.Add(resourceKeysParam);
+                        SqlService.ExecuteSqlWithRetries(
+                            shardId,
+                            cmd,
+                            cmdInt =>
                             {
-                                keys.Add(new ResourceKey(reader));
-                            }
+                                var keys = new List<ResourceKey>();
+                                using var reader = cmdInt.ExecuteReader();
+                                while (reader.Read())
+                                {
+                                    keys.Add(new ResourceKey(reader));
+                                }
 
-                            reader.NextResult();
+                                reader.NextResult();
 
-                            lock (checkedResourceKeys)
-                            {
-                                checkedResourceKeys.AddRange(keys);
-                            }
-                        });
-                },
-                null);
+                                lock (checkedResourceKeys)
+                                {
+                                    checkedResourceKeys.AddRange(keys);
+                                }
+                            });
+                    },
+                    null);
+            }
 
             // return final
             var final = checkedResourceKeys.GroupBy(_ => _.ResourceId).Select(_ => _.First()).OrderBy(_ => _.TransactionId.Id).ThenBy(_ => _.ShardletId.Id).ThenBy(_ => _.Sequence).Take(top).ToList();
