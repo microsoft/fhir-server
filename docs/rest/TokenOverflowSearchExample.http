@@ -1,0 +1,148 @@
+# Example of setting up new search parameters, running reindex, and using the new search parameters.
+
+@hostname = localhost:44348
+
+### 1. Test rest client.
+https://{{hostname}}/metadata
+
+### 2. Get the bearer token, if authentication is enabled.
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### 3. POST new patient A with token overflow.
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\PatientAWithTokenOverflow.json
+
+### 4. Create composite custom token-string search parameter (this test data requires R4 or higher).
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\CompositeCustomTokenStringSearchParameter.json
+
+### 5. POST new patient B with token overflow AND non-overflow portion equal to patient A.
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\PatientBWithTokenOverflow.json
+
+### 6. POST new patient C with NO token overflow AND token size equal to max non-overflow size AND equal to patients A and B.
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\PatientCWithMaxNoTokenOverflow.json
+
+### 7. POST new patient D with NO token overflow AND token size smaller than max non-overflow size.
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\PatientDWithShortNoTokenOverflow.json
+
+### At this point we are able to correctly select all patient using token value.
+
+### 8. Get patient A by token value.
+GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 9. Get patient B by token value.
+GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 10. Get patient C by token value.
+GET https://{{hostname}}/Patient?identifier=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 11. Get patient D by token value.
+GET https://{{hostname}}/Patient?identifier=IDKirk789
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### At this point we can not get any patient by token-string value without using x-ms-use-partial-indices header.
+### IMPORTANT NOTE: Searching for patients in this example (steps 12 - 16) before reindexing the DB will work correctly only if
+### the server runs on a single instance, for example if it funs locally from Visual Studio. If server runs multiple instances, for
+### example as AppService on Azure, then reindexing while creating resources like in previous steps will be random, depending on what
+### instance the load balancer sends to the create resource request. In this case not all resources may be reindexed and searchable
+### by x-ms-use-partial-indices header.
+
+### 12. Get patient B by token-string value, returns OperationOutcome warning.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B$KirkB
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### With x-ms-use-partial-indices header we get patients B, C and D but not A.
+
+### 13. Get patient A by token-string value, returns nothing.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$Kirk
+Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true
+
+### 14. Get patient B by token-string value.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456B$Kirk
+Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true
+
+### 15. Get patient C by token-string value.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456$Kirk
+Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true
+
+### 16. Get patient D by token-string value.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk789$Kirk
+Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true
+
+###  17. Reindex DB.
+# @name reindex
+POST https://{{hostname}}/$reindex
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "maximumConcurrency",
+      "valueInteger": "3"
+    },
+    {
+      "name": "targetDataStoreUsagePercentage",
+      "valueInteger": "80"
+    },
+    {
+      "name": "queryDelayIntervalInMilliseconds",
+      "valueInteger": "500"
+    },
+    {
+      "name": "maximumNumberOfResourcesPerQuery",
+      "valueInteger": "5"
+    }
+  ]
+}
+
+### 18. Check the status of your reindex job.
+GET {{reindex.response.headers.Content-Location}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### At this point we are able to correctly select all patients using composite token-string value, no need for x-ms-use-partial-indices header.
+
+### 19. Get patient A by token-string value.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$Kirk
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### 20. Try to get patient by using incorrect token-string combination, returns nothing.
+GET https://{{hostname}}/Patient?identifier-name-family=IDKirk7890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456A$Smith
+Authorization: Bearer {{bearer.response.body.access_token}}

@@ -13,6 +13,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -23,12 +24,14 @@ using Microsoft.Health.Api.Features.AnonymousOperation;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionConstraints;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.AnonymousOperations;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Models;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -262,22 +265,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Returns the history of all resources in the system
         /// </summary>
-        /// <param name="at">Instant for history to return.</param>
-        /// <param name="since">Starting time for history to return (inclusive).</param>
-        /// <param name="before">Ending time for history to return (exclusive)</param>
-        /// <param name="count">Number of items to return.</param>
-        /// <param name="ct">Continuation token.</param>
+        /// <param name="historyModel">Model for history parameters.</param>
         [HttpGet]
         [Route(KnownRoutes.History, Name = RouteNames.History)]
         [AuditEventType(AuditEventSubType.HistorySystem)]
-        public async Task<IActionResult> SystemHistory(
-            [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
-            [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
-            string ct)
+        public async Task<IActionResult> SystemHistory(HistoryModel historyModel)
         {
-            ResourceElement response = await _mediator.SearchResourceHistoryAsync(since, before, at, count, ct, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceHistoryAsync(
+                historyModel.Since,
+                historyModel.Before,
+                historyModel.At,
+                historyModel.Count,
+                historyModel.ContinuationToken,
+                historyModel.Sort,
+                HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -286,23 +287,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Returns the history of a specific resource type
         /// </summary>
         /// <param name="typeParameter">The resource type.</param>
-        /// <param name="at">Instant for history to return.</param>
-        /// <param name="since">Starting time for history to return (inclusive).</param>
-        /// <param name="before">Ending time for history to return (exclusive).</param>
-        /// <param name="count">Number of items to return.</param>
-        /// <param name="ct">Continuation token.</param>
+        /// <param name="historyModel">Model for history parameters.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeHistory, Name = RouteNames.HistoryType)]
         [AuditEventType(AuditEventSubType.HistoryType)]
         public async Task<IActionResult> TypeHistory(
             string typeParameter,
-            [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
-            [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
-            string ct)
+            HistoryModel historyModel)
         {
-            ResourceElement response = await _mediator.SearchResourceHistoryAsync(typeParameter, since, before, at, count, ct, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceHistoryAsync(
+                typeParameter,
+                historyModel.Since,
+                historyModel.Before,
+                historyModel.At,
+                historyModel.Count,
+                historyModel.ContinuationToken,
+                historyModel.Sort,
+                HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -312,24 +313,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The resource type.</param>
         /// <param name="idParameter">The identifier.</param>
-        /// <param name="at">Instant for history to return.</param>
-        /// <param name="since">Starting time for history to return (inclusive).</param>
-        /// <param name="before">Ending time for hitory to return (exclusive).</param>
-        /// <param name="count">Number of items to return.</param>
-        /// <param name="ct">Continuation token.</param>
+        /// <param name="historyModel">Model for history parameters.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeByIdHistory, Name = RouteNames.HistoryTypeId)]
         [AuditEventType(AuditEventSubType.HistoryInstance)]
         public async Task<IActionResult> History(
             string typeParameter,
             string idParameter,
-            [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Before)] PartialDateTime before,
-            [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
-            string ct)
+            HistoryModel historyModel)
         {
-            ResourceElement response = await _mediator.SearchResourceHistoryAsync(typeParameter, idParameter, since, before, at, count, ct, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.SearchResourceHistoryAsync(
+                typeParameter,
+                idParameter,
+                historyModel.Since,
+                historyModel.Before,
+                historyModel.At,
+                historyModel.Count,
+                historyModel.ContinuationToken,
+                historyModel.Sort,
+                HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
@@ -506,15 +508,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private IReadOnlyList<Tuple<string, string>> GetQueriesForSearch()
         {
-            IReadOnlyList<Tuple<string, string>> queries = Array.Empty<Tuple<string, string>>();
-
-            if (Request.Query != null)
-            {
-                queries = Request.Query
-                    .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
-            }
-
-            return queries;
+            return Request.GetQueriesForSearch();
         }
 
         /// <summary>

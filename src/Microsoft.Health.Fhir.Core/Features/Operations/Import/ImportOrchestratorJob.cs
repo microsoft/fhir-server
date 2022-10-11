@@ -25,7 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportOrchestratorJob : IJob
     {
-        private const int DefaultPollingFrequencyInSeconds = 3;
         private const long DefaultResourceSizePerByte = 64;
 
         private readonly IMediator _mediator;
@@ -72,11 +71,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _jobInfo = jobInfo;
             _importConfiguration = importConfiguration;
             _logger = loggerFactory.CreateLogger<ImportOrchestratorJob>();
+
+            PollingFrequencyInSeconds = _importConfiguration.PollingFrequencyInSeconds;
         }
 
         public string RunId { get; set; }
 
-        public int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
+        public int PollingFrequencyInSeconds { get; set; }
 
         public async Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (TaskCanceledException taskCanceledEx)
             {
-                _logger.LogInformation(taskCanceledEx, "Import job canceled. {0}", taskCanceledEx.Message);
+                _logger.LogInformation(taskCanceledEx, "Import job canceled. {Message}", taskCanceledEx.Message);
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -145,12 +146,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = taskCanceledEx.Message,
                 };
 
-                await CancelProcessingJobsAsync();
+                // Processing jobs has been cancelled by CancelImportRequestHandler
+                await WaitCancelledJobCompletedAsync();
                 await SendImportMetricsNotification(JobStatus.Cancelled);
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogInformation(canceledEx, "Import job canceled. {0}", canceledEx.Message);
+                _logger.LogInformation(canceledEx, "Import job canceled. {Message}", canceledEx.Message);
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -158,7 +160,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = canceledEx.Message,
                 };
 
-                await CancelProcessingJobsAsync();
+                // Processing jobs has been cancelled by CancelImportRequestHandler
+                await WaitCancelledJobCompletedAsync();
                 await SendImportMetricsNotification(JobStatus.Cancelled);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
@@ -195,6 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = processingEx.Message,
                 };
 
+                // Cancel other processing jobs
                 await CancelProcessingJobsAsync();
                 await SendImportMetricsNotification(JobStatus.Failed);
             }
@@ -214,6 +218,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = ex.Message,
                 };
 
+                // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync();
                 await SendImportMetricsNotification(JobStatus.Failed);
             }
@@ -315,9 +320,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task WaitRunningJobComplete(IProgress<string> progress, CancellationToken cancellationToken)
         {
             HashSet<long> completedJobIds = new HashSet<long>();
-            foreach (long jobId in _orchestratorJobResult.RunningJobIds)
+            List<JobInfo> runningJobs = new List<JobInfo>();
+            try
             {
-                JobInfo latestJobInfo = await _queueClient.GetJobByIdAsync(_jobInfo.QueueType, jobId, false, cancellationToken);
+                runningJobs.AddRange(await _queueClient.GetJobsByIdsAsync(_jobInfo.QueueType, _orchestratorJobResult.RunningJobIds.ToArray(), false, cancellationToken));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get running jobs.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
+
+            foreach (JobInfo latestJobInfo in runningJobs)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException();
+                }
 
                 if (latestJobInfo.Status != JobStatus.Created && latestJobInfo.Status != JobStatus.Running)
                 {
@@ -346,8 +365,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _orchestratorJobResult.RunningJobIds.ExceptWith(completedJobIds);
                 progress.Report(JsonConvert.SerializeObject(_orchestratorJobResult));
             }
-
-            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+            else
+            {
+                // Only wait if no completed job (optimized for small jobs)
+                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+            }
         }
 
         private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Models.InputResource input, CancellationToken cancellationToken)
@@ -372,9 +394,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             string[] definitions = new string[] { JsonConvert.SerializeObject(importJobPayload) };
 
-            JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(_jobInfo.QueueType, definitions, _jobInfo.GroupId, false, false, cancellationToken)).First();
+            try
+            {
+                JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(_jobInfo.QueueType, definitions, _jobInfo.GroupId, false, false, cancellationToken)).First();
 
-            return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
+                return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to enqueue job.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
         }
 
         private async Task CancelProcessingJobsAsync()
@@ -385,13 +415,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "failed to cancel job {0}", _jobInfo.GroupId);
+                _logger.LogWarning(ex, "failed to cancel job {GroupId}", _jobInfo.GroupId);
             }
 
-            await WaitRunningJobCompleteOrCancelledAsync();
+            await WaitCancelledJobCompletedAsync();
         }
 
-        private async Task WaitRunningJobCompleteOrCancelledAsync()
+        private async Task WaitCancelledJobCompletedAsync()
         {
             while (true)
             {
@@ -399,14 +429,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     IEnumerable<JobInfo> jobInfos = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Import, _jobInfo.GroupId, false, CancellationToken.None);
 
-                    if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || t.Id == _jobInfo.Id))
+                    if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || !t.CancelRequested || t.Id == _jobInfo.Id))
                     {
                         break;
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "failed to get jobs by groupId {0}", _jobInfo.GroupId);
+                    _logger.LogWarning(ex, "failed to get jobs by groupId {GroupId}", _jobInfo.GroupId);
                     throw new RetriableJobException(ex.Message, ex);
                 }
 

@@ -1,11 +1,11 @@
-﻿--DROP PROCEDURE dbo.DequeueJob
+﻿
+--DROP PROCEDURE dbo.DequeueJob
 GO
-CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @StartPartitionId tinyint = NULL, @Worker varchar(100), @HeartbeatTimeoutSec int
+CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueJob'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
-                           +' P='+isnull(convert(varchar,@StartPartitionId),'NULL')
                            +' H='+isnull(convert(varchar,@HeartbeatTimeoutSec),'NULL')
                            +' W='+isnull(@Worker,'NULL')
        ,@Rows int
@@ -13,7 +13,7 @@ DECLARE @SP varchar(100) = 'DequeueJob'
        ,@JobId bigint
        ,@msg varchar(100)
        ,@Lock varchar(100)
-       ,@PartitionId tinyint = @StartPartitionId
+       ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
        ,@LookedAtPartitions tinyint = 0
 
@@ -78,7 +78,7 @@ BEGIN TRY
          ,Status = CASE WHEN CancelRequested = 0 THEN 1 ELSE 4 END 
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
          ,@JobId = CASE WHEN CancelRequested = 0 THEN T.JobId END
-         ,Info = isnull(Info,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,StartDate,121)
+         ,Info = convert(varchar(1000),isnull(Info,'')+' Prev: Worker='+Worker+' Start='+convert(varchar,StartDate,121))
       FROM dbo.JobQueue T WITH (PAGLOCK)
            JOIN (SELECT TOP 1 
                         JobId

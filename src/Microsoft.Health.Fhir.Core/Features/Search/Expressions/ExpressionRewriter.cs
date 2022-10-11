@@ -38,7 +38,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 return expression;
             }
 
-            return new ChainedExpression(resourceTypes: expression.ResourceTypes, referenceSearchParameter: expression.ReferenceSearchParameter, targetResourceTypes: expression.TargetResourceTypes, reversed: expression.Reversed, expression: visitedExpression);
+            /*SortRewriter will return null expression if it finds _sort param same as one of filter params.
+             But in case of chained names we do need to keep it.*/
+            if (visitedExpression == null)
+            {
+                return new ChainedExpression(resourceTypes: expression.ResourceTypes, referenceSearchParameter: expression.ReferenceSearchParameter, targetResourceTypes: expression.TargetResourceTypes, reversed: expression.Reversed, expression: expression);
+            }
+            else
+            {
+                return new ChainedExpression(resourceTypes: expression.ResourceTypes, referenceSearchParameter: expression.ReferenceSearchParameter, targetResourceTypes: expression.TargetResourceTypes, reversed: expression.Reversed, expression: visitedExpression);
+            }
         }
 
         public virtual Expression VisitMissingField(MissingFieldExpression expression, TContext context)
@@ -66,6 +75,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             IReadOnlyList<Expression> rewrittenExpressions = VisitArray(expression.Expressions, context);
             return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new MultiaryExpression(expression.MultiaryOperation, rewrittenExpressions);
+        }
+
+        public virtual Expression VisitUnion(UnionExpression expression, TContext context)
+        {
+            IReadOnlyList<Expression> rewrittenExpressions = VisitArray(expression.Expressions, context);
+            return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new UnionExpression(expression.Operator, rewrittenExpressions);
         }
 
         public virtual Expression VisitString(StringExpression expression, TContext context)

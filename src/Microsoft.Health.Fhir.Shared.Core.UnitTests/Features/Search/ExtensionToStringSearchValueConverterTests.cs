@@ -18,6 +18,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public sealed class ExtensionToStringSearchValueConverterTests : FhirInstanceToSearchValueConverterTests<Extension>
     {
         [Trait(Traits.Category, Categories.Search)]

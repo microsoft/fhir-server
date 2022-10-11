@@ -15,12 +15,16 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Export)]
     public class ExportControllerTests
     {
         private ExportController _exportEnabledController;
@@ -192,10 +196,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
-        // We can configure OciArtifacts whitelist through three fields: LoginServer, ImageName and Digest
+        // We can configure OciArtifacts through three fields: LoginServer, ImageName and Digest
         // If ImageName and Digest are null, all images under the specified LoginSever are allowed to be used.
         // Similarly, if LoginSever and ImageName are specified and Digest is empty, all digests under the specified ImageName are allowed to be used.
-        // If all three fileds are empty, only the specified digest is allowed to be used.
+        // If all three fields are provided, only the specified digest is allowed to be used.
         [Theory]
         [InlineData(null, null, null, "abc.azurecr.io/deidconfigs:1ae21c6e33deb90f105982404c867671da624deda7dff364107ec8c2910b4992")]
         [InlineData("abc.azurecr.io", null, null, "dummy.azurecr.io/deidconfigs:1ae21c6e33deb90f105982404c867671da624deda7dff364107ec8c2910b4992")]

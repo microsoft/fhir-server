@@ -218,12 +218,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
             CalculateSearchParameterHash();
             await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
             await EnsureInitializedAsync(cancellationToken);
         }
 
@@ -263,15 +265,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
                         catch (SearchParameterNotSupportedException ex)
                         {
-                            _logger.LogWarning(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
                         }
                         catch (InvalidDefinitionException ex)
                         {
-                            _logger.LogWarning(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                            _logger.LogError(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
                         }
                     }
                 }

@@ -6,44 +6,138 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Patch)]
     public class FhirPatchTypeTests
     {
+        // Tests wrong input type returns meaningful error.
         [Fact]
         public void GivenAFhirPatchRequest_WhenUpdatingWithNonMatchingType_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "identifier", new FhirDecimal(-42));
 
-            Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
+            var exception = Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
+            Assert.Contains("Invalid input for identifier", exception.Message);
         }
 
+        // Tests using "part" for a predefined type. Part is unnecessary but should still work.
         [Fact]
-        public void GivenAFhirPatchRequest_WhenInsertingDataTypeToList_ThenTheDataTypeShouldResolveAndSuccess()
+        public void GivenAFhirPatchRequest_WhenAddingObjectTypeAsNestedParts_ThenListShouldBeCreatedWithObject()
         {
-            var patchParam = new Parameters().AddInsertPatchParameter("Patient.name", new HumanName { Use = HumanName.NameUse.Nickname, Text = "Katy Test" }, 0);
-            var patientResource = new Patient
+            var patchParam = new Parameters().AddPatchParameter("add", path: "Patient", name: "contact", value: new Parameters.ParameterComponent
             {
-                Name = new List<HumanName>
+                Name = "name",
+                Part = new List<Parameters.ParameterComponent>()
+                    {
+                        new Parameters.ParameterComponent()
+                        {
+                            Name = "family",
+                            Value = new FhirString("name"),
+                        },
+                        new Parameters.ParameterComponent()
+                        {
+                            Name = "text",
+                            Value = new FhirString("a name"),
+                        },
+                        new Parameters.ParameterComponent()
+                        {
+                            Name = "period",
+                            Value = new Period { End = "2020-01-01" },
+                        },
+                    },
+            });
+
+            var patchedPatientResource = new FhirPathPatchBuilder(new Patient(), patchParam).Apply() as Patient;
+            var expectedPatientResource = new Patient
+            {
+                Contact = new List<Patient.ContactComponent>
+                    {
+                        new Patient.ContactComponent
+                        {
+                            Name = new HumanName
+                            {
+                                Family = "name",
+                                Text = "a name",
+                                Period = new Period { End = "2020-01-01" },
+                            },
+                        },
+                    },
+            };
+
+            Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
+        }
+
+        // Not in official test cases but tied to special case. The type of the code inside the anonymous object causes weird type inference behavior.
+        [Fact]
+        public void GivenAFhirPatchRequest_WhenAddingAnonymousTypeToList_ThenTypeWithElementsShouldBePopulated()
+        {
+            var versionSpecificResourceReference = new ResourceReference() { Reference = "Patient/123", Display = "Test Patient" };
+            if (ModelInfoProvider.Version != FhirSpecification.Stu3)
+            {
+                versionSpecificResourceReference.Type = "Patient";
+            }
+
+            var patchParam = new Parameters().AddPatchParameter("add", path: "Patient", name: "link", value: new List<Parameters.ParameterComponent>()
+            {
+                new Parameters.ParameterComponent()
                 {
-                    new HumanName { Use = HumanName.NameUse.Official, Text = "Katherine Test" },
+                    Name = "type",
+                    Value = new Code("replaced-by"),
+                },
+                new Parameters.ParameterComponent()
+                {
+                    Name = "other",
+                    Value = versionSpecificResourceReference,
+                },
+            });
+
+            var patchedPatientResource = new FhirPathPatchBuilder(new Patient(), patchParam).Apply() as Patient;
+            var expectedPatientResource = new Patient
+            {
+                Link = new List<Patient.LinkComponent>
+                {
+                    new Patient.LinkComponent
+                    {
+                        Type = Patient.LinkType.ReplacedBy,
+                        Other = versionSpecificResourceReference,
+                    },
                 },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
+            Assert.Equal(patchedPatientResource.ToJson(), expectedPatientResource.ToJson());
+        }
 
-            Assert.True(patchedPatientResource.Matches(
-                new Patient
-                {
-                    Name = new List<HumanName>
-                    {
-                        new HumanName { Use = HumanName.NameUse.Nickname, Text = "Katy Test" },
-                        new HumanName { Use = HumanName.NameUse.Official, Text = "Katherine Test" },
-                    },
-                }));
+        // Not in official test cases but tests choice types.
+        [Fact]
+        public void GivenAFhirPatchRequest_WhenAddingChoicetype_ThenElementWithPropertypeShouldBePopulated()
+        {
+            var patchParam1 = new Parameters().AddPatchParameter("add", path: "Patient", name: "deceased", value: new FhirBoolean(true));
+            var patchParam2 = new Parameters().AddPatchParameter("add", path: "Patient", name: "deceased", value: new FhirDateTime("2020-12-12"));
+
+            var patchedPatientResource1 = new FhirPathPatchBuilder(new Patient(), patchParam1).Apply() as Patient;
+            var expectedPatientResource1 = new Patient
+            {
+                Deceased = new FhirBoolean(true),
+            };
+
+            var patchedPatientResource2 = new FhirPathPatchBuilder(new Patient(), patchParam2).Apply() as Patient;
+            var expectedPatientResource2 = new Patient
+            {
+                Deceased = new FhirDateTime("2020-12-12"),
+            };
+
+            Assert.Equal(patchedPatientResource1.ToJson(), expectedPatientResource1.ToJson());
+            Assert.Equal(patchedPatientResource2.ToJson(), expectedPatientResource2.ToJson());
         }
     }
 }

@@ -42,11 +42,10 @@ namespace Microsoft.Health.JobManagement
         /// Dequeue job
         /// </summary>
         /// <param name="queueType">Queue Type</param>
-        /// <param name="startPartitionId">Start dequeue partition id</param>
         /// <param name="worker">Current worker name</param>
         /// <param name="heartbeatTimeoutSec">Heartbeat timeout for retry</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task<JobInfo> DequeueAsync(byte queueType, byte? startPartitionId, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
+        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
 
         /// <summary>
         /// Get job by id
@@ -80,7 +79,8 @@ namespace Microsoft.Health.JobManagement
         /// </summary>
         /// <param name="jobInfo">Job Info to keep alive</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken);
+        /// <returns>CancelRequested</returns>
+        public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken);
 
         /// <summary>
         /// Cancel jobs by group id

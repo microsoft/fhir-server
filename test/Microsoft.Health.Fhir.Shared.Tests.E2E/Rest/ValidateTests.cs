@@ -19,6 +19,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Validate)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ValidateTests : IClassFixture<ValidateTestFixture>
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             "{\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}",
             "Resource type in the URL must match resourceType in the resource.",
             "TypeName")]
-        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorWithLocationsIsReturned(string path, string payload, string expectedIssue, string location)
+        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorWithLocationsIsReturned(string path, string payload, string expectedIssue, string expression)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, payload);
 
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Invalid,
                     expectedIssue,
-                    location);
+                    expression);
         }
 
         [Fact]
@@ -240,17 +241,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             OperationOutcome.IssueSeverity? expectedSeverity,
             OperationOutcome.IssueType? expectedCode,
             string expectedMessage,
-            string expectedLocation = null)
+            string expectedExpression = null)
         {
             // Check expected outcome
             Assert.Equal(expectedSeverity, issue.Severity);
             Assert.Equal(expectedCode, issue.Code);
             Assert.Equal(expectedMessage, issue.Diagnostics);
 
-            if (expectedLocation != null)
+            if (expectedExpression != null)
             {
-                Assert.Single(issue.LocationElement);
-                Assert.Equal(expectedLocation, issue.LocationElement[0].ToString());
+                Assert.Single(issue.ExpressionElement);
+                Assert.Equal(expectedExpression, issue.ExpressionElement[0].ToString());
             }
         }
     }

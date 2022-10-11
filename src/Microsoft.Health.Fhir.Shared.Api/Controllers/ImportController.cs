@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfImportIsEnabled();
 
-            ImportRequest importRequest = importTaskParameters.ExtractImportRequest();
+            ImportRequest importRequest = importTaskParameters?.ExtractImportRequest();
             ValidateImportRequestConfiguration(importRequest);
 
             if (!ImportConstants.InitialLoadMode.Equals(importRequest.Mode, StringComparison.Ordinal))
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CancelImportResponse response = await _mediator.CancelImportAsync(idParameter, HttpContext.RequestAborted);
 
-            _logger.LogInformation($"CancelImport {response.StatusCode}");
+            _logger.LogInformation("CancelImport {StatusCode}", response.StatusCode);
             return new ImportResult(response.StatusCode);
         }
 
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, item.Type));
                 }
 
-                if (item.Url == null)
+                if (item.Url == null || !string.IsNullOrEmpty(item.Url.Query))
                 {
                     throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, "input.url"));
                 }

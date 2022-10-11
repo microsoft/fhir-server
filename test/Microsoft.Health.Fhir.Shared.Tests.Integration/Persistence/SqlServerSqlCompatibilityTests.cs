@@ -13,11 +13,14 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerSqlCompatibilityTests
     {
         /// <summary>
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
             try
             {
-                for (int i = SchemaVersionConstants.Min; i <= SchemaVersionConstants.Max; i++)
+                for (int i = SchemaVersionConstants.Max - 5; i <= SchemaVersionConstants.Max; i++)
                 {
                     try
                     {
@@ -81,9 +84,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public void GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, async version =>
+            Parallel.ForEach(versions, new ParallelOptions() { MaxDegreeOfParallelism = 2 }, async version =>
             {
-                if (version >= SchemaVersionConstants.Min && version <= SchemaVersionConstants.Max)
+                if (version >= SchemaVersionConstants.Max - 5 && version <= SchemaVersionConstants.Max)
                 {
                     string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 

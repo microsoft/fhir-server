@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     _importResult.FailedCount = batchProgress.FailedImportCount + failedImportCount;
                     _importResult.CurrentIndex = batchProgress.CurrentIndex;
 
-                    _logger.LogInformation("Import job progress: succeed {0}, failed: {1}", _importResult.SucceedCount, _importResult.FailedCount);
+                    _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", _importResult.SucceedCount, _importResult.FailedCount);
                     progress.Report(JsonConvert.SerializeObject(_importResult));
                 }
 

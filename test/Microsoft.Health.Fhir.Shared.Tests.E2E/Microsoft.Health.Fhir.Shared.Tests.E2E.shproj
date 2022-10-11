@@ -15,6 +15,5 @@
     <None Include="Rest\ConvertDataTests.cs" />
   </ItemGroup>
   <Import Project="Microsoft.Health.Fhir.Shared.Tests.E2E.projitems" Label="Shared" />
-  <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems" Label="Shared" />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.CSharp.targets" />
 </Project>

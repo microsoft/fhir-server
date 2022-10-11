@@ -15,6 +15,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.MemberMatch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public sealed class MemberMatchTests : IClassFixture<MemberMatchTestFixture>
@@ -78,6 +79,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.MemberMatch(searchPatient, searchCoverage));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, ex.StatusCode);
             Assert.Equal(Core.Resources.MemberMatchNoMatchFound, ex.OperationOutcome.Issue.First().Diagnostics);
+        }
+
+        [Fact]
+        public async Task GivenNonParametersRequestBody_WhenMemberMatchSent_ThenBadRequest()
+        {
+            string body = Samples.GetJson("PatientWithMinimalData");
+            var ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostAsync("Patient/$member-match", body));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
     }
 }

@@ -16,10 +16,15 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Validate)]
+    [Trait(Traits.Category, Categories.Web)]
     public class ValidateResourceIdFilterTests
     {
         [Fact]
@@ -50,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(observation, observation.Id.ToUpper());
 
             var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
-            Assert.Equal("Observation.id", exception.Issues.First<OperationOutcomeIssue>().Location.First());
+            Assert.Equal("Observation.id", exception.Issues.First<OperationOutcomeIssue>().Expression.First());
         }
 
         [Fact]
@@ -78,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(observation, Guid.NewGuid().ToString());
 
             var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
-            Assert.Equal("Observation.id", exception.Issues.First<OperationOutcomeIssue>().Location.First());
+            Assert.Equal("Observation.id", exception.Issues.First<OperationOutcomeIssue>().Expression.First());
         }
 
         [Fact]

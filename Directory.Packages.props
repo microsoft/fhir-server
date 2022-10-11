@@ -1,0 +1,106 @@
+<Project>
+  
+   <!-- Shared dependencies versions.-->
+  <PropertyGroup>
+    <AspNetPackageVersion>6.0.9</AspNetPackageVersion>
+    <HealthcareSharedPackageVersion>6.1.118</HealthcareSharedPackageVersion>
+    <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
+    <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="AngleSharp" Version="0.17.1" />
+    <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
+    <PackageVersion Include="Azure.Identity" Version="1.6.1" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.13.1" />
+    <PackageVersion Include="coverlet.collector" Version="3.1.2" />
+    <PackageVersion Include="Ensure.That" Version="10.1.0" />
+    <PackageVersion Include="FluentValidation" Version="11.2.2" />
+    <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.R4B" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.R5" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Serialization" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.R4B" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.R5" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.STU3" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Support.Poco" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.FhirPath" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="IdentityServer4" Version="4.1.2" />
+    <PackageVersion Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="9.0.0" />
+    <PackageVersion Include="MediatR" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.20.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.31.0" />
+    <PackageVersion Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
+    <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
+    <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="6.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="6.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.20.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Client" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Core" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.0.0.33" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="3.0.0.33" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="5.0.5.5" />
+    <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
+    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="160.6296.0" />
+    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.47027.0" />
+    <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.14" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageVersion Include="NSubstitute" Version="4.4.0" />
+    <PackageVersion Include="Polly" Version="7.2.3" />
+    <PackageVersion Include="prometheus-net.AspNetCore" Version="6.0.0" />
+    <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.2.4" />
+    <PackageVersion Include="prometheus-net.SystemMetrics" Version="2.0.0" />
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.435" />
+    <PackageVersion Include="System.Collections.Immutable" Version="6.0.0" />
+    <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta4.22272.1" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageVersion Include="System.Configuration.Configuration" Version="6.0.1" />
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="6.0.1" />
+    <PackageVersion Include="System.Data.SqlClient" Version="4.8.3" />
+    <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="6.0.1" />
+    <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
+    <PackageVersion Include="System.Net.Http" Version="4.3.4" />
+    <PackageVersion Include="System.Private.ServiceModel" Version="4.10.0" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="6.0.1" />
+    <PackageVersion Include="System.Text.Encodings.Web" Version="6.0.0" />
+    <PackageVersion Include="xunit.extensibility.core" Version="2.4.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.4.5" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.4.13" />
+    <PackageVersion Include="xunit" Version="2.4.2" />
+    <PackageVersion Include="xunit.assert" Version="2.4.2" />
+  </ItemGroup>
+
+</Project>

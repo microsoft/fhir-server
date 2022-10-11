@@ -14,11 +14,13 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using static Hl7.Fhir.Model.OperationOutcome;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Batch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class BatchTests : IClassFixture<HttpIntegrationTestFixture>
@@ -168,6 +170,124 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
             Assert.Equal(expectedIssueType, issue.Code);
             Assert.Equal(expectedDiagnostics, issue.Diagnostics);
+        }
+
+        [Theory]
+        [InlineData("true")]
+        [InlineData("false")]
+        public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(string profileValidation)
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Bundle.BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = Samples.GetJsonSample("Profile-Patient-uscore-noGender").ToPoco<Patient>(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = Samples.GetJsonSample("Patient").ToPoco<Patient>(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = Samples.GetJsonSample("Profile-Patient-uscore-noidentifier").ToPoco<Patient>(),
+                    },
+                },
+            };
+
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithValidationHeader(bundle, profileValidation);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+            Bundle bundleResource = fhirResponse.Resource;
+
+            if (profileValidation.Equals("true"))
+            {
+                Assert.Equal("400", bundleResource.Entry[0].Response.Status);
+                Assert.Equal("201", bundleResource.Entry[1].Response.Status);
+                Assert.Equal("400", bundleResource.Entry[2].Response.Status);
+            }
+            else
+            {
+                Assert.Equal("201", bundleResource.Entry[0].Response.Status);
+                Assert.Equal("201", bundleResource.Entry[1].Response.Status);
+                Assert.Equal("201", bundleResource.Entry[2].Response.Status);
+            }
+        }
+
+        [Theory]
+        [InlineData("true")]
+        [InlineData("false")]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenATransactionBundle_WithProfileValidationFlag_ReturnsABundleResponse(string profileValidation)
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = Bundle.BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = Samples.GetJsonSample("Profile-Patient-uscore-noGender").ToPoco<Patient>(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = Samples.GetJsonSample("Patient").ToPoco<Patient>(),
+                    },
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.POST,
+                            Url = "Patient",
+                        },
+                        Resource = Samples.GetJsonSample("Profile-Patient-uscore-noidentifier").ToPoco<Patient>(),
+                    },
+                },
+            };
+
+            if (profileValidation.Equals("true"))
+            {
+                using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsyncWithValidationHeader(bundle, profileValidation));
+                Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            }
+            else
+            {
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithValidationHeader(bundle, "false");
+                Assert.NotNull(fhirResponse);
+                Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+                Bundle bundleResource = fhirResponse.Resource;
+                Assert.Equal("201", bundleResource.Entry[0].Response.Status);
+                Assert.Equal("201", bundleResource.Entry[1].Response.Status);
+                Assert.Equal("201", bundleResource.Entry[2].Response.Status);
+            }
         }
     }
 }

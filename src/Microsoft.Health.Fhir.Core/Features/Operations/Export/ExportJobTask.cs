@@ -238,6 +238,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (RequestEntityTooLargeException retle)
+            {
+                _logger.LogError(retle, "Unable to update the ExportJobRecord as it exceeds CosmosDb document max size. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.RequestEntityTooLargeExceptionDuringExport, HttpStatusCode.RequestEntityTooLarge);
+
+                // Need to remove output records in order to make the export job record savable in the database.
+                _exportJobRecord.Output.Clear();
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (Exception ex)
             {
                 // The job has encountered an error it cannot recover from.
@@ -259,7 +269,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord.EndTime = Clock.UtcNow;
 
             await UpdateJobRecordAsync(cancellationToken);
-            _logger.LogInformation(ExtractExportTaskLoggingMessage());
+            string id = _exportJobRecord.Id ?? string.Empty;
+            string status = _exportJobRecord.Status.ToString();
+            string queuedTime = _exportJobRecord.QueuedTime.ToString("u") ?? string.Empty;
+            string endTime = _exportJobRecord.EndTime?.ToString("u") ?? string.Empty;
+            long dataSize = _exportJobRecord.Output?.Values.Sum(fileList => fileList.Sum(job => job?.CommittedBytes ?? 0)) ?? 0;
+            bool isAnonymizedExport = IsAnonymizedExportJob();
+
+            _logger.LogInformation(
+                "Export job completed. Id: {Id}, Status {Status}, Queued Time: {QueuedTime}, End Time: {EndTime}, DataSize: {DataSize}, IsAnonymizedExport: {IsAnonymizedExport}",
+                id,
+                status,
+                queuedTime,
+                endTime,
+                dataSize,
+                isAnonymizedExport);
 
             await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), CancellationToken.None);
         }
@@ -699,18 +723,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
         }
 
-        private string ExtractExportTaskLoggingMessage()
-        {
-            string id = _exportJobRecord.Id ?? string.Empty;
-            string status = _exportJobRecord.Status.ToString();
-            string queuedTime = _exportJobRecord.QueuedTime.ToString("u") ?? string.Empty;
-            string endTime = _exportJobRecord.EndTime?.ToString("u") ?? string.Empty;
-            long dataSize = _exportJobRecord.Output?.Values.Sum(fileList => fileList.Sum(job => job?.CommittedBytes ?? 0)) ?? 0;
-            bool isAnonymizedExport = IsAnonymizedExportJob();
-
-            return $"Export job completed. Id: {id}, Status {status}, Queued Time: {queuedTime}, End Time: {endTime}, DataSize: {dataSize}, IsAnonymizedExport: {isAnonymizedExport}";
-        }
-
         private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
         {
             if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id || parameter.Item1 == KnownQueryParameterNames.ContinuationToken))
@@ -719,7 +731,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (patientIds.Count == 0)
                 {
-                    _logger.LogInformation($"Group {groupId} does not have any patient ids as members.");
+                    _logger.LogInformation("Group: {GroupId} does not have any patient ids as members.", groupId);
                     return SearchResult.Empty();
                 }
 

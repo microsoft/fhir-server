@@ -9,6 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         Stu3,
         R4,
+        R4B,
         R5,
     }
 }

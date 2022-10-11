@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV17;
         private readonly V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV18;
         private readonly V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV27;
+        private readonly V40.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV40;
         private readonly V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorV17;
         private readonly V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorV17;
         private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
@@ -72,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV17,
             V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV18,
             V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV27,
+            V40.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV40,
             VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
             V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorV17,
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
@@ -93,6 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _upsertResourceTvpGeneratorV17 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV17, nameof(upsertResourceTvpGeneratorV17));
             _upsertResourceTvpGeneratorV18 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV18, nameof(upsertResourceTvpGeneratorV18));
             _upsertResourceTvpGeneratorV27 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV27, nameof(upsertResourceTvpGeneratorV27));
+            _upsertResourceTvpGeneratorV40 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV40, nameof(upsertResourceTvpGeneratorV40));
             _upsertResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             _reindexResourceTvpGeneratorV17 = EnsureArg.IsNotNull(reindexResourceTvpGeneratorV17, nameof(reindexResourceTvpGeneratorV17));
             _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
@@ -219,13 +222,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
-                    _logger.LogTrace("Upserting resource of type: {0} with a stream length of {1}, request method: {2}", resource.ResourceTypeName, stream.Length, resource.Request.Method);
+                    _logger.LogInformation("Upserting {ResourceTypeName} with a stream length of {StreamLength}", resource.ResourceTypeName, stream.Length);
 
                     // throwing ServiceUnavailableException in order to send a 503 error message to the client
                     // indicating the server has a transient error, and the client can try again
                     if (stream.Length < 31) // rather than error on a length of 0, a stream with a small number of bytes should still throw an error. RawResource.Data = null, still results in a stream of 29 bytes
                     {
-                        _logger.LogCritical("Stream size for resource of type: {0} is less than 50 bytes, request method: {1}", resource.ResourceTypeName, resource.Request.Method);
+                        _logger.LogCritical("Stream size for resource of type: {ResourceTypeName} is less than 50 bytes, request method: {RequestMethod}", resource.ResourceTypeName, resource.Request.Method);
                         throw new ServiceUnavailableException();
                     }
 
@@ -293,7 +296,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
             short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.PreventUpdatesFromCreatingVersionWhenNoImpact)
+            // NOTE: in the following code a call to autogenerated method _upsertResourceTvpGeneratorV[Version].Generate() then appears to be making a
+            // number of calls to interface ITableValuedParameterRowGenerator.GenerateRows() methods. But GenerateRows() contains "yield return"
+            // statements, so GenerateRows() body is not really executed at this point and no rows are generated, only IEnumerable interface is returned.
+            // This comment is put in here instead of in _upsertResourceTvpGeneratorV[Version].Generate() because
+            // _upsertResourceTvpGeneratorV[Version].Generate() is autogenerated by a tool so we cannot put comment there.
+            if (_schemaInformation.Current >= SchemaVersionConstants.TokenOverflow)
             {
                 VLatest.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
@@ -309,6 +317,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     searchParamHash: resource.SearchParameterHash,
                     rawResource: stream,
                     tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
+                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled,
+                    comparedVersion: comparedVersion);
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.PreventUpdatesFromCreatingVersionWhenNoImpact)
+            {
+                V40.UpsertResource.PopulateCommand(
+                    sqlCommandWrapper,
+                    baseResourceSurrogateId: baseResourceSurrogateId,
+                    resourceTypeId: resourceTypeId,
+                    resourceId: resource.ResourceId,
+                    eTag: eTag,
+                    allowCreate: allowCreate,
+                    isDeleted: resource.IsDeleted,
+                    keepHistory: keepHistory,
+                    requireETagOnUpdate: requireETagOnUpdate,
+                    requestMethod: resource.Request.Method,
+                    searchParamHash: resource.SearchParameterHash,
+                    rawResource: stream,
+                    tableValuedParameters: _upsertResourceTvpGeneratorV40.Generate(new List<ResourceWrapper> { resource }),
                     isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled,
                     comparedVersion: comparedVersion);
             }
@@ -437,7 +464,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     using (SqlDataReader sqlDataReader = await commandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
-                        if (!sqlDataReader.Read())
+                        if (!await sqlDataReader.ReadAsync(cancellationToken))
                         {
                             return null;
                         }
@@ -463,7 +490,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.InternalServerError);
                         }
 
-                        _logger.LogInformation($"{nameof(resourceSurrogateId)}: {resourceSurrogateId}; {nameof(key.ResourceType)}: {key.ResourceType}; {nameof(rawResource)} length: {rawResource.Length}");
+                        _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceType}: {ResourceType}; {NameOfRawResource} length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(key.ResourceType), key.ResourceType, nameof(rawResource), rawResource.Length);
 
                         var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
 
@@ -552,8 +579,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
                         string userAction = Core.Resources.ReindexingUserAction;
-
-                        _logger.LogError(message);
+                        _logger.LogError("{Error}", message);
                         throw new PreconditionFailedException(message + " " + userAction);
                     }
                 }
@@ -572,7 +598,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 string message = Core.Resources.ReindexingResourceVersionConflict;
                                 string userAction = Core.Resources.ReindexingUserAction;
 
-                                _logger.LogError(message);
+                                _logger.LogError("{Error}", message);
                                 throw new PreconditionFailedException(message + " " + userAction);
 
                             default:

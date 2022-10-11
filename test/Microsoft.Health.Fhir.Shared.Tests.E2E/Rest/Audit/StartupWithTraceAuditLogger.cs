@@ -7,7 +7,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Fhir.Api.Features.Audit;
-using Microsoft.Health.Fhir.Shared.Tests.E2E;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
