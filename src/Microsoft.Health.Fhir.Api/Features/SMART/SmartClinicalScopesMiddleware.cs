@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -45,38 +47,58 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             {
                 var fhirRequestContext = fhirRequestContextAccessor.RequestContext;
                 var principal = fhirRequestContext.Principal;
-                fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+                var roles = principal.FindAll(authorizationConfiguration.RolesClaim).Select(r => r.Value);
 
-                // examine the scopes claim for any SMART on FHIR clinical scopes
-                DataActions permittedDataActions = 0;
-                foreach (Claim claim in principal.FindAll(authorizationConfiguration.ScopesClaim))
+                // Only read and apply SMART clinical scopes if the SmartUserRole is present
+                if (roles.Contains(authorizationConfiguration.SmartUserRole))
                 {
-                    var matches = ClinicalScopeRegEx.Matches(claim.Value);
-                    foreach (Match match in matches)
+                    fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+
+                    var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
+                    try
                     {
-                        fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);
+                        fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser);
+                    }
+                    catch (UriFormatException)
+                    {
+                        throw new BadHttpRequestException("fhirUser claim must be a valid fully qualified URI.");
+                    }
+                    catch (ArgumentNullException)
+                    {
+                        throw new BadHttpRequestException("fhirUser claim must be included for smartUser role.");
+                    }
 
-                        var id = match.Groups["id"]?.Value;
-                        var resource = match.Groups["resource"]?.Value;
-                        var accessLevel = match.Groups["accessLevel"]?.Value;
-
-                        switch (accessLevel)
+                    // examine the scopes claim for any SMART on FHIR clinical scopes
+                    DataActions permittedDataActions = 0;
+                    foreach (Claim claim in principal.FindAll(authorizationConfiguration.ScopesClaim))
+                    {
+                        var matches = ClinicalScopeRegEx.Matches(claim.Value);
+                        foreach (Match match in matches)
                         {
-                            case "read":
-                                permittedDataActions |= DataActions.Read;
-                                break;
-                            case "write":
-                                permittedDataActions |= DataActions.Write;
-                                break;
-                            case "*":
-                                permittedDataActions |= DataActions.Read | DataActions.Write;
-                                break;
-                        }
+                            fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);
 
-                        if (!string.IsNullOrEmpty(resource)
-                            && !string.IsNullOrEmpty(id))
-                        {
-                            fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+                            var id = match.Groups["id"]?.Value;
+                            var resource = match.Groups["resource"]?.Value;
+                            var accessLevel = match.Groups["accessLevel"]?.Value;
+
+                            switch (accessLevel)
+                            {
+                                case "read":
+                                    permittedDataActions |= DataActions.Read;
+                                    break;
+                                case "write":
+                                    permittedDataActions |= DataActions.Write;
+                                    break;
+                                case "*":
+                                    permittedDataActions |= DataActions.Read | DataActions.Write;
+                                    break;
+                            }
+
+                            if (!string.IsNullOrEmpty(resource)
+                                && !string.IsNullOrEmpty(id))
+                            {
+                                fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+                            }
                         }
                     }
                 }
