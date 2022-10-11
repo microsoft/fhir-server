@@ -117,6 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         public async Task GivenScopesWithReadForPatient_WhenRevIncludeObservations_OnlyPatientResourcesReturned()
         {
             // PUT a patient
+            await PutResource()
             // PUT a related observation
 
             // try to query both the patient and the observation using revinclude
