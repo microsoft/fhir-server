@@ -41,4 +41,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlQueueClientTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTransactionScopeTests.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Features\Smart\" />
+  </ItemGroup>
 </Project>
