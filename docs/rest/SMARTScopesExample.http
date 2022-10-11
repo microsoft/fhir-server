@@ -1,4 +1,3 @@
-# Please note that to use this file for local testing
 # you must make an update
 # in the appsettings.json
 # FhirServer:Security:Authorization:ScopesClaim = "scope"
@@ -71,7 +70,7 @@ GET https://{{hostname}}/?_type=Patient
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Reverse chained search
-GET https://{{hostname}}/Patient?_has:Observation:patient:code=4548-4&_count=1000
+GET https://{{hostname}}/Patient?_has:Observation:patient:code=4548-4
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Get all resources
