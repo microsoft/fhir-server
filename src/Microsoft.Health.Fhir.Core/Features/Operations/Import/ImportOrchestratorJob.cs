@@ -360,7 +360,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             ImportProcessingJobInputData importJobPayload = new ImportProcessingJobInputData()
             {
-                TypeId = ImportProcessingJob.ImportProcessingJobTypeId,
+                TypeId = (int)JobType.ImportProcessing,
                 ResourceLocation = input.Url.ToString(),
                 UriString = _orchestratorInputData.RequestUri.ToString(),
                 BaseUriString = _orchestratorInputData.BaseUri.ToString(),

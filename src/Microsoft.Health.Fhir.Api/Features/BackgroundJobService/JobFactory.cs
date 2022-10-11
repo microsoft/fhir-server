@@ -79,7 +79,13 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             Func<JobInfo, IJob>[] taskFactoryFuncs =
-                new Func<JobInfo, IJob>[] { CreateImportProcessingTask, CreateImportOrchestratorTask };
+                new Func<JobInfo, IJob>[]
+                {
+                    CreateImportProcessingTask,
+                    CreateImportOrchestratorTask,
+                    CreateExportOrchestratorJob,
+                    CreateExportProcesingJob,
+                };
 
             foreach (Func<JobInfo, IJob> factoryFunc in taskFactoryFuncs)
             {

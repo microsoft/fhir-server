@@ -64,7 +64,8 @@ namespace Microsoft.Health.Fhir.Web
             The execution of IHostedServices depends on the order they are added to the dependency injection container, so we
             need to ensure that the schema is initialized before the background workers are started.
             */
-            fhirServerBuilder.AddBackgroundWorkers();
+            // The Export background worker is only needed in Cosmos services. In SQL it is handled by the common Job Hosting worker.
+            fhirServerBuilder.AddBackgroundWorkers(dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase));
 
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
