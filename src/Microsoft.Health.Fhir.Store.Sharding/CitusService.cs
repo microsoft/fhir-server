@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 using (var writer = connection.BeginBinaryImport($"COPY {tableName} FROM STDIN (FORMAT BINARY)"))
                 {
                     // this timeout should govern the below writer.Complete call (which defaults to 30s)
-                    writer.Timeout = TimeSpan.FromMinutes(5);
+                    writer.Timeout = TimeSpan.FromMinutes(60);
 
                     foreach (var row in rows)
                     {
