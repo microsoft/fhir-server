@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer;
@@ -32,6 +33,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Xunit;
@@ -39,6 +41,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 {
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
+    [Trait(Traits.Category, Categories.Import)]
     public class SqlServerIndexesRebuildTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
