@@ -35,6 +35,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToTokenSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToUriSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\BooleanToBooleanSearchValueConverterTests.cs" />
