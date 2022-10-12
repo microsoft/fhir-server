@@ -154,8 +154,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public async ValueTask DisposeAsync()
         {
-            _cancellationTokenSource.Cancel();
-            await _rebuilder;
+            if (!_cancellationTokenSource.IsCancellationRequested)
+            {
+                _cancellationTokenSource.Cancel();
+            }
+
+            if (_rebuilder != null)
+            {
+                await _rebuilder;
+            }
+
             _cancellationTokenSource.Dispose();
             _rebuilder = null;
             _defaultCapabilitySemaphore?.Dispose();

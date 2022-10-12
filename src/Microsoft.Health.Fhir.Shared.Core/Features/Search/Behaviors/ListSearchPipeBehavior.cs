@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             _referenceSearchValueParser = referenceSearchValueParser;
         }
 
-        public async Task<SearchResourceResponse> Handle(SearchResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<SearchResourceResponse> next)
+        public async Task<SearchResourceResponse> Handle(SearchResourceRequest request, RequestHandlerDelegate<SearchResourceResponse> next, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
