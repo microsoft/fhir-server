@@ -475,6 +475,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        public override async Task<SearchResult> SearchByDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
+        {
+            long startId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
+            long endId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
+            return await SearchBySurrogateIdRange(resourceType, startId, endId, startId, endId, cancellationToken);
+        }
+
         /// <summary>
         /// Searches for resources by their type and surrogate id
         /// </summary>
@@ -556,7 +563,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        public async Task<IReadOnlyList<Tuple<long, long>>> GetSurrogateIdRange(string resourceType, long startId, long endId, int unitSize, int numberOfRanges, CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, int numberOfRanges, CancellationToken cancellationToken)
+        {
+            long startId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
+            long endId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
+            var surrogateIdResults = await GetSurrogateIdRange(resourceType, startId, endId, numberOfRanges, cancellationToken);
+            var dateTimeResults = new List<Tuple<DateTime, DateTime>>();
+
+            foreach (var result in surrogateIdResults)
+            {
+                dateTimeResults.Add(new Tuple<DateTime, DateTime>(
+                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Item1),
+                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Item2)));
+            }
+
+            return dateTimeResults;
+        }
+
+        public async Task<IReadOnlyList<Tuple<long, long>>> GetSurrogateIdRange(string resourceType, long startId, long endId, int numberOfRanges, CancellationToken cancellationToken)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             try
@@ -564,14 +588,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, unitSize, numberOfRanges);
-
+                VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, 1000, 100);
                 using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                var ranges = new List<Tuple<long, long>>(numberOfRanges);
+                long resourceCount = 0;
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    ranges.Add(new Tuple<long, long>(reader.GetInt64(1), reader.GetInt64(2)));
+                    var count = reader.GetInt32(3);
+                    resourceCount += count;
+                }
+
+                int countPerPage = (int)(resourceCount / numberOfRanges) + 1;
+
+                using SqlConnectionWrapper sqlConnectionWrapper2 = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper2 = sqlConnectionWrapper2.CreateRetrySqlCommand();
+
+                VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper2, resourceTypeId, startId, endId, countPerPage, numberOfRanges);
+                using SqlDataReader reader2 = await sqlCommandWrapper2.ExecuteReaderAsync(cancellationToken);
+
+                var ranges = new List<Tuple<long, long>>(numberOfRanges);
+                while (await reader2.ReadAsync(cancellationToken))
+                {
+                    ranges.Add(new Tuple<long, long>(reader2.GetInt64(1), reader2.GetInt64(2)));
                 }
 
                 return ranges;

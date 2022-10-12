@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
         private readonly IMediator _mediator;
         private readonly OperationsConfiguration _operationsConfiguration;
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
+        private readonly ISearchService _searchService;
         private readonly ILoggerFactory _loggerFactory;
 
         public JobFactory(
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             IOptions<OperationsConfiguration> operationsConfig,
             IMediator mediator,
             Func<IExportJobTask> exportJobTaskFactory,
+            ISearchService searchService,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
@@ -59,6 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
+            EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _importResourceLoader = importResourceLoader;
@@ -71,6 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             _mediator = mediator;
             _operationsConfiguration = operationsConfig.Value;
             _exportJobTaskFactory = exportJobTaskFactory;
+            _searchService = searchService;
             _loggerFactory = loggerFactory;
         }
 
@@ -150,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             ExportJobRecord exportData = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
             if (exportData.TypeId == (int)JobType.ExportOrchestrator)
             {
-                return new ExportOrchestratorJob(jobInfo, _queueClient, _loggerFactory);
+                return new ExportOrchestratorJob(jobInfo, _queueClient, _searchService, _loggerFactory);
             }
             else
             {

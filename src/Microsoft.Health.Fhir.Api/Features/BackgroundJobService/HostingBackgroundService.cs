@@ -58,7 +58,9 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                     }
 
                     using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                    await jobHostingValue.StartAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource);
+                    Task importJobHosting = jobHostingValue.StartAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource);
+                    Task exportJobHosting = jobHostingValue.StartAsync((byte)QueueType.Export, Environment.MachineName, cancellationTokenSource);
+                    await Task.WhenAll(importJobHosting, exportJobHosting);
                 }
             }
             catch (Exception ex)

@@ -351,8 +351,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private ExportJobOutcome CreateExportJobOutcome(long jobId, string rawJobRecord, long version, byte status, DateTime createDate)
         {
-            var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
-            return CreateExportJobOutcome(jobId, exportJobRecord, version, status, createDate);
+            try
+            {
+                var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
+                return CreateExportJobOutcome(jobId, exportJobRecord, version, status, createDate);
+            }
+            catch (Exception ex)
+            {
+                throw new JsonSerializationException($"Error deserializing {rawJobRecord}", ex);
+            }
         }
 
         private static ExportJobOutcome CreateExportJobOutcome(JobInfo jobInfo, ExportJobRecord jobRecord)

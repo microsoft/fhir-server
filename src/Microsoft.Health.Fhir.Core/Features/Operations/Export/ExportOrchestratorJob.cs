@@ -4,11 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -18,21 +21,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private const int DefaultPollingFrequencyInSeconds = 3;
 
+        // private readonly TimeSpan _defaultLengthOfTimeSlice = TimeSpan.FromDays(1);
+
         private JobInfo _jobInfo;
         private IQueueClient _queueClient;
+        private ISearchService _searchService;
         private ILogger<ExportOrchestratorJob> _logger;
 
         public ExportOrchestratorJob(
             JobInfo jobInfo,
             IQueueClient queueClient,
+            ISearchService searchService,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _jobInfo = jobInfo;
             _queueClient = queueClient;
+            _searchService = searchService;
             _logger = loggerFactory.CreateLogger<ExportOrchestratorJob>();
         }
 
@@ -47,73 +56,93 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // else
             // Make one processing job for the entire export
 
-            // Use progress to check the status as one of: New, Processing, Done
-
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(_jobInfo.Definition);
-
-            if (_jobInfo.Result.Equals(ExportOrchestratorJobProgress.Initialized.ToString(), StringComparison.OrdinalIgnoreCase))
+            var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, _jobInfo.GroupId, false, cancellationToken);
+            var count = 0;
+            foreach (var job in groupJobs)
             {
-                var processingRecord = new ExportJobRecord(
-                    record.RequestUri,
-                    record.ExportType,
-                    record.ExportFormat,
-                    record.ResourceType,
-                    record.Filters,
-                    record.Hash,
-                    record.RollingFileSizeInMB,
-                    record.RequestorClaims,
-                    record.Since,
-                    record.Till,
-                    record.GroupId,
-                    record.StorageAccountConnectionHash,
-                    record.StorageAccountUri,
-                    record.AnonymizationConfigurationCollectionReference,
-                    record.AnonymizationConfigurationLocation,
-                    record.AnonymizationConfigurationFileETag,
-                    record.MaximumNumberOfResourcesPerQuery,
-                    record.NumberOfPagesPerCommit,
-                    record.StorageAccountContainerName,
-                    record.SchemaVersion,
-                    (int)JobType.ExportProcessing);
-
-                string[] definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
-
-                await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, _jobInfo.GroupId, false, false, cancellationToken);
-                progress.Report(ExportOrchestratorJobProgress.PreprocessCompleted.ToString());
+                count++;
             }
 
-            if (_jobInfo.Result.Equals(ExportOrchestratorJobProgress.PreprocessCompleted.ToString(), StringComparison.OrdinalIgnoreCase))
+            if (count == 1)
             {
-                bool allJobsComplete;
-
-                do
+                string[] definitions;
+                if (record.ExportType != ExportJobType.All)
                 {
-                    var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, _jobInfo.GroupId, false, cancellationToken);
-                    allJobsComplete = true;
-                    foreach (var job in groupJobs)
+                    var processingRecord = CreateExportRecord(record);
+                    definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
+                }
+                else if (string.IsNullOrEmpty(record.ResourceType))
+                {
+                    var processingRecord = CreateExportRecord(record);
+                    definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
+                }
+                else
+                {
+                    var resourceTypes = record.ResourceType.Split(',');
+                    var definitionsList = new List<string>();
+                    foreach (var type in resourceTypes)
                     {
-                        if (job.Id != _jobInfo.Id && (job.Status == JobStatus.Running || job.Status == JobStatus.Created))
+                        var till = record.Till.ToDateTimeOffset(
+                                defaultMonth: 1,
+                                defaultDaySelector: (year, month) => 1,
+                                defaultHour: 0,
+                                defaultMinute: 0,
+                                defaultSecond: 0,
+                                defaultFraction: 0.0000000m,
+                                defaultUtcOffset: TimeSpan.Zero);
+                        var since = record.Since.ToDateTimeOffset(
+                                defaultMonth: 1,
+                                defaultDaySelector: (year, month) => 1,
+                                defaultHour: 0,
+                                defaultMinute: 0,
+                                defaultSecond: 0,
+                                defaultFraction: 0.0000000m,
+                                defaultUtcOffset: TimeSpan.Zero);
+
+                        // var numberOfRanges = (int)((till.Ticks - since.Ticks) / _defaultLengthOfTimeSlice.Ticks) + 1;
+                        var ranges = await _searchService.GetDateTimeRange(type, since.DateTime, till.DateTime, 10, cancellationToken);
+                        var sequence = 0;
+                        foreach (var range in ranges)
                         {
-                            allJobsComplete = false;
-                            break;
+                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, since: new PartialDateTime(new DateTimeOffset(range.Item1)), till: new PartialDateTime(new DateTimeOffset(range.Item2)));
+                            definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
+                            sequence++;
                         }
                     }
 
-                    await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+                    definitions = definitionsList.ToArray();
                 }
-                while (!allJobsComplete);
 
-                progress.Report(ExportOrchestratorJobProgress.SubJobsCompleted.ToString());
+                groupJobs = await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, _jobInfo.GroupId, false, false, cancellationToken);
             }
 
-            if (_jobInfo.Result.Equals(ExportOrchestratorJobProgress.SubJobsCompleted.ToString(), StringComparison.OrdinalIgnoreCase))
+            // else if check that the number of processing jobs is as expected. If not fail the job, this isn't recoverable.
+
+            bool allJobsComplete;
+            do
             {
-                // get all processing jobs and merge their results into a master export job result.
-                var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, _jobInfo.GroupId, false, cancellationToken);
-                bool jobFailed = false;
+                allJobsComplete = true;
                 foreach (var job in groupJobs)
                 {
-                    if (job.Id != _jobInfo.Id)
+                    if (job.Id != _jobInfo.Id && (job.Status == JobStatus.Running || job.Status == JobStatus.Created))
+                    {
+                        allJobsComplete = false;
+                        break;
+                    }
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+                groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, _jobInfo.GroupId, false, cancellationToken);
+            }
+            while (!allJobsComplete);
+
+            bool jobFailed = false;
+            foreach (var job in groupJobs)
+            {
+                if (job.Id != _jobInfo.Id)
+                {
+                    if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
                     {
                         var processResult = JsonConvert.DeserializeObject<ExportJobRecord>(job.Result);
                         foreach (var output in processResult.Output)
@@ -130,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                         if (processResult.FailureDetails != null)
                         {
-                            if (record.FailureDetails != null)
+                            if (record.FailureDetails == null)
                             {
                                 record.FailureDetails = processResult.FailureDetails;
                             }
@@ -142,15 +171,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             jobFailed = true;
                         }
                     }
-                }
+                    else
+                    {
+                        if (record.FailureDetails == null)
+                        {
+                            record.FailureDetails = new JobFailureDetails("Processing job had no results", System.Net.HttpStatusCode.InternalServerError);
+                        }
+                        else
+                        {
+                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\nProcessing job had no results", System.Net.HttpStatusCode.InternalServerError);
+                        }
 
-                if (jobFailed)
-                {
-                    throw new JobExecutionException(record.FailureDetails.FailureReason);
+                        jobFailed = true;
+                    }
                 }
             }
 
+            if (jobFailed)
+            {
+                throw new JobExecutionException(record.FailureDetails.FailureReason, record);
+            }
+
             return JsonConvert.SerializeObject(record);
+        }
+
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, int sequence = -1, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null)
+        {
+            return new ExportJobRecord(
+                        record.RequestUri,
+                        record.ExportType,
+                        sequence == -1 ? record.ExportFormat : $"{record.ExportFormat}-{sequence}",
+                        string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
+                        record.Filters,
+                        record.Hash,
+                        record.RollingFileSizeInMB,
+                        record.RequestorClaims,
+                        since == null ? record.Since : since,
+                        till == null ? record.Till : till,
+                        record.GroupId,
+                        record.StorageAccountConnectionHash,
+                        record.StorageAccountUri,
+                        record.AnonymizationConfigurationCollectionReference,
+                        record.AnonymizationConfigurationLocation,
+                        record.AnonymizationConfigurationFileETag,
+                        record.MaximumNumberOfResourcesPerQuery,
+                        record.NumberOfPagesPerCommit,
+                        record.StorageAccountContainerName,
+                        record.SchemaVersion,
+                        (int)JobType.ExportProcessing);
         }
     }
 }

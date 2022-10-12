@@ -219,6 +219,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
+        public virtual Task<SearchResult> SearchByDateTimeRange(
+            string resourceType,
+            DateTime startTime,
+            DateTime endTime,
+            CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(
+            string resourceType,
+            DateTime startTime,
+            DateTime endTime,
+            int numberOfRanges,
+            CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
