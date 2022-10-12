@@ -31,7 +31,7 @@ BEGIN TRY
   BEGIN
     SELECT TOP 1 @IndId = IndId, @Ind = name FROM @Indexes ORDER BY IndId
 
-    SET @DataComp = CASE WHEN (SELECT PropertyValue FROM dbo.IndexProperties WHERE IndexTableName=@Tbl AND IndexName=@Ind)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END
+    SET @DataComp = CASE WHEN (SELECT PropertyValue FROM dbo.IndexProperties WHERE TableName=@Tbl AND IndexName=@Ind)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END
     SET @Txt = 'IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('''+@Tbl+''') AND name = '''+@Ind+''' AND is_disabled = 1) ALTER INDEX '+@Ind+' ON dbo.'+@Tbl+' REBUILD'+@DataComp
     EXECUTE(@Txt)
     EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Ind,@Action='Rebuild',@Text=@Txt

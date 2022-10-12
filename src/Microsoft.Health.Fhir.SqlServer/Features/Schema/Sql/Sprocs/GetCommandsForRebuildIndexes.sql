@@ -37,7 +37,7 @@ BEGIN TRY
     IF @Supported = 0
     BEGIN
       INSERT INTO @Commands
-        SELECT @Tbl, name, 'ALTER INDEX '+name+' ON dbo.'+@Tbl+' REBUILD'+CASE WHEN (SELECT PropertyValue from dbo.IndexProperties where IndexTableName=@Tbl AND IndexName=name)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END, convert(bigint,9e18) FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (is_disabled = 1 AND index_id > 1 AND @RebuildClustered = 0 OR index_id = 1 AND @RebuildClustered = 1)
+        SELECT @Tbl, name, 'ALTER INDEX '+name+' ON dbo.'+@Tbl+' REBUILD'+CASE WHEN (SELECT PropertyValue from dbo.IndexProperties where TableName=@Tbl AND IndexName=name)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END, convert(bigint,9e18) FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (is_disabled = 1 AND index_id > 1 AND @RebuildClustered = 0 OR index_id = 1 AND @RebuildClustered = 1)
       EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Commands',@Action='Insert',@Rows=@@rowcount,@Text='Not supported tables with disabled indexes'
     END
     ELSE
@@ -65,7 +65,7 @@ BEGIN TRY
 
           IF @IndId = 1
           BEGIN
-            SET @Txt = 'ALTER INDEX '+@Ind+' ON dbo.'+@TblInt+' REBUILD'+CASE WHEN (SELECT PropertyValue from dbo.IndexProperties where IndexTableName=@Tbl and IndexName=@Ind)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END
+            SET @Txt = 'ALTER INDEX '+@Ind+' ON dbo.'+@TblInt+' REBUILD'+CASE WHEN (SELECT PropertyValue from dbo.IndexProperties where TableName=@Tbl and IndexName=@Ind)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END
             INSERT INTO @Commands SELECT @TblInt, @Ind, @Txt, @Pages
             EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
           END
