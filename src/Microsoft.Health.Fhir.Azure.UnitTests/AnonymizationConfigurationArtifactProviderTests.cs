@@ -23,12 +23,16 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Utilities;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Microsoft.Rest;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Azure.UnitTests
 {
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
+    [Trait(Traits.Category, Categories.AnonymizedExport)]
     public class AnonymizationConfigurationArtifactProviderTests
     {
         private AnonymizationConfigurationArtifactProvider _provider;

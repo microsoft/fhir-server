@@ -37,6 +37,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		GitVersion.yml = GitVersion.yml
 		global.json = global.json
 		testauthenvironment.json = testauthenvironment.json
+		xunit.runner.json = xunit.runner.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{B5F2D2DF-D0C7-4861-8259-F6A041DB9854}"
@@ -149,6 +150,16 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Importer", "tools\Importer\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Exporter", "tools\Exporter\Exporter.csproj", "{E468B6C6-9098-4293-AFD6-3B1675D67063}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Core", "src\Microsoft.Health.Fhir.R4B.Core\Microsoft.Health.Fhir.R4B.Core.csproj", "{A0320AE9-3F87-44A3-8263-5AF7E00085D4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Web", "src\Microsoft.Health.Fhir.R4B.Web\Microsoft.Health.Fhir.R4B.Web.csproj", "{C5294685-AE6B-434C-9E31-90B3893027DE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Api", "src\Microsoft.Health.Fhir.R4B.Api\Microsoft.Health.Fhir.R4B.Api.csproj", "{81A3B383-1560-45E1-9540-9143060243DD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Client", "src\Microsoft.Health.Fhir.R4B.Client\Microsoft.Health.Fhir.R4B.Client.csproj", "{9CC529D4-8384-41CF-9BDA-6F3EF8117891}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Core.UnitTests", "src\Microsoft.Health.Fhir.R4B.Core.UnitTests\Microsoft.Health.Fhir.R4B.Core.UnitTests.csproj", "{4EFE2B45-F327-4316-9587-0E3A20BB34B3}"
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SchemaManager", "src\Microsoft.Health.Fhir.SchemaManager\Microsoft.Health.Fhir.SchemaManager.csproj", "{726753EA-14F5-4D21-8FDA-23E119C93639}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.SchemaManager.UnitTests", "src\Microsoft.Health.Fhir.SchemaManager.UnitTests\Microsoft.Health.Fhir.SchemaManager.UnitTests.csproj", "{EF152DF7-85C0-4337-B1B1-FBFD5B217AE7}"
@@ -158,6 +169,12 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResourceParser", "tools\ResourceParser\ResourceParser.csproj", "{86130CF7-35BA-45B3-8BE7-B83D382B32C3}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.ResourceParser", "tools\Microsoft.Health.Fhir.R4.ResourceParser\Microsoft.Health.Fhir.R4.ResourceParser.csproj", "{2CAC8D57-180F-4DD4-B11D-6B2AB65B2A48}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Tests.Integration", "test\Microsoft.Health.Fhir.R4B.Tests.Integration\Microsoft.Health.Fhir.R4B.Tests.Integration.csproj", "{5E456FD7-E5A5-41F4-A0D3-7215585AEB7A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Tests.E2E", "test\Microsoft.Health.Fhir.R4B.Tests.E2E\Microsoft.Health.Fhir.R4B.Tests.E2E.csproj", "{A5DED132-32B1-4804-95F5-EBC6092EC8AE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Api.UnitTests", "src\Microsoft.Health.Fhir.R4B.Api.UnitTests\Microsoft.Health.Fhir.R4B.Api.UnitTests.csproj", "{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IndexRebuilder", "tools\IndexRebuilder\IndexRebuilder.csproj", "{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}"
 EndProject
@@ -335,6 +352,26 @@ Global
 		{E468B6C6-9098-4293-AFD6-3B1675D67063}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E468B6C6-9098-4293-AFD6-3B1675D67063}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E468B6C6-9098-4293-AFD6-3B1675D67063}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A0320AE9-3F87-44A3-8263-5AF7E00085D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0320AE9-3F87-44A3-8263-5AF7E00085D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0320AE9-3F87-44A3-8263-5AF7E00085D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0320AE9-3F87-44A3-8263-5AF7E00085D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C5294685-AE6B-434C-9E31-90B3893027DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5294685-AE6B-434C-9E31-90B3893027DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5294685-AE6B-434C-9E31-90B3893027DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5294685-AE6B-434C-9E31-90B3893027DE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{81A3B383-1560-45E1-9540-9143060243DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81A3B383-1560-45E1-9540-9143060243DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81A3B383-1560-45E1-9540-9143060243DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81A3B383-1560-45E1-9540-9143060243DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9CC529D4-8384-41CF-9BDA-6F3EF8117891}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9CC529D4-8384-41CF-9BDA-6F3EF8117891}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9CC529D4-8384-41CF-9BDA-6F3EF8117891}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9CC529D4-8384-41CF-9BDA-6F3EF8117891}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4EFE2B45-F327-4316-9587-0E3A20BB34B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4EFE2B45-F327-4316-9587-0E3A20BB34B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4EFE2B45-F327-4316-9587-0E3A20BB34B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4EFE2B45-F327-4316-9587-0E3A20BB34B3}.Release|Any CPU.Build.0 = Release|Any CPU
 		{726753EA-14F5-4D21-8FDA-23E119C93639}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{726753EA-14F5-4D21-8FDA-23E119C93639}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{726753EA-14F5-4D21-8FDA-23E119C93639}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -355,10 +392,6 @@ Global
 		{2CAC8D57-180F-4DD4-B11D-6B2AB65B2A48}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2CAC8D57-180F-4DD4-B11D-6B2AB65B2A48}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2CAC8D57-180F-4DD4-B11D-6B2AB65B2A48}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -427,12 +460,16 @@ Global
 		{7A736E5F-DA6E-483F-AD5B-EE8F66828E36} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{F6B94905-B496-46AD-B2A7-2ABCB0B2A6B4} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{E468B6C6-9098-4293-AFD6-3B1675D67063} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{A0320AE9-3F87-44A3-8263-5AF7E00085D4} = {38B3BA4A-3510-4615-BCC4-4C9B96A486C4}
+		{C5294685-AE6B-434C-9E31-90B3893027DE} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
+		{81A3B383-1560-45E1-9540-9143060243DD} = {1295CCC3-73FB-4376-AE95-F6F31A37B152}
+		{9CC529D4-8384-41CF-9BDA-6F3EF8117891} = {83B3EE6D-693E-4E86-A925-28B1A108268E}
+		{4EFE2B45-F327-4316-9587-0E3A20BB34B3} = {38B3BA4A-3510-4615-BCC4-4C9B96A486C4}
 		{726753EA-14F5-4D21-8FDA-23E119C93639} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 		{EF152DF7-85C0-4337-B1B1-FBFD5B217AE7} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 		{4122A4B0-B117-485D-81C3-1F3F02827F0B} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{86130CF7-35BA-45B3-8BE7-B83D382B32C3} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{2CAC8D57-180F-4DD4-B11D-6B2AB65B2A48} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True

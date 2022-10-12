@@ -6,12 +6,15 @@
 using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Smart;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Claim = System.Security.Claims.Claim;
@@ -19,6 +22,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.SmartOnFhir)]
     public class SmartClinicalScopesMiddlewareTests
     {
         private readonly SmartClinicalScopesMiddleware _smartClinicalScopesMiddleware;
@@ -41,7 +46,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             HttpContext httpContext = new DefaultHttpContext();
 
-            var authorizationConfiguration = new AuthorizationConfiguration();
+            var fhirConfiguration = new FhirServerConfiguration();
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
             authorizationConfiguration.Enabled = true;
 
             var scopesClaim = new Claim(authorizationConfiguration.ScopesClaim, scopes);
@@ -51,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             httpContext.User = expectedPrincipal;
             fhirRequestContext.Principal = expectedPrincipal;
 
-            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, authorizationConfiguration);
+            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security));
 
             Assert.Equal(expectedScopeRestrictions, fhirRequestContext.AccessControlContext.AllowedResourceActions);
         }

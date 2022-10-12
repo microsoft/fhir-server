@@ -15,6 +15,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     public class SqlCommandSimplifierTests
     {

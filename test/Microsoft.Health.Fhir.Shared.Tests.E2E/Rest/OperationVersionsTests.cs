@@ -6,14 +6,18 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Web;
+using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class OperationVersionsTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {

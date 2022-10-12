@@ -1,0 +1,4086 @@
+{
+    "resourceType": "Bundle",
+    "id": "1eb6b09c8316564abe35fad9b948e0d3",
+    "type": "transaction",
+    "entry": [	    
+		{
+            "resource": {
+				"resourceType": "Practitioner",
+				"id": "smart-practitioner-A",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.87+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": [
+					{
+						"family": "practitionerA"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Practitioner/smart-practitioner-A"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Practitioner",
+				"id": "smart-practitioner-B",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.87+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": [
+					{
+						"family": "practitionerB"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Practitioner/smart-practitioner-B"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Practitioner",
+				"id": "smart-practitioner-C",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.87+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": [
+					{
+						"family": "SMARTPractionerC"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Practitioner/smart-practitioner-C"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "CareTeam",
+				"id": "smart-careteam-1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:28.036+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"participant": [
+					{
+						"member": {
+							"reference": "Patient/smart-patient-A"
+						}
+					},
+					{
+						"member": {
+							"reference": "Patient/smart-patient-B"
+						}
+					},
+					{
+						"member": {
+							"reference": "Organization/smart-Organization-A1"
+						}
+					},
+					{
+						"member": {
+							"reference": "Practitioner/smart-practitioner-A"
+						}
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "CareTeam/smart-careteam-1"
+            }
+        },        
+		{
+            "resource": {
+				"resourceType": "Group",
+				"id": "smart-group-1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:28.081+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"type": "person",
+				"actual": true,
+				"member": [
+					{
+						"entity": {
+							"reference": "Patient/smart-patient-B"
+						}
+					},
+					{
+						"entity": {
+							"reference": "Patient/smart-patient-A"
+						}
+					}
+				]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Group/smart-group-1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Account",
+			  "id": "smart-account-PA1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Inpatient Admission for Peter James Chalmers Account</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "urn:oid:0.1.2.3.4.5.6.7",
+				  "value": "654321"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+					"code": "PBILLACCT",
+					"display": "patient billing account"
+				  }
+				],
+				"text": "patient"
+			  },
+			  "name": "Inpatient: Peter James Chalmers",
+			  "subject": [
+				{
+				  "reference": "Practioner/smart-practioner-A",
+				  "display": "SMART Practioner"
+				}
+			  ],
+			  "servicePeriod": {
+				"start": "2016-01-01",
+				"end": "2016-06-30"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Account/smart-account-PA1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Appointment",
+			  "id": "smart-appointment-PB1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Brian MRI results discussion</div>"
+			  },
+			  "status": "booked",
+			  "serviceCategory": [
+				{
+				  "coding": [
+					{
+					  "system": "http://example.org/service-category",
+					  "code": "gp",
+					  "display": "General Practice"
+					}
+				  ]
+				}
+			  ],
+			  "serviceType": [
+				{
+				  "coding": [
+					{
+					  "code": "52",
+					  "display": "General Discussion"
+					}
+				  ]
+				}
+			  ],
+			  "specialty": [
+				{
+				  "coding": [
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "394814009",
+					  "display": "General practice"
+					}
+				  ]
+				}
+			  ],
+			  "appointmentType": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v2-0276",
+					"code": "FOLLOWUP",
+					"display": "A follow up visit from a previous appointment"
+				  }
+				]
+			  },
+			  "reasonReference": [
+				{
+				  "reference": "Condition/example",
+				  "display": "Severe burn of left ear"
+				}
+			  ],
+			  "priority": 5,
+			  "description": "Discussion on the results of your recent MRI",
+			  "start": "2013-12-10T09:00:00Z",
+			  "end": "2013-12-10T11:00:00Z",
+			  "created": "2013-10-10",
+			  "comment": "Further expand on the results of the MRI and determine the next actions that may be appropriate.",
+			  "participant": [
+				{
+				  "type": [
+					{
+					  "coding": [
+						{
+						  "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+						  "code": "ATND"
+						}
+					  ]
+					}
+				  ],
+				  "actor": {
+					"reference": "Practitioner/smart-practitioner-B",
+					"display": "Dr Adam Careful"
+				  },
+				  "required": "required",
+				  "status": "accepted"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Appointment/smart-appointment-PB1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Composition",
+			  "id": "smart-composition-PB1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example-mixed&quot; </p></div><p><b>status</b>: final</p><p><b>type</b>: Neonatal perinatal medicine Discharge summary <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#78418-1)</span></p><p><b>category</b>: Report <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#LP173421-1)</span></p><p><b>date</b>: 2018-10-30T16:56:04+11:00</p><p><b>author</b>: <a href=\"practitioner-xcda-author.html\">Practitioner/xcda-author: Harold Hippocrates, MD</a> &quot;Harold HIPPOCRATES&quot;</p><p><b>title</b>: Discharge Summary (Neonatal Service)</p><p><b>confidentiality</b>: N</p><h3>Attesters</h3><table class=\"grid\"><tr><td>-</td><td><b>Mode</b></td><td><b>Time</b></td><td><b>Party</b></td></tr><tr><td>*</td><td>legal</td><td>2012-01-04T09:10:14Z</td><td><a href=\"practitioner-xcda-author.html\">Practitioner/xcda-author: Harold Hippocrates, MD</a> &quot;Harold HIPPOCRATES&quot;</td></tr></table><p><b>custodian</b>: <a href=\"organization-2.16.840.1.113883.19.5.html\">Organization/2.16.840.1.113883.19.5: Good Health Clinic</a> &quot;Good Health Clinic&quot;</p></div>"
+			  },
+			  "status": "final",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "78418-1",
+					"display": "Neonatal perinatal medicine Discharge summary"
+				  }
+				]
+			  },
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://loinc.org",
+					  "code": "LP173421-1",
+					  "display": "Report"
+					}
+				  ]
+				}
+			  ],
+			  "subject": {
+				"reference": "Patient/smart-patient-C",
+				"display": "Tahlia Smith"
+			  },
+			  "date": "2018-10-30T16:56:04+11:00",
+			  "author": [
+				{
+				  "reference": "Practitioner/smart-practitioner-B",
+				  "display": "Harold Hippocrates, MD"
+				}
+			  ],
+			  "title": "Discharge Summary (Neonatal Service)",
+			  "confidentiality": "N",
+			  "attester": [
+				{
+				  "mode": "legal",
+				  "time": "2012-01-04T09:10:14Z",
+				  "party": {
+					"reference": "Practitioner/smart-practitioner-B",
+					"display": "Harold Hippocrates, MD"
+				  }
+				}
+			  ],
+			  "custodian": {
+				"reference": "Organization/2.16.840.1.113883.19.5",
+				"display": "Good Health Clinic"
+			  },
+			  "section": [
+				{
+				  "title": "Child's Details",
+				  "code": {
+					"coding": [
+					  {
+						"system": "http://acme.org/codes/SectionType",
+						"code": "newborn",
+						"display": "New Born Details"
+					  }
+					]
+				  },
+				  "text": {
+					"status": "generated",
+					"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n        (snip)\n\t\t\t</div>"
+				  }
+				},
+				{
+				  "title": "Mpther's Details",
+				  "code": {
+					"coding": [
+					  {
+						"system": "http://acme.org/codes/SectionType",
+						"code": "mother",
+						"display": "Mother's Details"
+					  }
+					]
+				  },
+				  "text": {
+					"status": "generated",
+					"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t\t(snip)\n\t\t\t</div>"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Composition/smart-composition-PB1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "VisionPrescription",
+			  "id": "smart-visionprescription-PB1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Sample Contract Lens prescription</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://www.happysight.com/prescription",
+				  "value": "15014"
+				}
+			  ],
+			  "status": "active",
+			  "created": "2014-06-15",
+			  "patient": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "dateWritten": "2014-06-15",
+			  "prescriber": {
+				"reference": "Practitioner/smart-practitioner-B"
+			  },
+			  "lensSpecification": [
+				{
+				  "product": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/ex-visionprescriptionproduct",
+						"code": "contact"
+					  }
+					]
+				  },
+				  "eye": "right",
+				  "cylinder": -2.25,
+				  "axis": 160,
+				  "add": 1.75,
+				  "power": -2.75,
+				  "backCurve": 8.7,
+				  "diameter": 14.0,
+				  "duration": {
+					"value": 1,
+					"unit": "mo",
+					"system": "http://unitsofmeasure.org",
+					"code": "mo"
+				  },
+				  "color": "green",
+				  "brand": "OphthaGuard",
+				  "note": [
+					{
+					  "text": "Shade treatment for extreme light sensitivity"
+					}
+				  ]
+				},
+				{
+				  "product": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/ex-visionprescriptionproduct",
+						"code": "contact"
+					  }
+					]
+				  },
+				  "eye": "left",
+				  "cylinder": -3.50,
+				  "axis": 160,
+				  "add": 1.75,
+				  "power": -2.75,
+				  "backCurve": 8.7,
+				  "diameter": 14.0,
+				  "duration": {
+					"value": 1,
+					"unit": "month",
+					"system": "http://unitsofmeasure.org",
+					"code": "mo"
+				  },
+				  "color": "green",
+				  "brand": "OphthaGuard",
+				  "note": [
+					{
+					  "text": "Shade treatment for extreme light sensitivity"
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "VisionPrescription/smart-visionprescription-PB1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Condition",
+			  "id": "smart-condition-PB1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;f203&quot; </p></div><p><b>clinicalStatus</b>: Active <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-condition-clinical.html\">Condition Clinical Status Codes</a>#active)</span></p><p><b>verificationStatus</b>: Confirmed <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-condition-ver-status.html\">ConditionVerificationStatus</a>#confirmed)</span></p><p><b>category</b>: Problem <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#55607006; <a href=\"codesystem-condition-category.html\">Condition Category Codes</a>#problem-list-item)</span></p><p><b>severity</b>: Moderate to severe <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#371924009)</span></p><p><b>code</b>: Bacterial sepsis <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#10001005)</span></p><p><b>bodySite</b>: Pulmonary vascular structure <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#281158006)</span></p><p><b>subject</b>: <a href=\"patient-f201.html\">Patient/f201: Roel</a> &quot;Roel&quot;</p><p><b>encounter</b>: <a href=\"encounter-f203.html\">Encounter/f203: Roel's encounter on March elevanth</a></p><p><b>onset</b>: 2013-03-08</p><p><b>recordedDate</b>: 2013-03-11</p><p><b>asserter</b>: <a href=\"practitioner-f201.html\">Practitioner/f201</a> &quot;Dokter Bronsig&quot;</p><h3>Evidences</h3><table class=\"grid\"><tr><td>-</td><td><b>Detail</b></td></tr><tr><td>*</td><td><a href=\"diagnosticreport-f202.html\">DiagnosticReport/f202: Diagnostic report for Roel's sepsis</a></td></tr></table></div>"
+			  },
+			  "clinicalStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+					"code": "active"
+				  }
+				]
+			  },
+			  "verificationStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+					"code": "confirmed"
+				  }
+				]
+			  },
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "55607006",
+					  "display": "Problem"
+					},
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+					  "code": "problem-list-item"
+					}
+				  ]
+				}
+			  ],
+			  "severity": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "371924009",
+					"display": "Moderate to severe"
+				  }
+				]
+			  },
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "10001005",
+					"display": "Bacterial sepsis"
+				  }
+				]
+			  },
+			  "bodySite": [
+				{
+				  "coding": [
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "281158006",
+					  "display": "Pulmonary vascular structure"
+					}
+				  ]
+				}
+			  ],
+			  "subject": {
+				"reference": "Patient/smart-patient-C",
+				"display": "Roel"
+			  },
+			  "onsetDateTime": "2013-03-08",
+			  "recordedDate": "2013-03-11",
+			  "asserter": {
+				"reference": "Practitioner/smart-practitioner-B"
+			  },
+			  "evidence": [
+				{
+				  "detail": [
+					{
+					  "reference": "DiagnosticReport/f202",
+					  "display": "Diagnostic report for Roel's sepsis"
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Condition/smart-condition-PB1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Schedule",
+			  "id": "smart-schedule-PA1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      Dr. Beverly Crusher - USS Enterprise-D Sickbay Schedule\n\t\t</div>"
+			  },
+			  "identifier": [
+				{
+				  "use": "usual",
+				  "system": "http://example.org/scheduleid",
+				  "value": "46"
+				}
+			  ],
+			  "active": true,
+			  "serviceCategory": [
+				{
+				  "coding": [
+					{
+					  "code": "17",
+					  "display": "General Practice"
+					}
+				  ]
+				}
+			  ],
+			  "serviceType": [
+				{
+				  "coding": [
+					{
+					  "code": "75",
+					  "display": "Genetic Counselling"
+					}
+				  ]
+				}
+			  ],
+			  "specialty": [
+				{
+				  "coding": [
+					{
+					  "code": "394580004",
+					  "display": "Clinical genetics"
+					}
+				  ]
+				}
+			  ],
+			  "actor": [
+				{
+				  "reference": "Practitioner/smart-practitioner-A",
+				  "display": "Dr. Beverly Crusher"
+				}
+			  ],
+			  "planningHorizon": {
+				"start": "2017-12-25T09:15:00Z",
+				"end": "2017-12-25T09:30:00Z"
+			  },
+			  "comment": "The slots attached to this schedule are for genetic counselling in the USS Enterprise-D Sickbay."
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Schedule/smart-schedule-PA1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "SupplyDelivery",
+			  "id": "smart-supplydelivery-PB1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">[Put rendering here]</div>"
+			  },
+			  "identifier": [
+				{
+				  "value": "98398459409",
+				  "assigner": {
+					"display": "SupplierDeliveryNr"
+				  }
+				}
+			  ],
+			  "status": "in-progress",
+			  "patient": {
+				"display": "Mr. Belpit"
+			  },
+			  "supplier": {
+				"display": "ACME distribution"
+			  },
+			  "destination": {
+				"display": "Home care dept"
+			  },
+			  "receiver": [
+				{
+				 "reference": "Practitioner/smart-practitioner-B", 
+				  "display": "Nurse Smith"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "SupplyDelivery/smart-supplydelivery-PB1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Procedure",
+			  "id": "smart-procedure-PA1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;smart-procedure-PA1&quot; </p></div><p><b>status</b>: completed</p><p><b>code</b>: Tracheotomy <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#48387007)</span></p><p><b>subject</b>: <a href=\"patient-f001.html\">Patient/f001: P. van de Heuvel</a> &quot;Pieter VAN DE HEUVEL&quot;</p><p><b>encounter</b>: <a href=\"encounter-f003.html\">Encounter/f003</a></p><p><b>performed</b>: 2013-03-22T09:30:10+01:00 --&gt; 2013-03-22T10:30:10+01:00</p><h3>Performers</h3><table class=\"grid\"><tr><td>-</td><td><b>Function</b></td><td><b>Actor</b></td></tr><tr><td>*</td><td>Care role <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#01.000 &quot;Arts&quot;)</span></td><td><a href=\"practitioner-f005.html\">Practitioner/f005: A. Langeveld</a> &quot;Langeveld ANNE&quot;</td></tr></table><p><b>reasonCode</b>: ensure breathing during surgery <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> ()</span></p><p><b>bodySite</b>: Retropharyngeal area <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#83030008)</span></p><p><b>outcome</b>: removal of the retropharyngeal abscess <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> ()</span></p><p><b>report</b>: <a href=\"diagnosticreport-f001.html\">DiagnosticReport/f001: ???????????</a></p><p><b>followUp</b>: described in care plan <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> ()</span></p></div>"
+			  },
+			  "status": "completed",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "48387007",
+					"display": "Tracheotomy"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-practitioner-A",
+				"display": "P. van de Heuvel"
+			  },
+			  "performedPeriod": {
+				"start": "2013-03-22T09:30:10+01:00",
+				"end": "2013-03-22T10:30:10+01:00"
+			  },
+			  "performer": [
+				{
+				  "function": {
+					"coding": [
+					  {
+						"system": "urn:oid:2.16.840.1.113883.2.4.15.111",
+						"code": "01.000",
+						"display": "Arts"
+					  }
+					],
+					"text": "Care role"
+				  },
+				  "actor": {
+					"reference": "Practitioner/smart-practitioner-A",
+					"display": "A. Langeveld"
+				  }
+				}
+			  ],
+			  "reasonCode": [
+				{
+				  "text": "ensure breathing during surgery"
+				}
+			  ],
+			  "bodySite": [
+				{
+				  "coding": [
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "83030008",
+					  "display": "Retropharyngeal area"
+					}
+				  ]
+				}
+			  ],
+			  "outcome": {
+				"text": "removal of the retropharyngeal abscess"
+			  },
+			  "followUp": [
+				{
+				  "text": "described in care plan"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Procedure/smart-procedure-PA1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "PaymentNotice",
+			  "id": "smart-paymentnotice-PA1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the PaymentNotice</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://benefitsinc.com/paymentnotice",
+				  "value": "776543"
+				}
+			  ],
+			  "status": "active",
+			  "request": {
+				"reference": "http://benefitsinc.com/fhir/claim/12345"
+			  },
+			  "response": {
+				"reference": "http://benefitsinc.com/fhir/claimresponse/CR12345"
+			  },
+			  "created": "2014-08-16",
+			  "provider": {
+				"reference": "Practitioner/smart-practitioner-A"
+			  },
+			  "payment": {
+				"reference": "PaymentReconciliation/ER2500"
+			  },
+			  "paymentDate": "2014-08-15",
+			  "payee": {
+				"reference": "Practitioner/smart-practitioner-A"
+			  },
+			  "recipient": {
+				"identifier": {
+				  "system": "http://regulators.gov",
+				  "value": "AB123"
+				}
+			  },
+			  "amount": {
+				"value": 12500.00,
+				"currency": "USD"
+			  },
+			  "paymentStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/paymentstatus",
+					"code": "paid"
+				  }
+				]
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "PaymentNotice/smart-paymentnotice-PA1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "RiskAssessment",
+			  "id": "smart-riskassessment-PB1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Risk assessment for reference only</div>"
+			  },
+			  "identifier": [
+				{
+				  "use": "official",
+				  "system": "http://example.org",
+				  "value": "risk-assessment-breastcancer1"
+				}
+			  ],
+			  "status": "final",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://browser.ihtsdotools.org/",
+					"code": "709510001",
+					"display": "Assessment of risk for disease (procedure)"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "encounter": {
+				"reference": "Encounter/example",
+				"display": "Encounter with patient @example"
+			  },
+			  "occurrenceDateTime": "2017-10-10",
+			  "performer": {
+				"reference": "Practitioner/smart-practitioner-B"
+			  },
+			  "prediction": [
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000368,
+				  "whenRange": {
+					"low": {
+					  "value": 54,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 57,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				}
+			  ],
+			  "note": [
+				{
+				  "text": "This risk assessment is for reference only"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "RiskAssessment/smart-riskassessment-PB1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Provenance",
+			  "id": "smart-provenance-PB2",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t<p>\n\t\t\t\t<b>Generated Narrative with Details</b>\n\t\t\t</p><p>\n\t\t\t\t<b>id</b>: example-biocompute-object</p><p>\n\t\t\t\t<b>target</b>: <a href=\"http://build.fhir.org/sequence-example.html\">MolecularSequence/example</a>\n\t\t\t</p><p>\n\t\t\t\t<b>period</b>: 2017-6-6 --&gt; (ongoing)</p><p>\n\t\t\t\t<b>recorded</b>: 2016-6-9 8:12:14</p><p>\n\t\t\t\t<b>reason</b>: antiviral resistance detection (Details: [not stated] code null = 'null', stated as\n         'antiviral resistance detection')</p>\n\t\t\t<h3>Agents</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Who</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>Author (Details: http://hl7.org/fhir/provenance-participant-role code author = 'Author',\n             stated as 'null')</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"http://build.fhir.org/practitioner-example.html\">Practitioner/example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t\t<h3>Entities</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Reference</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>source</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1\">Biocompute example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</div>"
+			  },
+			  "target": [
+				{
+				  "reference": "MolecularSequence/smart-MolecularSequence-3"
+				}
+			  ],
+			  "occurredPeriod": {
+				"start": "2017-06-06"
+			  },
+			  "recorded": "2016-06-09T08:12:14+10:00",
+			  "reason": [
+				{
+				  "text": "antiviral resistance detection"
+				}
+			  ],
+			  "agent": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+						"code": "AUT"
+					  }
+					]
+				  },
+				  "who": {
+					"reference": "Practitioner/smart-practitioner-B"
+				  }
+				}
+			  ],
+			  "entity": [
+				{
+				  "role": "source",
+				  "what": {
+					"identifier": {
+					  "type": {
+						"coding": [
+						  {
+							"system": "https://hive.biochemistry.gwu.edu",
+							"code": "biocompute",
+							"display": "obj.1001"
+						  }
+						]
+					  },
+					  "value": "https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1"
+					}
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Provenance/smart-provenance-PB2"
+            }
+        },
+        {
+            "resource": {
+				"resourceType": "Organization",
+				"id": "smart-organization-A1",
+				"meta": {
+					"versionId": "2",
+					"lastUpdated": "2022-09-29T19:10:27.756+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": "Updated",
+				"address": [
+					{
+						"city": "Seattle"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Organization/smart-organization-A1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Organization",
+			  "id": "smart-organization-A2",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      Health Level Seven International\n      <br/>\n\t\t\t\t3300 Washtenaw Avenue, Suite 227\n      <br/>\n\t\t\t\tAnn Arbor, MI 48104\n      <br/>\n\t\t\t\tUSA\n      <br/>\n\t\t\t\t(+1) 734-677-7777 (phone)\n      <br/>\n\t\t\t\t(+1) 734-677-6622 (fax)\n      <br/>\n\t\t\t\tE-mail:  \n      <a href=\"mailto:hq@HL7.org\">hq@HL7.org</a>\n    \n    </div>"
+			  },
+			  "name": "Health Level Seven International",
+			  "alias": [
+				"HL7 International"
+			  ],
+			  "telecom": [
+				{
+				  "system": "phone",
+				  "value": "(+1) 734-677-7777"
+				},
+				{
+				  "system": "fax",
+				  "value": "(+1) 734-677-6622"
+				},
+				{
+				  "system": "email",
+				  "value": "hq@HL7.org"
+				}
+			  ],
+			  "address": [
+				{
+				  "line": [
+					"3300 Washtenaw Avenue, Suite 227"
+				  ],
+				  "city": "Ann Arbor",
+				  "state": "MI",
+				  "postalCode": "48104",
+				  "country": "USA"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Organization/smart-organization-A2"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Patient",
+				"id": "smart-patient-A",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.888+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": [
+					{
+						"family": "SMART",
+						"given": [
+							"SMARTGivenName1"
+						]
+					}
+				],
+				"birthDate": "1981-07-02",
+				"generalPractitioner": [
+					{
+						"reference": "Practitioner/smart-practitioner-A"
+					}
+				],
+				"managingOrganization": {
+					"reference": "Organization/smart-organization-A1"
+				}
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/smart-patient-A"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Observation",
+				"id": "smart-observation-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.911+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "final",
+				"code": {
+					"coding": [
+						{
+							"system": "http://loinc.org",
+							"code": "4548-4"
+						}
+					]
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"effectiveDateTime": "2008-04-10",
+				"performer": [
+					{
+						"reference": "Organization/smart-Organization-A1"
+					},
+					{
+						"reference": "Practitioner/smart-practitioner-A"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Observation",
+				"id": "smart-observation-A2",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.918+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "final",
+				"code": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "429858000"
+						}
+					]
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"effectiveDateTime": "1977-09-01",
+				"performer": [
+					{
+						"reference": "Organization/smart-Organization-A1"
+					},
+					{
+						"reference": "Practitioner/smart-practitioner-A"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-A2"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "DiagnosticReport",
+				"id": "smart-diagnosticreport-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.967+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "final",
+				"code": {
+					"coding": [
+						{
+							"system": "http://loinc.org",
+							"code": "4548-4"
+						}
+					]
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"result": [
+					{
+						"reference": "Observation/smart-Observation-A1"
+					}
+				]
+			},
+			"request": {
+				"method": "PUT",
+				"url": "DiagnosticReport/smart-diagnosticreport-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "DiagnosticReport",
+				"id": "smart-diagnosticreport-A2",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.947+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "final",
+				"code": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "429858000"
+						}
+					]
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"result": [
+					{
+						"reference": "Observation/smart-Observation-A2"
+					}
+				]
+			},
+			"request": {
+				"method": "PUT",
+				"url": "DiagnosticReport/smart-diagnosticreport-A2"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "MedicationRequest",
+				"id": "smart-medicationrequest-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.998+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "completed",
+				"intent": "order",
+				"medicationCodeableConcept": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "16590-619-30"
+						}
+					],
+					"text": "Percocet tablet"
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"requester": {
+					"reference": "Practitioner/smart-practitioner-A"
+				}
+			},
+            "request": {
+                "method": "PUT",
+                "url": "MedicationRequest/smart-medicationrequest-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "MedicationDispense",
+				"id": "smart-medicationdispense-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:28.022+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "in-progress",
+				"medicationCodeableConcept": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "108505002"
+						}
+					],
+					"text": "Tramadol hydrochloride (substance)"
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"performer": [
+					{
+						"actor": {
+							"reference": "Practitioner/smart-practitioner-A"
+						}
+					}
+				],
+				"authorizingPrescription": [
+					{
+						"reference": "MedicationRequest/smart-medicationrequest-A1"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "MedicationDispense/smart-medicationdispense-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Appointment",
+				"id": "smart-appointment-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:21:30.334+00:00"
+				},
+				"text": {
+					"status": "generated",
+					"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Brian MRI results discussion</div>"
+				},
+				"status": "booked",
+				"serviceCategory": [
+					{
+						"coding": [
+							{
+								"system": "http://example.org/service-category",
+								"code": "gp",
+								"display": "General Practice"
+							}
+						]
+					}
+				],
+				"serviceType": [
+					{
+						"coding": [
+							{
+								"code": "52",
+								"display": "General Discussion"
+							}
+						]
+					}
+				],
+				"specialty": [
+					{
+						"coding": [
+							{
+								"system": "http://snomed.info/sct",
+								"code": "394814009",
+								"display": "General practice"
+							}
+						]
+					}
+				],
+				"appointmentType": {
+					"coding": [
+						{
+							"system": "http://terminology.hl7.org/CodeSystem/v2-0276",
+							"code": "FOLLOWUP",
+							"display": "A follow up visit from a previous appointment"
+						}
+					]
+				},
+				"priority": 5,
+				"description": "Discussion on the results of your recent MRI",
+				"start": "2013-12-10T09:00:00+00:00",
+				"end": "2013-12-10T11:00:00+00:00",
+				"created": "2013-10-10",
+				"comment": "Further expand on the results of the MRI and determine the next actions that may be appropriate.",
+				"participant": [
+					{
+						"actor": {
+							"reference": "Patient/smart-patient-A"
+						}
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Appointment/smart-appointment-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "ImagingStudy",
+				"id": "smart-imagingstudy-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:13:35.933+00:00"
+				},
+				"identifier": [
+					{
+						"system": "urn:dicom:uid",
+						"value": "urn:oid:1.2.276.0.50.192168001099.7810872.14547392.270"
+					}
+				],
+				"status": "available",
+				"subject": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"series": [
+					{
+						"uid": "1.2.276.0.50.192168001099.7810872.14547392.458",
+						"instance": [
+							{
+								"uid": "1.2.276.0.50.192168001099.7810872.14547392.467"
+							}
+						]
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "ImagingStudy/smart-imagingstudy-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Coverage",
+				"id": "smart-coverage-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T15:47:55.014+00:00",
+					"tag": [
+						{
+							"code": "02f2046f-ad02-4e68-9274-19ec4e1e44b7"
+						}
+					]
+				},
+				"status": "active",
+				"type": {
+					"coding": [
+						{
+							"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+							"code": "EHCPOL"
+						}
+					]
+				},
+				"beneficiary": {
+					"reference": "Patient/smart-patient-A"
+				},
+				"payor": [
+					{
+						"reference": "Patient/smart-patient-A"
+					}
+				],
+				"class": [
+					{
+						"type": {
+							"coding": [
+								{
+									"system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+									"code": "subplan"
+								}
+							]
+						},
+						"value": "P1"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Coverage/smart-coverage-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Encounter",
+				"id": "smart-encounter-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:21:51.746+00:00"
+				},
+				"text": {
+					"status": "generated",
+					"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: f002</p><p><b>identifier</b>: v3251 (OFFICIAL)</p><p><b>status</b>: finished</p><p><b>class</b>: ambulatory (Details: http://terminology.hl7.org/CodeSystem/v3-ActCode code AMB = 'ambulatory', stated as 'ambulatory')</p><p><b>type</b>: Patient-initiated encounter <span>(Details : {SNOMED CT code '270427003' = 'Patient-initiated encounter', given as 'Patient-initiated encounter'})</span></p><p><b>priority</b>: Urgent <span>(Details : {SNOMED CT code '103391001' = 'Urgency', given as 'Urgent'})</span></p><p><b>subject</b>: <a>P. van de Heuvel</a></p><h3>Participants</h3><table><tr><td>-</td><td><b>Individual</b></td></tr><tr><td>*</td><td><a>M.I.M Versteegh</a></td></tr></table><p><b>length</b>: 140 min<span>(Details: UCUM code min = 'min')</span></p><p><b>reasonCode</b>: Partial lobectomy of lung <span>(Details : {SNOMED CT code '34068001' = 'Heart valve replacement', given as 'Partial lobectomy of lung'})</span></p><h3>Hospitalizations</h3><table><tr><td>-</td><td><b>PreAdmissionIdentifier</b></td><td><b>AdmitSource</b></td><td><b>DischargeDisposition</b></td></tr><tr><td>*</td><td>98682 (OFFICIAL)</td><td>Referral by radiologist <span>(Details : {SNOMED CT code '305997006' = 'Referral by radiologist', given as 'Referral by radiologist'})</span></td><td>Discharge to home <span>(Details : {SNOMED CT code '306689006' = 'Discharge to home', given as 'Discharge to home'})</span></td></tr></table><p><b>serviceProvider</b>: <a>BMC</a></p></div>"
+				},
+				"identifier": [
+					{
+						"use": "official",
+						"system": "http://www.bmc.nl/zorgportal/identifiers/encounters",
+						"value": "v3251"
+					}
+				],
+				"status": "finished",
+				"class": {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+					"code": "AMB",
+					"display": "ambulatory"
+				},
+				"type": [
+					{
+						"coding": [
+							{
+								"system": "http://snomed.info/sct",
+								"code": "270427003",
+								"display": "Patient-initiated encounter"
+							}
+						]
+					}
+				],
+				"priority": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "103391001",
+							"display": "Urgent"
+						}
+					]
+				},
+				"subject": {
+					"reference": "Patient/9323ee3e-666f-4371-a6b6-4ec73873f27b",
+					"display": "P. van de Heuvel"
+				},
+				"participant": [
+					{
+						"individual": {
+							"reference": "Practitioner/smart-practitioner-A",
+							"display": "M.I.M Versteegh"
+						}
+					}
+				],
+				"length": {
+					"value": 140,
+					"unit": "min",
+					"system": "http://unitsofmeasure.org",
+					"code": "min"
+				},
+				"reasonCode": [
+					{
+						"coding": [
+							{
+								"system": "http://snomed.info/sct",
+								"code": "34068001",
+								"display": "Partial lobectomy of lung"
+							}
+						]
+					}
+				],
+				"hospitalization": {
+					"preAdmissionIdentifier": {
+						"use": "official",
+						"system": "http://www.bmc.nl/zorgportal/identifiers/pre-admissions",
+						"value": "98682"
+					},
+					"admitSource": {
+						"coding": [
+							{
+								"system": "http://snomed.info/sct",
+								"code": "305997006",
+								"display": "Referral by radiologist"
+							}
+						]
+					},
+					"dischargeDisposition": {
+						"coding": [
+							{
+								"system": "http://snomed.info/sct",
+								"code": "306689006",
+								"display": "Discharge to home"
+							}
+						]
+					}
+				},
+				"serviceProvider": {
+					"reference": "Organization/smart-organization-A2",
+					"display": "BMC"
+				}
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Encounter/smart-encounter-A1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Condition",
+				"id": "smart-condition-A1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:22:39.407+00:00"
+				},
+				"text": {
+					"status": "generated",
+					"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: f001</p><p><b>clinicalStatus</b>: Active <span>(Details : {http://terminology.hl7.org/CodeSystem/condition-clinical code 'active' = 'Active)</span></p><p><b>verificationStatus</b>: Confirmed <span>(Details : {http://terminology.hl7.org/CodeSystem/condition-ver-status code 'confirmed' = 'Confirmed)</span></p><p><b>category</b>: diagnosis <span>(Details : {SNOMED CT code '439401001' = 'Diagnosis', given as 'diagnosis'})</span></p><p><b>severity</b>: Moderate <span>(Details : {SNOMED CT code '6736007' = 'Moderate', given as 'Moderate'})</span></p><p><b>code</b>: Heart valve disorder <span>(Details : {SNOMED CT code '368009' = 'Heart valve disorder', given as 'Heart valve disorder'})</span></p><p><b>bodySite</b>: heart structure <span>(Details : {SNOMED CT code '40768004' = 'Left thorax', given as 'Left thorax'})</span></p><p><b>subject</b>: <a>P. van de Heuvel</a></p><p><b>encounter</b>: <a>Encounter/f001</a></p><p><b>onset</b>: 05/08/2011</p><p><b>recordedDate</b>: 05/10/2011</p><p><b>asserter</b>: <a>P. van de Heuvel</a></p><h3>Evidences</h3><table><tr><td>-</td><td><b>Code</b></td></tr><tr><td>*</td><td>Cardiac chest pain <span>(Details : {SNOMED CT code '426396005' = 'Cardiac chest pain', given as 'Cardiac chest pain'})</span></td></tr></table></div>"
+				},
+				"clinicalStatus": {
+					"coding": [
+						{
+							"system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+							"code": "active"
+						}
+					]
+				},
+				"verificationStatus": {
+					"coding": [
+						{
+							"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+							"code": "confirmed"
+						}
+					]
+				},
+				"category": [
+					{
+						"coding": [
+							{
+								"system": "http://snomed.info/sct",
+								"code": "439401001",
+								"display": "diagnosis"
+							}
+						]
+					}
+				],
+				"severity": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "6736007",
+							"display": "Moderate"
+						}
+					]
+				},
+				"code": {
+					"coding": [
+						{
+							"system": "http://snomed.info/sct",
+							"code": "368009",
+							"display": "Heart valve disorder"
+						}
+					]
+				},
+				"bodySite": [
+					{
+						"coding": [
+							{
+								"system": "http://snomed.info/sct",
+								"code": "40768004",
+								"display": "Left thorax"
+							}
+						],
+						"text": "heart structure"
+					}
+				],
+				"subject": {
+					"reference": "Patient/smart-patient-A",
+					"display": "P. van de Heuvel"
+				},
+				"onsetDateTime": "2011-08-05",
+				"recordedDate": "2011-10-05",
+				"asserter": {
+					"reference": "Patient/smart-patient-A",
+					"display": "P. van de Heuvel"
+				},
+				"evidence": [
+					{
+						"code": [
+							{
+								"coding": [
+									{
+										"system": "http://snomed.info/sct",
+										"code": "426396005",
+										"display": "Cardiac chest pain"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Condition/smart-condition-A1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Immunization",
+			  "id": "smart-immunization-A1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234</p><p><b>status</b>: completed</p><p><b>vaccineCode</b>: Fluvax (Influenza) <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#FLUVAX)</span></p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>encounter</b>: <a href=\"encounter-example.html\">Encounter/example</a></p><p><b>occurrence</b>: 2013-01-10</p><p><b>primarySource</b>: true</p><p><b>location</b>: <a href=\"location-1.html\">Location/1</a> &quot;South Wing, second floor&quot;</p><p><b>manufacturer</b>: <a href=\"organization-hl7.html\">Organization/hl7</a> &quot;Health Level Seven International&quot;</p><p><b>lotNumber</b>: AAJN11K</p><p><b>expirationDate</b>: 2015-02-15</p><p><b>site</b>: left arm <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-ActSite.html\">ActSite</a>#LA)</span></p><p><b>route</b>: Injection, intramuscular <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-RouteOfAdministration.html\">RouteOfAdministration</a>#IM)</span></p><p><b>doseQuantity</b>: 5 mg<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code mg = 'mg')</span></p><blockquote><p><b>performer</b></p><p><b>function</b>: Ordering Provider <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v2-0443.html\">providerRole</a>#OP)</span></p><p><b>actor</b>: <a href=\"practitioner-example.html\">Practitioner/example</a> &quot;Adam CAREFUL&quot;</p></blockquote><blockquote><p><b>performer</b></p><p><b>function</b>: Administering Provider <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v2-0443.html\">providerRole</a>#AP)</span></p><p><b>actor</b>: <a href=\"practitioner-example.html\">Practitioner/example</a> &quot;Adam CAREFUL&quot;</p></blockquote><p><b>note</b>: Notes on adminstration of vaccine</p><p><b>reasonCode</b>: Procedure to meet occupational requirement <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#429060002)</span></p><p><b>isSubpotent</b>: true</p><h3>Educations</h3><table class=\"grid\"><tr><td>-</td><td><b>DocumentType</b></td><td><b>PublicationDate</b></td><td><b>PresentationDate</b></td></tr><tr><td>*</td><td>253088698300010311120702</td><td>2012-07-02</td><td>2013-01-10</td></tr></table><p><b>programEligibility</b>: Not Eligible <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-immunization-program-eligibility.html\">Immunization Event Program Eligibility</a>#ineligible)</span></p><p><b>fundingSource</b>: Private <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-immunization-funding-source.html\">Immunization Event Funding Source</a>#private)</span></p></div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "urn:ietf:rfc:3986",
+				  "value": "urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234"
+				}
+			  ],
+			  "status": "completed",
+			  "vaccineCode": {
+				"coding": [
+				  {
+					"system": "urn:oid:1.2.36.1.2001.1005.17",
+					"code": "FLUVAX"
+				  }
+				],
+				"text": "Fluvax (Influenza)"
+			  },
+			  "patient": {
+				"reference": "Patient/smart-patient-A"
+			  },
+			  "encounter": {
+				"reference": "Encounter/smart-encounter-A1"
+			  },
+			  "occurrenceDateTime": "2013-01-10",
+			  "primarySource": true,
+			  "manufacturer": {
+				"reference": "Organization/smart-organization-A2"
+			  },
+			  "lotNumber": "AAJN11K",
+			  "expirationDate": "2015-02-15",
+			  "site": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActSite",
+					"code": "LA",
+					"display": "left arm"
+				  }
+				]
+			  },
+			  "route": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-RouteOfAdministration",
+					"code": "IM",
+					"display": "Injection, intramuscular"
+				  }
+				]
+			  },
+			  "doseQuantity": {
+				"value": 5,
+				"system": "http://unitsofmeasure.org",
+				"code": "mg"
+			  },
+			  "performer": [
+				{
+				  "function": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v2-0443",
+						"code": "OP"
+					  }
+					]
+				  },
+				  "actor": {
+					"reference": "Practitioner/smart-practitioner-A"
+				  }
+				},
+				{
+				  "function": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v2-0443",
+						"code": "AP"
+					  }
+					]
+				  },
+				  "actor": {
+					"reference": "Practitioner/smart-practitioner-A"
+				  }
+				}
+			  ],
+			  "note": [
+				{
+				  "text": "Notes on adminstration of vaccine"
+				}
+			  ],
+			  "reasonCode": [
+				{
+				  "coding": [
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "429060002"
+					}
+				  ]
+				}
+			  ],
+			  "isSubpotent": true,
+			  "education": [
+				{
+				  "documentType": "253088698300010311120702",
+				  "publicationDate": "2012-07-02",
+				  "presentationDate": "2013-01-10"
+				}
+			  ],
+			  "programEligibility": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/immunization-program-eligibility",
+					  "code": "ineligible"
+					}
+				  ]
+				}
+			  ],
+			  "fundingSource": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/immunization-funding-source",
+					"code": "private"
+				  }
+				]
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Immunization/smart-immunization-A1"
+            }
+        },
+		{
+			"resource": {
+			  "resourceType": "ServiceRequest",
+			  "id": "smart-servicerequest-A1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;lipid&quot; </p></div><p><b>identifier</b>: Placer: 2345234234234</p><p><b>status</b>: active</p><p><b>intent</b>: original-order</p><p><b>code</b>: Lipid Panel <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (tests#LIPID)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>encounter</b>: <a href=\"encounter-example.html\">Encounter/example</a></p><p><b>occurrence</b>: 2013-05-02T16:16:00-07:00</p><p><b>requester</b>: <a href=\"practitioner-example.html\">Practitioner/example</a> &quot;Adam CAREFUL&quot;</p><p><b>performer</b>: <a href=\"practitioner-f202.html\">Practitioner/f202</a> &quot;Luigi Maas&quot;</p><p><b>reasonCode</b>: Fam hx-ischem heart dis <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (ICD-9#V173)</span></p><p><b>supportingInfo</b>: <a name=\"fasting\"> </a></p><blockquote><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;fasting&quot; </p></div><p><b>status</b>: final</p><p><b>code</b>: Fasting status - Reported <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#49541-6)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>value</b>: Yes <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (v2-0136#Y)</span></p></blockquote><p><b>specimen</b>: <a name=\"serum\"> </a></p><blockquote><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;serum&quot; </p></div><p><b>identifier</b>: id: 20150107-0012</p><p><b>type</b>: Serum sample <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#119364003)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><h3>Collections</h3><table class=\"grid\"><tr><td>-</td><td><b>Collected[x]</b></td></tr><tr><td>*</td><td>2015-08-16T06:40:17Z</td></tr></table></blockquote><p><b>note</b>: patient is afraid of needles</p></div>"
+			  },
+			  "contained": [
+				{
+				  "resourceType": "Observation",
+				  "id": "fasting",
+				  "status": "final",
+				  "code": {
+					"coding": [
+					  {
+						"system": "http://loinc.org",
+						"code": "49541-6",
+						"display": "Fasting status - Reported"
+					  }
+					]
+				  },
+				  "subject": {
+					"reference": "Patient/smart-patient-A"
+				  },
+				  "valueCodeableConcept": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v2-0136",
+						"code": "Y",
+						"display": "Yes"
+					  }
+					]
+				  }
+				},
+				{
+				  "resourceType": "Specimen",
+				  "id": "serum",
+				  "identifier": [
+					{
+					  "system": "http://acme.org/specimens",
+					  "value": "20150107-0012"
+					}
+				  ],
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://snomed.info/sct",
+						"code": "119364003",
+						"display": "Serum sample"
+					  }
+					]
+				  },
+				  "subject": {
+					"reference": "Patient/smart-patient-A1"
+				  },
+				  "collection": {
+					"collectedDateTime": "2015-08-16T06:40:17Z"
+				  }
+				}
+			  ],
+			  "identifier": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+						"code": "PLAC"
+					  }
+					],
+					"text": "Placer"
+				  },
+				  "system": "urn:oid:1.3.4.5.6.7",
+				  "value": "2345234234234"
+				}
+			  ],
+			  "status": "active",
+			  "intent": "original-order",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://acme.org/tests",
+					"code": "LIPID"
+				  }
+				],
+				"text": "Lipid Panel"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-A"
+			  },
+			  "encounter": {
+				"reference": "Encounter/smart-encounter-A1"
+			  },
+			  "occurrenceDateTime": "2013-05-02T16:16:00-07:00",
+			  "requester": {
+				"reference": "Practitioner/smart-practitioner-A"
+			  },
+			  "performer": [
+				{
+				  "reference": "Practitioner/smart-practitioner-A"
+				}
+			  ],
+			  "reasonCode": [
+				{
+				  "coding": [
+					{
+					  "system": "http://hl7.org/fhir/sid/icd-9",
+					  "code": "V173",
+					  "display": "Fam hx-ischem heart dis"
+					}
+				  ]
+				}
+			  ],
+			  "supportingInfo": [
+				{
+				  "reference": "#fasting",
+				  "display": "Fasting status"
+				}
+			  ],
+			  "specimen": [
+				{
+				  "reference": "#serum",
+				  "display": "Serum specimen"
+				}
+			  ],
+			  "note": [
+				{
+				  "text": "patient is afraid of needles"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "ServiceRequest/smart-servicerequest-A1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Specimen",
+			  "id": "smart-specimen-A1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;smart-Specimen-1&quot; </p></div><p><b>identifier</b>: id: 23234352356</p><p><b>accessionIdentifier</b>: id: X352356</p><p><b>status</b>: available</p><p><b>type</b>: Venous blood specimen <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#122555007)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example: Peter Patient</a> &quot;Peter CHALMERS&quot;</p><p><b>receivedTime</b>: 2011-03-04T07:03:00Z</p><p><b>request</b>: <a href=\"servicerequest-example.html\">ServiceRequest/example</a></p><h3>Collections</h3><table class=\"grid\"><tr><td>-</td><td><b>Collector</b></td><td><b>Collected[x]</b></td><td><b>Quantity</b></td><td><b>Method</b></td><td><b>BodySite</b></td></tr><tr><td>*</td><td><a href=\"practitioner-example.html\">Practitioner/example</a> &quot;Adam CAREFUL&quot;</td><td>2011-05-30T06:15:00Z</td><td>6 mL</td><td>Line, Venous <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v2-0488.html\">specimenCollectionMethod</a>#LNV)</span></td><td>Right median cubital vein <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#49852007 &quot;Structure of median cubital vein (body structure)&quot;)</span></td></tr></table><h3>Containers</h3><table class=\"grid\"><tr><td>-</td><td><b>Identifier</b></td><td><b>Description</b></td><td><b>Type</b></td><td><b>Capacity</b></td><td><b>SpecimenQuantity</b></td><td><b>Additive[x]</b></td></tr><tr><td>*</td><td>id: 48736-15394-75465</td><td>Green Gel tube</td><td>Vacutainer <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> ()</span></td><td>10 mL</td><td>6 mL</td><td><a name=\"hep\"> </a><blockquote><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;hep&quot; </p></div><p><b>code</b>: Lithium/Li Heparin <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-EntityCode.html\">EntityCode</a>#HEPL)</span></p></blockquote></td></tr></table><p><b>note</b>: Specimen is grossly lipemic</p></div>"
+			  },
+			  "contained": [
+				{
+				  "resourceType": "Substance",
+				  "id": "hep",
+				  "code": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v3-EntityCode",
+						"code": "HEPL"
+					  }
+					]
+				  }
+				}
+			  ],
+			  "identifier": [
+				{
+				  "system": "http://ehr.acme.org/identifiers/collections",
+				  "value": "23234352356"
+				}
+			  ],
+			  "accessionIdentifier": {
+				"system": "http://lab.acme.org/specimens/2011",
+				"value": "X352356"
+			  },
+			  "status": "available",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "122555007",
+					"display": "Venous blood specimen"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-A",
+				"display": "SMART Patient"
+			  },
+			  "receivedTime": "2011-03-04T07:03:00Z",
+			  "request": [
+				{
+				  "reference": "ServiceRequest/smart-servicerequest-A1"
+				}
+			  ],
+			  "collection": {
+				"collector": {
+				  "reference": "Practitioner/smart-practitioner-A"
+				},
+				"collectedDateTime": "2011-05-30T06:15:00Z",
+				"quantity": {
+				  "value": 6,
+				  "unit": "mL"
+				},
+				"method": {
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/v2-0488",
+					  "code": "LNV"
+					}
+				  ]
+				},
+				"bodySite": {
+				  "coding": [
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "49852007",
+					  "display": "Structure of median cubital vein (body structure)"
+					}
+				  ],
+				  "text": "Right median cubital vein"
+				}
+			  },
+			  "container": [
+				{
+				  "identifier": [
+					{
+					  "value": "48736-15394-75465"
+					}
+				  ],
+				  "description": "Green Gel tube",
+				  "type": {
+					"text": "Vacutainer"
+				  },
+				  "capacity": {
+					"value": 10,
+					"unit": "mL"
+				  },
+				  "specimenQuantity": {
+					"value": 6,
+					"unit": "mL"
+				  },
+				  "additiveReference": {
+					"reference": "#hep"
+				  }
+				}
+			  ],
+			  "note": [
+				{
+				  "text": "Specimen is grossly lipemic"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Specimen/smart-specimen-A1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Claim",
+			  "id": "smart-claim-A1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the Oral Health Claim</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://happyvalley.com/claim",
+				  "value": "12345"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/claim-type",
+					"code": "oral"
+				  }
+				]
+			  },
+			  "use": "claim",
+			  "patient": {
+				"reference": "Patient/smart-patient-A"
+			  },
+			  "created": "2014-08-16",
+			  "insurer": {
+				"reference": "Organization/smart-organization-A1"
+			  },
+			  "provider": {
+				"reference": "Organization/smart-organization-A2"
+			  },
+			  "priority": {
+				"coding": [
+				  {
+					"code": "normal"
+				  }
+				]
+			  },
+			  "payee": {
+				"type": {
+				  "coding": [
+					{
+					  "code": "provider"
+					}
+				  ]
+				}
+			  },
+			  "careTeam": [
+				{
+				  "sequence": 1,
+				  "provider": {
+					"reference": "Practitioner/smart-practitioner-A"
+				  }
+				}
+			  ],
+			  "diagnosis": [
+				{
+				  "sequence": 1,
+				  "diagnosisCodeableConcept": {
+					"coding": [
+					  {
+						"code": "123456"
+					  }
+					]
+				  }
+				}
+			  ],
+			  "insurance": [
+				{
+				  "sequence": 1,
+				  "focal": true,
+				  "identifier": {
+					"system": "http://happyvalley.com/claim",
+					"value": "12345"
+				  },
+				  "coverage": {
+					"reference": "Coverage/smart-coverage-A1"
+				  }
+				}
+			  ],
+			  "item": [
+				{
+				  "sequence": 1,
+				  "careTeamSequence": [
+					1
+				  ],
+				  "productOrService": {
+					"coding": [
+					  {
+						"code": "1200"
+					  }
+					]
+				  },
+				  "servicedDate": "2014-08-16",
+				  "unitPrice": {
+					"value": 135.57,
+					"currency": "USD"
+				  },
+				  "net": {
+					"value": 135.57,
+					"currency": "USD"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Claim/smart-claim-A1"
+            }
+        },
+        {
+            "resource": {
+				"resourceType": "Organization",
+				"id": "smart-organization-B1",
+				"meta": {
+					"versionId": "2",
+					"lastUpdated": "2022-09-29T19:10:27.756+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": "Updated",
+				"address": [
+					{
+						"city": "Seattle"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Organization/smart-organization-B1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Patient",
+				"id": "smart-patient-B",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.881+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": [
+					{
+						"family": "SMART Patient B"
+					}
+				],
+				"birthDate": "1974-12-25",
+				"generalPractitioner": [
+					{
+						"reference": "Practitioner/smart-practitioner-A"
+					}
+				],
+				"managingOrganization": {
+					"reference": "Organization/smart-organization-B1"
+				}
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Patient/smart-patient-B"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "RiskAssessment",
+			  "id": "smart-riskassessment-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      <p>Probability of developing breast cancer before the age indicated:</p>\n      <table>\n        <thead>\n          <tr>\n            <th>Age</th>\n            <th>Probability (%)</th>\n          </tr>\n        </thead>\n        <tbody>\n          <tr>\n            <td>current-53</td>\n            <td>0.0168</td>\n          </tr>\n          <tr>\n            <td>54-57</td>\n            <td>0.0368</td>\n          </tr>\n          <tr>\n            <td>58-62</td>\n            <td>0.0594</td>\n          </tr>\n          <tr>\n            <td>63-67</td>\n            <td>0.0838</td>\n          </tr>\n          <tr>\n            <td>68-72</td>\n            <td>0.1089</td>\n          </tr>\n          <tr>\n            <td>73-77</td>\n            <td>0.1327</td>\n          </tr>\n          <tr>\n            <td>78-82</td>\n            <td>0.1530</td>\n          </tr>\n          <tr>\n            <td>83-87</td>\n            <td>0.1663</td>\n          </tr>\n        </tbody>\n      </table>\n    </div>"
+			  },
+			  "status": "final",
+			  "method": {
+				"coding": [
+				  {
+					"code": "BRCAPRO"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "occurrenceDateTime": "2006-01-13T23:01:00Z",
+			  "prediction": [
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000168,
+				  "whenRange": {
+					"high": {
+					  "value": 53,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000368,
+				  "whenRange": {
+					"low": {
+					  "value": 54,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 57,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000594,
+				  "whenRange": {
+					"low": {
+					  "value": 58,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 62,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000838,
+				  "whenRange": {
+					"low": {
+					  "value": 63,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 67,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.001089,
+				  "whenRange": {
+					"low": {
+					  "value": 68,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 72,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.001327,
+				  "whenRange": {
+					"low": {
+					  "value": 73,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 77,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.001530,
+				  "whenRange": {
+					"low": {
+					  "value": 78,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 82,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.001663,
+				  "whenRange": {
+					"low": {
+					  "value": 83,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 88,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				}
+			  ],
+			  "note": [
+				{
+				  "text": "High degree of certainty"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "RiskAssessment/smart-riskassessment-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Procedure",
+			  "id": "smart-procedure-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Routine Appendectomy</div>"
+			  },
+			  "status": "completed",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "80146002",
+					"display": "Appendectomy (Procedure)"
+				  }
+				],
+				"text": "Appendectomy"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "performedDateTime": "2013-04-05",
+			  "recorder": {
+				"reference": "Practitioner/smart-practitioner-A",
+				"display": "Dr Cecil Surgeon"
+			  },
+			  "asserter": {
+				"reference": "Practitioner/smart-practitioner-A",
+				"display": "Dr Cecil Surgeon"
+			  },
+			  "performer": [
+				{
+				  "actor": {
+					"reference": "Practitioner/smart-practitioner-A",
+					"display": "Dr Cecil Surgeon"
+				  }
+				}
+			  ],
+			  "reasonCode": [
+				{
+				  "text": "Generalized abdominal pain 24 hours. Localized in RIF with rebound and guarding"
+				}
+			  ],
+			  "followUp": [
+				{
+				  "text": "ROS 5 days  - 2013-04-10"
+				}
+			  ],
+			  "note": [
+				{
+				  "text": "Routine Appendectomy. Appendix was inflamed and in retro-caecal position"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Procedure/smart-procedure-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>status</b>: final</p><p><b>category</b>: Vital Signs <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-observation-category.html\">Observation Category Codes</a>#vital-signs)</span></p><p><b>code</b>: Body Weight <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#29463-7; <a href=\"https://loinc.org/\">LOINC</a>#3141-9 &quot;Body weight Measured&quot;; <a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#27113001 &quot;Body weight&quot;; clinical-codes#body-weight)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>encounter</b>: <a href=\"encounter-example.html\">Encounter/example</a></p><p><b>effective</b>: 2016-03-28</p><p><b>value</b>: 185 lbs<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code [lb_av] = 'lb_av')</span></p></div>"
+			  },
+			  "status": "final",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+					  "code": "vital-signs",
+					  "display": "Vital Signs"
+					}
+				  ]
+				}
+			  ],
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "29463-7",
+					"display": "Body Weight"
+				  },
+				  {
+					"system": "http://loinc.org",
+					"code": "3141-9",
+					"display": "Body weight Measured"
+				  },
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "27113001",
+					"display": "Body weight"
+				  },
+				  {
+					"system": "http://acme.org/devices/clinical-codes",
+					"code": "body-weight",
+					"display": "Body Weight"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "effectiveDateTime": "2016-03-28",
+			  "valueQuantity": {
+				"value": 185,
+				"unit": "lbs",
+				"system": "http://unitsofmeasure.org",
+				"code": "[lb_av]"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-B2",
+			  "meta": {
+				"profile": [
+				  "http://hl7.org/fhir/StructureDefinition/vitalsigns"
+				]
+			  },
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;bmi&quot; </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"vitalsigns.html\">Vital Signs Profile</a></p></div><p><b>status</b>: final</p><p><b>category</b>: Vital Signs <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-observation-category.html\">Observation Category Codes</a>#vital-signs)</span></p><p><b>code</b>: BMI <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#39156-5 &quot;Body mass index (BMI) [Ratio]&quot;)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>effective</b>: 1999-07-02</p><p><b>value</b>: 16.2 kg/m2<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code kg/m2 = 'kg/m2')</span></p></div>"
+			  },
+			  "status": "final",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+					  "code": "vital-signs",
+					  "display": "Vital Signs"
+					}
+				  ],
+				  "text": "Vital Signs"
+				}
+			  ],
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "39156-5",
+					"display": "Body mass index (BMI) [Ratio]"
+				  }
+				],
+				"text": "BMI"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "effectiveDateTime": "1999-07-02",
+			  "valueQuantity": {
+				"value": 16.2,
+				"unit": "kg/m2",
+				"system": "http://unitsofmeasure.org",
+				"code": "kg/m2"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-B2"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "MolecularSequence",
+			  "id": "smart-molecularsequence-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>type</b>: dna</p><p><b>coordinateSystem</b>: 0</p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><h3>ReferenceSeqs</h3><table class=\"grid\"><tr><td>-</td><td><b>ReferenceSeqId</b></td><td><b>Strand</b></td><td><b>WindowStart</b></td><td><b>WindowEnd</b></td></tr><tr><td>*</td><td>NC_000009.11 <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (nuccore#NC_000009.11)</span></td><td>watson</td><td>22125500</td><td>22125510</td></tr></table><h3>Variants</h3><table class=\"grid\"><tr><td>-</td><td><b>Start</b></td><td><b>End</b></td><td><b>ObservedAllele</b></td><td><b>ReferenceAllele</b></td></tr><tr><td>*</td><td>22125503</td><td>22125504</td><td>C</td><td>G</td></tr></table><h3>Repositories</h3><table class=\"grid\"><tr><td>-</td><td><b>Type</b></td><td><b>Url</b></td><td><b>Name</b></td><td><b>VariantsetId</b></td></tr><tr><td>*</td><td>openapi</td><td><a href=\"http://grch37.rest.ensembl.org/ga4gh/variants/3:rs1333049?content-type=application/json\">http://grch37.rest.ensembl.org/ga4gh/variants/3:rs1333049?content-type=application/json</a></td><td>GA4GH API</td><td>3:rs1333049</td></tr></table></div>"
+			  },
+			  "type": "dna",
+			  "coordinateSystem": 0,
+			  "patient": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "referenceSeq": {
+				"referenceSeqId": {
+				  "coding": [
+					{
+					  "system": "http://www.ncbi.nlm.nih.gov/nuccore",
+					  "code": "NC_000009.11"
+					}
+				  ]
+				},
+				"strand": "watson",
+				"windowStart": 22125500,
+				"windowEnd": 22125510
+			  },
+			  "variant": [
+				{
+				  "start": 22125503,
+				  "end": 22125504,
+				  "observedAllele": "C",
+				  "referenceAllele": "G"
+				}
+			  ],
+			  "repository": [
+				{
+				  "type": "openapi",
+				  "url": "http://grch37.rest.ensembl.org/ga4gh/variants/3:rs1333049?content-type=application/json",
+				  "name": "GA4GH API",
+				  "variantsetId": "3:rs1333049"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "MolecularSequence/smart-molecularsequence-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Media",
+			  "id": "smart-media-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>status</b>: completed</p><p><b>type</b>: Image <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-media-type.html\">Digital Media Type</a>#image)</span></p><p><b>modality</b>: Diagram <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-media-modality.html\">Media SubType</a>#diagram)</span></p><p><b>subject</b>: <a href=\"patient-xcda.html\">Patient/xcda</a> &quot;Henry LEVIN&quot;</p><p><b>created</b>: 2017-12-17</p><p><b>issued</b>: 18/12/2017 1:56:18 AM</p><p><b>operator</b>: <a href=\"practitioner-xcda-author.html\">Practitioner/xcda-author</a> &quot;Harold HIPPOCRATES&quot;</p><p><b>device</b>: <span>: Acme Camera</span></p><p><b>height</b>: 145</p><p><b>width</b>: 126</p><p><b>frames</b>: 1</p></div>"
+			  },
+			  "status": "completed",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/media-type",
+					"code": "image",
+					"display": "Image"
+				  }
+				]
+			  },
+			  "modality": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/media-modality",
+					"code": "diagram"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "createdDateTime": "2017-12-17",
+			  "issued": "2017-12-17T14:56:18Z",
+			  "operator": {
+				"reference": "Practitioner/smart-practitioner-A"
+			  },
+			  "device": {
+				"display": "Acme Camera"
+			  },
+			  "height": 145,
+			  "width": 126,
+			  "frames": 1,
+			  "content": {
+				"id": "a1",
+				"contentType": "image/gif",
+				"data": "R0lGODlhfgCRAPcAAAAAAIAAAACAAICAAAAAgIAA    gACAgICAgMDAwP8AAAD/AP//AAAA//8A/wD/////    /wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    AAAAAAAAAAAAAAAAAAAAAAAAMwAAZgAAmQAAzAAA    /wAzAAAzMwAzZgAzmQAzzAAz/wBmAABmMwBmZgBm    mQBmzABm/wCZAACZMwCZZgCZmQCZzACZ/wDMAADM    MwDMZgDMmQDMzADM/wD/AAD/MwD/ZgD/mQD/zAD/    /zMAADMAMzMAZjMAmTMAzDMA/zMzADMzMzMzZjMz    mTMzzDMz/zNmADNmMzNmZjNmmTNmzDNm/zOZADOZ    MzOZZjOZmTOZzDOZ/zPMADPMMzPMZjPMmTPMzDPM    /zP/ADP/MzP/ZjP/mTP/zDP//2YAAGYAM2YAZmYA    mWYAzGYA/2YzAGYzM2YzZmYzmWYzzGYz/2ZmAGZm    M2ZmZmZmmWZmzGZm/2aZAGaZM2aZZmaZmWaZzGaZ    /2bMAGbMM2bMZmbMmWbMzGbM/2b/AGb/M2b/Zmb/    mWb/zGb//5kAAJkAM5kAZpkAmZkAzJkA/5kzAJkz    M5kzZpkzmZkzzJkz/5lmAJlmM5lmZplmmZlmzJlm    /5mZAJmZM5mZZpmZmZmZzJmZ/5nMAJnMM5nMZpnM    mZnMzJnM/5n/AJn/M5n/Zpn/mZn/zJn//8wAAMwA    M8wAZswAmcwAzMwA/8wzAMwzM8wzZswzmcwzzMwz    /8xmAMxmM8xmZsxmmcxmzMxm/8yZAMyZM8yZZsyZ    mcyZzMyZ/8zMAMzMM8zMZszMmczMzMzM/8z/AMz/    M8z/Zsz/mcz/zMz///8AAP8AM/8AZv8Amf8AzP8A    //8zAP8zM/8zZv8zmf8zzP8z//9mAP9mM/9mZv9m    mf9mzP9m//+ZAP+ZM/+ZZv+Zmf+ZzP+Z///MAP/M    M//MZv/Mmf/MzP/M////AP//M///Zv//mf//zP//    /yH5BAEAABAALAAAAAB+AJEAQAj/AP8JHEiwoMGD    CBMqXMiwocOHECNKnEixosWLGFHAckaN2jRnsKZh    HEmy5EMU0+L5EseNG654KEzKnGkShbN4uFq2xOWR    ps+fE5nEy6Wz5a+XQJMqTeisGdGiLuNRi7m0qlJn    06iF7LhxKoqvX2FpnRYSq1eBX62qRYhCKzWzZDeK    3bqR7NSsb99uddZ2r1ZnINuanbrWp82tb8ly/Bjy    a1aOKOu+5ZgXZFa7sARzBMl5a9rCJDl29ejxMuDK    eb3mJYsSa93GIOW61QgWbEjQGStbrru7o2K3dkXj    BUz242WUbj0u9vj1b2KquCn27Rq7I1+9nBkn7gyS    K/HBnFd3/y8bUizf6CM76s0qduxp0pvN23UrOnF7    zB7nWiaMXuZhvGJNoxhjpr3G3WMfJfdbgtD1p1Rb    xgkHX3uUbeYbdli5dp6DHHbo4YcghijiiCSWeJJG    rJloIkoqPeXLNA2q+GFHm+yUSzzxiCQjiG3hVFQu    N+74IQry4JSTTjfCImSHyE1TyS9I+iJPZkv21ySE    +bE31VTjhZfZfhm2V+VJXLH3WH70MfZVeKfF9Z1i    nv3mXldjEiTYmX9tpVhkXrW1JpfX6bVdnosh19xG    INVpk3JydafYZjC6RhqMNlHa11u0aQbjl/mVJaB1    McrY16eSSeYle2AmqGp5wIl1KVxj+f8WIDV1/iOY    Vote5lt4eZUn6WsI+kZgp6iVxV+tAs064aqUebdr    aW55GqZ2AiIWKrIHQahfo3bBeaZ5zq1q17XYMoQl    eQt+Jxt56jXrarnwxivvvPTWa++9TJYlGrn4+kdN    PJv4kksz92zY709ExqPJkbncw+/BI9mEDy4Mx+MM    xD/9+xQ3m+RIK8Yz2STPkS11s8nFIMvEhDw1FoVL    xynLdI9KR+bUMMoxR+yML1BxIyWMOY+0kTxQuizV    w0E3hOJjBTe9UYO1fZZ0Qlga59hYvgLX3W7GWo20    vLWV5uqjlHZUaVcDbukuZVTe29poqNYnZ2ZzrdbV    0hRmdZh9dX3/raKv5MknG19YVojmVPIJmtlwhBpX    bq4V6trd1VhV6t5jfM6XWWVzaRmZ3yO+3WaAi3XG    FZfP2vRnYogLp+tec4Ee4qLZ3dfV3XXpHanZMHJV    d6WsucprXJiOyaZ+iaH60aJ1JxirRoCF5Wdmfnql    J9uUVdma1m7CvTe74mHWLSyNgft6nmaDNSZy5o1m    HvPWadW+aN9luVxglpnVeXF6Kxr/88MhX3wcJZsB    uS81uDpc+5KDM0VBr3SlAQx1LBSSy1AHT2iSS1u2    E6DYwUtbGTQOacj3mPGg6TeSEZBrWAUnyMzrbVk6    XVyKsxgCwW0/62GMhVKErw12S1D5S0185RQnn8XQ    xYUx45NyNOe87gCRPubZj+xeaB+smIl+yllirCho    xKmhxExoK1Cv0BSftAVmamhMoxrXyMY2uvGNcIyj    HOeoxkXBh44OOZdn8Ggu+DiPjwtJ2CZyUomCTRGO    KJFHLljiEnkc8o0Sy0U3WpILoAGSLf9qmc86ckmE    /MtHOfEFVjp5EGfc40jieAlgSFmQL27sF/GQx8dY    iRaP8EwnL9ERLW1lS5L5whfxyMcubaWworVEHIX0    xzBRcI9NMBJJ9xgmMTW5E19QQ5m0tAlOjOkzeeiS    lcwcJFSAeSxSomRjuDT/2y6ncQ9fkMwozMkmVhRW    lFTGk5T5sAlgaCawjjWjnJcEYoYWRJU/CUdqbQSX    bNYEGRQZjj630qAXO7MmRJ3pOq65DOOiBaqghaVy    a4sUcrKYn+ugay+PXFJzgiOesGWISx3sFfRoaEHC    qY9ePmzUpCoTnN5JyobF8lx9zJJSEZlqWNK6D0ar    taDWsY4zOV2NVj5olq2VVIvCQ1GsjKURBSnnbCJk    FbzihxdSqYc1MAyhZZBDPwZ1sKygKiqTHsOqPGFO    L8JrX7cgxBmiYk2LagKo9uQ3LKv2zjGcMlbsVLUv    I2YRUf+Z5fq2GqzRqO04Z2POlyo4m7KGB3oXsmSd    /2Llps7Mh6mVK84FtQW9qllnccLJkFythBgUyo2F    AlzTgMIyqECVDkZltSgSB6unZ8Vwc9jZHKUIJ8Ll    8YkvkmLUa3koJPaFdoGeK2Ln9KI6S4GFVMsDV31e    M1vQqPZT+uMpcJYY2/V89y9+0tuoKuqp8mhvfKnx    7NNI95fiCIpx1Nmchrj1VbaWtzAOdSLr6MLX+5VH    Px+BVIVQdLuXKk8v2pMg69wzFodez0x/Fa+37tQ4    CcbnwAge6Icbg9Ww6gpAALLrXer20mKhuDDGoWlg    /Aveq8InizQsjwq7GkQEEVVRsWHQYYIYQ+cFK00G    4o1webxWZEEIsVAEznmH6N1Y4eiUNJaLaRex9UVf    wWlSJCRhr+AiZElZsYZoi5xg12eqp3buNEJm3LRQ    BcTeSZUx8/pLdk53w9p6CYKE/p+J83NjJuUPeemq    71bbqrjTkTEvjfaQDyFFnXbJr1lshqIKnaja4uHr    tWEa4beqRZpJpXcvy3kaxhxD6U/NqaQ0xCr6jJhp    FUlYPVl01HrsI8JYPSdpoCXhEG2YUVzrqT2mzpkS    KVRAG955u3SJdhITZ766KosyNjQOnZAt6F3d7oQJ    +inaJNPrHUXt3fCOt7ylSe962/ve+M63vvkYEAA7",
+				"creation": "2009-09-03"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Media/smart-media-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType" : "Device",
+			  "id" : "smart-device-B1",
+			  "text" : {
+				"status" : "generated",
+				"div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+			  },
+			  "identifier" : [{
+				"system" : "http://goodcare.org/devices/id",
+				"value" : "345675"
+			  }]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "DeviceRequest",
+			  "id": "smart-devicerequest-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>status</b>: completed</p><p><b>intent</b>: original-order</p><p><b>code</b>: <a href=\"device-example.html\">Device/example</a></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p></div>"
+			  },
+			  "status": "completed",
+			  "intent": "original-order",
+			  "codeReference": {
+				"reference": "Device/smart-device-B1"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "DeviceRequest/smart-devicerequest-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "Communication",
+			  "id": "smart-communication-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Patient has very high serum potassium</div>"
+			  },
+			  "identifier": [
+				{
+				  "type": {
+					"text": "Paging System"
+				  },
+				  "system": "urn:oid:1.3.4.5.6.7",
+				  "value": "2345678901"
+				}
+			  ],
+			  "instantiatesUri": [
+				"http://example.org/hyperkalemia"
+			  ],
+			  "partOf": [
+				{
+				  "display": "Serum Potassium Observation"
+				}
+			  ],
+			  "status": "completed",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://acme.org/messagetypes",
+					  "code": "Alert"
+					}
+				  ],
+				  "text": "Alert"
+				}
+			  ],
+			  "medium": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationMode",
+					  "code": "WRITTEN",
+					  "display": "written"
+					}
+				  ],
+				  "text": "written"
+				}
+			  ],
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "sent": "2014-12-12T18:01:10-08:00",
+			  "received": "2014-12-12T18:01:11-08:00",
+			  "recipient": [
+				{
+				  "reference": "Practitioner/smart-practitioner-A"
+				}
+			  ],
+			  "sender": {
+				"reference": "Device/smart-device-B1"
+			  },
+			  "payload": [
+				{
+				  "contentString": "Patient 1 has a very high serum potassium value (7.2 mmol/L on 2014-Dec-12 at 5:55 pm)"
+				},
+				{
+				  "contentReference": {
+					"display": "Serum Potassium Observation"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Communication/smart-communication-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "Coverage",
+			  "id": "smart-coverage-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of a Self Pay Agreement.</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://hospitalx.com/selfpayagreement",
+				  "value": "SP12345678"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/coverage-selfpay",
+					"code": "pay",
+					"display": "PAY"
+				  }
+				]
+			  },
+			  "subscriber": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "beneficiary": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "relationship": {
+				"coding": [
+				  {
+					"code": "self"
+				  }
+				]
+			  },
+			  "period": {
+				"end": "2012-03-17"
+			  },
+			  "payor": [
+				{
+				  "reference": "Patient/smart-patient-B"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Coverage/smart-coverage-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Account",
+			  "id": "smart-account-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">HACC Funded Billing for Peter James Chalmers</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "urn:oid:0.1.2.3.4.5.6.7",
+				  "value": "654321"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+					"code": "PBILLACCT",
+					"display": "patient billing account"
+				  }
+				],
+				"text": "patient"
+			  },
+			  "name": "HACC Funded Billing for Peter James Chalmers",
+			  "subject": [
+				{
+				  "reference": "Patient/smart-patient-B",
+				  "display": "Smart patient"
+				}
+			  ],
+			  "servicePeriod": {
+				"start": "2016-01-01",
+				"end": "2016-06-30"
+			  },
+			  "coverage": [
+				{
+				  "coverage": {
+					"reference": "Coverage/smart-coverage-B1"
+				  },
+				  "priority": 1
+				}
+			  ],
+			  "owner": {
+				"reference": "Organization/smart-organization-B1"
+			  },
+			  "description": "Hospital charges"
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Account/smart-account-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "Condition",
+			  "id": "smart-condition-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Severe burn of left ear (Date: 24-May 2012)</div>"
+			  },
+			  "clinicalStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+					"code": "active"
+				  }
+				]
+			  },
+			  "verificationStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+					"code": "confirmed"
+				  }
+				]
+			  },
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+					  "code": "encounter-diagnosis",
+					  "display": "Encounter Diagnosis"
+					},
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "439401001",
+					  "display": "Diagnosis"
+					}
+				  ]
+				}
+			  ],
+			  "severity": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "24484000",
+					"display": "Severe"
+				  }
+				]
+			  },
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "39065001",
+					"display": "Burn of ear"
+				  }
+				],
+				"text": "Burnt Ear"
+			  },
+			  "bodySite": [
+				{
+				  "coding": [
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "49521004",
+					  "display": "Left external ear structure"
+					}
+				  ],
+				  "text": "Left Ear"
+				}
+			  ],
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "onsetDateTime": "2012-05-24"
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Condition/smart-condition-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "AllergyIntolerance",
+			  "id": "smart-allergyintolerance-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 49476534</p><p><b>clinicalStatus</b>: Active <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-allergyintolerance-clinical.html\">AllergyIntolerance Clinical Status Codes</a>#active)</span></p><p><b>verificationStatus</b>: Confirmed <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-allergyintolerance-verification.html\">AllergyIntolerance Verification Status Codes</a>#confirmed)</span></p><p><b>type</b>: allergy</p><p><b>category</b>: food</p><p><b>criticality</b>: high</p><p><b>code</b>: Cashew nuts <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#227493005)</span></p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>onset</b>: 2004</p><p><b>recordedDate</b>: 2014-10-09T14:58:00+11:00</p><p><b>recorder</b>: <a href=\"practitioner-example.html\">Practitioner/example</a> &quot;Adam CAREFUL&quot;</p><p><b>asserter</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>lastOccurrence</b>: 2012-06</p><p><b>note</b>: The criticality is high becasue of the observed anaphylactic reaction when challenged with cashew extract.</p><blockquote><p><b>reaction</b></p><p><b>substance</b>: cashew nut allergenic extract Injectable Product <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-rxNorm.html\">RxNorm</a>#1160593)</span></p><p><b>manifestation</b>: Anaphylactic reaction <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#39579001)</span></p><p><b>description</b>: Challenge Protocol. Severe reaction to subcutaneous cashew extract. Epinephrine administered</p><p><b>onset</b>: 2012-06-12</p><p><b>severity</b>: severe</p><p><b>exposureRoute</b>: Subcutaneous route <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#34206005)</span></p></blockquote><blockquote><p><b>reaction</b></p><p><b>manifestation</b>: Urticaria <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#64305001)</span></p><p><b>onset</b>: 2004</p><p><b>severity</b>: moderate</p><p><b>note</b>: The patient reports that the onset of urticaria was within 15 minutes of eating cashews.</p></blockquote></div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://acme.com/ids/patients/risks",
+				  "value": "49476534"
+				}
+			  ],
+			  "clinicalStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+					"code": "active",
+					"display": "Active"
+				  }
+				]
+			  },
+			  "verificationStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+					"code": "confirmed",
+					"display": "Confirmed"
+				  }
+				]
+			  },
+			  "type": "allergy",
+			  "category": [
+				"food"
+			  ],
+			  "criticality": "high",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "227493005",
+					"display": "Cashew nuts"
+				  }
+				]
+			  },
+			  "patient": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "onsetDateTime": "2004",
+			  "recordedDate": "2014-10-09T14:58:00+11:00",
+			  "recorder": {
+				"reference": "Practitioner/smart-practitioner-A"
+			  },
+			  "asserter": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "lastOccurrence": "2012-06",
+			  "note": [
+				{
+				  "text": "The criticality is high becasue of the observed anaphylactic reaction when challenged with cashew extract."
+				}
+			  ],
+			  "reaction": [
+				{
+				  "substance": {
+					"coding": [
+					  {
+						"system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+						"code": "1160593",
+						"display": "cashew nut allergenic extract Injectable Product"
+					  }
+					]
+				  },
+				  "manifestation": [
+					{
+					  "coding": [
+						{
+						  "system": "http://snomed.info/sct",
+						  "code": "39579001",
+						  "display": "Anaphylactic reaction"
+						}
+					  ]
+					}
+				  ],
+				  "description": "Challenge Protocol. Severe reaction to subcutaneous cashew extract. Epinephrine administered",
+				  "onset": "2012-06-12",
+				  "severity": "severe",
+				  "exposureRoute": {
+					"coding": [
+					  {
+						"system": "http://snomed.info/sct",
+						"code": "34206005",
+						"display": "Subcutaneous route"
+					  }
+					]
+				  }
+				},
+				{
+				  "manifestation": [
+					{
+					  "coding": [
+						{
+						  "system": "http://snomed.info/sct",
+						  "code": "64305001",
+						  "display": "Urticaria"
+						}
+					  ]
+					}
+				  ],
+				  "onset": "2004",
+				  "severity": "moderate",
+				  "note": [
+					{
+					  "text": "The patient reports that the onset of urticaria was within 15 minutes of eating cashews."
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "AllergyIntolerance/smart-allergyintolerance-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "FamilyMemberHistory",
+			  "id": "smart-familymemberhistory-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Father died of a heart attack aged 74</div>"
+			  },
+			  "identifier": [
+				{
+				  "value": "12345"
+				}
+			  ],
+			  "instantiatesUri": [
+				"http://example.org/family-member-history-questionnaire"
+			  ],
+			  "status": "completed",
+			  "patient": {
+				"reference": "Patient/smart-patient-B",
+				"display": "SMART Patient"
+			  },
+			  "date": "2011-03-18",
+			  "relationship": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-RoleCode",
+					"code": "FTH",
+					"display": "father"
+				  }
+				]
+			  },
+			  "sex": {
+				"coding": [
+				  {
+					"system": "http://hl7.org/fhir/administrative-gender",
+					"code": "male",
+					"display": "Male"
+				  }
+				]
+			  },
+			  "condition": [
+				{
+				  "code": {
+					"coding": [
+					  {
+						"system": "http://snomed.info/sct",
+						"code": "315619001",
+						"display": "Myocardial Infarction"
+					  }
+					],
+					"text": "Heart Attack"
+				  },
+				  "contributedToDeath": true,
+				  "onsetAge": {
+					"value": 74,
+					"unit": "yr",
+					"system": "http://unitsofmeasure.org",
+					"code": "a"
+				  },
+				  "note": [
+					{
+					  "text": "Was fishing at the time. At least he went doing someting he loved."
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "FamilyMemberHistory/smart-familymemberhistory-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Flag",
+			  "id": "smart-flag-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Large Dog warning for Peter Patient</div>"
+			  },
+			  "identifier": [
+				{
+				  "value": "12345"
+				}
+			  ],
+			  "status": "inactive",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/flag-category",
+					  "code": "safety",
+					  "display": "Safety"
+					}
+				  ],
+				  "text": "Safety"
+				}
+			  ],
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://example.org/local",
+					"code": "bigdog",
+					"display": "Big dog"
+				  }
+				],
+				"text": "Patient has a big dog at his home. Always always wear a suit of armor or take other active counter-measures"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B",
+				"display": "Peter Patient"
+			  },
+			  "period": {
+				"start": "2015-01-17",
+				"end": "2016-12-01"
+			  },
+			  "author": {
+				"reference": "Practitioner/smart-practitioner-A",
+				"display": "Nancy Nurse"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Flag/smart-flag-B1"
+            }
+        },
+        {
+            "resource": {
+				"resourceType": "Organization",
+				"id": "smart-organization-C1",
+				"meta": {
+					"versionId": "2",
+					"lastUpdated": "2022-09-29T19:10:27.756+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": "Updated",
+				"address": [
+					{
+						"city": "Seattle3"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Organization/smart-organization-C1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Patient",
+				"id": "smart-patient-C",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.888+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": [
+					{
+						"family": "SMART",
+						"given": [
+							"SMARTGivenName3"
+						]
+					}
+				],
+				"birthDate": "1981-07-02",
+				"generalPractitioner": [
+					{
+						"reference": "Practitioner/smart-practitioner-B"
+					}
+				],
+				"managingOrganization": {
+					"reference": "Organization/smart-organization-C1"
+				}
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/smart-patient-C"
+            }
+        },
+        {
+            "resource": {
+				"resourceType": "CareTeam",
+				"id": "smart-careteam-C1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:28.036+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"participant": [
+					{
+						"member": {
+							"reference": "Patient/smart-patient-C"
+						}
+					},
+					{
+						"member": {
+							"reference": "Organization/smart-organization-C1"
+						}
+					},
+					{
+						"member": {
+							"reference": "Practitioner/smart-practitioner-B"
+						}
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "CareTeam/smart-careteam-C1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-C1",
+			  "text": {
+				"status": "extensions",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example-genetics-1&quot; </p></div><p><b>Gene</b>: EGFR <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-hgnc.html\">HUGO Gene Nomenclature</a>#3236)</span></p><p><b>DNARegionName</b>: Exon 21</p><p><b>GenomicSourceClass</b>: somatic <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#LA6684-0)</span></p><p><b>status</b>: final</p><p><b>code</b>: The material on this page will be removed in a future release. This content is deprecated and SHOULD NOT be used. Implementers are instead directed to the ([Genomics Reporting Implementation Guide](http://hl7.org/fhir/uv/genomics-reporting/index.html)) for guidance. Genetic analysis master panel-- This is the parent OBR for the panel holding all of the associated observations that can be reported with a molecular genetics analysis result. <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#55233-1)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example: Molecular Lab Patient ID: HOSP-23456</a> &quot;Peter CHALMERS&quot;</p><p><b>effective</b>: 2013-04-03T15:30:10+01:00</p><p><b>performer</b>: <a href=\"practitioner-example.html\">Practitioner/example: Molecular Diagnostics Laboratory</a> &quot;Adam CAREFUL&quot;</p><p><b>value</b>: Positive <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#10828004)</span></p><p><b>device</b>: <a href=\"device-example.html\">Device/example</a></p></div>"
+			  },
+			  "extension": [
+				{
+				  "url": "http://hl7.org/fhir/StructureDefinition/observation-geneticsGene",
+				  "valueCodeableConcept": {
+					"coding": [
+					  {
+						"system": "http://www.genenames.org",
+						"code": "3236",
+						"display": "EGFR"
+					  }
+					]
+				  }
+				},
+				{
+				  "url": "http://hl7.org/fhir/StructureDefinition/observation-geneticsDNARegionName",
+				  "valueString": "Exon 21"
+				},
+				{
+				  "url": "http://hl7.org/fhir/StructureDefinition/observation-geneticsGenomicSourceClass",
+				  "valueCodeableConcept": {
+					"coding": [
+					  {
+						"system": "http://loinc.org",
+						"code": "LA6684-0",
+						"display": "somatic"
+					  }
+					]
+				  }
+				}
+			  ],
+			  "status": "final",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "55233-1",
+					"display": "The material on this page will be removed in a future release. This content is deprecated and SHOULD NOT be used. Implementers are instead directed to the ([Genomics Reporting Implementation Guide](http://hl7.org/fhir/uv/genomics-reporting/index.html)) for guidance. Genetic analysis master panel-- This is the parent OBR for the panel holding all of the associated observations that can be reported with a molecular genetics analysis result."
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C",
+				"display": "Molecular Lab Patient ID: HOSP-23456"
+			  },
+			  "effectiveDateTime": "2013-04-03T15:30:10+01:00",
+			  "performer": [
+				{
+				  "reference": "Practitioner/smart-practitioner-B",
+				  "display": "Molecular Diagnostics Laboratory"
+				}
+			  ],
+			  "valueCodeableConcept": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "10828004",
+					"display": "Positive"
+				  }
+				]
+			  }
+			},
+			"request": {
+				"method": "PUT",
+				"url": "Observation/smart-observation-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-C2",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;unsat&quot; </p></div><p><b>identifier</b>: id: 6323 (OFFICIAL)</p><p><b>status</b>: cancelled</p><p><b>code</b>: Glucose [Moles/volume] in Blood <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#15074-8)</span></p><p><b>subject</b>: <a href=\"patient-f001.html\">Patient/f001: P. van de Heuvel</a> &quot;Pieter VAN DE HEUVEL&quot;</p><p><b>effective</b>: 2013-04-02T09:30:10+01:00 --&gt; 2013-04-05T09:30:10+01:00</p><p><b>issued</b>: 04/04/2013 1:30:10 AM</p><p><b>performer</b>: <a href=\"practitioner-f005.html\">Practitioner/f005: A. Langeveld</a> &quot;Langeveld ANNE&quot;</p><p><b>dataAbsentReason</b>: Specimen unsatisfactory for evaluation <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#125154007)</span></p><p><b>note</b>: Tube broken in transit and sample leaked</p><h3>ReferenceRanges</h3><table class=\"grid\"><tr><td>-</td><td><b>Low</b></td><td><b>High</b></td></tr><tr><td>*</td><td>3.1 mmol/l<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code mmol/L = 'mmol/L')</span></td><td>6.2 mmol/l<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code mmol/L = 'mmol/L')</span></td></tr></table></div>"
+			  },
+			  "identifier": [
+				{
+				  "use": "official",
+				  "system": "http://www.bmc.nl/zorgportal/identifiers/observations",
+				  "value": "6323"
+				}
+			  ],
+			  "status": "cancelled",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "15074-8",
+					"display": "Glucose [Moles/volume] in Blood"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C",
+				"display": "P. van de Heuvel"
+			  },
+			  "effectivePeriod": {
+				"start": "2013-04-02T09:30:10+01:00",
+				"end": "2013-04-05T09:30:10+01:00"
+			  },
+			  "issued": "2013-04-03T15:30:10+01:00",
+			  "performer": [
+				{
+				  "reference": "Practitioner/smart-practitioner-B",
+				  "display": "A. Langeveld"
+				}
+			  ],
+			  "dataAbsentReason": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "125154007",
+					"display": "Specimen unsatisfactory for evaluation"
+				  }
+				]
+			  },
+			  "note": [
+				{
+				  "text": "Tube broken in transit and sample leaked"
+				}
+			  ],
+			  "referenceRange": [
+				{
+				  "low": {
+					"value": 3.1,
+					"unit": "mmol/l",
+					"system": "http://unitsofmeasure.org",
+					"code": "mmol/L"
+				  },
+				  "high": {
+					"value": 6.2,
+					"unit": "mmol/l",
+					"system": "http://unitsofmeasure.org",
+					"code": "mmol/L"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-C2"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-C3",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;ekg&quot; </p></div><p><b>status</b>: final</p><p><b>category</b>: Procedure <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-observation-category.html\">Observation Category Codes</a>#procedure)</span></p><p><b>code</b>: MDC_ECG_ELEC_POTL <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#131328)</span></p><p><b>subject</b>: <a href=\"patient-f001.html\">Patient/f001: P. van de Heuvel</a> &quot;Pieter VAN DE HEUVEL&quot;</p><p><b>effective</b>: 2015-02-19T09:30:35+01:00</p><p><b>performer</b>: <a href=\"practitioner-f005.html\">Practitioner/f005: A. Langeveld</a> &quot;Langeveld ANNE&quot;</p><p><b>device</b>: <span>: 12 lead EKG Device Metric</span></p><blockquote><p><b>component</b></p><p><b>code</b>: MDC_ECG_ELEC_POTL_I <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#131329)</span></p><p><b>value</b>: Origin: 2048, Period: 10, Factor: 1.612, Lower: -3300, Upper: 3300, Dimensions: 1, Data: 2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073</p></blockquote><blockquote><p><b>component</b></p><p><b>code</b>: MDC_ECG_ELEC_POTL_II <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#131330)</span></p><p><b>value</b>: Origin: 2048, Period: 10, Factor: 1.612, Lower: -3300, Upper: 3300, Dimensions: 1, Data: 2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073</p></blockquote><blockquote><p><b>component</b></p><p><b>code</b>: MDC_ECG_ELEC_POTL_III <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#131389)</span></p><p><b>value</b>: Origin: 2048, Period: 10, Factor: 1.612, Lower: -3300, Upper: 3300, Dimensions: 1, Data: 2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073</p></blockquote></div>"
+			  },
+			  "status": "final",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+					  "code": "procedure",
+					  "display": "Procedure"
+					}
+				  ]
+				}
+			  ],
+			  "code": {
+				"coding": [
+				  {
+					"system": "urn:oid:2.16.840.1.113883.6.24",
+					"code": "131328",
+					"display": "MDC_ECG_ELEC_POTL"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C",
+				"display": "P. van de Heuvel"
+			  },
+			  "effectiveDateTime": "2015-02-19T09:30:35+01:00",
+			  "performer": [
+				{
+				  "reference": "Practitioner/smart-practitioner-B",
+				  "display": "A. Langeveld"
+				}
+			  ],
+			  "device": {
+				"display": "12 lead EKG Device Metric"
+			  },
+			  "component": [
+				{
+				  "code": {
+					"coding": [
+					  {
+						"system": "urn:oid:2.16.840.1.113883.6.24",
+						"code": "131329",
+						"display": "MDC_ECG_ELEC_POTL_I"
+					  }
+					]
+				  },
+				  "valueSampledData": {
+					"origin": {
+					  "value": 2048
+					},
+					"period": 10,
+					"factor": 1.612,
+					"lowerLimit": -3300,
+					"upperLimit": 3300,
+					"dimensions": 1,
+					"data": "2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073"
+				  }
+				},
+				{
+				  "code": {
+					"coding": [
+					  {
+						"system": "urn:oid:2.16.840.1.113883.6.24",
+						"code": "131330",
+						"display": "MDC_ECG_ELEC_POTL_II"
+					  }
+					]
+				  },
+				  "valueSampledData": {
+					"origin": {
+					  "value": 2048
+					},
+					"period": 10,
+					"factor": 1.612,
+					"lowerLimit": -3300,
+					"upperLimit": 3300,
+					"dimensions": 1,
+					"data": "2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073"
+				  }
+				},
+				{
+				  "code": {
+					"coding": [
+					  {
+						"system": "urn:oid:2.16.840.1.113883.6.24",
+						"code": "131389",
+						"display": "MDC_ECG_ELEC_POTL_III"
+					  }
+					]
+				  },
+				  "valueSampledData": {
+					"origin": {
+					  "value": 2048
+					},
+					"period": 10,
+					"factor": 1.612,
+					"lowerLimit": -3300,
+					"upperLimit": 3300,
+					"dimensions": 1,
+					"data": "2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-C3"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "DiagnosticReport",
+				"id": "smart-diagnosticreport-C1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.967+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "final",
+				"code": {
+					"coding": [
+						{
+							"system": "http://loinc.org",
+							"code": "4548-4"
+						}
+					]
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-C"
+				},
+				"result": [
+					{
+						"reference": "Observation/smart-observation-C1"
+					}
+				]
+			},
+			"request": {
+				"method": "PUT",
+				"url": "DiagnosticReport/smart-diagnosticreport-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Coverage",
+			  "id": "smart-coverage-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the European Health Insurance Card</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://ehic.com/insurer/123456789/member",
+				  "value": "A123456780"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+					"code": "EHCPOL",
+					"display": "extended healthcare"
+				  }
+				]
+			  },
+			  "subscriber": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "beneficiary": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "relationship": {
+				"coding": [
+				  {
+					"code": "self"
+				  }
+				]
+			  },
+			  "period": {
+				"end": "2012-03-17"
+			  },
+			  "payor": [
+				{
+				  "identifier": {
+					"system": "http://ehic.com/insurer",
+					"value": "123456789"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Coverage/smart-coverage-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Coverage",
+			  "id": "smart-coverage-C2",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the coverage</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://xyz.com/codes/identifier",
+				  "value": "AB98761"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+					"code": "EHCPOL",
+					"display": "extended healthcare"
+				  }
+				]
+			  },
+			  "subscriber": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "subscriberId": "AB9876",
+			  "beneficiary": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "dependent": "1",
+			  "relationship": {
+				"coding": [
+				  {
+					"code": "self"
+				  }
+				]
+			  },
+			  "period": {
+				"start": "2011-03-17",
+				"end": "2012-03-17"
+			  },
+			  "payor": [
+				{
+				  "reference": "Organization/smart-organization-C1"
+				}
+			  ],
+			  "class": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+						"code": "group"
+					  }
+					]
+				  },
+				  "value": "WESTAIR",
+				  "name": "Western Airlines"
+				},
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+						"code": "plan"
+					  }
+					]
+				  },
+				  "value": "BG4352",
+				  "name": "Full Coverage: Medical, Dental, Pharmacy, Vision, EHC"
+				},
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+						"code": "subplan"
+					  }
+					]
+				  },
+				  "value": "D15C9",
+				  "name": "Platinum"
+				}
+			  ],
+			  "order": 2,
+			  "network": "5",
+			  "costToBeneficiary": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/coverage-copay-type",
+						"code": "gpvisit"
+					  }
+					]
+				  },
+				  "valueMoney": {
+					"value": 20.00,
+					"currency": "USD"
+				  },
+				  "exception": [
+					{
+					  "type": {
+						"coding": [
+						  {
+							"system": "http://terminology.hl7.org/CodeSystem/ex-coverage-financial-exception",
+							"code": "retired"
+						  }
+						]
+					  },
+					  "period": {
+						"start": "2018-01-01",
+						"end": "2018-12-31"
+					  }
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Coverage/smart-coverage-C2"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType" : "Device",
+			  "id" : "smart-device-C1",
+			  "text" : {
+				"status" : "generated",
+				"div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;f001&quot; </p></div><p><b>identifier</b>: id: 12345</p><p><b>status</b>: active</p></div>"
+			  },
+			  "identifier" : [{
+				"system" : "http:/goodhealthhospital/identifier/devices",
+				"value" : "12345"
+			  }],
+			  "status" : "active"
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-C1"
+            }
+        },
+		{
+            "resource": {
+				  "resourceType": "BodyStructure",
+				  "id": "smart-bodystructure-C1",
+				  "text": {
+					"status": "generated",
+					"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;fetus&quot; </p></div><p><b>identifier</b>: id: 12345</p><p><b>location</b>: Fetus <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#83418008 &quot;Entire fetus (body structure)&quot;)</span></p><p><b>description</b>: EDD 1/1/2017 confirmation by LMP</p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p></div>"
+				  },
+				  "identifier": [
+					{
+					  "system": "http://goodhealth.org/bodystructure/identifiers",
+					  "value": "12345"
+					}
+				  ],
+				  "location": {
+					"coding": [
+					  {
+						"system": "http://snomed.info/sct",
+						"code": "83418008",
+						"display": "Entire fetus (body structure)"
+					  }
+					],
+					"text": "Fetus"
+				  },
+				  "description": "EDD 1/1/2017 confirmation by LMP",
+				  "patient": {
+					"reference": "Patient/smart-patient-C"
+				  }
+			},
+			"request": {
+				"method": "PUT",
+				"url": "BodyStructure/smart-bodystructure-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Encounter",
+			  "id": "smart-encounter-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;xcda&quot; </p></div><p><b>identifier</b>: id: 1234213.52345873 (OFFICIAL)</p><p><b>status</b>: finished</p><p><b>class</b>: ambulatory (Details: http://terminology.hl7.org/CodeSystem/v3-ActCode code AMB = 'ambulatory', stated as 'ambulatory')</p><p><b>subject</b>: <a href=\"patient-xcda.html\">Patient/xcda</a> &quot;Henry LEVIN&quot;</p><h3>Participants</h3><table class=\"grid\"><tr><td>-</td><td><b>Individual</b></td></tr><tr><td>*</td><td><a href=\"practitioner-xcda1.html\">Practitioner/xcda1</a> &quot;Sherry DOPPLEMEYER&quot;</td></tr></table><p><b>reasonCode</b>: Arm <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (eventCodes#T-D8200)</span></p></div>"
+			  },
+			  "identifier": [
+				{
+				  "use": "official",
+				  "system": "http://healthcare.example.org/identifiers/enocunter",
+				  "value": "1234213.52345873"
+				}
+			  ],
+			  "status": "finished",
+			  "class": {
+				"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+				"code": "AMB",
+				"display": "ambulatory"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "participant": [
+				{
+				  "individual": {
+					"reference": "Practitioner/smart-practitioner-B"
+				  }
+				}
+			  ],
+			  "reasonCode": [
+				{
+				  "coding": [
+					{
+					  "system": "http://ihe.net/xds/connectathon/eventCodes",
+					  "code": "T-D8200",
+					  "display": "Arm"
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Encounter/smart-encounter-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Immunization",
+			  "id": "smart-immunization-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;notGiven&quot; </p></div><p><b>status</b>: not-done</p><p><b>statusReason</b>: medical precaution <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-ActReason.html\">ActReason</a>#MEDPREC)</span></p><p><b>vaccineCode</b>: DTP <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v2-0292.html\">PH_VaccinesAdministeredCVX_CDC_NIP</a>#01)</span></p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>occurrence</b>: 2013-01-10</p><p><b>primarySource</b>: true</p></div>"
+			  },
+			  "status": "not-done",
+			  "statusReason": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActReason",
+					"code": "MEDPREC",
+					"display": "medical precaution"
+				  }
+				]
+			  },
+			  "vaccineCode": {
+				"coding": [
+				  {
+					"system": "http://hl7.org/fhir/sid/cvx",
+					"code": "01",
+					"display": "DTP"
+				  }
+				]
+			  },
+			  "patient": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "occurrenceDateTime": "2013-01-10",
+			  "primarySource": true
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Immunization/smart-immunization-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "MolecularSequence",
+			  "id": "smart-molecularsequence-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;graphic-example-2&quot; </p></div><p><b>type</b>: dna</p><p><b>coordinateSystem</b>: 0</p><h3>ReferenceSeqs</h3><table class=\"grid\"><tr><td>-</td><td><b>ReferenceSeqString</b></td><td><b>Strand</b></td><td><b>WindowStart</b></td><td><b>WindowEnd</b></td></tr><tr><td>*</td><td>CGCCATTG</td><td>watson</td><td>0</td><td>8</td></tr></table><p><b>pointer</b>: <a href=\"molecularsequence-graphic-example-3.html\">MolecularSequence/graphic-example-3</a></p></div>"
+			  },
+			  "type": "dna",
+			  "coordinateSystem": 0,
+			  "referenceSeq": {
+				"referenceSeqString": "CGCCATTG",
+				"strand": "watson",
+				"windowStart": 0,
+				"windowEnd": 8
+			  },
+			  "pointer": [
+				{
+				  "reference": "MolecularSequence/graphic-example-3"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "MolecularSequence/smart-molecularsequence-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Provenance",
+			  "id": "smart-provenance-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t<p>\n\t\t\t\t<b>Generated Narrative with Details</b>\n\t\t\t</p><p>\n\t\t\t\t<b>id</b>: example-biocompute-object</p><p>\n\t\t\t\t<b>target</b>: <a href=\"http://build.fhir.org/sequence-example.html\">MolecularSequence/example</a>\n\t\t\t</p><p>\n\t\t\t\t<b>period</b>: 2017-6-6 --&gt; (ongoing)</p><p>\n\t\t\t\t<b>recorded</b>: 2016-6-9 8:12:14</p><p>\n\t\t\t\t<b>reason</b>: antiviral resistance detection (Details: [not stated] code null = 'null', stated as\n         'antiviral resistance detection')</p>\n\t\t\t<h3>Agents</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Who</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>Author (Details: http://hl7.org/fhir/provenance-participant-role code author = 'Author',\n             stated as 'null')</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"http://build.fhir.org/practitioner-example.html\">Practitioner/example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t\t<h3>Entities</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Reference</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>source</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1\">Biocompute example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</div>"
+			  },
+			  "target": [
+				{
+				  "reference": "MolecularSequence/smart-molecularsequence-C1"
+				}
+			  ],
+			  "occurredPeriod": {
+				"start": "2017-06-06"
+			  },
+			  "recorded": "2016-06-09T08:12:14+10:00",
+			  "reason": [
+				{
+				  "text": "antiviral resistance detection"
+				}
+			  ],
+			  "agent": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+						"code": "AUT"
+					  }
+					]
+				  },
+				  "who": {
+					"reference": "Patient/smart-patient-C"
+				  }
+				}
+			  ],
+			  "entity": [
+				{
+				  "role": "source",
+				  "what": {
+					"identifier": {
+					  "type": {
+						"coding": [
+						  {
+							"system": "https://hive.biochemistry.gwu.edu",
+							"code": "biocompute",
+							"display": "obj.1001"
+						  }
+						]
+					  },
+					  "value": "https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1"
+					}
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Provenance/smart-provenance-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Provenance",
+			  "id": "smart-provenance-C2",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t<p>\n\t\t\t\t<b>Generated Narrative with Details</b>\n\t\t\t</p><p>\n\t\t\t\t<b>id</b>: example-biocompute-object</p><p>\n\t\t\t\t<b>target</b>: <a href=\"http://build.fhir.org/sequence-example.html\">MolecularSequence/example</a>\n\t\t\t</p><p>\n\t\t\t\t<b>period</b>: 2017-6-6 --&gt; (ongoing)</p><p>\n\t\t\t\t<b>recorded</b>: 2016-6-9 8:12:14</p><p>\n\t\t\t\t<b>reason</b>: antiviral resistance detection (Details: [not stated] code null = 'null', stated as\n         'antiviral resistance detection')</p>\n\t\t\t<h3>Agents</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Who</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>Author (Details: http://hl7.org/fhir/provenance-participant-role code author = 'Author',\n             stated as 'null')</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"http://build.fhir.org/practitioner-example.html\">Practitioner/example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t\t<h3>Entities</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Reference</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>source</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1\">Biocompute example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</div>"
+			  },
+			  "target": [
+				{
+				  "reference": "MolecularSequence/smart-molecularsequence-C1"
+				}
+			  ],
+			  "occurredPeriod": {
+				"start": "2017-06-06"
+			  },
+			  "recorded": "2016-06-09T08:12:14+10:00",
+			  "reason": [
+				{
+				  "text": "antiviral resistance detection"
+				}
+			  ],
+			  "agent": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+						"code": "AUT"
+					  }
+					]
+				  },
+				  "who": {
+					"reference": "Practitioner/smart-practitioner-B"
+				  }
+				}
+			  ],
+			  "entity": [
+				{
+				  "role": "source",
+				  "what": {
+					"identifier": {
+					  "type": {
+						"coding": [
+						  {
+							"system": "https://hive.biochemistry.gwu.edu",
+							"code": "biocompute",
+							"display": "obj.1001"
+						  }
+						]
+					  },
+					  "value": "https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1"
+					}
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Provenance/smart-provenance-C2"
+            }
+        }
+	]
+}

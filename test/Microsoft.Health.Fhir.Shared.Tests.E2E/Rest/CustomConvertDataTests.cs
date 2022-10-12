@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Tests using customized template set will not run without extra container registry info
     /// since there is no acr emulator.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.CustomConvertData)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomConvertDataTests : IClassFixture<HttpIntegrationTestFixture>
