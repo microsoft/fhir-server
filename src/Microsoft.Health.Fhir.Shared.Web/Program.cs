@@ -9,6 +9,8 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 
+// using Microsoft.Extensions.DependencyInjection;
+
 namespace Microsoft.Health.Fhir.Web
 {
     public static class Program
@@ -31,6 +33,11 @@ namespace Microsoft.Health.Fhir.Web
                     builder.AddDevelopmentAuthEnvironmentIfConfigured(builtConfig);
                 })
                 .UseStartup<Startup>()
+                /*.ConfigureServices(services =>
+                {
+                    services.AddEndpointsApiExplorer();
+                    services.AddSwaggerGen();
+                })*/
                 .Build();
 
             host.Run();

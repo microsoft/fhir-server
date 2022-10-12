@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -44,6 +45,13 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
                 .AddMemberMatch();
+
+            services.AddEndpointsApiExplorer();
+            services.AddSwaggerGen(c =>
+            {
+                // other configs;
+                c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+            });
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
@@ -119,6 +127,9 @@ namespace Microsoft.Health.Fhir.Web
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
+
+            app.UseSwagger();
+            app.UseSwaggerUI();
         }
 
         /// <summary>
