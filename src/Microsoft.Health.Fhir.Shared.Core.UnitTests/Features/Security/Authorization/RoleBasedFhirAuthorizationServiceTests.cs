@@ -160,5 +160,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
             var result = await _roleBasedFhirAuthorizationService.CheckAccess(DataActions.Write, CancellationToken.None);
             Assert.Equal(DataActions.Write, result);
         }
+
+        [Fact]
+        public async Task GivenUserReadDA_WhenInvokedForPatientRead_SMARTScopeAllResourcesRead_ThenReturnedReadDataAction()
+        {
+            var defaultFhirRequestContext = new DefaultFhirRequestContext();
+            defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+
+            var claims = new List<Claim>();
+            claims.Add(new Claim("roles", "Read"));
+            var expectedPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+            defaultFhirRequestContext.ResourceType = KnownResourceTypes.Patient;
+            defaultFhirRequestContext.Principal = expectedPrincipal;
+
+            _fhirRequestContextAccessor.RequestContext.Returns(defaultFhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction("*", DataActions.Read, "user1"));
+
+            var result = await _roleBasedFhirAuthorizationService.CheckAccess(DataActions.Read, CancellationToken.None);
+            Assert.Equal(DataActions.Read, result);
+        }
     }
 }

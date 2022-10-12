@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             DataActions permittedDataActions = 0;
             foreach (ScopeRestriction scopeRestriction in allowedResourceActions)
             {
-                if (scopeRestriction.Resource == resourceRequested)
+                if (scopeRestriction.Resource == "*" || scopeRestriction.Resource == resourceRequested)
                 {
                     permittedDataActions |= scopeRestriction.AllowedDataAction;
                     if (permittedDataActions == dataActions)
