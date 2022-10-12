@@ -51,7 +51,7 @@
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="6.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="6.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.20.0" />
