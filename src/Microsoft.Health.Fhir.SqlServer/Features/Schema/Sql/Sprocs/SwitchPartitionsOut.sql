@@ -63,8 +63,8 @@ BEGIN TRY
 
       EXECUTE('SELECT * INTO dbo.'+@TblInt+' FROM dbo.'+@Tbl+' WHERE 1 = 2')
       EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Select Into',@Rows=@@rowcount
-      DELETE FROM @CheckConstraints
-      
+
+      DELETE FROM @CheckConstraints     
       INSERT INTO @CheckConstraints SELECT name, definition FROM sys.check_constraints WHERE parent_object_id = object_id(@Tbl) 
       WHILE EXISTS (SELECT * FROM @CheckConstraints)
       BEGIN
@@ -75,8 +75,8 @@ BEGIN TRY
 
         DELETE FROM @CheckConstraints WHERE CheckName=@checkName
       END
-      DELETE FROM @Names
 
+      DELETE FROM @Names
       INSERT INTO @Names SELECT name FROM sys.columns WHERE object_id = object_id(@Tbl) AND is_sparse = 1
       WHILE EXISTS (SELECT * FROM @Names) 
       BEGIN

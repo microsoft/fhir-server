@@ -107,6 +107,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Default not rebuild clustered.
         /// </summary>
-        public bool RebuildClustered { get; set; } = DefaultSqlRebuildClustered;
+        public bool RebuildClustered { get; } = DefaultSqlRebuildClustered;
     }
 }
