@@ -88,7 +88,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 request.AnonymizationConfigurationFileETag,
                 _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 _exportJobConfiguration.NumberOfPagesPerCommit,
-                request.ContainerName);
+                request.ContainerName,
+                request.Parallel);
 
             var outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 

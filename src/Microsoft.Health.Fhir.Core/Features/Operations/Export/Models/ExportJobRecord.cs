@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint maximumNumberOfResourcesPerQuery = 100,
             uint numberOfPagesPerCommit = 10,
             string storageAccountContainerName = null,
+            bool parallel = true,
             int schemaVersion = 2,
             int typeId = (int)JobType.ExportOrchestrator)
         {
@@ -61,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             RollingFileSizeInMB = rollingFileSizeInMB;
             RestartCount = 0;
             TypeId = typeId;
+            Parallel = parallel;
 
             AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
@@ -170,6 +172,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.RestartCount)]
         public uint RestartCount { get; set; }
+
+        [JsonProperty(JobRecordProperties.Parallel)]
+        public bool Parallel { get; private set; }
 
         internal ExportJobRecord Clone()
         {

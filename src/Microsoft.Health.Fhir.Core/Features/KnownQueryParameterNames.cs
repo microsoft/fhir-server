@@ -77,5 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Text = "_text";
 
         public const string Till = "_till";
+
+        public const string Parallel = "_parallel";
     }
 }

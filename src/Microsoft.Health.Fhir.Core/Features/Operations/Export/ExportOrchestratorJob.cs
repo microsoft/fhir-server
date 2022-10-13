@@ -67,15 +67,52 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (count == 1)
             {
                 string[] definitions;
-                if (record.ExportType != ExportJobType.All)
+                if (record.ExportType != ExportJobType.All || !record.Parallel)
                 {
                     var processingRecord = CreateExportRecord(record);
                     definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
                 }
                 else if (string.IsNullOrEmpty(record.ResourceType))
                 {
-                    var processingRecord = CreateExportRecord(record);
-                    definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
+                    // Since the GetDateTimeRange method needs a resource type, when one isn't provided the time range just needs to be split into equal buckets.
+                    var definitionsList = new List<string>();
+                    var tillTicks = record.Till.ToDateTimeOffset(
+                        defaultMonth: 1,
+                        defaultDaySelector: (year, month) => 1,
+                        defaultHour: 0,
+                        defaultMinute: 0,
+                        defaultSecond: 0,
+                        defaultFraction: 0.0000000m,
+                        defaultUtcOffset: TimeSpan.Zero).Ticks;
+                    var sinceTicks = record.Since.ToDateTimeOffset(
+                        defaultMonth: 1,
+                        defaultDaySelector: (year, month) => 1,
+                        defaultHour: 0,
+                        defaultMinute: 0,
+                        defaultSecond: 0,
+                        defaultFraction: 0.0000000m,
+                        defaultUtcOffset: TimeSpan.Zero).Ticks;
+
+                    var lengthOfRange = (tillTicks - sinceTicks) / 10;
+                    ExportJobRecord processingRecord;
+                    for (int i = 0; i < 9; i++)
+                    {
+                        processingRecord = CreateExportRecord(
+                            record,
+                            sequence: i,
+                            since: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + (i * lengthOfRange)))),
+                            till: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + ((i + 1) * lengthOfRange)))));
+                        definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
+                    }
+
+                    processingRecord = CreateExportRecord(
+                        record,
+                        sequence: 9,
+                        since: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + (9 * lengthOfRange)))),
+                        till: record.Till);
+                    definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
+
+                    definitions = definitionsList.ToArray();
                 }
                 else
                 {
@@ -84,21 +121,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     foreach (var type in resourceTypes)
                     {
                         var till = record.Till.ToDateTimeOffset(
-                                defaultMonth: 1,
-                                defaultDaySelector: (year, month) => 1,
-                                defaultHour: 0,
-                                defaultMinute: 0,
-                                defaultSecond: 0,
-                                defaultFraction: 0.0000000m,
-                                defaultUtcOffset: TimeSpan.Zero);
+                            defaultMonth: 1,
+                            defaultDaySelector: (year, month) => 1,
+                            defaultHour: 0,
+                            defaultMinute: 0,
+                            defaultSecond: 0,
+                            defaultFraction: 0.0000000m,
+                            defaultUtcOffset: TimeSpan.Zero);
                         var since = record.Since.ToDateTimeOffset(
-                                defaultMonth: 1,
-                                defaultDaySelector: (year, month) => 1,
-                                defaultHour: 0,
-                                defaultMinute: 0,
-                                defaultSecond: 0,
-                                defaultFraction: 0.0000000m,
-                                defaultUtcOffset: TimeSpan.Zero);
+                            defaultMonth: 1,
+                            defaultDaySelector: (year, month) => 1,
+                            defaultHour: 0,
+                            defaultMinute: 0,
+                            defaultSecond: 0,
+                            defaultFraction: 0.0000000m,
+                            defaultUtcOffset: TimeSpan.Zero);
 
                         // var numberOfRanges = (int)((till.Ticks - since.Ticks) / _defaultLengthOfTimeSlice.Ticks) + 1;
                         var ranges = await _searchService.GetDateTimeRange(type, since.DateTime, till.DateTime, 10, cancellationToken);
@@ -217,6 +254,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         record.MaximumNumberOfResourcesPerQuery,
                         record.NumberOfPagesPerCommit,
                         record.StorageAccountContainerName,
+                        record.Parallel,
                         record.SchemaVersion,
                         (int)JobType.ExportProcessing);
         }

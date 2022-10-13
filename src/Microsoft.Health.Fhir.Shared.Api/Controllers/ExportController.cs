@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
+            [FromQuery(Name = KnownQueryParameterNames.Parallel)] bool parallel,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
@@ -111,6 +112,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 resourceType: resourceType,
                 containerName: containerName,
                 formatName: formatName,
+                parallel: parallel,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -149,6 +151,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 resourceType: resourceType,
                 containerName: containerName,
                 formatName: formatName,
+                parallel: false,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -189,6 +192,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 groupId: idParameter,
                 containerName: containerName,
                 formatName: formatName,
+                parallel: false,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -239,6 +243,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string groupId = null,
             string containerName = null,
             string formatName = null,
+            bool parallel = true,
             string anonymizationConfigCollectionReference = null,
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)
@@ -253,6 +258,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 groupId,
                 containerName,
                 formatName,
+                parallel,
                 anonymizationConfigCollectionReference,
                 anonymizationConfigLocation,
                 anonymizationConfigFileETag,

@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             string groupId = null,
             string containerName = null,
             string formatName = null,
+            bool parallel = true,
             string anonymizationConfigurationCollectionReference = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null)
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             GroupId = groupId;
             ContainerName = containerName;
             FormatName = formatName;
+            Parallel = parallel;
         }
 
         public Uri RequestUri { get; }
@@ -67,5 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string ContainerName { get; }
 
         public string FormatName { get; }
+
+        public bool Parallel { get; }
     }
 }
