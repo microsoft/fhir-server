@@ -2,9 +2,9 @@
 
 A .NET Core implementation of the FHIR standard.
 
-| CI Build & Deployment | Azure Government Deployment |
+| CI Build & Deployment | Production |
 |---|---|
-| [![Build Status](https://microsofthealthoss.visualstudio.com/FhirServer/_apis/build/status/CI%20Build%20%26%20Deploy?branchName=main)](https://microsofthealthoss.visualstudio.com/FhirServer/_build/latest?definitionId=27&branchName=main) | [![Build Status](https://microsofthealthoss.visualstudio.com/FhirServer/_apis/build/status/CI%20Deployment%20MAG?branchName=main)](https://microsofthealthoss.visualstudio.com/FhirServer/_build/latest?definitionId=28&branchName=main)
+| [![Build Status](https://microsofthealthoss.visualstudio.com/FhirServer/_apis/build/status/CI%20Build%20%26%20Deploy?branchName=main)](https://microsofthealthoss.visualstudio.com/FhirServer/_build/latest?definitionId=27&branchName=main) | [![Build Status](https://fhirserverversions.azurewebsites.net/api/badge)](https://github.com/microsoft/fhir-server/releases)
 
 FHIR Server for Azure is an open-source implementation of the emerging [HL7 Fast Healthcare Interoperability Resources (FHIR) specification](https://www.hl7.org/fhir/) designed for the Microsoft cloud. The FHIR specification defines how clinical health data can be made interoperable across systems, and the FHIR Server for Azure helps facilitate that interoperability in the cloud. The goal of this Microsoft Healthcare project is to enable developers to rapidly deploy a FHIR service.
  
