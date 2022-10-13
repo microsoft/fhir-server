@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     /// </summary>
     public static class SMARTScopeFhirAuthorizationService
     {
-        public static DataActions CheckSMARTScopeAccess(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, DataActions dataActions)
+        public static DataActions CheckSMARTScopeAccess(this RequestContextAccessor<IFhirRequestContext> requestContextAccessor, DataActions dataActions)
         {
             var allowedResourceActions = requestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions;
             var resourceRequested = requestContextAccessor.RequestContext.ResourceType;
