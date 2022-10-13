@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
@@ -67,8 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
             }
 
-            var patchedResource = request.Payload.Patch(currentDoc);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
+            ResourceElement patchedResource = request.Payload.Patch(currentDoc);
+            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource, request.WeakETag), cancellationToken);
         }
     }
 }

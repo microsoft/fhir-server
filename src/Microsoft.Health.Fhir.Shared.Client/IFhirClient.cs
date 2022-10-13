@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.Client
 
         Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default);
 
+        Task<FhirResponse<Bundle>> PostBundleWithValidationHeaderAsync(Resource bundle, bool profileValidation, CancellationToken cancellationToken = default);
+
         Task<FhirResponse<T>> ReadAsync<T>(ResourceType resourceType, string resourceId, CancellationToken cancellationToken = default)
             where T : Resource;
 

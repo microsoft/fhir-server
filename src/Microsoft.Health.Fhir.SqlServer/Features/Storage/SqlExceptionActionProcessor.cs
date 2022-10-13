@@ -17,8 +17,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     public class SqlExceptionActionProcessor<TRequest, TException> : IRequestExceptionAction<TRequest, TException>
         where TException : Exception
     {
-        private const short QueryProcessorNoQueryPlan = 8623;
-
         public Task Execute(TRequest request, TException exception, CancellationToken cancellationToken)
         {
             if (exception is SqlException sqlException)
@@ -31,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                 }
-                else if (sqlException.Number == QueryProcessorNoQueryPlan)
+                else if (sqlException.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
                 {
                     throw new SqlQueryPlanException(Core.Resources.SqlQueryProcessorRanOutOfInternalResourcesException);
                 }
