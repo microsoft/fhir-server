@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.Parallel)] bool parallel,
+            [FromQuery(Name = KnownQueryParameterNames.Parallel)] int parallel,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 resourceType: resourceType,
                 containerName: containerName,
                 formatName: formatName,
-                parallel: false,
+                parallel: 0,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 groupId: idParameter,
                 containerName: containerName,
                 formatName: formatName,
-                parallel: false,
+                parallel: 0,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string groupId = null,
             string containerName = null,
             string formatName = null,
-            bool parallel = true,
+            int parallel = 0,
             string anonymizationConfigCollectionReference = null,
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)

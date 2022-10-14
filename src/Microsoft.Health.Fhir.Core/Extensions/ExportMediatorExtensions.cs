@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             string groupId,
             string containerName,
             string formatName,
-            bool parallel,
+            int parallel,
             string anonymizationConfigurationCollectionReference,
             string anonymizationConfigLocation,
             string anonymizationConfigFileETag,

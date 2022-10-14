@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint maximumNumberOfResourcesPerQuery = 100,
             uint numberOfPagesPerCommit = 10,
             string storageAccountContainerName = null,
-            bool parallel = true,
+            int parallel = 0,
             int schemaVersion = 2,
             int typeId = (int)JobType.ExportOrchestrator)
         {
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public uint RestartCount { get; set; }
 
         [JsonProperty(JobRecordProperties.Parallel)]
-        public bool Parallel { get; private set; }
+        public int Parallel { get; private set; }
 
         internal ExportJobRecord Clone()
         {

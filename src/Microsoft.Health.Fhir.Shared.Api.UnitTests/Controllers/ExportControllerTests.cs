@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
-                parallel: false,
+                parallel: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null));

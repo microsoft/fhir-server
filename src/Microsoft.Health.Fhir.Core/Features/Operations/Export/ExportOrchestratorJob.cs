@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(_jobInfo.Definition);
             var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, _jobInfo.GroupId, false, cancellationToken);
+            int numberOfParallelJobs = record.Parallel > 0 ? record.Parallel : 10;
             var count = 0;
             foreach (var job in groupJobs)
             {
@@ -67,7 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (count == 1)
             {
                 string[] definitions;
-                if (record.ExportType != ExportJobType.All || !record.Parallel)
+
+                if (record.ExportType != ExportJobType.All || record.Parallel == 1)
                 {
                     var processingRecord = CreateExportRecord(record);
                     definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
@@ -93,9 +95,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         defaultFraction: 0.0000000m,
                         defaultUtcOffset: TimeSpan.Zero).Ticks;
 
-                    var lengthOfRange = (tillTicks - sinceTicks) / 10;
+                    var lengthOfRange = (tillTicks - sinceTicks) / numberOfParallelJobs;
                     ExportJobRecord processingRecord;
-                    for (int i = 0; i < 9; i++)
+                    for (int i = 0; i < (numberOfParallelJobs - 1); i++)
                     {
                         processingRecord = CreateExportRecord(
                             record,
@@ -107,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     processingRecord = CreateExportRecord(
                         record,
-                        sequence: 9,
+                        sequence: numberOfParallelJobs - 1,
                         since: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + (9 * lengthOfRange)))),
                         till: record.Till);
                     definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
@@ -138,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             defaultUtcOffset: TimeSpan.Zero);
 
                         // var numberOfRanges = (int)((till.Ticks - since.Ticks) / _defaultLengthOfTimeSlice.Ticks) + 1;
-                        var ranges = await _searchService.GetDateTimeRange(type, since.DateTime, till.DateTime, 10, cancellationToken);
+                        var ranges = await _searchService.GetDateTimeRange(type, since.DateTime, till.DateTime, numberOfParallelJobs, cancellationToken);
                         var sequence = 0;
                         foreach (var range in ranges)
                         {
@@ -153,8 +155,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 groupJobs = await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, _jobInfo.GroupId, false, false, cancellationToken);
             }
-
-            // else if check that the number of processing jobs is as expected. If not fail the job, this isn't recoverable.
 
             bool allJobsComplete;
             do
