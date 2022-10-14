@@ -19,6 +19,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     public class SearchResourceHistoryHandlerTests
     {
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
 
-            _searchService.SearchHistoryAsync(request.ResourceType, null, null, null, null, null, null, CancellationToken.None).Returns(searchResult);
+            _searchService.SearchHistoryAsync(request.ResourceType, null, null, null, null, null, null, null, CancellationToken.None).Returns(searchResult);
 
             var expectedBundle = new Bundle().ToResourceElement();
 

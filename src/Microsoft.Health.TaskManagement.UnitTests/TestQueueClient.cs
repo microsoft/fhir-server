@@ -22,7 +22,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Action CompleteFaultAction { get; set; }
 
-        public Func<TestQueueClient, long, JobInfo> GetJobByIdFunc { get; set; }
+        public Func<TestQueueClient, long, CancellationToken, JobInfo> GetJobByIdFunc { get; set; }
 
         public List<JobInfo> JobInfos
         {
@@ -131,7 +131,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         {
             if (GetJobByIdFunc != null)
             {
-                return Task.FromResult(GetJobByIdFunc(this, jobId));
+                return Task.FromResult(GetJobByIdFunc(this, jobId, cancellationToken));
             }
 
             JobInfo result = jobInfos.FirstOrDefault(t => t.Id == jobId);
@@ -140,6 +140,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Task<IEnumerable<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
         {
+            if (GetJobByIdFunc != null)
+            {
+                return Task.FromResult(jobIds.Select(jobId => GetJobByIdFunc(this, jobId, cancellationToken)));
+            }
+
             IEnumerable<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id));
             return Task.FromResult<IEnumerable<JobInfo>>(result);
         }
@@ -149,7 +154,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return true;
         }
 
-        public Task<JobInfo> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             HeartbeatFaultAction?.Invoke();
 
@@ -162,7 +167,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             job.HeartbeatDateTime = DateTime.Now;
             job.Result = jobInfo.Result;
 
-            return Task.FromResult(job);
+            return Task.FromResult(job.CancelRequested);
         }
     }
 }

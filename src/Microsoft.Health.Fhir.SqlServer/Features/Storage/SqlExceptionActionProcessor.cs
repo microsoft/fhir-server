@@ -29,6 +29,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                 }
+                else if (sqlException.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
+                {
+                    throw new SqlQueryPlanException(Core.Resources.SqlQueryProcessorRanOutOfInternalResourcesException);
+                }
                 else
                 {
                     throw new ResourceSqlException($"SqlException number: {sqlException.Number}; Exception: {sqlException.Message}");

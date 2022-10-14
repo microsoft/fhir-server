@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Microsoft.Health.Fhir.Tests.Integration</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.SqlServer.DACFx" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core.UnitTests\Microsoft.Health.Fhir.Core.UnitTests.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.R4B.Core\Microsoft.Health.Fhir.R4B.Core.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Microsoft.Health.Fhir.R4.Tests.Integration\Persistence\FhirStorageTests.cs">
+      <Link>Persistence\FhirStorageTests.cs</Link>
+    </Compile>
+    <Compile Include="..\Microsoft.Health.Fhir.R4.Tests.Integration\Persistence\FhirStorageVersioningPolicyTests.cs">
+      <Link>Persistence\FhirStorageVersioningPolicyTests.cs</Link>
+    </Compile>
+  </ItemGroup>
+  <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
+  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Integration\Microsoft.Health.Fhir.Shared.Tests.Integration.projitems" Label="Shared" />
+</Project>

@@ -73,10 +73,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
             catch (ArgumentException)
             {
-                throw new InvalidOperationException($"Operation type of ${operationTypeString} is not valid.");
+                throw new InvalidOperationException($"Invalid patch operation type: '{operationTypeString}'. Only 'add', 'insert', 'delete', 'replace', and 'move' are allowed.");
             }
 
-            var path = component.Part.First(x => x.Name == "path").Value.ToString();
+            var path = component.Part.FirstOrDefault(x => x.Name == "path")?.Value.ToString();
             var name = component.Part.FirstOrDefault(x => x.Name == "name")?.Value.ToString();
             var value = component.Part.FirstOrDefault(x => x.Name == "value");
 
@@ -102,33 +102,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
         {
             if (string.IsNullOrEmpty(Path))
             {
-                throw new InvalidOperationException($"Path is required for operation type of {Type}");
+                throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'path' part.");
             }
 
             if (string.IsNullOrEmpty(Name) && Type == PatchOperationType.ADD)
             {
-                throw new InvalidOperationException($"Name is required for operation type of {Type}");
+                throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'name' part.");
             }
 
             if (Value is null &&
                 new[] { PatchOperationType.ADD, PatchOperationType.INSERT, PatchOperationType.REPLACE }.Contains(Type))
             {
-                throw new InvalidOperationException($"Value is required for operation type of {Type}");
+                throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'value' part.");
             }
 
             if (Index is null && Type == PatchOperationType.INSERT)
             {
-                throw new InvalidOperationException($"Index is required for operation type of {Type}");
+                throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'index' part.");
             }
 
             if (Source is null && Type == PatchOperationType.MOVE)
             {
-                throw new InvalidOperationException($"Source is required for operation type of {Type}");
+                throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'source' part.");
             }
 
             if (Destination is null && Type == PatchOperationType.MOVE)
             {
-                throw new InvalidOperationException($"Destination is required for operation type of {Type}");
+                throw new InvalidOperationException($"Patch {Type.ToString().ToLowerInvariant()} operations must have the 'destination' part.");
             }
 
             return this;

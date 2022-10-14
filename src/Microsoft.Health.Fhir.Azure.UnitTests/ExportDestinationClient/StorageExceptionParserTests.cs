@@ -7,10 +7,14 @@ using System;
 using System.Net;
 using Microsoft.Azure.Storage;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class StorageExceptionParserTests
     {
         [InlineData(HttpStatusCode.Forbidden)]

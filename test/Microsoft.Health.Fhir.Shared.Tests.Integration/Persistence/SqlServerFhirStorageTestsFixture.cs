@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Threading;
-using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -147,6 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorV18 = serviceProvider.GetRequiredService<V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorV27 = serviceProvider.GetRequiredService<V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var upsertResourceTvpGeneratorV40 = serviceProvider.GetRequiredService<V40.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var reindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
@@ -176,6 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertResourceTvpGeneratorV17,
                 upsertResourceTvpGeneratorV18,
                 upsertResourceTvpGeneratorV27,
+                upsertResourceTvpGeneratorV40,
                 upsertResourceTvpGeneratorVLatest,
                 reindexResourceTvpGeneratorV17,
                 reindexResourceTvpGeneratorVLatest,
@@ -189,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor);
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
@@ -211,6 +213,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var chainFlatteningRewriter = new ChainFlatteningRewriter(searchParamTableExpressionQueryGeneratorFactory);
             var sortRewriter = new SortRewriter(searchParamTableExpressionQueryGeneratorFactory);
             var partitionEliminationRewriter = new PartitionEliminationRewriter(sqlServerFhirModel, SchemaInformation, () => searchableSearchParameterDefinitionManager);
+            var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
+            var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -220,6 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 chainFlatteningRewriter,
                 sortRewriter,
                 partitionEliminationRewriter,
+                compartmentSearchRewriter,
                 SqlConnectionWrapperFactory,
                 SchemaInformation,
                 _fhirRequestContextAccessor,

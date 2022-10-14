@@ -6,12 +6,16 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CompositeSearchTests : SearchTestsBase<CompositeSearchTestFixture>
     {

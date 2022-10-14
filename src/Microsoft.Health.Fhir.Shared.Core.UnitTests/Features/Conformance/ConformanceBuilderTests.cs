@@ -17,6 +17,8 @@ using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
@@ -27,11 +29,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     /// <summary>
     /// shared conformance tests
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public partial class ConformanceBuilderTests
     {
         private readonly ICapabilityStatementBuilder _builder;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IKnowSupportedProfiles _supportedProfiles;
+        private readonly ISupportedProfilesStore _supportedProfiles;
 
         public ConformanceBuilderTests()
         {
@@ -39,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             configuration.Value.Returns(new CoreFeatureConfiguration());
 
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
@@ -67,16 +71,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Throws<ArgumentException>(() => _builder.ApplyToResource("foo", c => c.ConditionalCreate = true));
         }
 
-        [Fact]
-        public void GivenAConformanceBuilder_WhenVersionofResourceIsDifferentFromDefault_ThenResourceUsesResourceSpecificVersionLogic()
+        [Theory]
+        [InlineData("patient")]
+        [InlineData("Patient")]
+        [InlineData("PaTient")]
+        public void GivenAConformanceBuilder_WhenVersionofResourceIsDifferentFromDefault_ThenResourceUsesResourceSpecificVersionLogic(string resourceType)
         {
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
-            versionConfig.ResourceTypeOverrides.Add("Patient", "no-version");
+            versionConfig.ResourceTypeOverrides.Add(resourceType, "no-version");
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
-            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
@@ -106,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             versionConfig.ResourceTypeOverrides.Add("blah", "no-version");
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
-            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
@@ -135,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             VersioningConfiguration versionConfig = new();
 
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
-            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,

@@ -33,14 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly CoreFeatureConfiguration _configuration;
-        private readonly IKnowSupportedProfiles _supportedProfiles;
+        private readonly ISupportedProfilesStore _supportedProfiles;
 
         private CapabilityStatementBuilder(
             ListedCapabilityStatement statement,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IOptions<CoreFeatureConfiguration> configuration,
-            IKnowSupportedProfiles supportedProfiles)
+            ISupportedProfilesStore supportedProfiles)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _supportedProfiles = supportedProfiles;
         }
 
-        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IOptions<CoreFeatureConfiguration> configuration, IKnowSupportedProfiles supportedProfiles)
+        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IOptions<CoreFeatureConfiguration> configuration, ISupportedProfilesStore supportedProfiles)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -66,6 +66,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             FileVersionInfo version = ProductVersionInfo.Version;
             var versionString = $"{version.FileMajorPart}.{version.FileMinorPart}.{version.FileBuildPart}";
+
+            if (modelInfoProvider.Version == FhirSpecification.Stu3 ||
+                modelInfoProvider.Version == FhirSpecification.R4)
+            {
+                ((DefaultOptionHashSet<string>)statement.Status).DefaultOption = "active";
+            }
 
             statement.Name = string.Format(Core.Resources.CapabilityStatementNameFormat, statement.Publisher, configuration.Value.SoftwareName, versionString);
             statement.Software = new SoftwareComponent
@@ -337,7 +343,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public ICapabilityStatementBuilder SyncProfiles(bool disableCacheRefresh = false)
         {
+            if (!disableCacheRefresh)
+            {
+                _supportedProfiles.Refresh();
+            }
+
+            // This line needs to come after the refresh because the refresh can trigger this method to run and can add duplicate values to the Profile in STU3.
             _statement.Profile.Clear();
+
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
                 // Parameters is a non-persisted resource used to pass information into and back from an operation

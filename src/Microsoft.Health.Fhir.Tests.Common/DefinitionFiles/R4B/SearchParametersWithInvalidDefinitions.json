@@ -1,0 +1,582 @@
+{
+    "resourceType": "Bundle",
+    "id": "searchParams",
+    "meta": {
+        "lastUpdated": "2017-04-19T07:44:43.294+10:00"
+    },
+    "type": "collection",
+    "entry": [
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Resource-content",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Resource-content",
+                "url": "http://hl7.org/fhir/SearchParameter/Resource-content",
+                "name": "_content",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_content",
+                "base": [
+                    "Resource"
+                ],
+                "type": "string",
+                "description": "Search on the entire content of the resource",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Resource-id",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Resource-id",
+                "url": "http://hl7.org/fhir/SearchParameter/Resource-id",
+                "name": "_id",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_id",
+                "base": [
+                    "Resource"
+                ],
+                "type": "token",
+                "description": "Logical id of this artifact",
+                "expression": "Resource.id",
+                "xpath": "f:Resource/f:id",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Resource-lastUpdated",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Resource-lastUpdated",
+                "url": "http://hl7.org/fhir/SearchParameter/Resource-lastUpdated",
+                "name": "_lastUpdated",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_lastUpdated",
+                "base": [
+                    "Resource"
+                ],
+                "type": "date",
+                "description": "When the resource version last changed",
+                "expression": "Resource.meta.lastUpdated",
+                "xpath": "f:Resource/f:meta/f:lastUpdated",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "DocumentReference-relationship",
+                "url": "http://hl7.org/fhir/SearchParameter/DocumentReference-relationship",
+                "name": "relationship",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Structured Documents)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/structure/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "relationship",
+                "base": [
+                    "DocumentReference"
+                ],
+                "type": "composite",
+                "description": "Combination of relation and relatesTo",
+                "expression": "DocumentReference.relatesTo",
+                "xpathUsage": "normal",
+                "component": []
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Group-characteristic",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Group-characteristic",
+                "url": "http://hl7.org/fhir/SearchParameter/Group-characteristic",
+                "name": "characteristic",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "characteristic",
+                "base": [
+                    "Group"
+                ],
+                "type": "token",
+                "description": "Kind of characteristic",
+                "expression": "Group.characteristic.code",
+                "xpath": "f:Group/f:characteristic/f:code",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Group-characteristic-value",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Group-characteristic-value",
+                "url": "http://hl7.org/fhir/SearchParameter/Group-characteristic-value",
+                "name": "characteristic-value",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "characteristic-value",
+                "base": [
+                    "Group"
+                ],
+                "type": "composite",
+                "description": "A composite of both characteristic and value",
+                "expression": "Group.characteristic",
+                "xpathUsage": "normal",
+                "component": [
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/Group-characteristic",
+                        "expression": "code"
+                    },
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/Group-value",
+                        "expression": "value"
+                    }
+                ]
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/clinical-code",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "clinical-code",
+                "url": "http://hl7.org/fhir/SearchParameter/clinical-code",
+                "name": "code",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Patient Care)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/patientcare/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "code",
+                "base": [
+                    "FamilyMemberHistory",
+                    "DeviceRequest",
+                    "AllergyIntolerance",
+                    "Procedure",
+                    "List",
+                    "Observation",
+                    "DiagnosticReport",
+                    "Condition"
+                ],
+                "type": "token",
+                "description": "Multiple Resources: \r\n\r\n* [FamilyMemberHistory](familymemberhistory.html): A search by a condition code\r\n* [DeviceRequest](devicerequest.html): Code for what is being requested/ordered\r\n* [AllergyIntolerance](allergyintolerance.html): Code that identifies the allergy or intolerance\r\n* [Procedure](procedure.html): A code to identify a  procedure\r\n* [List](list.html): What the purpose of this list is\r\n* [ProcedureRequest](procedurerequest.html): What is being requested/ordered\r\n* [Observation](observation.html): The code of the observation type\r\n* [DiagnosticReport](diagnosticreport.html): The code for the report as a whole, as opposed to codes for the atomic results, which are the names on the observation resource referred to from the result\r\n* [Condition](condition.html): Code for the condition\r\n",
+                "expression": "FamilyMemberHistory.condition.code | DeviceRequest.code.as(CodeableConcept) | AllergyIntolerance.code | AllergyIntolerance.reaction.substance | Procedure.code | List.code | ProcedureRequest.code | Observation.code | DiagnosticReport.code | Condition.code",
+                "xpath": "f:FamilyMemberHistory/f:condition/f:code | f:DeviceRequest/f:codeCodeableConcept | f:AllergyIntolerance/f:code | f:AllergyIntolerance/f:reaction/f:substance | f:Procedure/f:code | f:List/f:code | f:ProcedureRequest/f:code | f:Observation/f:code | f:DiagnosticReport/f:code | f:Condition/f:code",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Observation-value-date",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Observation-value-date",
+                "url": "http://hl7.org/fhir/SearchParameter/Observation-value-date",
+                "name": "value-date",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Orders and Observations)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/orders/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "value-date",
+                "base": [
+                    "Observation"
+                ],
+                "type": "date",
+                "description": "The value of the observation, if the value is a date or period of time",
+                "expression": "Observation.value.as(DateTime) | Observation.value.as(Period)",
+                "xpath": "f:Observation/f:valueDateTime | f:Observation/f:valuePeriod",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Observation-code-value-date",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Observation-code-value-date",
+                "url": "http://hl7.org/fhir/SearchParameter/Observation-code-value-date",
+                "name": "code-value-date",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Orders and Observations)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/orders/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "code-value-date",
+                "base": [
+                    "Observation"
+                ],
+                "type": "composite",
+                "description": "Code and date/time value parameter pair",
+                "expression": "Observation",
+                "xpathUsage": "normal",
+                "component": [
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/clinical-code",
+                        "expression": "code"
+                    },
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/Observation-value-date",
+                        "expression": "value.as(DateTime) | value.as(Period)"
+                    }
+                ]
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Observation-code-value-quantity",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Observation-code-value-quantity",
+                "url": "http://hl7.org/fhir/SearchParameter/Observation-code-value-quantity",
+                "name": "code-value-quantity",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Orders and Observations)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/orders/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "code-value-quantity",
+                "base": [
+                    "Observation"
+                ],
+                "type": "composite",
+                "description": "Code and quantity value parameter pair",
+                "expression": "Observation",
+                "xpathUsage": "normal",
+                "component": [
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/Observation-code-value-date",
+                        "expression": "value.as(Quantity)"
+                    },
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/clinical-code",
+                        "expression": "code"
+                    }
+                ]
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Observation-code-value-string",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Observation-code-value-string",
+                "url": "http://hl7.org/fhir/SearchParameter/Observation-code-value-string",
+                "name": "code-value-string",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Orders and Observations)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/orders/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "code-value-string",
+                "base": [
+                    "Observation"
+                ],
+                "type": "composite",
+                "description": "Code and string value parameter pair",
+                "expression": "Observation",
+                "xpathUsage": "normal",
+                "component": [
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/clinical-code",
+                        "expression": "code"
+                    },
+                    {
+                        "definition":  "http://hl7.org/fhir/SearchParameter/Resource-id",
+                        "expression": ""
+                    }
+                ]
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Observation-device",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Observation-device",
+                "url": "http://hl7.org/fhir/SearchParameter/Observation-device",
+                "name": "device",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Orders and Observations)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/orders/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "device",
+                "base": [],
+                "type": "reference",
+                "description": "The Device that generated the observation data.",
+                "expression": "Observation.device",
+                "xpath": "f:Observation/f:device",
+                "xpathUsage": "normal",
+                "target": [
+                    "Device",
+                    "DeviceMetric"
+                ]
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Observation-related",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Observation-related",
+                "url": "http://hl7.org/fhir/SearchParameter/Observation-related",
+                "name": "related",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Orders and Observations)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/orders/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "related",
+                "base": [
+                    "Observation"
+                ],
+                "type": "composite",
+                "description": "Related Observations - search on related-type and related-target together",
+                "expression": "",
+                "xpathUsage": "normal",
+                "component": [
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/Observation-related-target",
+                        "expression": "target"
+                    },
+                    {
+                        "definition": "http://hl7.org/fhir/SearchParameter/Observation-related-type",
+                        "expression": "type"
+                    }
+                ]
+            }
+        }
+    ]
+}

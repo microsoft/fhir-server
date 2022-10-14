@@ -1,0 +1,39 @@
+﻿{
+    "url": "/metadata",
+    "version": "1.0.0.0",
+    "status": [ "draft", "active", "retired" ],
+    "experimental": true,
+    "publisher": "Microsoft",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "https://www.microsoft.com"
+                }
+            ]
+        }
+    ],
+    "kind": [ "capability" ],
+    "format": [
+        "application/fhir+json",
+        "json"
+    ],
+    "patchFormat": [
+        "application/fhir+json",
+        "application/json-patch+json"
+    ],
+    "rest": [
+        {
+            "mode": "server",
+            "security": {
+                "cors": false,
+                "service": []
+            },
+            "resource": [],
+            "interaction": [],
+            "searchParam": [],
+            "operation": []
+        }
+    ]
+}

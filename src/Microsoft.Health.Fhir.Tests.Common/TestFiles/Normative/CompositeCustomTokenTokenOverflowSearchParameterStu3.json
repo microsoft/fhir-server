@@ -1,0 +1,55 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "id",
+    "extension": [
+        {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+            "valueCode": "trial-use"
+        }
+    ],
+    "url": "http://hl7.org/fhir/SearchParameter/url",
+    "version": "1.0.0",
+    "name": "name",
+    "status": "draft",
+    "experimental": false,
+    "date": "2019-11-01T09:29:23+11:00",
+    "publisher": "Health Level Seven International (Orders and Observations)",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }
+            ]
+        },
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/orders/index.cfm"
+                }
+            ]
+        }
+    ],
+    "description": "Patient identifier and phone parameter pair",
+    "code": "code",
+    "base": [ "Patient" ],
+    "type": "composite",
+    "expression": "Patient",
+    "xpathUsage": "normal",
+    "component": [
+        {
+            "definition": {
+                "reference": "http://hl7.org/fhir/SearchParameter/individual-phone"
+            },
+            "expression": "telecom"
+        },
+        {
+            "definition": {
+                "reference": "http://hl7.org/fhir/SearchParameter/Patient-identifier"
+            },
+            "expression": "identifier"
+        }
+    ]
+}

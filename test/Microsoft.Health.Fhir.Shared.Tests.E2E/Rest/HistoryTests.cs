@@ -34,9 +34,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// hence using the NextLink to keep querying for the next set
     /// Some tests have Thread.Sleep to avoid query time to fall in future
     /// </summary>
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     [CollectionDefinition("History", DisableParallelization = true)]
     [Collection("History")]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class HistoryTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         private FhirResponse<Observation> _createdResource;
@@ -72,15 +74,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(readResponse.Resource.Entry);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("")]
+        [InlineData("?_sort=-_lastUpdated")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenATypeAndId_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
+        public async Task GivenATypeAndId_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully(string queryString)
         {
             UpdateObservation(_createdResource.Resource);
             await _client.UpdateAsync(_createdResource.Resource);
 
-            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"Observation/{_createdResource.Resource.Id}/_history", string.Empty);
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"Observation/{_createdResource.Resource.Id}/_history" + queryString, string.Empty);
+
             AssertCount(2, readResponse);
+
+            // Check most recent item is sorted first
+            Assert.True(readResponse[0].Resource.Meta.LastUpdated > readResponse[1].Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATypeAndId_WhenGettingResourceHistoryWithAlternateSort_TheServerShouldReturnTheAppropriateBundleSuccessfully()
+        {
+            UpdateObservation(_createdResource.Resource);
+            await _client.UpdateAsync(_createdResource.Resource);
+
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"Observation/{_createdResource.Resource.Id}/_history?_sort=_lastUpdated", string.Empty);
+
+            AssertCount(2, readResponse);
+
+            Assert.True(readResponse[0].Resource.Meta.LastUpdated < readResponse[1].Resource.Meta.LastUpdated);
         }
 
         [Fact]
@@ -380,6 +402,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var ex = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("_history?_before=" + beforeUriString));
 
             Assert.Contains("Parameter _before cannot a be a value in the future", ex.Message);
+        }
+
+        [Fact]
+        public async Task GivenAnInvalidSortValue_WhenGettingSystemHistory_AnErrorIsReturned()
+        {
+            var ex = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("_history?_sort=_id"));
+
+            Assert.Contains("Sorting by the '_id' parameter is not supported.", ex.Message);
         }
 
         [Fact]

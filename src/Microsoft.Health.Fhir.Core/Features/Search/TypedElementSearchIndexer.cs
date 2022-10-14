@@ -11,6 +11,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
+using Hl7.FhirPath.Expressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -31,7 +32,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger<TypedElementSearchIndexer> _logger;
-        private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new ConcurrentDictionary<string, List<string>>();
+        private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new();
+        private static readonly FhirPathCompiler _compiler = new();
+        private readonly ConcurrentDictionary<string, CompiledExpression> _expressions = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TypedElementSearchIndexer"/> class.
@@ -103,7 +106,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
-            IEnumerable<ITypedElement> rootObjects = resource.Select(searchParameter.Expression, context);
+            CompiledExpression expression = _expressions.GetOrAdd(searchParameter.Expression, s => _compiler.Compile(s));
+
+            IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
 
             foreach (var rootObject in rootObjects)
             {
@@ -202,7 +207,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             try
             {
-                extractedValues = element.Select(fhirPathExpression, context);
+                CompiledExpression expression = _expressions.GetOrAdd(fhirPathExpression, s => _compiler.Compile(s));
+
+                extractedValues = expression.Invoke(element, context);
             }
             catch (Exception ex)
             {

@@ -7,10 +7,13 @@ using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Web)]
     public class NarrativeHtmlSanitizerTests : NarrativeDataTestBase
     {
         private readonly NarrativeHtmlSanitizer _sanitizer;

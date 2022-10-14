@@ -9,10 +9,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Web)]
     public class NarrativeValidatorTests : NarrativeDataTestBase
     {
         private readonly NarrativeValidator _validator;

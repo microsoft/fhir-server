@@ -15,12 +15,16 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Security)]
     public class RoleLoaderTests
     {
         public static IEnumerable<object[]> GetInvalidRoles()

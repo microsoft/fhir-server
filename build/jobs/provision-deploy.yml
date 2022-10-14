@@ -56,13 +56,14 @@ jobs:
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
+        $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 3
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
-            appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "B3"
+            appServicePlanName = "${{ parameters.appServicePlanName }}-${{ parameters.version }}"
+            appServicePlanSku = "B2"
             numberOfInstances = 2
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"

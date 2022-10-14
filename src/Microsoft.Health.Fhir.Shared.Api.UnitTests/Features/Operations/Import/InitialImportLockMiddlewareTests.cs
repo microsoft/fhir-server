@@ -8,10 +8,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
 {
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
+    [Trait(Traits.Category, Categories.Import)]
     public class InitialImportLockMiddlewareTests
     {
         [Fact]
@@ -117,6 +121,42 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/Patient";
             httpContext.Request.Method = HttpMethods.Post.ToString();
+            await middleware.Invoke(httpContext);
+
+            Assert.Equal(200, httpContext.Response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("/Patient", "Post")]
+        [InlineData("/$reindex", "Get")]
+        [InlineData("/Observation", "Delete")]
+        public async Task GivenLockedRequests_WhenInitialImportModeEnabled_Then423ShouldBeReturned(string path, string method)
+        {
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = true });
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Path = path;
+            httpContext.Request.Method = method;
+            await middleware.Invoke(httpContext);
+
+            Assert.Equal(423, httpContext.Response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("/Patient", "Get")]
+        [InlineData("/$export", "Get")]
+        [InlineData("/Patient/$export", "Get")]
+        [InlineData("/_operations/export/123", "Get")]
+        [InlineData("/_operations/export/123", "Delete")]
+        [InlineData("/_operations/reindex/123", "Get")]
+        [InlineData("/_operations/reindex/123", "Delete")]
+        [InlineData("/_operations/import/123", "Get")]
+        [InlineData("/_operations/import/123", "Delete")]
+        public async Task GivenAllowedRequests_WhenInitialImportModeEnabled_Then200ShouldBeReturned(string path, string method)
+        {
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = true });
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Path = path;
+            httpContext.Request.Method = method;
             await middleware.Invoke(httpContext);
 
             Assert.Equal(200, httpContext.Response.StatusCode);

@@ -19,7 +19,7 @@ POST https://{{hostname}}
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-< .\Data\SearchDataBatch.json
+< ./Data/SearchDataBatch.json
 
 ### Include
 GET {{hostname}}/MedicationRequest?_include=MedicationRequest:patient

@@ -21,11 +21,14 @@ using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Validate)]
     public class CreateResourceValidatorTests : NarrativeDataTestBase
     {
         [Theory]

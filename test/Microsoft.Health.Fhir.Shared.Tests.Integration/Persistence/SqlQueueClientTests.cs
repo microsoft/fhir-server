@@ -11,8 +11,10 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenJobsEnqueue_WhenDequeue_ThenAllJobsShouldBeReturened,
         GivenJobKeepPutHeartbeat_WhenDequeue_ThenJobShouldNotBeReturened,
         GivenJobKeepPutHeartbeatWithResult_WhenDequeue_ThenJobWithResultShouldNotBeReturened,
+        GivenRunningJobCancelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturned,
         GivenJobNotHeartbeat_WhenDequeue_ThenJobShouldBeReturenedAgain,
         GivenGroupJobs_WhenCompleteJob_ThenJobsShouldBeCompleted,
         GivenGroupJobs_WhenCancelJobsByGroupId_ThenAllJobsShouldBeCancelled,
@@ -38,6 +41,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled,
     }
 
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlQueueClientTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private SqlServerFhirStorageTestsFixture _fixture;
@@ -147,9 +152,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             jobInfo1.QueueType = queueType;
             Assert.Equal(jobInfo1.Id, jobs.First().Id);
             await Task.Delay(TimeSpan.FromSeconds(5));
-            JobInfo jobInfo2 = await sqlQueueClient.KeepAliveJobAsync(jobInfo1, CancellationToken.None);
-            Assert.Equal(jobInfo1.Id, jobInfo2.Id);
-            Assert.Equal(jobInfo1.Version, jobInfo2.Version);
+            bool cancelRequested = await sqlQueueClient.KeepAliveJobAsync(jobInfo1, CancellationToken.None);
+            Assert.False(cancelRequested);
             Assert.Null(await sqlQueueClient.DequeueAsync(queueType, "test-worker", 4, CancellationToken.None));
         }
 
@@ -168,6 +172,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Task.Delay(TimeSpan.FromSeconds(1));
             JobInfo jobInfo2 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
             Assert.Equal(jobInfo1.Result, jobInfo2.Result);
+        }
+
+        [Fact]
+        public async Task GivenRunningJobCancelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturned()
+        {
+            byte queueType = (byte)TestQueueType.GivenRunningJobCancelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturned;
+
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1" }, null, false, false, CancellationToken.None);
+
+            JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
+            jobInfo1.QueueType = queueType;
+            jobInfo1.Result = "current-result";
+            Assert.False(await sqlQueueClient.KeepAliveJobAsync(jobInfo1, CancellationToken.None));
+            await sqlQueueClient.CancelJobByGroupIdAsync(queueType, jobInfo1.GroupId, CancellationToken.None);
+            Assert.True(await sqlQueueClient.KeepAliveJobAsync(jobInfo1, CancellationToken.None));
         }
 
         [Fact]
