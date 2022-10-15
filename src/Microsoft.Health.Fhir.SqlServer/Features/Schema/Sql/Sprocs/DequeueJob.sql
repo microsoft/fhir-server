@@ -1,14 +1,14 @@
-﻿
---DROP PROCEDURE dbo.DequeueJob
+﻿--DROP PROCEDURE dbo.DequeueJob
 GO
-CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int
+CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int, @InputJobId bigint = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueJob'
        ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
                            +' H='+isnull(convert(varchar,@HeartbeatTimeoutSec),'NULL')
                            +' W='+isnull(@Worker,'NULL')
-       ,@Rows int
+                           +' IJ='+isnull(convert(varchar,@InputJobId),'NULL')
+       ,@Rows int = 0
        ,@st datetime = getUTCdate()
        ,@JobId bigint
        ,@msg varchar(100)
@@ -21,12 +21,14 @@ BEGIN TRY
   IF EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'DequeueJobStop' AND Number = 1)
     RETURN
 
-  IF @PartitionId IS NULL
+  IF @InputJobId IS NULL
     SET @PartitionId = @MaxPartitions * rand()
+  ELSE 
+    SET @PartitionId = @InputJobId % 16
 
   SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
 
-  WHILE @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions
+  WHILE @InputJobId IS NULL AND @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions
   BEGIN
     SET @Lock = 'DequeueJob_'+convert(varchar,@QueueType)+'_'+convert(varchar,@PartitionId)
 
@@ -53,7 +55,7 @@ BEGIN TRY
                        ,JobId
                 ) S
              ON QueueType = @QueueType AND PartitionId = @PartitionId AND T.JobId = S.JobId
-    SET @Rows = @@rowcount
+    SET @Rows += @@rowcount
 
     COMMIT TRANSACTION
 
@@ -66,7 +68,7 @@ BEGIN TRY
 
   -- Do timed out items. 
   SET @LookedAtPartitions = 0
-  WHILE @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions
+  WHILE @InputJobId IS NULL AND @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions
   BEGIN
     SET @Lock = 'DequeueStoreCopyWorkUnit_'+convert(varchar, @PartitionId)
 
@@ -95,7 +97,7 @@ BEGIN TRY
                        ,JobId
                 ) S
              ON QueueType = @QueueType AND PartitionId = @PartitionId AND T.JobId = S.JobId
-    SET @Rows = @@rowcount
+    SET @Rows += @@rowcount
 
     COMMIT TRANSACTION
 
@@ -103,6 +105,33 @@ BEGIN TRY
     BEGIN
       SET @PartitionId = CASE WHEN @PartitionId = 15 THEN 0 ELSE @PartitionId + 1 END
       SET @LookedAtPartitions = @LookedAtPartitions + 1 
+    END
+  END
+
+  IF @InputJobId IS NOT NULL
+  BEGIN
+    UPDATE dbo.JobQueue WITH (PAGLOCK)
+      SET StartDate = getUTCdate()
+         ,HeartbeatDate = getUTCdate()
+         ,Worker = @Worker 
+         ,Status = 1 -- running
+         ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
+         ,@JobId = JobId
+      WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND Status = 0 AND JobId = @InputJobId 
+    SET @Rows += @@rowcount
+
+    IF @JobId IS NULL
+    BEGIN
+      UPDATE dbo.JobQueue WITH (PAGLOCK)
+        SET StartDate = getUTCdate()
+           ,HeartbeatDate = getUTCdate()
+           ,Worker = @Worker 
+           ,Status = 1 -- running
+           ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
+           ,@JobId = JobId
+        WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND Status = 1 AND JobId = @InputJobId
+          AND datediff(second,HeartbeatDate,getUTCdate()) > @HeartbeatTimeoutSec
+      SET @Rows += @@rowcount
     END
   END
 

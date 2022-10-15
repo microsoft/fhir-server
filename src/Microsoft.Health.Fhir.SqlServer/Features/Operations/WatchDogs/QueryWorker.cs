@@ -44,12 +44,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             retry:
                 try
                 {
-                    RunXShards(1);
-                    RunXShards(2);
-                    RunXShards(4);
-                    RunXShards(8);
-                    RunXShards(16);
-                    RunXShards(32);
+                    RunAllShards();
                 }
                 catch (Exception e)
                 {
@@ -57,6 +52,14 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                     Thread.Sleep(10000);
                     goto retry;
                 }
+            }
+        }
+
+        private void RunAllShards()
+        {
+            for (var l = 0; l < 10; l++)
+            {
+                RunQuerySingleThread(_shardIds);
             }
         }
 
@@ -113,13 +116,13 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             return shardIds;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
         private void RunQuerySingleThread(IList<ShardId> shardIds, string name = "Kesha802", string code = "9279-1")
         {
             var mode = $"shards={shardIds.Count}[{string.Join(',', shardIds)}] name={name} code={code}";
             var st = DateTime.UtcNow;
+
             var top = 11;
-            var q0 = $@"
+            var queryParams = $@"
 DECLARE @p0 smallint = 1016 -- http://hl7.org/fhir/SearchParameter/Patient-name
 DECLARE @p1 nvarchar(256) = '{name}' -- 281
 DECLARE @p2 smallint = 103 -- Patient
@@ -129,7 +132,7 @@ DECLARE @p5 smallint = 202 -- http://hl7.org/fhir/SearchParameter/clinical-code
 DECLARE @p6 varchar(128) = '{code}'
 DECLARE @p7 int = {top}
                 ";
-            var q1 = $@"
+            var query1 = $@"
 DECLARE @st datetime = getUTCdate()
 
 EXECUTE sp_executeSQL 
@@ -170,7 +173,7 @@ SELECT Patient.*
 
 EXECUTE dbo.LogEvent @Process='Query.First',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
-            var q2 = $@"
+            var query2 = $@"
 DECLARE @Rows int = (SELECT count(*) FROM @ResourceKeys)
 EXECUTE dbo.LogEvent @Process='Query.Second.Start',@Mode='{mode}',@Status='Warn',@Start=@CallStartTime,@Rows=@Rows
 
@@ -229,12 +232,37 @@ SELECT TOP (@p7) ResourceTypeId, ResourceId, TransactionId, ShardletId, Sequence
 EXECUTE dbo.LogEvent @Process='Query.Second.End',@Mode='{mode}',@Status='Warn',@Start=@st,@Rows=@@rowcount
                 ";
 
-            // get resource keys from all shards
-            var firstResourceKeys = new List<ResourceKey>();
+            var q1ResourceKeys = GetRecourceKeysFanOut($"{queryParams}{query1}", null);
+
+            var q2ResourceKeys = GetRecourceKeysFanOut($"{queryParams}{query2}", q1ResourceKeys);
+
+            var finalResourceKeys = q2ResourceKeys.GroupBy(_ => _.ResourceId).Select(_ => _.First()).OrderBy(_ => _.TransactionId.Id).ThenBy(_ => _.ShardletId.Id).ThenBy(_ => _.Sequence).Take(top).ToList();
+
+            SqlService.LogEvent("Query", "Warn", mode, rows: q2ResourceKeys.Count, text: $"firstResourceKeys={q1ResourceKeys.Count}", startTime: st);
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
+        private IList<ResourceKey> GetRecourceKeysFanOut(string query, IList<ResourceKey> keys)
+        {
+            var callStartTime = DateTime.UtcNow;
+            var resourceKeys = new List<ResourceKey>();
+            if (keys != null && keys.Count == 0)
+            {
+                return resourceKeys;
+            }
+
             SqlService.ParallelForEachShard(
                 (shardId) =>
                 {
-                    using var cmd = new SqlCommand(@$"{q0}{q1}") { CommandTimeout = 600 };
+                    using var cmd = new SqlCommand(query) { CommandTimeout = 600 };
+                    cmd.Parameters.AddWithValue("@CallStartTime", callStartTime); // for debugging only. can be removed
+                    if (keys != null && keys.Count > 0)
+                    {
+                        var resourceKeysParam = new SqlParameter { ParameterName = "@ResourceKeys" };
+                        resourceKeysParam.AddResourceKeyList(keys);
+                        cmd.Parameters.Add(resourceKeysParam);
+                    }
+
                     SqlService.ExecuteSqlWithRetries(
                         shardId,
                         cmd,
@@ -249,54 +277,14 @@ EXECUTE dbo.LogEvent @Process='Query.Second.End',@Mode='{mode}',@Status='Warn',@
 
                             reader.NextResult();
 
-                            lock (firstResourceKeys)
+                            lock (resourceKeys)
                             {
-                                firstResourceKeys.AddRange(keys);
+                                resourceKeys.AddRange(keys);
                             }
                         });
                 },
                 null);
-
-            // Check resource keys
-            var checkedResourceKeys = new List<ResourceKey>();
-            if (firstResourceKeys.Count > 0)
-            {
-                var callStartTime = DateTime.UtcNow;
-                SqlService.ParallelForEachShard(
-                    shardIds,
-                    (shardId) =>
-                    {
-                        using var cmd = new SqlCommand(@$"{q0}{q2}") { CommandTimeout = 600 };
-                        var resourceKeysParam = new SqlParameter { ParameterName = "@ResourceKeys" };
-                        resourceKeysParam.AddResourceKeyList(firstResourceKeys);
-                        cmd.Parameters.AddWithValue("@CallStartTime", callStartTime);
-                        cmd.Parameters.Add(resourceKeysParam);
-                        SqlService.ExecuteSqlWithRetries(
-                            shardId,
-                            cmd,
-                            cmdInt =>
-                            {
-                                var keys = new List<ResourceKey>();
-                                using var reader = cmdInt.ExecuteReader();
-                                while (reader.Read())
-                                {
-                                    keys.Add(new ResourceKey(reader));
-                                }
-
-                                reader.NextResult();
-
-                                lock (checkedResourceKeys)
-                                {
-                                    checkedResourceKeys.AddRange(keys);
-                                }
-                            });
-                    },
-                    null);
-            }
-
-            // return final
-            var final = checkedResourceKeys.GroupBy(_ => _.ResourceId).Select(_ => _.First()).OrderBy(_ => _.TransactionId.Id).ThenBy(_ => _.ShardletId.Id).ThenBy(_ => _.Sequence).Take(top).ToList();
-            SqlService.LogEvent("Query", "Warn", mode, rows: checkedResourceKeys.Count, text: $"firstResourceKeys={firstResourceKeys.Count}", startTime: st);
+            return resourceKeys;
         }
     }
 }

@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             retry:
                 try
                 {
-                    Target.DequeueJob(out jobId, out version, out var definition);
+                    Target.DequeueJob(SqlService.CopyQueueType, out jobId, out version, out var definition);
                     if (jobId != -1)
                     {
                         var resourceTypeId = (short)0;
@@ -117,12 +117,12 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                             var minId = long.Parse(split[1]);
                             var maxId = long.Parse(split[2]);
                             var suffix = split.Length > 3 ? split[3] : null;
-                            transactionId = Target.BeginTransaction($"queuetype={SqlService.QueueType} jobid={jobId}");
+                            transactionId = Target.BeginTransaction($"queuetype={SqlService.CopyQueueType} jobid={jobId}");
                             (resourceCount, totalCount) = Copy(worker, resourceTypeId, jobId, minId, maxId, transactionId, suffix);
                             Target.CommitTransaction(transactionId);
                         }
 
-                        Target.CompleteJob(jobId, false, version, resourceCount, totalCount, transactionId.Id);
+                        Target.CompleteJob(SqlService.CopyQueueType, jobId, version, false, resourceCount, $"total={totalCount} tran={transactionId.Id}");
                     }
                     else
                     {
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
                     if (jobId != -1)
                     {
-                        Target.CompleteJob(jobId, true, version);
+                        Target.CompleteJob(SqlService.CopyQueueType, jobId, version, true, null, null);
                     }
                 }
             }

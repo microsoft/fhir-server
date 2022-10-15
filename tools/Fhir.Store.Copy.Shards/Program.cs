@@ -34,10 +34,12 @@ namespace Microsoft.Health.Fhir.Store.Copy
             if (method == "setupdb")
             {
                 SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.Central.dacpac");
+                SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
                 Target = new SqlService(TargetConnectionString);
                 foreach (var shard in Target.ShardletMap.Shards)
                 {
                     SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.Distributed.dacpac");
+                    SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
                 }
             }
             else if (method == "init")
@@ -144,7 +146,7 @@ EXECUTE dbo.EnqueueJobs @QueueType = @QueueType, @Definitions = @Strings, @Force
                 ",
                 conn)
             { CommandTimeout = 600 };
-            cmd.Parameters.AddWithValue("@QueueType", SqlService.QueueType);
+            cmd.Parameters.AddWithValue("@QueueType", SqlService.CopyQueueType);
             var stringListParam = new SqlParameter { ParameterName = "@Strings" };
             stringListParam.AddStringList(strings);
             cmd.Parameters.Add(stringListParam);
