@@ -68,19 +68,36 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                     return;
                 }
 
-                InitDefrag(connectionString, id);
-
-                ChangeDatabaseSettings(connectionString, false);
-
-                var tasks = new List<Task>();
-                for (var thread = 0; thread < _threads; thread++)
+                ExecWithHeartbeat(
+                () =>
                 {
-                    tasks.Add(BatchExtensions.StartTask(() => ExecDefrag(connectionString)));
-                }
+                    try
+                    {
+                        InitDefrag(connectionString, id.groupId);
 
-                Task.WaitAll(tasks.ToArray());
+                        ChangeDatabaseSettings(connectionString, false);
 
-                ChangeDatabaseSettings(connectionString, true);
+                        var tasks = new List<Task>();
+                        for (var thread = 0; thread < _threads; thread++)
+                        {
+                            tasks.Add(BatchExtensions.StartTask(() => ExecDefrag(connectionString)));
+                        }
+
+                        Task.WaitAll(tasks.ToArray());
+
+                        ChangeDatabaseSettings(connectionString, true);
+                    }
+                    catch (Exception e)
+                    {
+                        SqlService.LogEvent($"Defrag", "Warn", string.Empty, text: e.ToString());
+                        throw;
+                    }
+                },
+                id.jobId,
+                id.version,
+                connectionString);
+
+                SqlService.CompleteJob(_queueType, id.jobId, id.version, false, connStr: connectionString);
             }
             catch (SqlException e)
             {
@@ -115,7 +132,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                         var tbl = split[0];
                         var ind = split[1];
                         var partNumber = int.Parse(split[2]);
-                        var isPart = bool.Parse(split[3]);
+                        var isPart = byte.Parse(split[3]) == 1;
 
                         using var conn = new SqlConnection(connectionString);
                         conn.Open();
@@ -147,22 +164,13 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             }
         }
 
-        private void InitDefrag(string connectionString, (long groupId, long jobId, long version) id)
+        private static void InitDefrag(string connectionString, long groupId)
         {
-            ExecWithHeartbeat(
-                () =>
-                {
-                    using var conn = new SqlConnection(connectionString);
-                    conn.Open();
-                    using var cmd = new SqlCommand("dbo.InitDefrag", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 };
-                    cmd.Parameters.AddWithValue("@GroupId", id.groupId);
-                    cmd.Parameters.AddWithValue("@JobId", id.jobId);
-                    cmd.Parameters.AddWithValue("@Version", id.version);
-                    cmd.ExecuteNonQuery();
-                },
-                id.jobId,
-                id.version,
-                connectionString);
+            using var conn = new SqlConnection(connectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("dbo.InitDefrag", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 };
+            cmd.Parameters.AddWithValue("@GroupId", groupId);
+            cmd.ExecuteNonQuery();
         }
 
         private (long groupId, long jobId, long version) GetDefragJob(string connectionString)
