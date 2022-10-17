@@ -266,6 +266,7 @@
     <EmbeddedResource Include="TestFiles\R4B\MedicinalProductDefinition.json" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
