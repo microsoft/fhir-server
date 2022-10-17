@@ -1,5 +1,5 @@
 <Project>
-
+  
    <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <AspNetPackageVersion>6.0.10</AspNetPackageVersion>
