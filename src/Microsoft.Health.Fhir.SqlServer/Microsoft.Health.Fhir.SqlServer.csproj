@@ -61,7 +61,7 @@
   </ItemGroup>
 
   <!-- Target contains sql build tasks -->
-  <Import Project="$(NuGetPackageRoot)microsoft.health.tools.sql.tasks\6.1.129\build\Sql.targets" />
+  <Import Project="$(NuGetPackageRoot)microsoft.health.tools.sql.tasks\$(HealthcareSharedPackageVersion)\build\Sql.targets" />
 
   <Target Name="ComputeGeneratorInputs" BeforeTargets="GenerateFiles">
     <ItemGroup>

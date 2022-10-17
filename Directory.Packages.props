@@ -62,7 +62,7 @@
     <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Client" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Core" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="6.1.129" />
+    <PackageVersion Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.0.0.33" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="3.0.0.33" />
@@ -70,7 +70,7 @@
     <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="6.1.129" />
+    <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
