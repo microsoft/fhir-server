@@ -60,13 +60,14 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             DequeueJob(queueType, out var _, out jobId, out version, out definition, inputJobId, connStr);
         }
 
-        public void PutJobHeartbeat(byte queueType, long jobId, string connStr = null)
+        public void PutJobHeartbeat(byte queueType, long jobId, long version, string connStr = null)
         {
             using var conn = new SqlConnection(connStr ?? ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.PutJobHeartbeat", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             command.Parameters.AddWithValue("@QueueType", queueType);
             command.Parameters.AddWithValue("@JobId", jobId);
+            command.Parameters.AddWithValue("@Version", version);
             command.ExecuteNonQuery();
         }
 

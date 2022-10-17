@@ -11,11 +11,11 @@ DECLARE @SP varchar(100) = 'InitDefrag'
        ,@msg varchar(1000)
        ,@Rows int
        ,@QueueType tinyint = 200 -- TODO: Replace with real
+       ,@DefinitionsSorted StringList
 
 -- !!! Make sure that only one thread runs this logic
 
-DECLARE @Definitions AS TABLE (Def varchar(1000) PRIMARY KEY, FragGB float)
-DECLARE @DefinitionsSorted AS TABLE (Def varchar(max))
+DECLARE @Definitions AS TABLE (Def varchar(900) PRIMARY KEY, FragGB float)
        
 BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'

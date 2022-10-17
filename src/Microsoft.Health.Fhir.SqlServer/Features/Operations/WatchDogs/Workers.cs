@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         private CopyWorker _copyWorker;
         private IndexRebuildWorker _indexRebuildWorker;
         private QueryWorker _queryWorker;
+        private DefragWorker _defragWorker;
 
         public Workers(string connectionString)
         {
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                     _copyWorker = new CopyWorker(_targetConnectionString);
                     _indexRebuildWorker = new IndexRebuildWorker(_targetConnectionString);
                     _queryWorker = new QueryWorker(_targetConnectionString);
+                    _defragWorker = new DefragWorker(_targetConnectionString);
                 }
                 catch (Exception e)
                 {

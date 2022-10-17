@@ -158,5 +158,7 @@
     <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\PutJobHeartbeat.sql">
       <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutJobHeartbeat.sql</Link>
     </Build>
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\DefragChangeDatabaseSettings.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetActiveJobs.sql" />
   </ItemGroup>
 </Project>

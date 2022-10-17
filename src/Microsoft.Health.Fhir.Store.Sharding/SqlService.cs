@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
 
-        internal void ForEachShard(Action<ShardId> action)
+        public void ForEachShard(Action<ShardId> action)
         {
             var shardIds = ShardletMap.GetShardsInfo().Item2.Keys.ToList();
             ForEachShard(shardIds, action);

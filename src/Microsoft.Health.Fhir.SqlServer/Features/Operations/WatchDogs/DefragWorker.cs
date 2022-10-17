@@ -70,6 +70,8 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
                 InitDefrag(connectionString, id);
 
+                ChangeDatabaseSettings(connectionString, false);
+
                 var tasks = new List<Task>();
                 for (var thread = 0; thread < _threads; thread++)
                 {
@@ -77,11 +79,22 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                 }
 
                 Task.WaitAll(tasks.ToArray());
+
+                ChangeDatabaseSettings(connectionString, true);
             }
             catch (SqlException e)
             {
                 SqlService.LogEvent($"Defrag", "Error", SqlService.ShowConnectionString(connectionString), text: e.ToString());
             }
+        }
+
+        private static void ChangeDatabaseSettings(string connectionString, bool isOn)
+        {
+            using var conn = SqlService.GetConnection(connectionString);
+            using var cmd = new SqlCommand("dbo.DefragChangeDatabaseSettings", conn);
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@IsOn", isOn);
+            cmd.ExecuteNonQuery();
         }
 
         private void ExecDefrag(string connectionString)
@@ -111,17 +124,19 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                         cmd.Parameters.AddWithValue("@IndexName", ind);
                         cmd.Parameters.AddWithValue("@PartitionNumber", partNumber);
                         cmd.Parameters.AddWithValue("@IsPartitioned", isPart);
+                        cmd.ExecuteNonQuery();
                     },
                     jobId,
+                    version,
                     connectionString);
 
                 SqlService.CompleteJob(_queueType, jobId, version, false, connStr: connectionString);
             }
         }
 
-        private void ExecWithHeartbeat(Action action, long jobId, string connectionString)
+        private void ExecWithHeartbeat(Action action, long jobId, long version, string connectionString)
         {
-            var heartbeat = new Timer(_ => SqlService.PutJobHeartbeat(_queueType, jobId, connectionString), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(60)), TimeSpan.FromSeconds(60));
+            var heartbeat = new Timer(_ => SqlService.PutJobHeartbeat(_queueType, jobId, version, connectionString), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(60)), TimeSpan.FromSeconds(60));
             try
             {
                 action();
@@ -143,8 +158,10 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                     cmd.Parameters.AddWithValue("@GroupId", id.groupId);
                     cmd.Parameters.AddWithValue("@JobId", id.jobId);
                     cmd.Parameters.AddWithValue("@Version", id.version);
+                    cmd.ExecuteNonQuery();
                 },
                 id.jobId,
+                id.version,
                 connectionString);
         }
 
@@ -152,10 +169,10 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         {
             using var conn = new SqlConnection(connectionString);
             conn.Open();
-            using var cmd = new SqlCommand("dbo.EqueueJobs", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            using var cmd = new SqlCommand("dbo.EnqueueJobs", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             cmd.Parameters.AddWithValue("@QueueType", _queueType);
             cmd.Parameters.AddWithValue("@ForceOneActiveJobGroup", true);
-            var stringListParam = new SqlParameter { ParameterName = "@Strings" };
+            var stringListParam = new SqlParameter { ParameterName = "@Definitions" };
             stringListParam.AddStringList(new[] { "Defrag" });
             cmd.Parameters.Add(stringListParam);
 
@@ -191,7 +208,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         {
             using var conn = new SqlConnection(connectionString);
             conn.Open();
-            using var cmd = new SqlCommand("dbo.GetJobs", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            using var cmd = new SqlCommand("dbo.GetActiveJobs", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             cmd.Parameters.AddWithValue("@QueueType", _queueType);
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
