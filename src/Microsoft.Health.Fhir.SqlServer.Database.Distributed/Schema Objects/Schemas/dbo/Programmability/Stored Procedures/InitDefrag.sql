@@ -1,11 +1,11 @@
 --DROP PROCEDURE dbo.InitDefrag
 GO
-CREATE PROCEDURE dbo.InitDefrag @GroupId bigint, @JobId bigint, @Version bigint, @MinFragPct int = 10, @MinSizeGB float = 1
+CREATE PROCEDURE dbo.InitDefrag @GroupId bigint, @MinFragPct int = 10, @MinSizeGB float = 1
 WITH EXECUTE AS SELF
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'InitDefrag'
-       ,@Mode varchar(200) = 'G='+convert(varchar,@GroupId)+' J='+convert(varchar,@JobId)+' V='+convert(varchar,@Version)+' MF='+convert(varchar,@MinFragPct)+' MS='+convert(varchar,@MinSizeGB)
+       ,@Mode varchar(200) = 'G='+convert(varchar,@GroupId)+' MF='+convert(varchar,@MinFragPct)+' MS='+convert(varchar,@MinSizeGB)
        ,@st datetime = getUTCdate()
        ,@ObjectId int
        ,@msg varchar(1000)
@@ -60,8 +60,6 @@ BEGIN TRY
 
   IF @Rows > 0
     EXECUTE dbo.EnqueueJobs @QueueType = @QueueType, @Definitions = @DefinitionsSorted, @GroupId = @GroupId, @ForceOneActiveJobGroup = 1
-
-  EXECUTE dbo.PutJobStatus @QueueType = @QueueType, @JobId = @JobId, @Version = @Version, @Failed = 0, @Data = @Rows, @FinalResult = NULL, @RequestCancellationOnFailure = 0
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
 END TRY

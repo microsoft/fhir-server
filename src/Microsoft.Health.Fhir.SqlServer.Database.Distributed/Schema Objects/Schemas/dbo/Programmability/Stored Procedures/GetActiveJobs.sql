@@ -10,7 +10,7 @@ DECLARE @SP varchar(100) = 'GetActiveJobs'
        ,@JobIds BigintList
        ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
-       ,@LookedAtPartitions tinyint = 0
+       ,@LookedAtPartitions tinyint = 1
        ,@Rows int = 0
 
 BEGIN TRY
@@ -26,10 +26,11 @@ BEGIN TRY
     SET @Rows += @@rowcount
 
     SET @PartitionId = CASE WHEN @PartitionId = 15 THEN 0 ELSE @PartitionId + 1 END
-    SET @LookedAtPartitions = @LookedAtPartitions + 1 
+    SET @LookedAtPartitions += 1 
   END
 
-  EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+  IF @Rows > 0
+    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
