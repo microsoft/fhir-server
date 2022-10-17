@@ -141,6 +141,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return response.CapabilityStatement;
         }
 
+        public static async Task<ResourceElement> GetSmartConfigurationAsync(this IMediator mediator, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            var response = await mediator.Send(new GetSmartConfigurationRequest(), cancellationToken);
+            return response.SmartConfiguration;
+        }
+
         public static async Task<VersionsResult> GetOperationVersionsAsync(this IMediator mediator, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));

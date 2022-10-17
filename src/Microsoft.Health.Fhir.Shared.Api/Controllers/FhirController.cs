@@ -555,6 +555,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /// <summary>
+        /// Returns the SMART configuration of this server.
+        /// </summary>
+        [HttpGet]
+        [FhirAnonymousOperation(FhirAnonymousOperationType.WellKnown)]
+        [Route(KnownRoutes.WellKnownSmartConfiguration, Name = RouteNames.WellKnownSmartConfiguration)]
+        public async Task<IActionResult> WellKnownSmartConfiguration()
+        {
+            ResourceElement response = await _mediator.GetSmartConfigurationAsync(HttpContext.RequestAborted);
+
+            return FhirResult.Create(response);
+        }
+
+        /// <summary>
         /// Returns the list of versions the server supports along with the default version it will use if no fhirVersion parameter is present.
         /// </summary>
         [HttpGet]
