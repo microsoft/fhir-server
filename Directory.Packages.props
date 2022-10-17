@@ -2,8 +2,8 @@
   
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <AspNetPackageVersion>6.0.9</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>6.1.126</HealthcareSharedPackageVersion>
+    <AspNetPackageVersion>6.0.10</AspNetPackageVersion>
+    <HealthcareSharedPackageVersion>6.1.129</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
   </PropertyGroup>
@@ -12,7 +12,7 @@
     <PackageVersion Include="AngleSharp" Version="0.17.1" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
     <PackageVersion Include="Azure.Identity" Version="1.7.0" />
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.13.1" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.14.0" />
     <PackageVersion Include="coverlet.collector" Version="3.1.2" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.2.2" />
@@ -51,7 +51,7 @@
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="6.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="6.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.20.0" />

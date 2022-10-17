@@ -496,13 +496,13 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<FhirResponse<Bundle>> PostBundleAsyncWithValidationHeader(Resource bundle, string profileValidation, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<Bundle>> PostBundleWithValidationHeaderAsync(Resource bundle, bool profileValidation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
             {
                 Content = CreateStringContent(bundle),
             };
-            message.Headers.Add(ProfileValidation, profileValidation);
+            message.Headers.Add(ProfileValidation, profileValidation.ToString());
             message.Headers.Accept.Add(_mediaType);
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
