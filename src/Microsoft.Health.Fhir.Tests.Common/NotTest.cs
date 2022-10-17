@@ -5,7 +5,7 @@
 
 using Xunit;
 
-namespace Microsoft.Health.Extensions.Xunit
+namespace Microsoft.Health.Fhir.Tests.Common
 {
     public class NotTest
     {
