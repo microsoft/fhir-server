@@ -14,31 +14,36 @@ namespace Microsoft.Health.Fhir.Store.Sharding
     /// </summary>
     public partial class SqlService
     {
-        public const byte QueueType = 3;
+        public const byte CopyQueueType = 3;
 
-        public bool JobQueueIsNotEmpty()
+        public bool JobQueueIsNotEmpty(byte queueType = CopyQueueType)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var command = new SqlCommand("SELECT count(*) FROM dbo.JobQueue WHERE QueueType = @QueueType", conn) { CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", QueueType);
+            command.Parameters.AddWithValue("@QueueType", queueType);
             var cnt = (int)command.ExecuteScalar();
             return cnt > 0;
         }
 
-        private void DequeueJob(out long groupId, out long jobId, out long version, out string definition)
+        public void DequeueJob(byte queueType, out long groupId, out long jobId, out long version, out string definition, long? inputJobId = null, string connStr = null)
         {
             definition = null;
             groupId = -1L;
             jobId = -1L;
             version = 0;
 
-            using var conn = new SqlConnection(ConnectionString);
+            using var conn = new SqlConnection(connStr ?? ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.DequeueJob", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", QueueType);
+            command.Parameters.AddWithValue("@QueueType", queueType);
             command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
             command.Parameters.AddWithValue("@HeartbeatTimeoutSec", 600);
+            if (inputJobId.HasValue)
+            {
+                command.Parameters.AddWithValue("@InputJobId", inputJobId.Value);
+            }
+
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
@@ -50,59 +55,44 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
         }
 
-        public void DequeueJob(out long jobId, out long version, out string definition)
+        public void DequeueJob(byte queueType, out long jobId, out long version, out string definition, long? inputJobId = null, string connStr = null)
         {
-            DequeueJob(out var _, out jobId, out version, out definition);
+            DequeueJob(queueType, out var _, out jobId, out version, out definition, inputJobId, connStr);
         }
 
-        public void PutJobHeartbeat(long jobId, int? resourceCount = null)
+        public void PutJobHeartbeat(byte queueType, long jobId, long version, string connStr = null)
         {
-            using var conn = new SqlConnection(ConnectionString);
+            using var conn = new SqlConnection(connStr ?? ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.PutJobHeartbeat", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", QueueType);
+            command.Parameters.AddWithValue("@QueueType", queueType);
             command.Parameters.AddWithValue("@JobId", jobId);
-            if (resourceCount.HasValue)
-            {
-                command.Parameters.AddWithValue("@Data", resourceCount.Value);
-            }
-
+            command.Parameters.AddWithValue("@Version", version);
             command.ExecuteNonQuery();
         }
 
-        public void CompleteJob(long jobId, bool failed, long version, int? resourceCount = null, int? totalCount = null, long? transactionId = null)
+        public void CompleteJob(byte queueType, long jobId, long version, bool failed, int? data = null, string result = null, string connStr = null)
         {
-            using var conn = new SqlConnection(ConnectionString);
+            using var conn = new SqlConnection(connStr ?? ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.PutJobStatus", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", QueueType);
+            command.Parameters.AddWithValue("@QueueType", queueType);
             command.Parameters.AddWithValue("@JobId", jobId);
             command.Parameters.AddWithValue("@Version", version);
             command.Parameters.AddWithValue("@Failed", failed);
             command.Parameters.AddWithValue("@RequestCancellationOnFailure", true);
-            if (resourceCount.HasValue)
+            if (data.HasValue)
             {
-                command.Parameters.AddWithValue("@Data", resourceCount.Value);
+                command.Parameters.AddWithValue("@Data", data.Value);
             }
             else
             {
                 command.Parameters.AddWithValue("@Data", DBNull.Value);
             }
 
-            if (totalCount.HasValue || transactionId.HasValue)
+            if (result != null)
             {
-                var res = string.Empty;
-                if (totalCount.HasValue)
-                {
-                    res = $"total={totalCount.Value}";
-                }
-
-                if (transactionId.HasValue)
-                {
-                    res = $"{res}{(res.Length == 0 ? string.Empty : " ")}tran={transactionId.Value}";
-                }
-
-                command.Parameters.AddWithValue("@FinalResult", res);
+                command.Parameters.AddWithValue("@FinalResult", result);
             }
             else
             {

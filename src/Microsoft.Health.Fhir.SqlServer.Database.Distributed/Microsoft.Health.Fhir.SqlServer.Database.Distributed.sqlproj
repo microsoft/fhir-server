@@ -25,6 +25,8 @@
     <TargetFrameworkProfile />
     <NoWarn>1503</NoWarn>
     <SuppressTSqlWarnings>71502</SuppressTSqlWarnings>
+    <AutoUpdateStatisticsAsynchronously>True</AutoUpdateStatisticsAsynchronously>
+    <DbScopedConfigMaxDOP>8</DbScopedConfigMaxDOP>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release\</OutputPath>
@@ -107,7 +109,7 @@
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\QuantitySearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\ReferenceSearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\ResourceList.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\StringList.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\ResourceIdList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\StringSearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\TokenQuantityCompositeSearchParamList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\TokenSearchParamList.sql" />
@@ -129,5 +131,34 @@
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\MergeResources.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutShardTransaction.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\ResourceKeyList.sql" />
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Tables\JobQueue.sql">
+      <Link>Schema Objects\Schemas\dbo\Tables\JobQueue.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\DequeueJob.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\DequeueJob.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\EnqueueJobs.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\EnqueueJobs.sql</Link>
+    </Build>
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\Defrag.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\InitDefrag.sql" />
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Types\StringList.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\StringList.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\GetJobs.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetJobs.sql</Link>
+    </Build>
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Types\User Defined Table Types\BigintList.sql" />
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\PutJobStatus.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutJobStatus.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\PutJobCancelation.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutJobCancelation.sql</Link>
+    </Build>
+    <Build Include="..\Microsoft.Health.Fhir.SqlServer\Features\Schema\Sql\Sprocs\PutJobHeartbeat.sql">
+      <Link>Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutJobHeartbeat.sql</Link>
+    </Build>
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\DefragChangeDatabaseSettings.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetActiveJobs.sql" />
   </ItemGroup>
 </Project>

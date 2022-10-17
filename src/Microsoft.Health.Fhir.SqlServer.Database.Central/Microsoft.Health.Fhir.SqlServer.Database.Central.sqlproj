@@ -25,6 +25,8 @@
     <TargetFrameworkProfile />
     <NoWarn>1503</NoWarn>
     <SuppressTSqlWarnings>71502</SuppressTSqlWarnings>
+    <DbScopedConfigMaxDOP>8</DbScopedConfigMaxDOP>
+    <AutoUpdateStatisticsAsynchronously>True</AutoUpdateStatisticsAsynchronously>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release\</OutputPath>
