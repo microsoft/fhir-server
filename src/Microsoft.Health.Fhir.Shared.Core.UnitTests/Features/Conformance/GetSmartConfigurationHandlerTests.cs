@@ -19,6 +19,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Conformance)]
     public class GetSmartConfigurationHandlerTests
     {
         public GetSmartConfigurationHandlerTests()
@@ -53,15 +54,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
-            Assert.Equal(response.AuthorizationEndpoint.ToString(), string.Join(baseEndpoint, "/authorize"));
-            Assert.Equal(response.TokenEndpoint.ToString(), string.Join(baseEndpoint, "/token"));
+            Assert.Equal(response.AuthorizationEndpoint.ToString(), baseEndpoint + "/authorize");
+            Assert.Equal(response.TokenEndpoint.ToString(), baseEndpoint + "/token");
             Assert.Equal(response.Capabilities, new List<string>
                     {
-                        "launch-standalone",
-                        "client-public",
-                        "client-confidential-symmetric",
                         "sso-openid-connect",
-                        "context-standalone-patient",
                         "permission-offline",
                         "permission-patient",
                     });
@@ -71,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public async Task GivenASmartConfigurationHandler_WhenBaseEndpointIsInvalid_Then400ExceptionThrown()
         {
             var request = new GetSmartConfigurationRequest();
-            string baseEndpoint = "http://base.endpoint";
+            string baseEndpoint = "invalidBaseEndpoint";
 
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = true;

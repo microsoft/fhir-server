@@ -46,15 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                 try
                 {
-                    Uri authorizationEndpoint = new Uri(string.Join(baseEndpoint, "/authorize"));
-                    Uri tokenEndpoint = new Uri(string.Join(baseEndpoint, "/token"));
+                    Uri authorizationEndpoint = new Uri(baseEndpoint + "/authorize");
+                    Uri tokenEndpoint = new Uri(baseEndpoint + "/token");
                     ICollection<string> capabilities = new List<string>
                     {
-                        "launch-standalone",
-                        "client-public",
-                        "client-confidential-symmetric",
                         "sso-openid-connect",
-                        "context-standalone-patient",
                         "permission-offline",
                         "permission-patient",
                     };
