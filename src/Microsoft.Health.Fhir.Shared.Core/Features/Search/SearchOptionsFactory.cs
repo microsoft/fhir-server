@@ -400,65 +400,65 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 return includes.Select(p =>
                 {
-                var includeResourceTypeList = typesString;
-                var iterate = p.modifier == IncludeModifier.Iterate || p.modifier == IncludeModifier.Recurse;
+                    var includeResourceTypeList = typesString;
+                    var iterate = p.modifier == IncludeModifier.Iterate || p.modifier == IncludeModifier.Recurse;
 
-                if (iterate)
-                {
-                    var includeResourceType = p.query?.Split(':')[0];
-                    if (!ModelInfoProvider.IsKnownResource(includeResourceType))
+                    if (iterate)
                     {
-                        throw new ResourceNotSupportedException(includeResourceType);
+                        var includeResourceType = p.query?.Split(':')[0];
+                        if (!ModelInfoProvider.IsKnownResource(includeResourceType))
+                        {
+                            throw new ResourceNotSupportedException(includeResourceType);
+                        }
+
+                        includeResourceTypeList = new[] { includeResourceType };
                     }
 
-                    includeResourceTypeList = new[] { includeResourceType };
-                }
+                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate);
 
-                var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate);
-
-                // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
-                if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
-                    expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
-                {
-                    throw new BadRequestException(
-                        string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
-                }
-
-                if (expression.TargetResourceType != null &&
-                   string.IsNullOrWhiteSpace(expression.TargetResourceType))
-                {
-                    throw new BadRequestException(
-                        string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType, expression.TargetResourceType));
-                }
-
-                if (expression.TargetResourceType != null && !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))
-                {
-                    throw new ResourceNotSupportedException(expression.TargetResourceType);
-                }
-
-                // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
-                // See https://www.hl7.org/fhir/search.html#revinclude.
-                if (expression.Iterate && expression.CircularReference)
-                {
-                    var issueProperty = string.Concat(isReversed ? "_revinclude" : "_include", ":", p.modifier.ToString().ToLowerInvariant());
-                    _contextAccessor.RequestContext?.BundleIssues.Add(
-                        new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Information,
-                            OperationOutcomeConstants.IssueType.Informational,
-                            string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
-                }
-
-                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
-                {
-                    var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
-                    if (!allowedResourceTypesByScope.Contains("*") && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                    // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
+                    if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
+                        expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
                     {
-                        _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
-                        return null;
+                        throw new BadRequestException(
+                            string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
                     }
-                }
 
-                return expression;
+                    if (expression.TargetResourceType != null &&
+                       string.IsNullOrWhiteSpace(expression.TargetResourceType))
+                    {
+                        throw new BadRequestException(
+                            string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType, expression.TargetResourceType));
+                    }
+
+                    if (expression.TargetResourceType != null && !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))
+                    {
+                        throw new ResourceNotSupportedException(expression.TargetResourceType);
+                    }
+
+                    // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
+                    // See https://www.hl7.org/fhir/search.html#revinclude.
+                    if (expression.Iterate && expression.CircularReference)
+                    {
+                        var issueProperty = string.Concat(isReversed ? "_revinclude" : "_include", ":", p.modifier.ToString().ToLowerInvariant());
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
+                    }
+
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                    {
+                        var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                        if (!allowedResourceTypesByScope.Contains("*") && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                        {
+                            _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
+                            return null;
+                        }
+                    }
+
+                    return expression;
                 });
             }
 

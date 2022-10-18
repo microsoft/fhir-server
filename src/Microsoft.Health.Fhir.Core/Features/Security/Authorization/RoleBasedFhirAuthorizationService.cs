@@ -58,10 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             {
                 return new ValueTask<DataActions>(dataActions & permittedDataActions & SMARTScopeFhirAuthorizationService.CheckSMARTScopeAccess(_requestContextAccessor, dataActions));
             }
-            else
-            {
-                return new ValueTask<DataActions>(dataActions & permittedDataActions);
-            }
+
+            return new ValueTask<DataActions>(dataActions & permittedDataActions);
         }
     }
 }
