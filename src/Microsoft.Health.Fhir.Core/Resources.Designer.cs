@@ -683,6 +683,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &quot;Security configuration base endpoint {0} is an invalid Uri&quot;..
+        /// </summary>
+        internal static string InvalidSecurityConfigurationBaseEndpoint {
+            get {
+                return ResourceManager.GetString("InvalidSecurityConfigurationBaseEndpoint", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
         internal static string InvalidTotalParameter {
@@ -1330,6 +1339,15 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to Security configuration authorization is not enabled..
+        /// </summary>
+        internal static string SecurityConfigurationAuthorizationNotEnabled {
+            get {
+                return ResourceManager.GetString("SecurityConfigurationAuthorizationNotEnabled", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to FHIR Server for Azure.
         /// </summary>

@@ -59,11 +59,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
                 catch (Exception e) when (e is ArgumentNullException || e is UriFormatException)
                 {
-                    throw new OperationFailedException("Security configuration base endpoint is not a valid Uri", HttpStatusCode.BadRequest);
+                    throw new OperationFailedException(
+                        string.Format(Core.Resources.InvalidSecurityConfigurationBaseEndpoint, nameof(SecurityConfiguration.Authentication.Authority)),
+                        HttpStatusCode.BadRequest);
                 }
             }
 
-            throw new OperationFailedException("Security configuration authorization is not enabled.", HttpStatusCode.BadRequest);
+            throw new OperationFailedException(
+                Core.Resources.SecurityConfigurationAuthorizationNotEnabled,
+                HttpStatusCode.BadRequest);
         }
     }
 }
