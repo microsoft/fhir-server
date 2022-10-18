@@ -1,9 +1,14 @@
-﻿using System.Threading;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System.Collections.Generic;
+using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
@@ -21,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public async Task GivenASmartConfigurationHandler_WhenSecurityConfigurationNotEnabled_Then401ExceptionThrown()
+        public async Task GivenASmartConfigurationHandler_WhenSecurityConfigurationNotEnabled_Then400ExceptionThrown()
         {
             var request = new GetSmartConfigurationRequest();
 
@@ -30,21 +35,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = new GetSmartConfigurationHandler(securityConfiguration, ModelInfoProvider.Instance);
 
-            await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
+            OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
+            Assert.Equal(HttpStatusCode.BadRequest, e.ResponseStatusCode);
         }
 
         [Fact]
         public async Task GivenASmartConfigurationHandler_WhenSecurityConfigurationEnabled_ThenSmartConfigurationReturned()
         {
             var request = new GetSmartConfigurationRequest();
+            string baseEndpoint = "http://base.endpoint";
 
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = true;
-            securityConfiguration.Authentication.Authority = "http://base.endpoint";
+            securityConfiguration.Authentication.Authority = baseEndpoint;
 
             var handler = new GetSmartConfigurationHandler(securityConfiguration, ModelInfoProvider.Instance);
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.Equal(response.AuthorizationEndpoint.ToString(), string.Join(baseEndpoint, "/authorize"));
+            Assert.Equal(response.TokenEndpoint.ToString(), string.Join(baseEndpoint, "/token"));
+            Assert.Equal(response.Capabilities, new List<string>
+                    {
+                        "launch-standalone",
+                        "client-public",
+                        "client-confidential-symmetric",
+                        "sso-openid-connect",
+                        "context-standalone-patient",
+                        "permission-offline",
+                        "permission-patient",
+                    });
+        }
+
+        [Fact]
+        public async Task GivenASmartConfigurationHandler_WhenBaseEndpointIsInvalid_Then400ExceptionThrown()
+        {
+            var request = new GetSmartConfigurationRequest();
+            string baseEndpoint = "http://base.endpoint";
+
+            var securityConfiguration = new SecurityConfiguration();
+            securityConfiguration.Authorization.Enabled = true;
+            securityConfiguration.Authentication.Authority = baseEndpoint;
+
+            var handler = new GetSmartConfigurationHandler(securityConfiguration, ModelInfoProvider.Instance);
+
+            OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.ResponseStatusCode);
         }
     }
 }

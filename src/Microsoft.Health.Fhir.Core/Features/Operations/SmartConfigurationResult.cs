@@ -6,12 +6,16 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Get
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public class GetSmartConfigurationResponse
+    /// <summary>
+    /// Class used to hold data that needs to be returned to the client when the smart configuration operation completes.
+    /// </summary>
+    public class SmartConfigurationResult
     {
-        public GetSmartConfigurationResponse(Uri authorizationEndpoint, Uri tokenEndpoint, ICollection<string> capabilities)
+        public SmartConfigurationResult(Uri authorizationEndpoint, Uri tokenEndpoint, ICollection<string> capabilities)
         {
             EnsureArg.IsNotNull(authorizationEndpoint, nameof(authorizationEndpoint));
             EnsureArg.IsNotNull(tokenEndpoint, nameof(tokenEndpoint));
@@ -22,10 +26,18 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
             Capabilities = capabilities;
         }
 
-        public Uri AuthorizationEndpoint { get; }
+        [JsonConstructor]
+        public SmartConfigurationResult()
+        {
+        }
 
-        public Uri TokenEndpoint { get; }
+        [JsonProperty("authorizationEndpoint")]
+        public Uri AuthorizationEndpoint { get; private set; }
 
-        public ICollection<string> Capabilities { get; }
+        [JsonProperty("tokenEndpoint")]
+        public Uri TokenEndpoint { get; private set; }
+
+        [JsonProperty("capabilities")]
+        public ICollection<string> Capabilities { get; private set; }
     }
 }

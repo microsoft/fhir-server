@@ -3,6 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,16 +49,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             if (_securityConfiguration.Authorization.Enabled)
             {
                 string baseEndpoint = _securityConfiguration.Authentication.Authority;
-                string json = JsonConvert.SerializeObject(new SmartConfiguration(baseEndpoint));
-                ISourceNode jsonStatement = FhirJsonNode.Parse(json);
-                ResourceElement resourceElement = jsonStatement
-                    .ToTypedElement(_modelInfoProider.StructureDefinitionSummaryProvider)
-                    .ToResourceElement();
 
-                return new GetSmartConfigurationResponse(resourceElement);
+                try
+                {
+                    Uri authorizationEndpoint = new Uri(string.Join(baseEndpoint, "/authorize"));
+                    Uri tokenEndpoint = new Uri(string.Join(baseEndpoint, "/token"));
+                    ICollection<string> capabilities = new List<string>
+                    {
+                        "launch-standalone",
+                        "client-public",
+                        "client-confidential-symmetric",
+                        "sso-openid-connect",
+                        "context-standalone-patient",
+                        "permission-offline",
+                        "permission-patient",
+                    };
+
+                    return new GetSmartConfigurationResponse(authorizationEndpoint, tokenEndpoint, capabilities);
+                }
+                catch (Exception e) when (e is ArgumentNullException || e is UriFormatException)
+                {
+                    throw new OperationFailedException("Security configuration base endpoint is not a valid Uri", HttpStatusCode.BadRequest);
+                }
             }
 
-            throw new OperationFailedException("Security configuration authorization is not enabled.", HttpStatusCode.Unauthorized);
+            throw new OperationFailedException("Security configuration authorization is not enabled.", HttpStatusCode.BadRequest);
         }
     }
 }

@@ -35,6 +35,7 @@ using Microsoft.Health.Fhir.Api.Models;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
@@ -562,9 +563,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.WellKnownSmartConfiguration, Name = RouteNames.WellKnownSmartConfiguration)]
         public async Task<IActionResult> WellKnownSmartConfiguration()
         {
-            ResourceElement response = await _mediator.GetSmartConfigurationAsync(HttpContext.RequestAborted);
+            SmartConfigurationResult response = await _mediator.GetSmartConfigurationAsync(HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return OperationSmartConfigurationResult.Ok(response);
         }
 
         /// <summary>
