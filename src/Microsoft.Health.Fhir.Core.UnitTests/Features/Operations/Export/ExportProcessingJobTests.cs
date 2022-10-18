@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
@@ -13,29 +12,30 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Export)]
     public class ExportProcessingJobTests
     {
         private IExportJobTask _mockJob = Substitute.For<IExportJobTask>();
-
-        public ExportProcessingJobTests()
-        {
-            _mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
-            {
-                return _mockJob.UpdateExportJob(x.ArgAt<ExportJobRecord>(0), x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
-            });
-        }
 
         [Fact]
         public async Task GivenAnExportJob_WhenItSucceeds_ThenOutputsAreInTheResult()
         {
             string progressResult = string.Empty;
+
+            _mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                return _mockJob.UpdateExportJob(x.ArgAt<ExportJobRecord>(0), x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+            });
 
             Progress<string> progress = new Progress<string>((result) =>
             {
@@ -53,6 +53,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJob_WhenItFails_ThenAnExceptionIsThrown()
         {
+            _mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                return _mockJob.UpdateExportJob(x.ArgAt<ExportJobRecord>(0), x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+            });
+
             Progress<string> progress = new Progress<string>((result) => { });
 
             var exceptionMessage = "Test job failed";
@@ -66,6 +71,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJob_WhenItIsCancelled_ThenAnExceptionIsThrown()
         {
+            _mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                return _mockJob.UpdateExportJob(x.ArgAt<ExportJobRecord>(0), x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+            });
+
             Progress<string> progress = new Progress<string>((result) => { });
 
             var expectedResults = GenerateJobRecord(OperationStatus.Canceled);
