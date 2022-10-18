@@ -57,11 +57,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
                     try
                     {
-                        fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser);
+                        fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
                     }
                     catch (UriFormatException)
                     {
-                        throw new BadHttpRequestException("fhirUser claim must be a valid fully qualified URI.");
+                        throw new BadHttpRequestException("fhirUser claim must be a valid URI.");
                     }
                     catch (ArgumentNullException)
                     {

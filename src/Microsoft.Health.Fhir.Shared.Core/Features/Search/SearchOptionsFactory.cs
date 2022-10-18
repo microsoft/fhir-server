@@ -260,22 +260,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
-            // check resource type restrictions from SMART clinical scopes
-            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
-            {
-                var clinicalScopeResources = new List<ResourceType>();
-                foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
-                {
-                    if (!Enum.TryParse<ResourceType>(restriction.Resource, out var clinicalScopeResourceType))
-                    {
-                        throw new ResourceNotSupportedException(restriction.Resource);
-                    }
-
-                    clinicalScopeResources.Add(clinicalScopeResourceType);
-                }
-
-                searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
-            }
+            CheckFineGrainedAccessControl(searchExpressions);
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
@@ -466,7 +451,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
                     {
                         var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
-                        if (!allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                        if (!allowedResourceTypesByScope.Contains("*") && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
                         {
                             _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
                             return null;
@@ -483,6 +468,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (totalType == TotalType.Estimate)
                 {
                     throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, totalType, SupportedTotalTypes));
+                }
+            }
+        }
+
+        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions)
+        {
+            // check resource type restrictions from SMART clinical scopes
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                bool allowAllResourceTypes = false;
+                var clinicalScopeResources = new List<ResourceType>();
+
+                foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
+                {
+                    if (restriction.Resource == "*")
+                    {
+                        allowAllResourceTypes = true;
+                        break;
+                    }
+
+                    if (!Enum.TryParse<ResourceType>(restriction.Resource, out var clinicalScopeResourceType))
+                    {
+                        throw new ResourceNotSupportedException(restriction.Resource);
+                    }
+
+                    clinicalScopeResources.Add(clinicalScopeResourceType);
+                }
+
+                if (!allowAllResourceTypes)
+                {
+                    if (clinicalScopeResources.Any())
+                    {
+                        searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                    }
+                    else // block all queries
+                    {
+                        searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
+                    }
                 }
             }
         }
