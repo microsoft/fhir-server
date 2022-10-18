@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         public ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken)
         {
             ClaimsPrincipal principal = _requestContextAccessor.RequestContext.Principal;
-            bool applySMARTAcess = _requestContextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl;
+            bool applySMARTAccess = _requestContextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl;
 
             DataActions permittedDataActions = 0;
             foreach (Claim claim in principal.FindAll(_rolesClaimName))
@@ -54,14 +54,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
                 }
             }
 
-            if (applySMARTAcess)
+            if (applySMARTAccess)
             {
                 return new ValueTask<DataActions>(dataActions & permittedDataActions & SMARTScopeFhirAuthorizationService.CheckSMARTScopeAccess(_requestContextAccessor, dataActions));
             }
-            else
-            {
-                return new ValueTask<DataActions>(dataActions & permittedDataActions);
-            }
+
+            return new ValueTask<DataActions>(dataActions & permittedDataActions);
         }
     }
 }
