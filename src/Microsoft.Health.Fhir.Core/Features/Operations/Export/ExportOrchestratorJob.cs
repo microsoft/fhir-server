@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 string[] definitions;
 
-                if (record.ExportType != ExportJobType.All || record.Parallel == 1)
+                if (record.ExportType != ExportJobType.All || record.Parallel == 1 || record.Since == null)
                 {
                     var processingRecord = CreateExportRecord(record);
                     definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
@@ -120,26 +120,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     var resourceTypes = record.ResourceType.Split(',');
                     var definitionsList = new List<string>();
+
+                    var till = record.Till.ToDateTimeOffset(
+                        defaultMonth: 1,
+                        defaultDaySelector: (year, month) => 1,
+                        defaultHour: 0,
+                        defaultMinute: 0,
+                        defaultSecond: 0,
+                        defaultFraction: 0.0000000m,
+                        defaultUtcOffset: TimeSpan.Zero);
+                    var since = record.Since.ToDateTimeOffset(
+                        defaultMonth: 1,
+                        defaultDaySelector: (year, month) => 1,
+                        defaultHour: 0,
+                        defaultMinute: 0,
+                        defaultSecond: 0,
+                        defaultFraction: 0.0000000m,
+                        defaultUtcOffset: TimeSpan.Zero);
+
                     foreach (var type in resourceTypes)
                     {
-                        var till = record.Till.ToDateTimeOffset(
-                            defaultMonth: 1,
-                            defaultDaySelector: (year, month) => 1,
-                            defaultHour: 0,
-                            defaultMinute: 0,
-                            defaultSecond: 0,
-                            defaultFraction: 0.0000000m,
-                            defaultUtcOffset: TimeSpan.Zero);
-                        var since = record.Since.ToDateTimeOffset(
-                            defaultMonth: 1,
-                            defaultDaySelector: (year, month) => 1,
-                            defaultHour: 0,
-                            defaultMinute: 0,
-                            defaultSecond: 0,
-                            defaultFraction: 0.0000000m,
-                            defaultUtcOffset: TimeSpan.Zero);
-
-                        // var numberOfRanges = (int)((till.Ticks - since.Ticks) / _defaultLengthOfTimeSlice.Ticks) + 1;
                         var ranges = await _searchService.GetDateTimeRange(type, since.DateTime, till.DateTime, numberOfParallelJobs, cancellationToken);
                         var sequence = 0;
                         foreach (var range in ranges)
@@ -226,9 +226,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (jobFailed)
             {
+                record.Status = OperationStatus.Failed;
                 throw new JobExecutionException(record.FailureDetails.FailureReason, record);
             }
 
+            record.Status = OperationStatus.Completed;
             return JsonConvert.SerializeObject(record);
         }
 

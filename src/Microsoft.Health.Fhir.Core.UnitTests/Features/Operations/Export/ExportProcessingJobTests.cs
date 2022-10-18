@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             _mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
-                string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
                 return _mockJob.UpdateExportJob(x.ArgAt<ExportJobRecord>(0), x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
             });
         }
@@ -99,7 +98,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 "hash",
                 0);
             record.Status = status;
-            record.FailureDetails = new JobFailureDetails(failureReason, HttpStatusCode.InternalServerError);
+            if (failureReason != null)
+            {
+                record.FailureDetails = new JobFailureDetails(failureReason, HttpStatusCode.InternalServerError);
+            }
+
             return JsonConvert.SerializeObject(record);
         }
 
