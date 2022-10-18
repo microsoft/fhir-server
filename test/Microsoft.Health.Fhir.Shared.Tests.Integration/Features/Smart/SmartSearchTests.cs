@@ -5,24 +5,27 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -31,13 +34,8 @@ using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Claim = System.Security.Claims.Claim;
 using Task = System.Threading.Tasks.Task;
-using Microsoft.Health.Core.Features.Context;
-using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Search.Converters;
-using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using System.Linq;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 {
@@ -61,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         private IScoped<ISearchService> _searchService;
 
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
 
         public SmartSearchTests(FhirStorageTestsFixture fixture)
@@ -79,6 +77,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             });
 
             _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+
+            _contextAccessor = _fixture.FhirRequestContextAccessor;
 
             _fhirOperationDataStore = _fixture.OperationDataStore;
             _fhirStorageTestHelper = _fixture.TestHelper;
@@ -106,6 +106,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _searchParameterStatusManager = _fixture.SearchParameterStatusManager;
 
             _searchService = _fixture.SearchService.CreateMockScope();
+
+            _contextAccessor = _fixture.FhirRequestContextAccessor;
+            ConfigureFhirRequestContext(_contextAccessor);
         }
 
         public Task DisposeAsync()
@@ -116,21 +119,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         [Fact]
         public async Task GivenScopesWithReadForPatient_WhenRevIncludeObservations_OnlyPatientResourcesReturned()
         {
-            // PUT a patient
-            await PutResource()
-            // PUT a related observation
+            var smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientA");
+            foreach (var entry in smartBundle.Entry)
+            {
+                await PutResource(entry.Resource);
+            }
 
             // try to query both the patient and the observation using revinclude
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+            query.Add(new Tuple<string, string>("_include", "Observation:subject"));
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
 
             // assert that only the patient is returned
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Observation");
         }
 
-        private async Task<UpsertOutcome> PutResource(string testResourceFileName)
+        private async Task<UpsertOutcome> PutResource(Resource resource)
         {
-            var rawResourceString = Samples.GetJson(testResourceFileName);
-            ResourceElement resourceElement = Samples.GetJsonSample(testResourceFileName);
+            ResourceElement resourceElement = resource.ToResourceElement();
 
-            var rawResource = new RawResource(rawResourceString, FhirResourceFormat.Json, isMetaSet: false);
+            var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = _searchIndexer.Extract(resourceElement);
@@ -164,6 +174,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             }
 
             return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
+        }
+
+        private void ConfigureFhirRequestContext(RequestContextAccessor<IFhirRequestContext> contextAccessor)
+        {
+            var fhirConfiguration = new FhirServerConfiguration();
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { rolesClaim, fhirUserClaim });
+            var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+            contextAccessor.RequestContext.Principal = expectedPrincipal;
         }
     }
 }
