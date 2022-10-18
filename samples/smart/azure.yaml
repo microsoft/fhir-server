@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: fhir-smart-onc-g10-solution
+metadata:
+  template: fhir-smart-onc-g10-solution@0.0.1-beta
+services:
+  SMARTProxy:
+    project: src/SMARTProxy
+    language: csharp
+    host: function

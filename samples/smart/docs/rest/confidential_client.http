@@ -1,0 +1,47 @@
+# .SUMMARY Sample requests to test local SMART auth proxy
+
+@baseUrl = {{$dotenv BASE_URL}}
+@clientId = {{$dotenv CLIENT_ID}}
+@clientSecret = {{$dotenv CLIENT_SECRET}}
+@redirectUri = {{$dotenv REDIRECT_URI}}
+@scope = launch/patient fhirUser patient/AllergyIntolerance.read patient/CarePlan.read patient/CareTeam.read patient/Condition.read patient/Device.read patient/DiagnosticReport.read patient/DocumentReference.read patient/Encounter.read patient/Goal.read patient/Immunization.read patient/Location.read patient/MedicationRequest.read patient/Observation.read patient/Organization.read patient/Patient.read patient/Practitioner.read patient/Procedure.read patient/Provenance.read patient/PractitionerRole.read offline_access openid
+@codeChallenge = ECgEuvKylvpiOS9pF2pfu5NKoBErrx8fAWdneyiPT2E
+@codeVerifier = faae52a66a7ff080b275b7f4e59c2b3eec3d56d69ac036228393e16c
+@audience = {{$dotenv FHIR_URL}}
+
+### Test rest client
+# @no-redirect
+
+GET {{baseUrl}}/authorize?client_id={{clientId}}&response_type=code&redirect_uri={{redirectUri}}&response_mode=query&scope={{scope}}&state=12345&code_challenge={{codeChallenge}}&code_challenge_method=S256&aud={{audience}}
+
+#COPY THIS RESOLVED LINK INTO A BROWSER. COPY OUT THE CODE TO THE BELOW VARIABLE.
+@url = {{baseUrl}}/authorize?client_id={{clientId}}&response_type=code&redirect_uri={{redirectUri}}&response_mode=query&scope={{scope}}&state=12345&code_challenge={{codeChallenge}}&code_challenge_method=S256&aud={{audience}}
+
+
+###
+
+@authorizationCode = xxx
+
+POST {{baseUrl}}/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{clientId}} {{clientSecret}}
+User-Agent: Faraday v1.10.2
+
+&code={{authorizationCode}}
+&redirect_uri=http%3A%2F%2Flocalhost
+&grant_type=authorization_code
+&code_verifier={{codeVerifier}}
+
+### Refresh
+
+@refresh_token = xxx
+
+POST {{baseUrl}}/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{clientId}} {{clientSecret}}
+User-Agent: Faraday v1.10.2
+
+&refresh_token={{refresh_token}}
+&scope={{scope}}
+&grant_type=refresh_token
+&code_verifier={{codeVerifier}}

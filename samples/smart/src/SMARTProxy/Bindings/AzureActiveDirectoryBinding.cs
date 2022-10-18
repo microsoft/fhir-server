@@ -1,0 +1,115 @@
+﻿using Microsoft.AzureHealth.DataServices.Bindings;
+using Microsoft.AzureHealth.DataServices.Clients;
+using Microsoft.AzureHealth.DataServices.Pipelines;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Collections.Specialized;
+using System.Net;
+
+namespace SMARTProxy.Bindings
+{
+    public class AzureActiveDirectoryBinding : IBinding
+    {
+        public AzureActiveDirectoryBinding(ILogger<RestBinding> logger, IOptions<AzureActiveDirectoryBindingOptions> options)
+        {
+            _logger = logger;
+            Id = Guid.NewGuid().ToString();
+            _options = options;
+        }
+
+        private readonly ILogger _logger;
+
+        private readonly IOptions<AzureActiveDirectoryBindingOptions> _options;
+
+        /// <summary>
+        /// Gets the name of the binding "AzureActiveDirectoryBinding".
+        /// </summary>
+        public string Name => nameof(AzureActiveDirectoryBinding);
+
+        /// <summary>
+        /// Gets a unique ID of the binding instance.
+        /// </summary>
+        public string Id { get; internal set; }
+
+        /// <summary>
+        /// An event that signals an error in the binding.
+        /// </summary>
+        public event EventHandler<BindingErrorEventArgs> OnError;
+
+        /// <summary>
+        /// An event that signals the binding has completed.
+        /// </summary>
+        public event EventHandler<BindingCompleteEventArgs> OnComplete;
+
+        /// <summary>
+        /// Executes the binding.
+        /// </summary>
+        /// <param name="context">Operation context.</param>
+        /// <returns>Operation context.</returns>
+        public async Task<OperationContext> ExecuteAsync(OperationContext context)
+        {
+            _logger?.LogInformation("{Name}-{Id} binding received.", Name, Id);
+
+            if (context == null)
+            {
+                OnError?.Invoke(this, new BindingErrorEventArgs(Id, Name, new ArgumentNullException(nameof(context))));
+                return null;
+            }
+
+            if (context.StatusCode == HttpStatusCode.Redirect)
+            {
+                _logger?.LogTrace("Context is set to redirect. Skipping AAD binding.");
+                return context;
+            }
+
+            try
+            {
+                //NameValueCollection headers = context.Request.GetHeaders(false);
+                NameValueCollection headers = context.Headers.RequestAppendAndReplace(context.Request, false);
+                headers["User-Agent"] = "Azure Health Data Services Toolkit SMART Sample";
+                var contentType = context.Request.Content!.Headers.ContentType!.ToString();
+
+                string method = context.Request.Method.ToString();
+                string serverUrl = _options.Value.AzureActiveDirectoryEndpoint!;
+                string localPath = context.Request.RequestUri!.LocalPath;
+                string query = context.Request.RequestUri!.Query;
+                string? token = null;
+
+                // TODO - remove before merging or remove client secret
+                _logger.LogTrace("Sending AAD request to {serverUrl}{localPath}{query} with body {body}", serverUrl, localPath, query, context.Request.Content.ToString());
+
+                byte[] content = ((context.Request.Content != null) ? (await context.Request.Content!.ReadAsByteArrayAsync()) : null);
+                HttpResponseMessage httpResponseMessage = await new RestRequest(new RestRequestBuilder(method, serverUrl, token, localPath, query, headers, content, contentType)).SendAsync();
+
+                var responseContent = await httpResponseMessage.Content.ReadAsStringAsync();
+
+                context.StatusCode = httpResponseMessage.StatusCode;
+                context.ContentString = responseContent;
+
+                // TODO - remove before merging or remove client secret
+                _logger?.LogTrace("AAD responded with code {statusCode} and body {body}.", context.StatusCode, context.ContentString);
+
+                if ((int)context.StatusCode >= 400)
+                {
+                    context.IsFatal = true;
+                    _logger.LogWarning("Invalid response from AzureActiveDirectory Binding. {code}, {body}", context.StatusCode, context.ContentString);
+                }
+
+                //context.Content = await (httpResponseMessage.Content?.ReadAsByteArrayAsync());
+                this.OnComplete?.Invoke(this, new BindingCompleteEventArgs(Id, Name, context));
+                _logger?.LogInformation("{Name}-{Id} completed.", Name, Id);
+                return context;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "{Name}-{Id} fault with server request.", Name, Id);
+                context.IsFatal = true;
+                context.Error = ex;
+                context.Content = null;
+                OnError?.Invoke(this, new BindingErrorEventArgs(Id, Name, ex));
+                _logger?.LogInformation("{Name}-{Id} signaled error.", Name, Id);
+                return context;
+            }
+        }
+    }
+}

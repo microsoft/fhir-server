@@ -1,0 +1,58 @@
+<!--
+    IMPORTANT:
+    - Policy elements can appear only within the <inbound>, <outbound>, <backend> section elements.
+    - To apply a policy to the incoming request (before it is forwarded to the backend service), place a corresponding policy element within the <inbound> section element.
+    - To apply a policy to the outgoing response (before it is sent back to the caller), place a corresponding policy element within the <outbound> section element.
+    - To add a policy, place the cursor at the desired insertion point and select a policy from the sidebar.
+    - To remove a policy, delete the corresponding policy statement from the policy document.
+    - Position the <base> element within a section element to inherit all policies from the corresponding section element in the enclosing scope.
+    - Remove the <base> element to prevent inheriting policies from the corresponding section element in the enclosing scope.
+    - Policies are applied in the order of their appearance, from the top down.
+    - Comments within policy elements are not supported and may disappear. Place your comments between policy elements or at a higher level scope.
+-->
+<policies>
+	<inbound>
+		<base />
+		<rewrite-uri template="/metadata" />
+	</inbound>
+	<backend>
+		<base />
+	</backend>
+	<outbound>
+		<base />
+		<set-body template="liquid">{
+            "issuer": "https://login.microsoftonline.com/{{TenantId}}/v2.0",
+            "jwks_uri": "https://login.microsoftonline.com/{{TenantId}}/discovery/v2.0/keys",
+            "authorization_endpoint": "https://{{context.Request.OriginalUrl.Host}}/smart/authorize",
+            "token_endpoint": "https://{{context.Request.OriginalUrl.Host}}/smart/token",
+            "token_endpoint_auth_methods_supported": [
+                "client_secret_basic",
+                "private_key_jwt"
+            ],
+            "grant_types_supported": [
+                "authorization_code",
+                "client_credentials"
+            ],
+            "scopes_supported": ["openid", "profile", "launch", "launch/patient", "patient/*.rs", "user/*.rs", "offline_access", "fhirUser", "need_patient_banner", "smart_style_url"],
+            "response_types_supported": ["code"],
+            "code_challenge_methods_supported": ["S256"],
+            "capabilities": [
+                "launch-ehr",
+                "permission-patient",
+                "client-public",
+                "client-confidential-symmetric",
+                "context-ehr-patient",
+                "sso-openid-connect",
+                "launch-standalone",
+                "context-standalone-patient",
+                "permission-offline"
+            ]
+        }</set-body>
+		<set-header name="Content-Type" exists-action="override">
+			<value>application/json</value>
+		</set-header>
+	</outbound>
+	<on-error>
+		<base />
+	</on-error>
+</policies>

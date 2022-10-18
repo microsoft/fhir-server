@@ -291,3 +291,12 @@ install-aso/
 
 # Generated C# code
 *.Generated.cs
+
+# Mac files
+*.DS_store
+
+# Env files
+*.env
+
+# Function app files
+*local.settings.json
