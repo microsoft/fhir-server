@@ -124,8 +124,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
-                CancellationToken.None,
-                () => { return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)); });
+                () => { return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle)); },
+                CancellationToken.None);
 
             Assert.Equal(_nonEmptyBundle, response.Bundle);
 
@@ -152,11 +152,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var getResourceRequest = Substitute.For<SearchResourceRequest>("Patient", list);
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
-                CancellationToken.None,
                 () =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
-                });
+                },
+                CancellationToken.None);
 
             Assert.Equal(_nonEmptyBundle, response.Bundle);
         }
@@ -180,11 +180,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
-                CancellationToken.None,
                 () =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
-                });
+                },
+                CancellationToken.None);
 
             var emptyResponse = behavior.CreateEmptySearchResponse(getResourceRequest);
             Assert.Equal(emptyResponse.Bundle, response.Bundle);
@@ -205,11 +205,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchResourceResponse response = await behavior.Handle(
                 getResourceRequest,
-                CancellationToken.None,
                 () =>
                 {
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
-                });
+                },
+                CancellationToken.None);
 
             Assert.Equal(1, getResourceRequest.Received().Queries.Count);
             Assert.Equal("_id", getResourceRequest.Received().Queries[0].Item1);

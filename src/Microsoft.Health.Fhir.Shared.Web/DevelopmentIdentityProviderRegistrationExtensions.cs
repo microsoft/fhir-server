@@ -172,6 +172,8 @@ namespace Microsoft.Health.Fhir.Web
 
             scopes.Add(new ApiScope("patient/*.*"));
             scopes.Add(new ApiScope("user/*.*"));
+            scopes.Add(new ApiScope("patient/*.read"));
+            scopes.Add(new ApiScope("user/*.write"));
 
             foreach (var resourceType in resourceTypes)
             {

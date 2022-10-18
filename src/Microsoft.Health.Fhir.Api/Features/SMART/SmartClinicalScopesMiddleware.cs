@@ -57,15 +57,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
                     try
                     {
-                        fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser);
+                        fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
                     }
                     catch (UriFormatException)
                     {
-                        throw new BadHttpRequestException("fhirUser claim must be a valid fully qualified URI.");
+                        throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
                     }
                     catch (ArgumentNullException)
                     {
-                        throw new BadHttpRequestException("fhirUser claim must be included for smartUser role.");
+                        throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
                     }
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes

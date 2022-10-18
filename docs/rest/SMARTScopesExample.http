@@ -1,4 +1,4 @@
-# Please not that to use this file for local testing
+# Please note that to use this file for local testing
 # you must make an update
 # in the appsettings.json
 # FhirServer:Security:Authorization:ScopesClaim = "scope"
@@ -60,7 +60,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Get a single Patient
 GET https://{{hostname}}/Patient/smart-patient-A
-Authorization: Bearer {{bearer.response.body.access_token}}++
+Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Get a single Patient with _revinclude Observations
 GET https://{{hostname}}/Patient/?_id=smart-patient-A&_revinclude=Observation:subject
@@ -71,5 +71,21 @@ GET https://{{hostname}}/?_type=Patient
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Reverse chained search
-GET https://{{hostname}}/Patient?_has:Observation:patient:code=4548-4
+GET https://{{hostname}}/Patient?_has:Observation:patient:code=4548-4&_count=1000
 Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get all resources
+GET https://{{hostname}}/
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Scoped to be able to read all resources
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.read fhirUser fhir-api
+
+
