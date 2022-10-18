@@ -120,33 +120,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security)));
         }
 
-        [Fact]
-        public async Task GivenSmartUserRole_WhenFhirUserNotValidUri_ThenBadRequestExceptionThrown()
-        {
-            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-
-            var fhirRequestContext = new DefaultFhirRequestContext();
-
-            fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
-
-            HttpContext httpContext = new DefaultHttpContext();
-
-            var fhirConfiguration = new FhirServerConfiguration();
-            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-            authorizationConfiguration.Enabled = true;
-
-            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "foo");
-            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
-            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { rolesClaim, fhirUserClaim });
-            var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
-
-            httpContext.User = expectedPrincipal;
-            fhirRequestContext.Principal = expectedPrincipal;
-
-            await Assert.ThrowsAsync<BadHttpRequestException>(() =>
-                _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security)));
-        }
-
         public static IEnumerable<object[]> GetTestScopes()
         {
             yield return new object[] { "patient/Patient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read, "patient") } };
