@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private static readonly object _watchDogLocker = new object();
-        private static Operations.Defrag _defrag;
+        private static Operations.DefragWorker _defrag;
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 if (_defrag == null)
                 {
-                    _defrag = new Operations.Defrag(_sqlConnectionWrapperFactory, _schemaInformation);
+                    _defrag = new Operations.DefragWorker(_sqlConnectionWrapperFactory, _schemaInformation);
                     _defrag.Start();
                 }
             }

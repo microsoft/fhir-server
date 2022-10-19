@@ -1180,6 +1180,34 @@ BEGIN
 END
 
 GO
+CREATE PROCEDURE dbo.ArchiveJobs
+@QueueType TINYINT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'ArchiveJobs', @Mode AS VARCHAR (100) = '', @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @PartitionId AS TINYINT, @MaxPartitions AS TINYINT = 16, @LookedAtPartitions AS TINYINT = 0;
+BEGIN TRY
+    SET @PartitionId = @MaxPartitions * rand();
+    WHILE @LookedAtPartitions <= @MaxPartitions
+        BEGIN
+            UPDATE dbo.JobQueue
+            SET    Status = 5
+            WHERE  PartitionId = @PartitionId
+                   AND QueueType = @QueueType
+                   AND Status = 2;
+            SET @Rows += @@rowcount;
+            SET @PartitionId = CASE WHEN @PartitionId = 15 THEN 0 ELSE @PartitionId + 1 END;
+            SET @LookedAtPartitions = @LookedAtPartitions + 1;
+        END
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.BatchDeleteResourceParams
 @tableName NVARCHAR (128), @resourceTypeId SMALLINT, @startResourceSurrogateId BIGINT, @endResourceSurrogateId BIGINT, @batchSize INT
 AS

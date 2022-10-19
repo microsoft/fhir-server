@@ -12,28 +12,53 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 {
-    public class Defrag
+    public class DefragWorker
     {
         private const byte _queueType = (byte)QueueType.Defrag;
         private int _threads;
+        private int _heartbeatTimeoutSec;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private SchemaInformation _schemaInformation;
 
-        internal Defrag(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation)
+        public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation)
         {
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _schemaInformation = schemaInformation;
         }
 
-        internal void Start()
+        public void Start()
+        {
+            InitParams();
+            _threads = GetThreads();
+            _heartbeatTimeoutSec = GetHeartbeatTimeout();
+            StartTask(() =>
+            {
+                while (true)
+                {
+                    if (_schemaInformation.Current >= SchemaVersionConstants.Defrag && IsEnabled())
+                    {
+                        Run();
+                    }
+                    else
+                    {
+                        ////SqlService.LogEvent($"Defrag", "Warn", string.Empty, "IsEnabled=false");
+                    }
+
+                    Thread.Sleep(60 * 1000);
+                }
+            });
+        }
+
+        public async Task StartTask()
         {
             _threads = GetThreads();
-            StartTask(() =>
+            await StartTask(() =>
             {
                 while (true)
                 {
@@ -55,6 +80,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         {
             try
             {
+                ArchiveJobs();
+
                 var id = GetDefragJob();
                 if (id.jobId == -1)
                 {
@@ -189,6 +216,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
         }
 
+        private void ArchiveJobs()
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "dbo.ArchiveJobs";
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandTimeout = 120;
+            cmd.Parameters.AddWithValue("@QueueType", _queueType);
+            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+        }
+
         private void InitDefrag(long groupId)
         {
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
@@ -209,9 +247,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             cmd.CommandTimeout = 120;
             cmd.Parameters.AddWithValue("@QueueType", _queueType);
             cmd.Parameters.AddWithValue("@ForceOneActiveJobGroup", true);
-            var stringListParam = new SqlParameter { ParameterName = "@Definitions" };
-            ////stringListParam.AddStringList(new[] { "Defrag" });
-            cmd.Parameters.Add(stringListParam);
+            var stringListParam = new StringListTableValuedParameterDefinition("@Definitions");
+            stringListParam.AddParameter(cmd.Parameters, new[] { new StringListRow("Defrag") });
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
@@ -249,6 +286,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             cmd.CommandTimeout = 120;
             cmd.Parameters.AddWithValue("@QueueType", _queueType);
             cmd.Parameters.AddWithValue("@InputJobId", jobId);
+            cmd.Parameters.AddWithValue("@Worker", Environment.MachineName);
+            cmd.Parameters.AddWithValue("@HeartbeatTimeoutSec", _heartbeatTimeoutSec);
 
             (long groupId, long jobId, long version, string) id = (-1, -1, -1, string.Empty);
             using var reader = cmd.ExecuteReader();
@@ -287,8 +326,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
             using var cmd = conn.CreateRetrySqlCommand();
             cmd.CommandText = "SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Defrag.Threads'";
-            var threads = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
-            return threads == null ? 1 : (int)threads;
+            var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+            return value == null ? 1 : (int)value;
+        }
+
+        private int GetHeartbeatTimeout()
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Defrag.HeartbeatTimeoutSec'";
+            var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+            return value == null ? 1 : (int)value;
         }
 
         private bool IsEnabled()
@@ -305,6 +353,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             var task = new Task(action, longRunning ? TaskCreationOptions.LongRunning : TaskCreationOptions.None);
             task.Start(TaskScheduler.Default);
             return task;
+        }
+
+        private void InitParams()
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = @"
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.IsEnabled', 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.IsEnabled')
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.Threads', 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.Threads')
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.Period.Hours', 24 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.Period.Hours')
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.HeartbeatTimeoutSec', 600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.HeartbeatTimeoutSec')
+            ";
+            var flag = cmd.ExecuteNonQueryAsync(CancellationToken.None).Result;
         }
     }
 }
