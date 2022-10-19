@@ -1,31 +1,28 @@
-﻿using SMARTProxy.Models;
-using System;
-using System.Collections.Generic;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using System.Collections.Specialized;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web;
+using SMARTProxy.Models;
 
 namespace SMARTProxy.UnitTests.Models
 {
     public class LaunchContextTests
     {
-
         public static TheoryData<NameValueCollection> NormalAuthozizeCollectionData =>
             new TheoryData<NameValueCollection>
             {
                 // Normal PKCE Flow
-                HttpUtility.ParseQueryString(String.Concat(
+                HttpUtility.ParseQueryString(string.Concat(
                     "?response_type=code&client_id=xxxx-xxxxx-xxxxx-xxxxx&redirect_uri=http://localhost&scope=patient/Patient.read fhir user openid",
-                    "&state=123&aud=https://workspace-fhir.fhir.azurehealthcareapis.com&code_challenge_method=S256&code_challenge=ECgEuvKylvpiOS9pF2pfu5NKoBErrx8fAWdneyiPT2E"
-                )),
+                    "&state=123&aud=https://workspace-fhir.fhir.azurehealthcareapis.com&code_challenge_method=S256&code_challenge=ECgEuvKylvpiOS9pF2pfu5NKoBErrx8fAWdneyiPT2E")),
 
                 // Implicit Flow
-                HttpUtility.ParseQueryString(String.Concat(
+                HttpUtility.ParseQueryString(string.Concat(
                     "?response_type=code&client_id=xxxx-xxxxx-xxxxx-xxxxx&redirect_uri=http://localhost&scope=patient/Patient.read fhir user openid",
-                    "&state=123&aud=https://workspace-fhir.fhir.azurehealthcareapis.com"
-                )),
+                    "&state=123&aud=https://workspace-fhir.fhir.azurehealthcareapis.com")),
             };
 
         [Theory]
@@ -35,10 +32,10 @@ namespace SMARTProxy.UnitTests.Models
             LaunchContext context = new LaunchContextBuilder().FromNameValueCollection(authorizeParams).Build();
 
             // SMART required fields should always exist and match
-            Assert.Equal(authorizeParams.GetValues("response_type")![0], context.ResponseType);
-            Assert.Equal(authorizeParams.GetValues("client_id")![0], context.ClientId);
-            Assert.Equal(authorizeParams.GetValues("scope")![0], context.Scope);
-            Assert.Equal(authorizeParams.GetValues("aud")![0], context.Aud);
+            Assert.Equal(authorizeParams["response_type"], context.ResponseType);
+            Assert.Equal(authorizeParams["client_id"], context.ClientId);
+            Assert.Equal(authorizeParams["scope"], context.Scope);
+            Assert.Equal(authorizeParams["aud"], context.Aud);
 
             // SMART optional fields should be null or match
             Assert.True(context.State is null || authorizeParams.GetValues("state")![0] == context.State);

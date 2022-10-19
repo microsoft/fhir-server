@@ -1,35 +1,33 @@
-﻿using SMARTProxy.Configuration;
-using SMARTProxy.Models;
-using System;
-using System.Collections.Generic;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using System.Collections.Specialized;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web;
+using SMARTProxy.Models;
 
 namespace SMARTProxy.UnitTests.Models
 {
     public class ConfidentialClientTokenContextTests
     {
+        private static string _audience = "12345678-90ab-cdef-1234-567890abcdef";
 
         public static TheoryData<string> NormalTokenCollectionData =>
             new TheoryData<string>
             {
                 // PKCE
                 "grant_type=authorization_code&code=12345678&redirect_uri=http%3A%2F%2Flocalhost&client_id=xxxx-xxxxx-xxxxx-xxxxx&client_secret=super-secret&code_verifier=test",
-                
+
                 // Non-PKCE
                 "grant_type=authorization_code&code=12345678&redirect_uri=http%3A%2F%2Flocalhost&client_id=xxxx-xxxxx-xxxxx-xxxxx&client_secret=super-secret",
             };
-
-        public static string Audience = "12345678-90ab-cdef-1234-567890abcdef";
 
         [Theory]
         [MemberData(nameof(NormalTokenCollectionData))]
         public void GivenNormalAuthorizeCollection_WhenInitialized_ThenCorrectLaunchContextCreated(string tokenBody)
         {
-            TokenContext context = TokenContext.FromFormUrlEncodedContent(tokenBody, Audience);
+            TokenContext context = TokenContext.FromFormUrlEncodedContent(tokenBody, _audience);
 
             if (context.GetType() != typeof(PublicClientTokenContext))
             {

@@ -39,7 +39,7 @@ namespace SMARTProxy.Models
                 string.IsNullOrEmpty(Code) ||
                 string.IsNullOrEmpty(RedirectUri.ToString()) ||
                 string.IsNullOrEmpty(ClientId))
-                
+
                 // Not forcing PKCE
                 // string.IsNullOrEmpty(CodeVerifier)
             {

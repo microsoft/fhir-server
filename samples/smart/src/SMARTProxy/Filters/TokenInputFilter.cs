@@ -89,7 +89,7 @@ namespace SMARTProxy.Filters
         }
 
         // parse async token context
-        private static TokenContext ParseTokenContext(OperationContext context, ILogger logger, SMARTProxyConfig _configuration)
+        private static TokenContext ParseTokenContext(OperationContext context, ILogger logger, SMARTProxyConfig configuration)
         {
             var contentStr = context.ContentString;
             var req = context.Request;
@@ -115,7 +115,7 @@ namespace SMARTProxy.Filters
                 contentStr += $"&client_secret={authParameterDecoded[1]}";
             }
 
-            return TokenContext.FromFormUrlEncodedContent(contentStr, _configuration.Audience!);
+            return TokenContext.FromFormUrlEncodedContent(contentStr, configuration.Audience!);
         }
     }
 }

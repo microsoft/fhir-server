@@ -26,10 +26,10 @@ namespace SMARTProxy.Configuration
                 throw new ArgumentException("TenantId must be configured for this application.");
             }
 
-        if (string.IsNullOrEmpty(Audience))
-        {
-            throw new ArgumentException("Audience must be configured for this application.");
+            if (string.IsNullOrEmpty(Audience))
+            {
+                throw new ArgumentException("Audience must be configured for this application.");
+            }
         }
-    }
     }
 }
