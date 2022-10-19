@@ -32,7 +32,7 @@ namespace SMARTProxy.UnitTests.Models
         [MemberData(nameof(NormalAuthozizeCollectionData))]
         public void GivenNormalAuthorizeCollection_WhenInitialized_ThenCorrectLaunchContextCreated(NameValueCollection authorizeParams)
         {
-            LaunchContext context = new LaunchContextBuilder().FromNameValueCollection(authorizeParams).Build();
+            LaunchContext context = new ILaunchContextBuilder().FromNameValueCollection(authorizeParams).Build();
 
             // SMART required fields should always exist and match
             Assert.Equal(authorizeParams.GetValues("response_type")![0], context.ResponseType);

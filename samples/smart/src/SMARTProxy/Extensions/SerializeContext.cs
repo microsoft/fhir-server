@@ -1,5 +1,10 @@
-﻿using SMARTProxy.Models;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using System.Web;
+using SMARTProxy.Models;
 
 namespace SMARTProxy.Extensions
 {
@@ -9,7 +14,7 @@ namespace SMARTProxy.Extensions
         {
             List<string> queryStringParams = new();
             queryStringParams.Add($"response_type={launchContext.ResponseType}");
-            queryStringParams.Add($"redirect_uri ={HttpUtility.UrlEncode(launchContext.RedirectUri)}");
+            queryStringParams.Add($"redirect_uri ={HttpUtility.UrlEncode(launchContext.RedirectUri.ToString())}");
             queryStringParams.Add($"client_id={HttpUtility.UrlEncode(launchContext.ClientId)}");
             queryStringParams.Add($"scope={HttpUtility.UrlEncode(scopes)}");
             queryStringParams.Add($"state={HttpUtility.UrlEncode(launchContext.State)}");

@@ -1,47 +1,53 @@
-﻿using Microsoft.AzureHealth.DataServices.Clients.Headers;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System.Net;
+using Microsoft.AzureHealth.DataServices.Clients.Headers;
 using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
 using SMARTProxy.Configuration;
 using SMARTProxy.Extensions;
 using SMARTProxy.Models;
-using System.Net;
-using System.Text.Json;
 
 namespace SMARTProxy.Filters
 {
-    public class TokenInputFilter : IInputFilter
+    public sealed class TokenInputFilter : IInputFilter
     {
         private readonly ILogger _logger;
         private readonly SMARTProxyConfig _configuration;
+        private readonly string _id;
 
         public TokenInputFilter(ILogger<TokenInputFilter> logger, SMARTProxyConfig configuration)
         {
             _logger = logger;
             _configuration = configuration;
-            id = Guid.NewGuid().ToString();
+            _id = Guid.NewGuid().ToString();
         }
 
-        public event EventHandler<FilterErrorEventArgs> OnFilterError;
+#pragma warning disable CS0067 // Needed to implement interface.
+        public event EventHandler<FilterErrorEventArgs>? OnFilterError;
+#pragma warning restore CS0067 // Needed to implement interface.
 
         public string Name => nameof(TokenInputFilter);
 
         public StatusType ExecutionStatusType => StatusType.Normal;
 
-        private readonly string id;
-        string IFilter.Id => id;
+        string IFilter.Id => _id;
 
         public async Task<OperationContext> ExecuteAsync(OperationContext context)
         {
             // Only execute for token request
-            if (!context.Request.RequestUri.LocalPath.Contains("token"))
+            if (context.Request.RequestUri is not null || !context.Request.RequestUri!.LocalPath.Contains("token", StringComparison.CurrentCultureIgnoreCase))
             {
                 return context;
             }
 
             _logger?.LogInformation("Entered {Name}", Name);
 
-            if (!context.Request.Content!.Headers.GetValues("Content-Type").Single().Contains("application/x-www-form-urlencoded"))
+            if (!context.Request.Content!.Headers.GetValues("Content-Type").Single().Contains("application/x-www-form-urlencoded", StringComparison.CurrentCultureIgnoreCase))
             {
                 context.IsFatal = true;
                 context.ContentString = "Content Type must be application/x-www-form-urlencoded.";
@@ -62,11 +68,9 @@ namespace SMARTProxy.Filters
                 context.IsFatal = true;
                 context.ContentString = "Token request invalid.";
                 context.StatusCode = HttpStatusCode.BadRequest;
-                _logger.LogError(ex, "Token request invalid. {tokenContext}", tokenContext?.ToLogString() ?? await context.Request.Content.ReadAsStringAsync());
+                _logger.LogError(ex, "Token request invalid. {TokenContext}", tokenContext?.ToLogString() ?? await context.Request.Content.ReadAsStringAsync());
                 return context;
             }
-
-            //context.Properties.Add("ClientId", tokenContext.ClientId);
 
             // Setup new http client for token request
             string tokenEndpoint = "https://login.microsoftonline.com/";
@@ -85,12 +89,12 @@ namespace SMARTProxy.Filters
         }
 
         // parse async token context
-        static TokenContext ParseTokenContext(OperationContext context, ILogger _logger)
+        private static TokenContext ParseTokenContext(OperationContext context, ILogger logger)
         {
             var contentStr = context.ContentString;
             var req = context.Request;
 
-            if (!req.Content!.Headers.GetValues("Content-Type").Single().Contains("application/x-www-form-urlencoded"))
+            if (!req.Content!.Headers.GetValues("Content-Type").Single().Contains("application/x-www-form-urlencoded", StringComparison.CurrentCultureIgnoreCase))
             {
                 throw new ArgumentException("Content-Type must be application/x-www-form-urlencoded for requests to the token endpoint.");
             }
@@ -104,7 +108,7 @@ namespace SMARTProxy.Filters
             // TODO - this may need refactoring and needs better tests / error handling
             if (reqAuth?.Scheme == "Basic" && reqAuth?.Parameter is not null)
             {
-                _logger?.LogTrace("Request is using basic auth via header.");
+                logger?.LogTrace("Request is using basic auth via header.");
                 var authParameterDecoded = reqAuth!.Parameter!.DecodeBase64().Split(":");
 
                 contentStr += $"&client_id={authParameterDecoded[0]}";

@@ -1,3 +1,8 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using SMARTProxy.Models;
 
 namespace SMARTProxy.Extensions
@@ -6,16 +11,16 @@ namespace SMARTProxy.Extensions
     {
         public static bool ValidateLaunchContext(this LaunchContext launchContext)
         {
-            if (String.IsNullOrEmpty(launchContext.ResponseType) ||
-                String.IsNullOrEmpty(launchContext.ClientId) ||
-                String.IsNullOrEmpty(launchContext.RedirectUri) ||
-                String.IsNullOrEmpty(launchContext.Scope) ||
-                String.IsNullOrEmpty(launchContext.State) ||
-                String.IsNullOrEmpty(launchContext.Aud) ||
-                
+            if (string.IsNullOrEmpty(launchContext.ResponseType) ||
+                string.IsNullOrEmpty(launchContext.ClientId) ||
+                string.IsNullOrEmpty(launchContext.RedirectUri.ToString()) ||
+                string.IsNullOrEmpty(launchContext.Scope) ||
+                string.IsNullOrEmpty(launchContext.State) ||
+                string.IsNullOrEmpty(launchContext.Aud) ||
+
                 // TODO - validate depending on if PCE is enabled
-                String.IsNullOrEmpty(launchContext.CodeChallenge) ||
-                String.IsNullOrEmpty(launchContext.CodeChallengeMethod))
+                string.IsNullOrEmpty(launchContext.CodeChallenge) ||
+                string.IsNullOrEmpty(launchContext.CodeChallengeMethod))
             {
                 return false;
             }
@@ -27,7 +32,7 @@ namespace SMARTProxy.Extensions
 
         public static bool ValidateResponseType(this LaunchContext launchContext)
         {
-            if (!String.IsNullOrEmpty(launchContext.ResponseType) && 
+            if (!string.IsNullOrEmpty(launchContext.ResponseType) &&
                 launchContext.ResponseType.ToLowerInvariant() == "code")
             {
                 return true;
