@@ -18,11 +18,14 @@ using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 {
-    public class DefragWorker
+    public class DefragWorker : IDisposable //// DefragTimer
     {
         private const byte _queueType = (byte)QueueType.Defrag;
+        private Timer _timer;
+        private bool _disposed;
         private int _threads;
         private int _heartbeatTimeoutSec;
+        private double _periodHour;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private SchemaInformation _schemaInformation;
 
@@ -37,46 +40,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             InitParams();
             _threads = GetThreads();
             _heartbeatTimeoutSec = GetHeartbeatTimeout();
-            StartTask(() =>
-            {
-                while (true)
-                {
-                    if (_schemaInformation.Current >= SchemaVersionConstants.Defrag && IsEnabled())
-                    {
-                        Run();
-                    }
-                    else
-                    {
-                        ////SqlService.LogEvent($"Defrag", "Warn", string.Empty, "IsEnabled=false");
-                    }
+            _periodHour = GetPeriod();
 
-                    Thread.Sleep(60 * 1000);
-                }
-            });
+            if (_schemaInformation.Current >= SchemaVersionConstants.Defrag && IsEnabled())
+            {
+                _timer = new Timer(_ => Run(), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10)), TimeSpan.FromHours(_periodHour));
+            }
         }
 
-        public async Task StartTask()
-        {
-            _threads = GetThreads();
-            await StartTask(() =>
-            {
-                while (true)
-                {
-                    if (_schemaInformation.Current.Value >= SchemaVersionConstants.Defrag && IsEnabled())
-                    {
-                        Run();
-                    }
-                    else
-                    {
-                        ////SqlService.LogEvent($"Defrag", "Warn", string.Empty, "IsEnabled=false");
-                    }
-
-                    Thread.Sleep(60 * 1000);
-                }
-            });
-        }
-
-        private void Run()
+        public void Run()
         {
             try
             {
@@ -267,7 +239,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
                 }
             }
 
-            id = GetActiveDefragJob();
+            id = GetActiveCoordinatorJob();
             if (id.jobId != -1)
             {
                 var job = DequeueJob(id.jobId);
@@ -299,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             return id;
         }
 
-        private (long groupId, long jobId, long version) GetActiveDefragJob()
+        private (long groupId, long jobId, long version) GetActiveCoordinatorJob()
         {
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
             using var cmd = conn.CreateRetrySqlCommand();
@@ -339,6 +311,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             return value == null ? 1 : (int)value;
         }
 
+        private double GetPeriod()
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Defrag.Period.Hours'";
+            var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+            return value == null ? 24 : (double)value;
+        }
+
         private bool IsEnabled()
         {
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
@@ -367,6 +348,28 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.HeartbeatTimeoutSec', 600 
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
             ";
             var flag = cmd.ExecuteNonQueryAsync(CancellationToken.None).Result;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (_timer != null)
+            {
+                _timer.Dispose();
+                _timer = null;
+            }
+
+            _disposed = true;
         }
     }
 }

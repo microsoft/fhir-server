@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await _defragWorker.StartTask();
+            await new Task(() => { }, TaskCreationOptions.LongRunning); //// Replace with real
         }
     }
 }
