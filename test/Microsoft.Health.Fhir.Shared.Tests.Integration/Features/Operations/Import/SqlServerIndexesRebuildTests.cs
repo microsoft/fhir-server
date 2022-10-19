@@ -47,6 +47,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
     {
         private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
+        private const string PrototypeType = "PROTOTYPE";
+        private const string RebuildType = "REBUILD";
 
         public SqlServerIndexesRebuildTests()
         {
@@ -55,92 +57,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
         [Fact]
         public async Task GivenTwoDatabases_WhenOneDisableAndRebuildIndexes_ThenTwoDatabasesShouldBeTheSame()
         {
-            var prototypeDatabaseName = $"PROTOTYPE_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var rebuildDatabaseName = $"REBUILD_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-
-            SqlServerFhirStorageTestHelper prototypeHelper = null;
-            SqlServerFhirStorageTestHelper rebuildHelper = null;
-
-            SqlConnectionWrapperFactory rebuildSqlConnectionWrapperFactory = null;
-            SqlServerFhirModel rebuildSqlServerFhirModel = null;
-            SchemaInformation rebuildSchemaInformation = null;
-
-            SqlConnectionWrapperFactory prototypeSqlConnectionWrapperFactory = null;
-            SqlServerFhirModel prototypeSqlServerFhirModel = null;
-            SchemaInformation prototypeSchemaInformation = null;
-
-            (prototypeHelper, prototypeSqlConnectionWrapperFactory, prototypeSqlServerFhirModel, prototypeSchemaInformation) = await SetupTestHelperAndCreateDatabase(prototypeDatabaseName, SchemaVersionConstants.Max);
-            (rebuildHelper, rebuildSqlConnectionWrapperFactory, rebuildSqlServerFhirModel, rebuildSchemaInformation) = await SetupTestHelperAndCreateDatabase(rebuildDatabaseName, SchemaVersionConstants.Max);
-
-            var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration()
-            {
-                Import = new ImportTaskConfiguration()
-                {
-                    DisableOptionalIndexesForImport = true,
-                },
-            });
-
-            var rebuildSqlImportOperation = new SqlImportOperation(rebuildSqlConnectionWrapperFactory, rebuildSqlServerFhirModel, operationsConfiguration, rebuildSchemaInformation, NullLogger<SqlImportOperation>.Instance);
-            var prototypeSqlImportOperation = new SqlImportOperation(prototypeSqlConnectionWrapperFactory, prototypeSqlServerFhirModel, operationsConfiguration, prototypeSchemaInformation, NullLogger<SqlImportOperation>.Instance);
-
-            long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
-            var tables = new List<(string tableName, string columns, long startSurrogatedId)>();
-
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateStringSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateNumberSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceWriteClaimTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateUriSearchParamsTable));
-
-            // Disable indexes
-            await rebuildSqlImportOperation.PreprocessAsync(CancellationToken.None);
-
-            // Rebuild Indexes
-            await rebuildSqlImportOperation.PostprocessAsync(CancellationToken.None);
-
-            var diff = await CompareDatabaseSchemas(prototypeDatabaseName, rebuildDatabaseName);
-            Assert.Empty(diff);
-            foreach (var tableInfo in tables)
-            {
-                await CheckTableDataAsync(tableInfo.tableName, tableInfo.columns, prototypeSqlConnectionWrapperFactory, rebuildSqlConnectionWrapperFactory, startSurrogateId, startSurrogateId + 10);
-            }
-
-            await prototypeHelper.DeleteDatabase(prototypeDatabaseName);
-            await rebuildHelper.DeleteDatabase(rebuildDatabaseName);
+            await VerifyDatabasesStatus(false);
         }
 
         [Fact]
         public async Task GivenImportOperationEnabled_WhenRunRebuildCommandsCrash_ThenOperationShouldBeRestartAndCompleted()
         {
-            var prototypeDatabaseName = $"PROTOTYPE_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var rebuildDatabaseName = $"REBUILD_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            await VerifyDatabasesStatus(true);
+        }
 
-            SqlServerFhirStorageTestHelper prototypeHelper = null;
-            SqlServerFhirStorageTestHelper rebuildHelper = null;
+        private async Task<(SqlImportOperation sqlImportOperation, List<(string tableName, string columns, long startSurrogatedId)> tables, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirStorageTestHelper helper)> InitializeDatabaseAndOperation(string databaseName, long startSurrogateId)
+        {
+            SqlServerFhirStorageTestHelper helper = null;
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = null;
+            SqlServerFhirModel sqlServerFhirModel = null;
+            SchemaInformation schemaInformation = null;
 
-            SqlConnectionWrapperFactory rebuildSqlConnectionWrapperFactory = null;
-            SqlServerFhirModel rebuildSqlServerFhirModel = null;
-            SchemaInformation rebuildSchemaInformation = null;
-
-            SqlConnectionWrapperFactory prototypeSqlConnectionWrapperFactory = null;
-            SqlServerFhirModel prototypeSqlServerFhirModel = null;
-            SchemaInformation prototypeSchemaInformation = null;
-
-            (prototypeHelper, prototypeSqlConnectionWrapperFactory, prototypeSqlServerFhirModel, prototypeSchemaInformation) = await SetupTestHelperAndCreateDatabase(prototypeDatabaseName, SchemaVersionConstants.Max);
-            (rebuildHelper, rebuildSqlConnectionWrapperFactory, rebuildSqlServerFhirModel, rebuildSchemaInformation) = await SetupTestHelperAndCreateDatabase(rebuildDatabaseName, SchemaVersionConstants.Max);
+            (helper, sqlConnectionWrapperFactory, sqlServerFhirModel, schemaInformation) = await SetupTestHelperAndCreateDatabase(databaseName, SchemaVersionConstants.Max);
 
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration()
@@ -151,44 +84,56 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 },
             });
 
-            var rebuildSqlImportOperation = new SqlImportOperation(rebuildSqlConnectionWrapperFactory, rebuildSqlServerFhirModel, operationsConfiguration, rebuildSchemaInformation, NullLogger<SqlImportOperation>.Instance);
-            var prototypeSqlImportOperation = new SqlImportOperation(prototypeSqlConnectionWrapperFactory, prototypeSqlServerFhirModel, operationsConfiguration, prototypeSchemaInformation, NullLogger<SqlImportOperation>.Instance);
+            var sqlImportOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerFhirModel, operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
 
-            long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             var tables = new List<(string tableName, string columns, long startSurrogatedId)>();
 
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateStringSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateNumberSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceWriteClaimTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(prototypeSqlImportOperation, rebuildSqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateUriSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateStringSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateNumberSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceWriteClaimTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateUriSearchParamsTable));
+
+            return (sqlImportOperation, tables, sqlConnectionWrapperFactory, helper);
+        }
+
+        private async Task VerifyDatabasesStatus(bool crash)
+        {
+            long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
+            var prototypeDatabaseName = $"{PrototypeType}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var rebuildDatabaseName = $"{RebuildType}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+
+            (var prototypeSqlImportOperation, var prototypeTables, var prototypeSqlConnectionWrapperFactory, var prototypeHelper) = await InitializeDatabaseAndOperation(prototypeDatabaseName, startSurrogateId);
+            (var rebuildSqlImportOperation, var rebuildTables, var rebuildSqlConnectionWrapperFactory, var rebuildHelper) = await InitializeDatabaseAndOperation(rebuildDatabaseName, startSurrogateId);
 
             // Disable indexes
             await rebuildSqlImportOperation.PreprocessAsync(CancellationToken.None);
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.CancelAfter(5000);
+            if (crash)
+            {
+                CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+                cancellationTokenSource.CancelAfter(5000);
+                await Assert.ThrowsAnyAsync<RetriableJobException>(() => rebuildSqlImportOperation.PostprocessAsync(cancellationTokenSource.Token));
+            }
 
             // Rebuild Indexes
-            await Assert.ThrowsAnyAsync<RetriableJobException>(() => rebuildSqlImportOperation.PostprocessAsync(cancellationTokenSource.Token));
-
             await rebuildSqlImportOperation.PostprocessAsync(CancellationToken.None);
 
             var diff = await CompareDatabaseSchemas(prototypeDatabaseName, rebuildDatabaseName);
             Assert.Empty(diff);
-            foreach (var tableInfo in tables)
+            foreach (var tableInfo in prototypeTables)
             {
                 await CheckTableDataAsync(tableInfo.tableName, tableInfo.columns, prototypeSqlConnectionWrapperFactory, rebuildSqlConnectionWrapperFactory, startSurrogateId, startSurrogateId + 10);
             }
@@ -197,11 +142,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             await rebuildHelper.DeleteDatabase(rebuildDatabaseName);
         }
 
-        private async Task<(string tableName, string columns, long startSurrogatedId)> ImportDataAsync(SqlImportOperation sourceSqlImportOperation, SqlImportOperation targetImportOperatioin, long startSurrogateId, int count, short resourceTypeId, Func<int, long, short, string, DataTable> tableGenerator, string resourceId = null)
+        private async Task<(string tableName, string columns, long startSurrogatedId)> ImportDataAsync(SqlImportOperation sqlImportOperation, long startSurrogateId, int count, short resourceTypeId, Func<int, long, short, string, DataTable> tableGenerator, string resourceId = null)
         {
             DataTable inputTable = tableGenerator(count, startSurrogateId, resourceTypeId, resourceId);
-            await sourceSqlImportOperation.BulkCopyDataAsync(inputTable, CancellationToken.None);
-            await targetImportOperatioin.BulkCopyDataAsync(inputTable, CancellationToken.None);
+            await sqlImportOperation.BulkCopyDataAsync(inputTable, CancellationToken.None);
             DataColumn[] columns = new DataColumn[inputTable.Columns.Count];
             inputTable.Columns.CopyTo(columns, 0);
             string columnsString = string.Join(',', columns.Select(c => c.ColumnName));

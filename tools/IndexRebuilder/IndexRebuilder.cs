@@ -10,7 +10,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using Microsoft.Health.Fhir.Store.Utils;
 
-namespace Microsoft.Health.Fhir.IndexRebuilder
+namespace Microsoft.Health.Internal.IndexRebuilder
 {
     internal class IndexRebuilder
     {

@@ -343,7 +343,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _ = tasks.Dequeue();
                     }
 
-                    tasks.Enqueue(ExecuteSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, cancellationToken));
+                    tasks.Enqueue(ExecuteRebuildIndexSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, cancellationToken));
                 }
 
                 while (tasks.Count > 0)
@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<string> ExecuteSqlCommand(string tableName, string indexName, string command, CancellationToken cancellationToken)
+        private async Task<string> ExecuteRebuildIndexSqlCommand(string tableName, string indexName, string command, CancellationToken cancellationToken)
         {
             _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index start at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
             try

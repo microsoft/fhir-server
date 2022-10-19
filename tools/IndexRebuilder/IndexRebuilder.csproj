@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <RootNamespace>Microsoft.Health.Fhir.IndexRebuilder</RootNamespace>
+    <RootNamespace>Microsoft.Health.Internal.Fhir.IndexRebuilder</RootNamespace>
     <AssemblyName>Fhir.IndexRebuilder</AssemblyName>
   </PropertyGroup>
 

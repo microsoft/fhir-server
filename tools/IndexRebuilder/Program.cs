@@ -8,7 +8,7 @@ using System.Configuration;
 using System.Data.SqlClient;
 using System.Diagnostics;
 
-namespace Microsoft.Health.Fhir.IndexRebuilder
+namespace Microsoft.Health.Internal.IndexRebuilder
 {
     public static class Program
     {
