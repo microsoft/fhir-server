@@ -40,7 +40,7 @@ namespace SMARTProxy.Filters
         public async Task<OperationContext> ExecuteAsync(OperationContext context)
         {
             // Only execute for token request
-            if (context.Request.RequestUri is not null || !context.Request.RequestUri!.LocalPath.Contains("token", StringComparison.CurrentCultureIgnoreCase))
+            if (!context.Request.RequestUri!.LocalPath.Contains("token", StringComparison.InvariantCultureIgnoreCase))
             {
                 return context;
             }
@@ -60,7 +60,7 @@ namespace SMARTProxy.Filters
             TokenContext? tokenContext = null;
             try
             {
-                tokenContext = ParseTokenContext(context, _logger!);
+                tokenContext = ParseTokenContext(context, _logger!, _configuration);
                 tokenContext.Validate();
             }
             catch (Exception ex)
@@ -89,7 +89,7 @@ namespace SMARTProxy.Filters
         }
 
         // parse async token context
-        private static TokenContext ParseTokenContext(OperationContext context, ILogger logger)
+        private static TokenContext ParseTokenContext(OperationContext context, ILogger logger, SMARTProxyConfig _configuration)
         {
             var contentStr = context.ContentString;
             var req = context.Request;
@@ -115,7 +115,7 @@ namespace SMARTProxy.Filters
                 contentStr += $"&client_secret={authParameterDecoded[1]}";
             }
 
-            return TokenContext.FromFormUrlEncodedContent(contentStr);
+            return TokenContext.FromFormUrlEncodedContent(contentStr, _configuration.Audience!);
         }
     }
 }

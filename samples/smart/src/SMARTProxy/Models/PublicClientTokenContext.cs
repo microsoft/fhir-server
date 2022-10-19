@@ -38,10 +38,10 @@ namespace SMARTProxy.Models
             if (GrantType != GrantType.authorization_code ||
                 string.IsNullOrEmpty(Code) ||
                 string.IsNullOrEmpty(RedirectUri.ToString()) ||
-                string.IsNullOrEmpty(ClientId) ||
-
-                // TODO - do we want to force PKCE?
-                string.IsNullOrEmpty(CodeVerifier))
+                string.IsNullOrEmpty(ClientId))
+                
+                // Not forcing PKCE
+                // string.IsNullOrEmpty(CodeVerifier)
             {
                 throw new ArgumentException("TokenContext invalid");
             }

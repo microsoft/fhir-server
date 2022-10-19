@@ -1,8 +1,8 @@
 @description('Prefix for resources deployed by this solution (App Service, Function App, monitoring, etc)')
 param prefixName string
 
-var prefixNameClean = '${replace(prefixName, '-', '')}'
-var prefixNameCleanShort = '${substring(prefixNameClean, 0, 16)}'
+var prefixNameClean = replace(prefixName, '-', '')
+var prefixNameCleanShort = substring(prefixNameClean, 0, 16)
 
 @description('Do you want to create a new Azure Health Data Services workspace or use an existing one?')
 param createWorkspace bool = true
@@ -15,6 +15,9 @@ param workspaceName string
 
 @description('Name of the FHIR service to deloy or use.')
 param fhirServiceName string
+
+@description('AAD Audience of app with SMART scopes')
+param smartAudience string
 
 @description('Name of the Log Analytics workspace to deploy or use. Leave blank to skip deployment')
 param logAnalyticsName string = '${prefixName}-la'
@@ -87,6 +90,7 @@ module function './azureFunction.bicep'= {
       AZURE_FhirServerUrl: 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
       AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
       AZURE_TenantId: tenantId
+      Azure_Audience: smartAudience
     }, functionAppCustomSettings)
     appTags: appTags
   }

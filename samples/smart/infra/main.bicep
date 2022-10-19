@@ -12,6 +12,8 @@ param location string
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
+param smartAudience string
+
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: '${name}-rg'
   location: location
@@ -26,6 +28,7 @@ module template 'core.bicep'= {
     fhirServiceName: 'fhirdata'
     location: location
     fhirContributorPrincipals: [principalId]
+    smartAudience: smartAudience
   }
 }
 

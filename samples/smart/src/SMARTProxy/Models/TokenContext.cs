@@ -5,6 +5,7 @@
 
 using System.Text.Json;
 using System.Web;
+using SMARTProxy.Configuration;
 using SMARTProxy.Extensions;
 
 namespace SMARTProxy.Models
@@ -28,7 +29,7 @@ namespace SMARTProxy.Models
 
         public abstract FormUrlEncodedContent ToFormUrlEncodedContent();
 
-        public static TokenContext FromFormUrlEncodedContent(string formData)
+        public static TokenContext FromFormUrlEncodedContent(string formData, string audience)
         {
             var formDataCollection = HttpUtility.ParseQueryString(formData);
             TokenContext? tokenContext = null;
@@ -66,7 +67,7 @@ namespace SMARTProxy.Models
                 {
                     GrantType = GrantType.refresh_token,
                     ClientId = formDataCollection["client_id"]!,
-                    Scope = formDataCollection.AllKeys.Contains("scope") && formDataCollection.AllKeys.Contains("client_id") ? formDataCollection["scope"]!.ParseScope(formDataCollection["client_id"]!)! : null,
+                    Scope = formDataCollection.AllKeys.Contains("scope") ? formDataCollection["scope"]!.ParseScope(audience)! : null,
                     RefreshToken = formDataCollection["refresh_token"]!,
                     ClientSecret = formDataCollection["client_secret"]!,
                 };

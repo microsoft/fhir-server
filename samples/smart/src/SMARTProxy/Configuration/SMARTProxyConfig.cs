@@ -17,12 +17,19 @@ namespace SMARTProxy.Configuration
 
         public string? TenantId { get; set; }
 
+        public string? Audience { get; set; }
+
         public void Validate()
         {
             if (string.IsNullOrEmpty(TenantId))
             {
                 throw new ArgumentException("TenantId must be configured for this application.");
             }
+
+        if (string.IsNullOrEmpty(Audience))
+        {
+            throw new ArgumentException("Audience must be configured for this application.");
         }
+    }
     }
 }

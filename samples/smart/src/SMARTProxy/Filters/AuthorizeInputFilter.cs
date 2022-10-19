@@ -71,11 +71,9 @@ namespace SMARTProxy.Filters
                 return context;
             }
 
-            // Parse scopes
-            var scopes = launchContext.Scope?.ParseScope("06f9d5a9-d4c3-4b2e-8992-53bd56c47d52");
-
-            // TEST - REMOVE
-            launchContext.Aud = "06f9d5a9-d4c3-4b2e-8992-53bd56c47d52";
+            // Explicitly set audience and scopes to the application registration that holds the SMART scopes.
+            var scopes = launchContext.Scope?.ParseScope(_configuration.Audience!);
+            launchContext.Aud = _configuration.Audience!;
 
             // Build the aad authorize url
             var authUrl = "https://login.microsoftonline.com";

@@ -40,7 +40,7 @@ namespace SMARTProxy.Filters
         public async Task<OperationContext> ExecuteAsync(OperationContext context)
         {
             // Only execute for token request
-            if (context.Request.RequestUri is not null || !context.Request.RequestUri!.LocalPath.Contains("token", StringComparison.CurrentCultureIgnoreCase))
+            if (!context.Request.RequestUri!.LocalPath.Contains("token", StringComparison.CurrentCultureIgnoreCase))
             {
                 return context;
             }

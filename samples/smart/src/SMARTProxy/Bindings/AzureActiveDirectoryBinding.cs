@@ -63,7 +63,7 @@ namespace SMARTProxy.Bindings
 
             if (context.StatusCode == HttpStatusCode.Redirect)
             {
-                _logger?.LogTrace("Context is set to redirect. Skipping AAD binding.");
+                _logger?.LogInformation("Context is set to redirect. Skipping AAD binding.");
                 return context;
             }
 
@@ -82,7 +82,8 @@ namespace SMARTProxy.Bindings
                 string? token = null;
 
                 // TODO - remove before merging or remove client secret
-                _logger.LogTrace("Sending AAD request to {ServerUrl}{LocalPath}{Query} with body {Body}", serverUrl, localPath, query, context.Request.Content.ToString());
+                var requestBody = await context.Request.Content.ReadAsStringAsync();
+                _logger.LogInformation("Sending AAD request to {ServerUrl}{LocalPath}{Query} with body {Body}", serverUrl, localPath, query, requestBody);
 
                 byte[]? content = (context.Request.Content != null) ? (await context.Request.Content!.ReadAsByteArrayAsync()) : null;
                 HttpResponseMessage httpResponseMessage = await new RestRequest(new RestRequestBuilder(method, serverUrl, token, localPath, query, headers, content, contentType)).SendAsync();
@@ -93,7 +94,7 @@ namespace SMARTProxy.Bindings
                 context.ContentString = responseContent;
 
                 // TODO - remove before merging or remove client secret
-                _logger?.LogTrace("AAD responded with code {StatusCode} and Body {Body}.", context.StatusCode, context.ContentString);
+                _logger?.LogInformation("AAD responded with code {StatusCode} and Body {Body}.", context.StatusCode, context.ContentString);
 
                 if ((int)context.StatusCode >= 400)
                 {
