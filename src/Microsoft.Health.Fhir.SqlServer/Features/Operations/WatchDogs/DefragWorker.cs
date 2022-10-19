@@ -80,9 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         {
             try
             {
-                ArchiveJobs();
-
-                var id = GetDefragJob();
+                var id = GetCoordinatorJob();
                 if (id.jobId == -1)
                 {
                     return;
@@ -238,8 +236,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
         }
 
-        private (long groupId, long jobId, long version) GetDefragJob()
+        private (long groupId, long jobId, long version) GetCoordinatorJob()
         {
+            ArchiveJobs();
+
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None).Result;
             using var cmd = conn.CreateRetrySqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
@@ -364,6 +364,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.IsEnabled', 0 WHERE NOT EX
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.Threads', 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.Threads')
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.Period.Hours', 24 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.Period.Hours')
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.HeartbeatTimeoutSec', 600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.HeartbeatTimeoutSec')
+INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
             ";
             var flag = cmd.ExecuteNonQueryAsync(CancellationToken.None).Result;
         }
