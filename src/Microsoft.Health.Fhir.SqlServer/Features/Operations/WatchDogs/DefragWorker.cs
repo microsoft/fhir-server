@@ -18,11 +18,9 @@ using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 {
-    public class DefragWorker : IDisposable //// DefragTimer
+    public class DefragWorker : DefragTimer
     {
         private const byte _queueType = (byte)QueueType.Defrag;
-        private Timer _timer;
-        private bool _disposed;
         private int _threads;
         private int _heartbeatTimeoutSec;
         private double _periodHour;
@@ -44,11 +42,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
             if (_schemaInformation.Current >= SchemaVersionConstants.Defrag && IsEnabled())
             {
-                _timer = new Timer(_ => Run(), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10)), TimeSpan.FromHours(_periodHour));
+                StartTimer(_periodHour);
             }
         }
 
-        public void Run()
+        protected override void Run()
         {
             try
             {
@@ -315,7 +313,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         {
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
             using var cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Defrag.Period.Hours'";
+            cmd.CommandText = "SELECT Number FROM dbo.Parameters WHERE Id = 'Defrag.Period.Hours'";
             var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
             return value == null ? 24 : (double)value;
         }
@@ -348,28 +346,6 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.HeartbeatTimeoutSec', 600 
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
             ";
             var flag = cmd.ExecuteNonQueryAsync(CancellationToken.None).Result;
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (_timer != null)
-            {
-                _timer.Dispose();
-                _timer = null;
-            }
-
-            _disposed = true;
         }
     }
 }
