@@ -63,6 +63,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private static readonly object _watchDogLocker = new object();
+        private static Operations.Defrag _defrag;
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -110,6 +112,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
+
+            lock (_watchDogLocker)
+            {
+                if (_defrag == null)
+                {
+                    _defrag = new Operations.Defrag(_sqlConnectionWrapperFactory, _schemaInformation);
+                    _defrag.Start();
+                }
+            }
         }
 
         public async Task<UpsertOutcome> UpsertAsync(
