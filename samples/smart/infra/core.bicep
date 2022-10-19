@@ -2,7 +2,7 @@
 param prefixName string
 
 var prefixNameClean = replace(prefixName, '-', '')
-var prefixNameCleanShort = substring(prefixNameClean, 0, 16)
+var prefixNameCleanShort = length(prefixNameClean) > 16 ? substring(prefixNameClean, 0, 16) : prefixNameClean
 
 @description('Do you want to create a new Azure Health Data Services workspace or use an existing one?')
 param createWorkspace bool = true
