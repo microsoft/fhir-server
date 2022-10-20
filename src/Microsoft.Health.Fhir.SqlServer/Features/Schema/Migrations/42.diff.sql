@@ -37,19 +37,20 @@ END CATCH
 GO
 --DROP PROCEDURE dbo.InitDefrag
 GO
-CREATE OR ALTER PROCEDURE dbo.InitDefrag @GroupId bigint, @MinFragPct int = 10, @MinSizeGB float = 1
+CREATE OR ALTER PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint
 WITH EXECUTE AS SELF
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'InitDefrag'
-       ,@Mode varchar(200) = 'G='+convert(varchar,@GroupId)+' MF='+convert(varchar,@MinFragPct)+' MS='+convert(varchar,@MinSizeGB)
        ,@st datetime = getUTCdate()
        ,@ObjectId int
        ,@msg varchar(1000)
        ,@Rows int
-       ,@QueueType tinyint = 200 -- TODO: Replace with real
+       ,@MinFragPct int = isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'Defrag.MinFragPct'),10)
+       ,@MinSizeGB float = isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB'),0.1)
        ,@DefinitionsSorted StringList
 
+DECLARE @Mode varchar(200) = 'G='+convert(varchar,@GroupId)+' MF='+convert(varchar,@MinFragPct)+' MS='+convert(varchar,@MinSizeGB)
 -- !!! Make sure that only one thread runs this logic
 
 DECLARE @Definitions AS TABLE (Def varchar(900) PRIMARY KEY, FragGB float)
@@ -200,7 +201,7 @@ BEGIN TRY
   SET @msg = 'Size[GB] before='+convert(varchar,@SizeBefore)
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@msg
 
-  SET @Sql = 'ALTER INDEX '+quotename(@IndexName)+' ON dbo.'+quotename(@TableName)+' REORGANIZE'+CASE WHEN @IsPartitioned = 1 THEN ' PARTITION = '+@PartitionNumber ELSE '' END
+  SET @Sql = 'ALTER INDEX '+quotename(@IndexName)+' ON dbo.'+quotename(@TableName)+' REORGANIZE'+CASE WHEN @IsPartitioned = 1 THEN ' PARTITION = '+convert(varchar,@PartitionNumber) ELSE '' END
 
   BEGIN TRY
     EXECUTE(@Sql)

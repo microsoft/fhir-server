@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
     {
         private const byte _queueType = (byte)QueueType.Defrag;
         private int _threads;
+        private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
         private double _periodHour;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -37,6 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         {
             InitParams();
             _threads = GetThreads();
+            _heartbeatPeriodSec = GetHeartbeatPeriod();
             _heartbeatTimeoutSec = GetHeartbeatTimeout();
             _periodHour = GetPeriod();
 
@@ -86,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
                 CompleteJob(id.jobId, id.version, false);
             }
-            catch (SqlException e)
+            catch (Exception e)
             {
                 Console.WriteLine(e);
             }
@@ -161,7 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         private void ExecWithHeartbeat(Action action, long jobId, long version)
         {
-            var heartbeat = new Timer(_ => PutJobHeartbeat(jobId, version), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(60)), TimeSpan.FromSeconds(60));
+            var heartbeat = new Timer(_ => PutJobHeartbeat(jobId, version), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(_heartbeatPeriodSec)), TimeSpan.FromSeconds(_heartbeatPeriodSec));
             try
             {
                 action();
@@ -179,6 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             cmd.CommandText = "dbo.PutJobHeartbeat";
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandTimeout = 0;
+            cmd.Parameters.AddWithValue("@QueueType", _queueType);
             cmd.Parameters.AddWithValue("@JobId", jobId);
             cmd.Parameters.AddWithValue("@Version", version);
             cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
@@ -202,6 +205,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             cmd.CommandText = "dbo.InitDefrag";
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandTimeout = 0;
+            cmd.Parameters.AddWithValue("@QueueType", _queueType);
             cmd.Parameters.AddWithValue("@GroupId", groupId);
             cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
         }
@@ -300,6 +304,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             return value == null ? 1 : (int)value;
         }
 
+        private int GetHeartbeatPeriod()
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Defrag.HeartbeatPeriodSec'";
+            var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+            return value == null ? 1 : (int)value;
+        }
+
         private int GetHeartbeatTimeout()
         {
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
@@ -342,6 +355,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.IsEnabled', 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.IsEnabled')
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.Threads', 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.Threads')
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.Period.Hours', 24 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.Period.Hours')
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.HeartbeatPeriodSec', 60 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.HeartbeatPeriodSec')
 INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.HeartbeatTimeoutSec', 600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.HeartbeatTimeoutSec')
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
             ";

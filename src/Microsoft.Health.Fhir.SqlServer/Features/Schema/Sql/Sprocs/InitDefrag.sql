@@ -1,18 +1,19 @@
 ﻿--DROP PROCEDURE dbo.InitDefrag
 GO
-CREATE PROCEDURE dbo.InitDefrag @GroupId bigint, @MinFragPct int = 10, @MinSizeGB float = 1
+CREATE PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint
 WITH EXECUTE AS SELF
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'InitDefrag'
-       ,@Mode varchar(200) = 'G='+convert(varchar,@GroupId)+' MF='+convert(varchar,@MinFragPct)+' MS='+convert(varchar,@MinSizeGB)
        ,@st datetime = getUTCdate()
        ,@ObjectId int
        ,@msg varchar(1000)
        ,@Rows int
-       ,@QueueType tinyint = 200 -- TODO: Replace with real
+       ,@MinFragPct int = isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'Defrag.MinFragPct'),10)
+       ,@MinSizeGB float = isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB'),0.1)
        ,@DefinitionsSorted StringList
 
+DECLARE @Mode varchar(200) = 'G='+convert(varchar,@GroupId)+' MF='+convert(varchar,@MinFragPct)+' MS='+convert(varchar,@MinSizeGB)
 -- !!! Make sure that only one thread runs this logic
 
 DECLARE @Definitions AS TABLE (Def varchar(900) PRIMARY KEY, FragGB float)

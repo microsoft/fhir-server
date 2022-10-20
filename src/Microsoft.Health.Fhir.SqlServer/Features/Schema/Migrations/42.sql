@@ -1825,7 +1825,7 @@ BEGIN TRY
                               AND index_id = @IndexId) * 8.0 / 1024 / 1024;
     SET @msg = 'Size[GB] before=' + CONVERT (VARCHAR, @SizeBefore);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start', @Text = @msg;
-    SET @Sql = 'ALTER INDEX ' + quotename(@IndexName) + ' ON dbo.' + quotename(@TableName) + ' REORGANIZE' + CASE WHEN @IsPartitioned = 1 THEN ' PARTITION = ' + @PartitionNumber ELSE '' END;
+    SET @Sql = 'ALTER INDEX ' + quotename(@IndexName) + ' ON dbo.' + quotename(@TableName) + ' REORGANIZE' + CASE WHEN @IsPartitioned = 1 THEN ' PARTITION = ' + CONVERT (VARCHAR, @PartitionNumber) ELSE '' END;
     BEGIN TRY
         EXECUTE (@Sql);
         SET @SizeAfter = (SELECT sum(reserved_page_count)
@@ -2602,11 +2602,16 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.InitDefrag
-@GroupId BIGINT, @MinFragPct INT=10, @MinSizeGB FLOAT=1
+@QueueType TINYINT, @GroupId BIGINT
 WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'InitDefrag', @Mode AS VARCHAR (200) = 'G=' + CONVERT (VARCHAR, @GroupId) + ' MF=' + CONVERT (VARCHAR, @MinFragPct) + ' MS=' + CONVERT (VARCHAR, @MinSizeGB), @st AS DATETIME = getUTCdate(), @ObjectId AS INT, @msg AS VARCHAR (1000), @Rows AS INT, @QueueType AS TINYINT = 200, @DefinitionsSorted AS StringList;
+DECLARE @SP AS VARCHAR (100) = 'InitDefrag', @st AS DATETIME = getUTCdate(), @ObjectId AS INT, @msg AS VARCHAR (1000), @Rows AS INT, @MinFragPct AS INT = isnull((SELECT Number
+                                                                                                                                                                  FROM   dbo.Parameters
+                                                                                                                                                                  WHERE  Id = 'Defrag.MinFragPct'), 10), @MinSizeGB AS FLOAT = isnull((SELECT Number
+                                                                                                                                                                                                                                       FROM   dbo.Parameters
+                                                                                                                                                                                                                                       WHERE  Id = 'Defrag.MinSizeGB'), 0.1), @DefinitionsSorted AS StringList;
+DECLARE @Mode AS VARCHAR (200) = 'G=' + CONVERT (VARCHAR, @GroupId) + ' MF=' + CONVERT (VARCHAR, @MinFragPct) + ' MS=' + CONVERT (VARCHAR, @MinSizeGB);
 DECLARE @Definitions AS TABLE (
     Def    VARCHAR (900) PRIMARY KEY,
     FragGB FLOAT        );
