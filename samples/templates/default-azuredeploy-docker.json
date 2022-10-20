@@ -514,7 +514,7 @@
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('sqlServerDerivedName'), '/SqlServer--ConnectionString')]",
+            "name": "[concat(variables('serviceName'), '/SqlServer--ConnectionString')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
