@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             return null;
                         }
                     }
-                    
+
                     return expression;
                 });
             }
