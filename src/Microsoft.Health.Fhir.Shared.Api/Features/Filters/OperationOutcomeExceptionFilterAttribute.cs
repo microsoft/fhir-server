@@ -232,11 +232,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = CreateOperationOutcomeResult(operationCanceledException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
                 context.ExceptionHandled = true;
             }
-            else if (context.Exception is System.Threading.Tasks.TaskCanceledException taskCanceledException)
-            {
-                context.Result = CreateOperationOutcomeResult(taskCanceledException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
-                context.ExceptionHandled = true;
-            }
             else if (context.Exception.InnerException != null)
             {
                 Exception outerException = context.Exception;
