@@ -5,7 +5,9 @@
 
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -27,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly ISearchParameterExpressionParser _searchParameterExpressionParser = Substitute.For<ISearchParameterExpressionParser>();
+        private RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         private readonly ExpressionParser _expressionParser;
 
@@ -34,7 +37,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             _expressionParser = new ExpressionParser(
                 () => _searchParameterDefinitionManager,
-                _searchParameterExpressionParser);
+                _searchParameterExpressionParser,
+                _contextAccessor);
         }
 
         [Fact]

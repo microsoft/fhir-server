@@ -124,6 +124,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The (rev)chained resource type was not allowed.  Additional clinical scopes must be requested to allow searches using the chained type..
+        /// </summary>
+        internal static string ChainedResourceTypesNotAllowedDueToScope {
+            get {
+                return ResourceManager.GetString("ChainedResourceTypesNotAllowedDueToScope", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
         /// </summary>
         internal static string ChangesToSearchParametersNotAllowedWhileReindexing {
@@ -1048,6 +1057,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ResourceCreationNotAllowed {
             get {
                 return ResourceManager.GetString("ResourceCreationNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type {0} is not allowed, additional clinical scopes should be requested to allow searching using this type..
+        /// </summary>
+        internal static string ResourceNotAllowedRestrictedByClinicalScopes {
+            get {
+                return ResourceManager.GetString("ResourceNotAllowedRestrictedByClinicalScopes", resourceCulture);
             }
         }
         
