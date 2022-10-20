@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Utility;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -92,7 +93,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                VLatest.PutJobStatus.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Status == JobStatus.Failed, jobInfo.Data ?? 0, jobInfo.Result, requestCancellationOnFailure);
+                // cannot use VLatest as it incorrectly sends nulls
+                sqlCommandWrapper.CommandType = System.Data.CommandType.StoredProcedure;
+                sqlCommandWrapper.CommandText = "dbo.PutJobStatus";
+                sqlCommandWrapper.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
+                sqlCommandWrapper.Parameters.AddWithValue("@JobId", jobInfo.Id);
+                sqlCommandWrapper.Parameters.AddWithValue("@Version", jobInfo.Version);
+                sqlCommandWrapper.Parameters.AddWithValue("@Failed", jobInfo.Status == JobStatus.Failed);
+                sqlCommandWrapper.Parameters.AddWithValue("@Data", jobInfo.Data.HasValue ? jobInfo.Data.Value : DBNull.Value);
+                sqlCommandWrapper.Parameters.AddWithValue("@FinalResult", jobInfo.Result != null ? jobInfo.Result : DBNull.Value);
+                sqlCommandWrapper.Parameters.AddWithValue("@RequestCancellationOnFailure", requestCancellationOnFailure);
+
                 try
                 {
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -119,16 +130,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
         {
             try
             {
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                VLatest.DequeueJob.PopulateCommand(sqlCommandWrapper, queueType, worker, heartbeatTimeoutSec, null);
-                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                // cannot use VLatest as it incorrectly asks for optional @InputJobId
+                sqlCommandWrapper.CommandText = "dbo.DequeueJob";
+                sqlCommandWrapper.CommandType = System.Data.CommandType.StoredProcedure;
+                sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
+                sqlCommandWrapper.Parameters.AddWithValue("@Worker", worker);
+                sqlCommandWrapper.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
+                if (jobId.HasValue)
+                {
+                    sqlCommandWrapper.Parameters.AddWithValue("@InputJobId", jobId.Value);
+                }
 
+                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
                 JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
                 if (jobInfo != null)
                 {
