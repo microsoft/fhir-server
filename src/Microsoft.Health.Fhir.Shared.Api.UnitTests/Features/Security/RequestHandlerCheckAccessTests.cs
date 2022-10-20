@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             typeof(GetCapabilitiesHandler),
             typeof(GetOperationVersionsHandler),
             typeof(OperationDefinitionRequestHandler),
+            typeof(GetSmartConfigurationHandler),
         };
 
         public static IEnumerable<object[]> GetHandlerTypes()

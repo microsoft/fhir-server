@@ -22,6 +22,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\MemberMatchResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationOutcomeResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationSmartConfigurationResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FormatParametersValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ParameterCompatibleFilter.cs" />
