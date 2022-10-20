@@ -156,6 +156,8 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $(GeneratedPassword)
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: deployR4
@@ -194,6 +196,8 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $(GeneratedPassword)
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: deployR4B
@@ -232,6 +236,8 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $(GeneratedPassword)
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: deployR5
@@ -270,6 +276,8 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $(GeneratedPassword)
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: testStu3
