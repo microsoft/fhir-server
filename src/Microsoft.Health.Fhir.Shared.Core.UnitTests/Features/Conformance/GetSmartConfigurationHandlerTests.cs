@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = false;
 
-            var handler = new GetSmartConfigurationHandler(securityConfiguration, ModelInfoProvider.Instance);
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
 
             OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, e.ResponseStatusCode);
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(securityConfiguration, ModelInfoProvider.Instance);
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(securityConfiguration, ModelInfoProvider.Instance);
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
 
             OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, exception.ResponseStatusCode);

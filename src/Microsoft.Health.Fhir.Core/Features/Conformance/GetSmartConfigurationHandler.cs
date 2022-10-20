@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -20,15 +21,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public class GetSmartConfigurationHandler : IRequestHandler<GetSmartConfigurationRequest, GetSmartConfigurationResponse>
     {
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly IModelInfoProvider _modelInfoProider;
 
-        public GetSmartConfigurationHandler(SecurityConfiguration securityConfiguration, IModelInfoProvider modelInfoProvider)
+        public GetSmartConfigurationHandler(IOptions<SecurityConfiguration> securityConfigurationOptions)
         {
-            EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(securityConfigurationOptions?.Value, nameof(securityConfigurationOptions));
 
-            _securityConfiguration = securityConfiguration;
-            _modelInfoProider = modelInfoProvider;
+            _securityConfiguration = securityConfigurationOptions.Value;
         }
 
         public Task<GetSmartConfigurationResponse> Handle(GetSmartConfigurationRequest request, CancellationToken cancellationToken)
