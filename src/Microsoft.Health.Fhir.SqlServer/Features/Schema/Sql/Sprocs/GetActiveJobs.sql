@@ -10,7 +10,7 @@ DECLARE @SP varchar(100) = 'GetActiveJobs'
        ,@JobIds BigintList
        ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
-       ,@LookedAtPartitions tinyint = 1
+       ,@LookedAtPartitions tinyint = 0
        ,@Rows int = 0
 
 BEGIN TRY

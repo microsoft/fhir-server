@@ -241,7 +241,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
                 }
             }
 
-            id = GetActiveCoordinatorJob();
+            if (id.jobId == -1)
+            {
+                id = GetActiveCoordinatorJob();
+            }
+
             if (id.jobId != -1)
             {
                 var job = DequeueJob(id.jobId);

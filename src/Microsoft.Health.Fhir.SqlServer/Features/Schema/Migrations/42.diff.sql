@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.ArchiveJobs
 GO
-CREATE PROCEDURE dbo.ArchiveJobs @QueueType tinyint
+CREATE OR ALTER PROCEDURE dbo.ArchiveJobs @QueueType tinyint
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'ArchiveJobs'
@@ -10,22 +10,42 @@ DECLARE @SP varchar(100) = 'ArchiveJobs'
        ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
        ,@LookedAtPartitions tinyint = 0
+       ,@InflightRows int = 0
+       ,@Lock varchar(100) = 'DequeueJob_'+convert(varchar,@QueueType)
 
 BEGIN TRY
   SET @PartitionId = @MaxPartitions * rand()
 
+  BEGIN TRANSACTION
+  
+  EXECUTE sp_getapplock @Lock, 'Exclusive'
+
   WHILE @LookedAtPartitions <= @MaxPartitions
   BEGIN
-    UPDATE dbo.JobQueue
-      SET Status = 5
-      WHERE PartitionId = @PartitionId
-        AND QueueType = @QueueType
-        AND Status = 2
-    SET @Rows += @@rowcount
+    SET @InflightRows += (SELECT count(*) FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND Status IN (0,1))
 
     SET @PartitionId = CASE WHEN @PartitionId = 15 THEN 0 ELSE @PartitionId + 1 END
     SET @LookedAtPartitions = @LookedAtPartitions + 1 
   END
+
+  IF @InflightRows = 0
+  BEGIN
+    SET @LookedAtPartitions = 0
+    WHILE @LookedAtPartitions <= @MaxPartitions
+    BEGIN
+      UPDATE dbo.JobQueue
+        SET Status = 5
+        WHERE PartitionId = @PartitionId
+          AND QueueType = @QueueType
+          AND Status IN (2,3,4)
+      SET @Rows += @@rowcount
+
+      SET @PartitionId = CASE WHEN @PartitionId = 15 THEN 0 ELSE @PartitionId + 1 END
+      SET @LookedAtPartitions = @LookedAtPartitions + 1 
+    END
+  END
+
+  COMMIT TRANSACTION
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
@@ -119,7 +139,7 @@ DECLARE @SP varchar(100) = 'GetActiveJobs'
        ,@JobIds BigintList
        ,@PartitionId tinyint
        ,@MaxPartitions tinyint = 16 -- !!! hardcoded
-       ,@LookedAtPartitions tinyint = 1
+       ,@LookedAtPartitions tinyint = 0
        ,@Rows int = 0
 
 BEGIN TRY
