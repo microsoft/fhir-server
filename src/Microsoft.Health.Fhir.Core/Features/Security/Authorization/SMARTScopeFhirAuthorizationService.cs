@@ -21,7 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             DataActions permittedDataActions = 0;
             foreach (ScopeRestriction scopeRestriction in allowedResourceActions)
             {
-                if (scopeRestriction.Resource == "*" || scopeRestriction.Resource == resourceRequested)
+                // resousourceRequested is null when the base route is queried, i.e. all resources
+                if (scopeRestriction.Resource == "*" || scopeRestriction.Resource == resourceRequested || resourceRequested == null)
                 {
                     permittedDataActions |= scopeRestriction.AllowedDataAction;
                     if (permittedDataActions == dataActions)
