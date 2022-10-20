@@ -189,7 +189,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
                 ModelInfoProvider.Instance,
-                _fhirRequestContextAccessor);
+                _fhirRequestContextAccessor,
+                new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlQueueClient>.Instance));
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 

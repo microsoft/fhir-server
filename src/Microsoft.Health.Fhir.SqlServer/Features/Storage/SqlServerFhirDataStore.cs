@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly SqlQueueClient _sqlQueueClient;
         private static readonly object _watchDogLocker = new object();
         private static Operations.DefragWorker _defrag;
 
@@ -87,7 +88,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
             IModelInfoProvider modelInfoProvider,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            SqlQueueClient sqlQueueClient)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -110,6 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            _sqlQueueClient = EnsureArg.IsNotNull(sqlQueueClient, nameof(sqlQueueClient));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -117,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 if (_defrag == null)
                 {
-                    _defrag = new Operations.DefragWorker(_sqlConnectionWrapperFactory, _schemaInformation);
+                    _defrag = new Operations.DefragWorker(_sqlConnectionWrapperFactory, _schemaInformation, _sqlQueueClient);
                     _defrag.Start();
                 }
             }

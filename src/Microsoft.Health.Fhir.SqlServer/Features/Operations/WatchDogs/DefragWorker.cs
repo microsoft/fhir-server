@@ -10,9 +10,11 @@ using System.Data.SqlClient;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 
@@ -28,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private SchemaInformation _schemaInformation;
 
-        public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation)
+        public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation, SqlQueueClient sqlQueueClient)
         {
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _schemaInformation = schemaInformation;
