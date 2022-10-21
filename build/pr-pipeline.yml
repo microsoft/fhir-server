@@ -120,6 +120,18 @@ stages:
     steps:
     - template: ./jobs/add-aad-test-environment.yml
 
+- stage: deploySqlServer
+  displayName: 'Deploy SQLServer'
+  dependsOn:
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+    resourceGroup: $(ResourceGroupName)
+    sqlServerName: $(DeploymentEnvironmentName)
+    schemaAutomaticUpdatesEnabled: 'auto'
+    sqlServerAdminPassword: $(GeneratedPassword)
+
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
@@ -143,6 +155,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -183,6 +196,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -223,6 +237,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -263,6 +278,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
