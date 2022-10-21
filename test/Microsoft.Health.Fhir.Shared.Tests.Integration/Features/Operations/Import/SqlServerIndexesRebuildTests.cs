@@ -2,8 +2,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
-
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Numerics;
@@ -15,16 +15,18 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -35,85 +37,122 @@ using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
+namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 {
-    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Schema)]
-    public class SqlServerSchemaUpgradeTests
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
+    [Trait(Traits.Category, Categories.Import)]
+    public class SqlServerIndexesRebuildTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
+        private const string PrototypeType = "PROTOTYPE";
+        private const string RebuildType = "REBUILD";
 
-        public SqlServerSchemaUpgradeTests()
+        public SqlServerIndexesRebuildTests()
         {
         }
 
         [Fact]
-        public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
+        public async Task GivenTwoDatabases_WhenOneDisableAndRebuildIndexes_ThenTwoDatabasesShouldBeTheSame()
         {
-            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var diffDatabaseName = $"DIFF_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-
-            SqlServerFhirStorageTestHelper testHelper1 = null;
-            SqlServerFhirStorageTestHelper testHelper2 = null;
-            try
-            {
-                // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-                (testHelper1, _) = await SetupTestHelperAndCreateDatabase(
-                    snapshotDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: false);
-
-                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-                (testHelper2, _) = await SetupTestHelperAndCreateDatabase(
-                    diffDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: true);
-
-                var diff = await CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
-                Assert.True(string.IsNullOrEmpty(diff), diff);
-            }
-            finally
-            {
-                await testHelper1?.DeleteDatabase(snapshotDatabaseName);
-                await testHelper2?.DeleteDatabase(diffDatabaseName);
-            }
+            await VerifyDatabasesStatus(false);
         }
 
         [Fact]
-        public void GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
+        public async Task GivenImportOperationEnabled_WhenRunRebuildCommandsCrash_ThenOperationShouldBeRestartAndCompleted()
         {
-            var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, async version =>
+            await VerifyDatabasesStatus(true);
+        }
+
+        private async Task<(SqlImportOperation sqlImportOperation, List<(string tableName, string columns, long startSurrogatedId)> tables, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirStorageTestHelper helper)> InitializeDatabaseAndOperation(string databaseName, long startSurrogateId)
+        {
+            SqlServerFhirStorageTestHelper helper = null;
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = null;
+            SqlServerFhirModel sqlServerFhirModel = null;
+            SchemaInformation schemaInformation = null;
+
+            (helper, sqlConnectionWrapperFactory, sqlServerFhirModel, schemaInformation) = await SetupTestHelperAndCreateDatabase(databaseName, SchemaVersionConstants.Max);
+
+            var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration()
             {
-                // The schema upgrade scripts starting from v7 were made idempotent.
-                if (version >= 7)
+                Import = new ImportTaskConfiguration()
                 {
-                    var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-
-                    SqlServerFhirStorageTestHelper testHelper = null;
-                    SchemaUpgradeRunner upgradeRunner;
-
-                    try
-                    {
-                        (testHelper, upgradeRunner) = await SetupTestHelperAndCreateDatabase(
-                            snapshotDatabaseName,
-                            version - 1,
-                            forceIncrementalSchemaUpgrade: false);
-
-                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
-                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
-                    }
-                    finally
-                    {
-                        await testHelper.DeleteDatabase(snapshotDatabaseName);
-                    }
-                }
+                    DisableOptionalIndexesForImport = true,
+                },
             });
+
+            var sqlImportOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerFhirModel, operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
+
+            var tables = new List<(string tableName, string columns, long startSurrogatedId)>();
+
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateStringSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateNumberSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceWriteClaimTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
+            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateUriSearchParamsTable));
+
+            return (sqlImportOperation, tables, sqlConnectionWrapperFactory, helper);
         }
 
-        private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)
+        private async Task VerifyDatabasesStatus(bool crash)
+        {
+            long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
+            var prototypeDatabaseName = $"{PrototypeType}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var rebuildDatabaseName = $"{RebuildType}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+
+            (var prototypeSqlImportOperation, var prototypeTables, var prototypeSqlConnectionWrapperFactory, var prototypeHelper) = await InitializeDatabaseAndOperation(prototypeDatabaseName, startSurrogateId);
+            (var rebuildSqlImportOperation, var rebuildTables, var rebuildSqlConnectionWrapperFactory, var rebuildHelper) = await InitializeDatabaseAndOperation(rebuildDatabaseName, startSurrogateId);
+
+            // Disable indexes
+            await rebuildSqlImportOperation.PreprocessAsync(CancellationToken.None);
+
+            if (crash)
+            {
+                CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+                cancellationTokenSource.CancelAfter(5000);
+                await Assert.ThrowsAnyAsync<RetriableJobException>(() => rebuildSqlImportOperation.PostprocessAsync(cancellationTokenSource.Token));
+            }
+
+            // Rebuild Indexes
+            await rebuildSqlImportOperation.PostprocessAsync(CancellationToken.None);
+
+            var diff = await CompareDatabaseSchemas(prototypeDatabaseName, rebuildDatabaseName);
+            Assert.Empty(diff);
+            foreach (var tableInfo in prototypeTables)
+            {
+                await CheckTableDataAsync(tableInfo.tableName, tableInfo.columns, prototypeSqlConnectionWrapperFactory, rebuildSqlConnectionWrapperFactory, startSurrogateId, startSurrogateId + 10);
+            }
+
+            await prototypeHelper.DeleteDatabase(prototypeDatabaseName);
+            await rebuildHelper.DeleteDatabase(rebuildDatabaseName);
+        }
+
+        private async Task<(string tableName, string columns, long startSurrogatedId)> ImportDataAsync(SqlImportOperation sqlImportOperation, long startSurrogateId, int count, short resourceTypeId, Func<int, long, short, string, DataTable> tableGenerator, string resourceId = null)
+        {
+            DataTable inputTable = tableGenerator(count, startSurrogateId, resourceTypeId, resourceId);
+            await sqlImportOperation.BulkCopyDataAsync(inputTable, CancellationToken.None);
+            DataColumn[] columns = new DataColumn[inputTable.Columns.Count];
+            inputTable.Columns.CopyTo(columns, 0);
+            string columnsString = string.Join(',', columns.Select(c => c.ColumnName));
+            return (inputTable.TableName, columnsString, startSurrogateId);
+        }
+
+        private async Task<(SqlServerFhirStorageTestHelper testHelper, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirModel sqlServerFhirModel, SchemaInformation schemaInformation)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
@@ -188,10 +227,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await testHelper.CreateAndInitializeDatabase(
                 databaseName,
                 maxSchemaVersion,
-                forceIncrementalSchemaUpgrade,
+                false,
                 schemaInitializer);
 
-            return (testHelper, schemaUpgradeRunner);
+            return (testHelper, defaultSqlConnectionWrapperFactory, sqlServerFhirModel, schemaInformation);
         }
 
         private async Task<string> CompareDatabaseSchemas(string databaseName1, string databaseName2)
@@ -326,6 +365,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             return false;
+        }
+
+        private async Task CheckTableDataAsync(string tableName, string columnsString, SqlConnectionWrapperFactory sourceFactory, SqlConnectionWrapperFactory targetFactory, long startSurrogateId, long endSurrogateId)
+        {
+            using SqlConnectionWrapper sourceConnection = await sourceFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
+            using SqlDataAdapter sourceAdapter = new SqlDataAdapter();
+
+            using SqlConnectionWrapper targetConnection = await targetFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
+            using SqlDataAdapter targetAdapter = new SqlDataAdapter();
+
+            string queryText = $"select {columnsString} from {tableName} where ResourceSurrogateId >= {startSurrogateId} and ResourceSurrogateId < {endSurrogateId}";
+
+            sourceAdapter.SelectCommand = new SqlCommand(queryText, sourceConnection.SqlConnection);
+            DataSet sourceResult = new DataSet();
+            sourceAdapter.Fill(sourceResult);
+
+            targetAdapter.SelectCommand = new SqlCommand(queryText, targetConnection.SqlConnection);
+            DataSet targetResult = new DataSet();
+            targetAdapter.Fill(targetResult);
+
+            Assert.Equal(sourceResult.Tables[0].Columns.Count, targetResult.Tables[0].Columns.Count);
+            Assert.Equal(sourceResult.Tables[0].Rows.Count, targetResult.Tables[0].Rows.Count);
         }
     }
 }
