@@ -6,6 +6,7 @@ trigger: none
 variables:
 - template: pr-variables.yml
 - template: build-variables.yml
+- GeneratedPassword: '$(-join((((33,35,37,38,42,43,45,46,95) + (48..57) + (65..90) + (97..122) | Get-Random -Count 20) + ((33,35,37,38,42,43,45,46,95) | Get-Random -Count 1) + ((48..57) | Get-Random -Count 1) + ((65..90) | Get-Random -Count 1) + ((97..122) | Get-Random -Count 1) | Get-Random -Count 24) | % {[char]$_}))'
 
 stages:
 - stage: UpdateVersion
