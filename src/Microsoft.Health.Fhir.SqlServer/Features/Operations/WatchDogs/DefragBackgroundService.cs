@@ -25,7 +25,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await new Task(() => { }, TaskCreationOptions.LongRunning); //// Replace with real
+            Task t = null;
+            await t; //// Replace with real stuff
         }
     }
 }

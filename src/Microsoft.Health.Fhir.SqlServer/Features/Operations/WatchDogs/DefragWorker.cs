@@ -170,14 +170,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             _sqlQueueClient.KeepAliveJobAsync(jobInfo, CancellationToken.None).Wait();
         }
 
-        private void ArchiveJobs()
-        {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
-            VLatest.ArchiveJobs.PopulateCommand(cmd, _queueType);
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
-        }
-
         private void InitDefrag(long groupId)
         {
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
@@ -189,7 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         private (long groupId, long jobId, long version) GetCoordinatorJob()
         {
-            ArchiveJobs();
+            _sqlQueueClient.ArchiveJobs(_queueType);
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try

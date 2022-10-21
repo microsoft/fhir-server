@@ -314,5 +314,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 throw;
             }
         }
+
+        public void ArchiveJobs(byte queueType)
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            VLatest.ArchiveJobs.PopulateCommand(cmd, queueType);
+            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+        }
     }
 }
