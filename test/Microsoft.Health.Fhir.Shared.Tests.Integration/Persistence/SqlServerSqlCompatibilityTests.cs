@@ -72,7 +72,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await fhirStorageTestsFixture?.DisposeAsync();
+                if (fhirStorageTestsFixture != null)
+                {
+                    await fhirStorageTestsFixture.DisposeAsync();
+                }
             }
         }
 
