@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (_defrag == null)
                 {
                     _defrag = new Operations.DefragWorker(_sqlConnectionWrapperFactory, _schemaInformation, _sqlQueueClient);
-                    _defrag.Start();
+                    ////_defrag.Start();
                 }
             }
         }
