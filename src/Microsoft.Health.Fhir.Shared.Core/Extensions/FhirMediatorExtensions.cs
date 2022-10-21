@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
@@ -139,6 +140,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var response = await mediator.Send(new GetCapabilitiesRequest(), cancellationToken);
             return response.CapabilityStatement;
+        }
+
+        public static async Task<SmartConfigurationResult> GetSmartConfigurationAsync(this IMediator mediator, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            var response = await mediator.Send(new GetSmartConfigurationRequest(), cancellationToken);
+
+            return new SmartConfigurationResult(response.AuthorizationEndpoint, response.TokenEndpoint, response.Capabilities);
         }
 
         public static async Task<VersionsResult> GetOperationVersionsAsync(this IMediator mediator, CancellationToken cancellationToken = default)

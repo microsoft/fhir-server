@@ -19,6 +19,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationTestConstants.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\DataGeneratorsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\SqlBulkImporterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\SqlServerIndexesRebuildTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\TestBulkDataProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
@@ -40,5 +41,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSqlCompatibilityTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlQueueClientTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTransactionScopeTests.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Features\Smart\" />
   </ItemGroup>
 </Project>

@@ -14,5 +14,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public static TestApplication InvalidClient { get; } = new TestApplication("invalidclient");
 
         public static TestApplication WrongAudienceClient { get; } = new TestApplication("wrongAudienceClient");
+
+        public static TestApplication SmartUserClient { get; } = new TestApplication("smartUserClient");
     }
 }

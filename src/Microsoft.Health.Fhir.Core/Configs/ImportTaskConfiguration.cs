@@ -17,8 +17,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         private const int DefaultSqlMaxDeleteDuplicateOperationConcurrentCount = 3;
         private const int DefaultSqlMaxDatatableProcessConcurrentCount = 3;
         private const int DefaultSqlLongRunningOperationTimeoutInSec = 60 * 60 * 2;
+        private const int DefaultInfinitySqlLongRunningOperationTimeoutInSec = 0;
         private const int DefaultSqlBulkOperationTimeoutInSec = 60 * 10;
         private const int DefaultPollingFrequencyInSeconds = 60;
+        private const bool DefaultSqlRebuildClustered = false;
 
         /// <summary>
         /// Determines whether bulk import is enabled or not.
@@ -44,6 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Long running operation timeout
         /// </summary>
         public int SqlLongRunningOperationTimeoutInSec { get; set; } = DefaultSqlLongRunningOperationTimeoutInSec;
+
+        public int InfinitySqlLongRunningOperationTimeoutInSec { get; set; } = DefaultInfinitySqlLongRunningOperationTimeoutInSec;
 
         /// <summary>
         /// SQL bulk operation timeout in seconds
@@ -101,8 +105,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool DisableOptionalIndexesForImport { get; set; }
 
         /// <summary>
-        /// Disable unique optional index during import data.
+        /// Default not rebuild clustered.
         /// </summary>
-        public bool DisableUniqueOptionalIndexesForImport { get; set; }
+        public bool RebuildClustered { get; } = DefaultSqlRebuildClustered;
     }
 }
