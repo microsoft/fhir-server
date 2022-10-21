@@ -127,10 +127,10 @@ stages:
   jobs:
   - template: ./jobs/provision-sqlServer.yml
     parameters:
-    resourceGroup: $(ResourceGroupName)
-    sqlServerName: $(DeploymentEnvironmentName)
-    schemaAutomaticUpdatesEnabled: 'auto'
-    sqlServerAdminPassword: $(GeneratedPassword)
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $(GeneratedPassword)
 
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
