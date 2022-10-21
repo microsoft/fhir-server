@@ -108,14 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (before != null)
             {
-                var beforeOffset = before.ToDateTimeOffset(
-                    defaultMonth: 1,
-                    defaultDaySelector: (year, month) => 1,
-                    defaultHour: 0,
-                    defaultMinute: 0,
-                    defaultSecond: 0,
-                    defaultFraction: 0.0000000m,
-                    defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
+                var beforeOffset = before.ToDateTimeOffset().ToUniversalTime();
 
                 if (beforeOffset.CompareTo(Clock.UtcNow) > 0)
                 {

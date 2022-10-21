@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -20,8 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportOrchestratorJob : IJob
     {
         private const int DefaultPollingFrequencyInSeconds = 3;
-
-        // private readonly TimeSpan _defaultLengthOfTimeSlice = TimeSpan.FromDays(1);
+        private const int DefaultNumberOfParallelJobs = 10;
 
         private JobInfo _jobInfo;
         private IQueueClient _queueClient;
@@ -47,18 +47,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
 
+        public int NumberOfParallelJobs { get; set; } = DefaultNumberOfParallelJobs;
+
         public async Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
         {
-            // If the filter attribute is null and it isn't patient or group export...
-            // Call the SQL stored procedure to get resource surogate ids based on start and end time
-            // Make a batch of export processing jobs
-            // Repeat if needed
-            // else
-            // Make one processing job for the entire export
-
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(_jobInfo.Definition);
             var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, _jobInfo.GroupId, false, cancellationToken);
-            int numberOfParallelJobs = record.Parallel > 0 ? record.Parallel : 10;
+            int numberOfParallelJobs = record.Parallel > 0 ? record.Parallel : NumberOfParallelJobs;
             var count = 0;
             foreach (var job in groupJobs)
             {
@@ -78,22 +73,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     // Since the GetDateTimeRange method needs a resource type, when one isn't provided the time range just needs to be split into equal buckets.
                     var definitionsList = new List<string>();
-                    var tillTicks = record.Till.ToDateTimeOffset(
-                        defaultMonth: 1,
-                        defaultDaySelector: (year, month) => 1,
-                        defaultHour: 0,
-                        defaultMinute: 0,
-                        defaultSecond: 0,
-                        defaultFraction: 0.0000000m,
-                        defaultUtcOffset: TimeSpan.Zero).Ticks;
-                    var sinceTicks = record.Since.ToDateTimeOffset(
-                        defaultMonth: 1,
-                        defaultDaySelector: (year, month) => 1,
-                        defaultHour: 0,
-                        defaultMinute: 0,
-                        defaultSecond: 0,
-                        defaultFraction: 0.0000000m,
-                        defaultUtcOffset: TimeSpan.Zero).Ticks;
+                    var tillTicks = record.Till.ToDateTimeOffset().Ticks;
+                    var sinceTicks = record.Since.ToDateTimeOffset().Ticks;
 
                     var lengthOfRange = (tillTicks - sinceTicks) / numberOfParallelJobs;
                     ExportJobRecord processingRecord;
@@ -121,22 +102,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     var resourceTypes = record.ResourceType.Split(',');
                     var definitionsList = new List<string>();
 
-                    var till = record.Till.ToDateTimeOffset(
-                        defaultMonth: 1,
-                        defaultDaySelector: (year, month) => 1,
-                        defaultHour: 0,
-                        defaultMinute: 0,
-                        defaultSecond: 0,
-                        defaultFraction: 0.0000000m,
-                        defaultUtcOffset: TimeSpan.Zero);
-                    var since = record.Since.ToDateTimeOffset(
-                        defaultMonth: 1,
-                        defaultDaySelector: (year, month) => 1,
-                        defaultHour: 0,
-                        defaultMinute: 0,
-                        defaultSecond: 0,
-                        defaultFraction: 0.0000000m,
-                        defaultUtcOffset: TimeSpan.Zero);
+                    var till = record.Till.ToDateTimeOffset();
+                    var since = record.Since.ToDateTimeOffset();
 
                     foreach (var type in resourceTypes)
                     {
@@ -216,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         }
                         else
                         {
-                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\nProcessing job had no results", System.Net.HttpStatusCode.InternalServerError);
+                            record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\nProcessing job had no results", HttpStatusCode.InternalServerError);
                         }
 
                         jobFailed = true;

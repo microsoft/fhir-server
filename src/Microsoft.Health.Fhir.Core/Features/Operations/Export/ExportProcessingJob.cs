@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Runtime;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.JobManagement;
@@ -22,12 +24,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public ExportProcessingJob(JobInfo jobInfo, Func<IExportJobTask> exportJobTaskFactory)
         {
+            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+            EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
+
             _jobInfo = jobInfo;
             _exportJobTaskFactory = exportJobTaskFactory;
         }
 
         public Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(progress, nameof(progress));
+
             _progress = progress;
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(string.IsNullOrEmpty(_jobInfo.Result) ? _jobInfo.Definition : _jobInfo.Result);
             IExportJobTask exportJobTask = _exportJobTaskFactory();

@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var exception = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(new Progress<string>((result) => { }), CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
             Assert.Equal(expectedMessage, ((ExportJobRecord)exception.Error).FailureDetails.FailureReason);
-            Assert.Equal(System.Net.HttpStatusCode.InternalServerError, ((ExportJobRecord)exception.Error).FailureDetails.FailureStatusCode);
+            Assert.Equal(System.Net.HttpStatusCode.UnavailableForLegalReasons, ((ExportJobRecord)exception.Error).FailureDetails.FailureStatusCode);
         }
 
         [Fact]
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                 if (failure)
                 {
-                    processingRecord.FailureDetails = new JobFailureDetails("Job failed.", System.Net.HttpStatusCode.InternalServerError);
+                    processingRecord.FailureDetails = new JobFailureDetails("Job failed.", System.Net.HttpStatusCode.UnavailableForLegalReasons);
                 }
 
                 var processingJob = new JobInfo()
