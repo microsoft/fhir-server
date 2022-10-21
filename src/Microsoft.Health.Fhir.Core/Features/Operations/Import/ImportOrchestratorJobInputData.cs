@@ -6,13 +6,14 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     /// <summary>
     /// Import job input payload
     /// </summary>
-    public class ImportOrchestratorJobInputData
+    public class ImportOrchestratorJobInputData : IJobInfo
     {
         public int TypeId { get; set; }
 

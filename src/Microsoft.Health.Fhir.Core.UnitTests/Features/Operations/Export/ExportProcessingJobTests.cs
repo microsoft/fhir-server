@@ -44,8 +44,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(OperationStatus.Completed);
 
-            var processingJob = new ExportProcessingJob(GenerateJobInfo(expectedResults), new Func<IExportJobTask>(() => _mockJob));
-            var taskResult = await processingJob.ExecuteAsync(progress, CancellationToken.None);
+            var processingJob = new ExportProcessingJob(() => _mockJob);
+            var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None);
             Assert.Equal(expectedResults, taskResult);
             Assert.Equal(expectedResults, progressResult);
         }
@@ -63,8 +63,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var exceptionMessage = "Test job failed";
             var expectedResults = GenerateJobRecord(OperationStatus.Failed, exceptionMessage);
 
-            var processingJob = new ExportProcessingJob(GenerateJobInfo(expectedResults), new Func<IExportJobTask>(() => _mockJob));
-            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(progress, CancellationToken.None));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(() => _mockJob));
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
             Assert.Equal(exceptionMessage, exception.Message);
         }
 
@@ -80,8 +80,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(OperationStatus.Canceled);
 
-            var processingJob = new ExportProcessingJob(GenerateJobInfo(expectedResults), new Func<IExportJobTask>(() => _mockJob));
-            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(progress, CancellationToken.None));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(() => _mockJob));
+            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
         }
 
         [Theory]
@@ -93,8 +93,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(status);
 
-            var processingJob = new ExportProcessingJob(GenerateJobInfo(expectedResults), new Func<IExportJobTask>(() => _mockJob));
-            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(progress, CancellationToken.None));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(() => _mockJob));
+            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
         }
 
         private string GenerateJobRecord(OperationStatus status, string failureReason = null)

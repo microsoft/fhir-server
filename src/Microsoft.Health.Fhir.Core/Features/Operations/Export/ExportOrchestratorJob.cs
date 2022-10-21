@@ -17,29 +17,24 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
+    [JobTypeId((int)JobType.ExportOrchestrator)]
     public class ExportOrchestratorJob : IJob
     {
         private const int DefaultPollingFrequencyInSeconds = 3;
 
-        // private readonly TimeSpan _defaultLengthOfTimeSlice = TimeSpan.FromDays(1);
-
-        private JobInfo _jobInfo;
         private IQueueClient _queueClient;
         private ISearchService _searchService;
         private ILogger<ExportOrchestratorJob> _logger;
 
         public ExportOrchestratorJob(
-            JobInfo jobInfo,
             IQueueClient queueClient,
             ISearchService searchService,
             ILoggerFactory loggerFactory)
         {
-            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
-            _jobInfo = jobInfo;
             _queueClient = queueClient;
             _searchService = searchService;
             _logger = loggerFactory.CreateLogger<ExportOrchestratorJob>();
@@ -47,8 +42,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
 
-        public async Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+
             // If the filter attribute is null and it isn't patient or group export...
             // Call the SQL stored procedure to get resource surogate ids based on start and end time
             // Make a batch of export processing jobs
@@ -56,8 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // else
             // Make one processing job for the entire export
 
-            ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(_jobInfo.Definition);
-            var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, _jobInfo.GroupId, false, cancellationToken);
+            ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken);
             int numberOfParallelJobs = record.Parallel > 0 ? record.Parallel : 10;
             var count = 0;
             foreach (var job in groupJobs)
@@ -153,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     definitions = definitionsList.ToArray();
                 }
 
-                groupJobs = await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, _jobInfo.GroupId, false, false, cancellationToken);
+                groupJobs = await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, jobInfo.GroupId, false, false, cancellationToken);
             }
 
             bool allJobsComplete;
@@ -162,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 allJobsComplete = true;
                 foreach (var job in groupJobs)
                 {
-                    if (job.Id != _jobInfo.Id && (job.Status == JobStatus.Running || job.Status == JobStatus.Created))
+                    if (job.Id != jobInfo.Id && (job.Status == JobStatus.Running || job.Status == JobStatus.Created))
                     {
                         allJobsComplete = false;
                         break;
@@ -170,14 +167,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
-                groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, _jobInfo.GroupId, false, cancellationToken);
+                groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken);
             }
             while (!allJobsComplete);
 
             bool jobFailed = false;
             foreach (var job in groupJobs)
             {
-                if (job.Id != _jobInfo.Id)
+                if (job.Id != jobInfo.Id)
                 {
                     if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
                     {
