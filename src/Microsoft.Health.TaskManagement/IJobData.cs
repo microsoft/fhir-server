@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.JobManagement;
 
-public interface IJobInfo
+public interface IJobData
 {
     public int TypeId { get; }
 }

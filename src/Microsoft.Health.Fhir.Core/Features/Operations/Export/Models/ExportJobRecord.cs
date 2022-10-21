@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// <summary>
     /// Class to hold metadata for an individual export request.
     /// </summary>
-    public class ExportJobRecord : JobRecord, IJobInfo
+    public class ExportJobRecord : JobRecord, IJobData
     {
         public ExportJobRecord(
             Uri requestUri,

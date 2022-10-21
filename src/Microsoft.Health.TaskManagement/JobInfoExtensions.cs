@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Diagnostics.CodeAnalysis;
+using EnsureThat;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.JobManagement;
@@ -12,13 +13,15 @@ public static class JobInfoExtensions
 {
     public static int? GetJobTypeId(this JobInfo jobInfo)
     {
-        IJobInfo jobInfoDefinition = JsonConvert.DeserializeObject<JobInfoDefinition>(jobInfo.Definition);
+        EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
-        return jobInfoDefinition?.TypeId;
+        IJobData jobDataDefinition = JsonConvert.DeserializeObject<JobDataDefinition>(jobInfo.Definition);
+
+        return jobDataDefinition?.TypeId;
     }
 
     [SuppressMessage("Code", "CA1812:Avoid uninstantiated internal classes", Justification = "Used by JsonConvert")]
-    internal class JobInfoDefinition : IJobInfo
+    internal class JobDataDefinition : IJobData
     {
         [JsonProperty("typeId")]
         public int TypeId { get; set; }

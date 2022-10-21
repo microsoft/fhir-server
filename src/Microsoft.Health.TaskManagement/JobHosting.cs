@@ -225,7 +225,7 @@ namespace Microsoft.Health.JobManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                Task intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds), CancellationToken.None);
+                var intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds), CancellationToken.None);
                 KeyValuePair<long, Func<Task>>[] activeJobRecords = _activeJobsNeedKeepAlive.ToArray();
 
                 foreach ((long jobId, Func<Task> keepAliveFunc) in activeJobRecords)
