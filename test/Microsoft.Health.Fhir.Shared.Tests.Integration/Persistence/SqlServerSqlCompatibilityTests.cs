@@ -72,10 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                if (fhirStorageTestsFixture != null)
-                {
-                    await fhirStorageTestsFixture.DisposeAsync();
-                }
+                fhirStorageTestsFixture?.Dispose();
             }
         }
 
@@ -113,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                     finally
                     {
-                        await fhirStorageTestsFixture?.DisposeAsync();
+                        fhirStorageTestsFixture?.Dispose();
                     }
                 }
             });
@@ -158,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await fhirStorageTestsFixture?.DisposeAsync();
+                fhirStorageTestsFixture.Dispose();
             }
         }
     }
