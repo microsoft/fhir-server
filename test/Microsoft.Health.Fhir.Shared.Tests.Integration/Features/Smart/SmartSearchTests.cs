@@ -67,49 +67,53 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         public async Task InitializeAsync()
         {
-            _dataStoreSearchParameterValidator.ValidateSearchParameter(default, out Arg.Any<string>()).ReturnsForAnyArgs(x =>
+            if (ModelInfoProvider.Instance.Version == FhirSpecification.R4 ||
+                ModelInfoProvider.Instance.Version == FhirSpecification.R4B)
             {
-                x[1] = null;
-                return true;
-            });
+                _dataStoreSearchParameterValidator.ValidateSearchParameter(default, out Arg.Any<string>()).ReturnsForAnyArgs(x =>
+                {
+                    x[1] = null;
+                    return true;
+                });
 
-            _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+                _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
 
-            _contextAccessor = _fixture.FhirRequestContextAccessor;
+                _contextAccessor = _fixture.FhirRequestContextAccessor;
 
-            _fhirOperationDataStore = _fixture.OperationDataStore;
-            _fhirStorageTestHelper = _fixture.TestHelper;
-            _scopedDataStore = _fixture.DataStore.CreateMockScope();
+                _fhirOperationDataStore = _fixture.OperationDataStore;
+                _fhirStorageTestHelper = _fixture.TestHelper;
+                _scopedDataStore = _fixture.DataStore.CreateMockScope();
 
-            _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
-            _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
+                _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
+                _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
 
-            _typedElementToSearchValueConverterManager = await CreateFhirTypedElementToSearchValueConverterManagerAsync();
+                _typedElementToSearchValueConverterManager = await CreateFhirTypedElementToSearchValueConverterManagerAsync();
 
-            _searchIndexer = new TypedElementSearchIndexer(
-                _supportedSearchParameterDefinitionManager,
-                _typedElementToSearchValueConverterManager,
-                Substitute.For<IReferenceToElementResolver>(),
-                ModelInfoProvider.Instance,
-                NullLogger<TypedElementSearchIndexer>.Instance);
+                _searchIndexer = new TypedElementSearchIndexer(
+                    _supportedSearchParameterDefinitionManager,
+                    _typedElementToSearchValueConverterManager,
+                    Substitute.For<IReferenceToElementResolver>(),
+                    ModelInfoProvider.Instance,
+                    NullLogger<TypedElementSearchIndexer>.Instance);
 
-            ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
-                new RawResourceFactory(new FhirJsonSerializer()),
-                new FhirRequestContextAccessor(),
-                _searchIndexer,
-                _searchParameterDefinitionManager,
-                Deserializers.ResourceDeserializer);
+                ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
+                    new RawResourceFactory(new FhirJsonSerializer()),
+                    new FhirRequestContextAccessor(),
+                    _searchIndexer,
+                    _searchParameterDefinitionManager,
+                    Deserializers.ResourceDeserializer);
 
-            _searchParameterStatusManager = _fixture.SearchParameterStatusManager;
+                _searchParameterStatusManager = _fixture.SearchParameterStatusManager;
 
-            _searchService = _fixture.SearchService.CreateMockScope();
+                _searchService = _fixture.SearchService.CreateMockScope();
 
-            _contextAccessor = _fixture.FhirRequestContextAccessor;
+                _contextAccessor = _fixture.FhirRequestContextAccessor;
 
-            var smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientA");
-            foreach (var entry in smartBundle.Entry)
-            {
-                await PutResource(entry.Resource);
+                var smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientA");
+                foreach (var entry in smartBundle.Entry)
+                {
+                    await PutResource(entry.Resource);
+                }
             }
         }
 
