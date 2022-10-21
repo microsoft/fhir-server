@@ -12,7 +12,7 @@
             "value": "${AZURE_PRINCIPAL_ID}"
         },
         "smartAudience": {
-            "value": "06f9d5a9-d4c3-4b2e-8992-53bd56c47d52"
+            "value": ""
         }
     }
 }
