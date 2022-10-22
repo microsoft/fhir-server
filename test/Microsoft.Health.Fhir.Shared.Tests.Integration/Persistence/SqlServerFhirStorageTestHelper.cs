@@ -114,11 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand command = connection.CreateCommand();
                 command.CommandTimeout = 600;
-                command.CommandText = @$"
-IF db_id('{databaseName}') IS NOT NULL ALTER DATABASE [{databaseName}] SET OFFLINE WITH ROLLBACK IMMEDIATE
-IF db_id('{databaseName}') IS NOT NULL ALTER DATABASE [{databaseName}] SET ONLINE
-IF db_id('{databaseName}') IS NOT NULL DROP DATABASE [{databaseName}]
-                ";
+                command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
                 await command.ExecuteNonQueryAsync(cancellationToken);
                 await connection.CloseAsync();
             });
