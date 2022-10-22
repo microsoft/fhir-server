@@ -25,8 +25,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            Task t = null;
-            await t; //// Replace with real stuff
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            DefragWorker.StartTask(() => _defragWorker.Start());
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            await Task.CompletedTask;
         }
     }
 }

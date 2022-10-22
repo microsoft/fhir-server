@@ -10,6 +10,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -36,15 +37,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         private SchemaInformation _schemaInformation;
         private SqlQueueClient _sqlQueueClient;
 
-        public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation, SqlQueueClient sqlQueueClient)
+        ////public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation, SqlQueueClient sqlQueueClient)
+        public DefragWorker(SchemaInformation schemaInformation)
         {
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _schemaInformation = schemaInformation;
-            _sqlQueueClient = sqlQueueClient;
         }
 
         public void Start()
         {
+            while (SqlServerFhirDataStore.SqlQueueClient == null)
+            {
+                Thread.Sleep(10 * 1000);
+            }
+
+            _sqlConnectionWrapperFactory = SqlServerFhirDataStore.SqlConnectionWrapperFactory;
+            _sqlQueueClient = SqlServerFhirDataStore.SqlQueueClient;
+
             InitParams();
             _threads = GetThreads();
             _heartbeatPeriodSec = GetHeartbeatPeriod();
@@ -295,7 +303,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             return value == 1;
         }
 
-        private static Task StartTask(Action action, bool longRunning = true)
+        public static Task StartTask(Action action, bool longRunning = true)
         {
             var task = new Task(action, longRunning ? TaskCreationOptions.LongRunning : TaskCreationOptions.None);
             task.Start(TaskScheduler.Default);
@@ -304,9 +312,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         private void InitParams()
         {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = @"
+            retry:
+            try
+            {
+                using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+                using var cmd = conn.CreateRetrySqlCommand();
+                cmd.CommandText = @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodHourId, 24 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodHourId)
@@ -314,12 +325,23 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60 WHERE NO
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
             ";
-            cmd.Parameters.AddWithValue("@IsEnabledId", _isEnabledId);
-            cmd.Parameters.AddWithValue("@ThreadsId", _threadsId);
-            cmd.Parameters.AddWithValue("@PeriodHourId", _periodHourId);
-            cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", _heartbeatPeriodSecId);
-            cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", _heartbeatTimeoutSecId);
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+                cmd.Parameters.AddWithValue("@IsEnabledId", _isEnabledId);
+                cmd.Parameters.AddWithValue("@ThreadsId", _threadsId);
+                cmd.Parameters.AddWithValue("@PeriodHourId", _periodHourId);
+                cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", _heartbeatPeriodSecId);
+                cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", _heartbeatTimeoutSecId);
+                cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+            }
+            catch (SqlException e)
+            {
+                var str = e.ToString();
+                if (str.Contains("login failed", StringComparison.OrdinalIgnoreCase) || str.Contains("dbo.Parameters", StringComparison.OrdinalIgnoreCase))
+                {
+                    goto retry;
+                }
+
+                throw;
+            }
         }
     }
 }

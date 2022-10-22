@@ -230,6 +230,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<DefragWorker>()
+                .Singleton()
+                .AsSelf();
+
+            services.AddHostedService<DefragBackgroundService>();
+
             return fhirServerBuilder;
         }
 
