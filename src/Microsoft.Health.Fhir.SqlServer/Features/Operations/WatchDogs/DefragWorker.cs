@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         {
             while (SqlServerFhirDataStore.SqlQueueClient == null)
             {
-                Thread.Sleep(10 * 1000);
+                Thread.Sleep(1000);
             }
 
             _sqlConnectionWrapperFactory = SqlServerFhirDataStore.SqlConnectionWrapperFactory;
@@ -59,14 +59,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             _heartbeatTimeoutSec = GetHeartbeatTimeout();
             _periodHour = GetPeriod();
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.Defrag && IsEnabled())
-            {
-                StartTimer(_periodHour);
-            }
+            StartTimer(_periodHour);
         }
 
         protected override void Run()
         {
+            if (_schemaInformation.Current < SchemaVersionConstants.Defrag || !IsEnabled())
+            {
+                return;
+            }
+
             try
             {
                 var id = GetCoordinatorJob();
@@ -337,6 +339,7 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
                 var str = e.ToString();
                 if (str.Contains("login failed", StringComparison.OrdinalIgnoreCase) || str.Contains("dbo.Parameters", StringComparison.OrdinalIgnoreCase))
                 {
+                    Thread.Sleep(2000);
                     goto retry;
                 }
 

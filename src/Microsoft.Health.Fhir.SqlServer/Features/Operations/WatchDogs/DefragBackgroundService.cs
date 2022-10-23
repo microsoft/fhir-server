@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -16,6 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
     public class DefragBackgroundService : BackgroundService
     {
         private readonly DefragWorker _defragWorker;
+        private Timer _startTimer;
 
         public DefragBackgroundService(DefragWorker defragWorker)
         {
@@ -25,10 +28,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            DefragWorker.StartTask(() => _defragWorker.Start());
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+            _startTimer = new Timer(_ => StartDefragWorker(), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
             await Task.CompletedTask;
+        }
+
+        private void StartDefragWorker()
+        {
+            _defragWorker.Start();
+            _startTimer.Dispose();
         }
     }
 }
