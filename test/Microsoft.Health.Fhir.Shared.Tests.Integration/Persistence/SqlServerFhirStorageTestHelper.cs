@@ -93,18 +93,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await connection.CloseAsync();
             });
 
-            schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken).Wait();
-            retry:
-            try
+            await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken).Wait();
-            }
-            catch
-            {
-                goto retry;
-            }
-
-            await Task.CompletedTask;
+                await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
+            });
         }
 
         public async Task ExecuteSqlCmd(string sql)
