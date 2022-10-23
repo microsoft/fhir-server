@@ -3,29 +3,44 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Text.Json;
+using System.Collections.Specialized;
+using System.Text.Json.Serialization;
 
 namespace SMARTProxy.Models
 {
     public class ConfidentialClientTokenContext : TokenContext
     {
-        public GrantType GrantType { get; set; } = default!;
-
-        public string Code { get; set; } = default!;
-
-        public Uri RedirectUri { get; set; } = default!;
-
-        public string ClientId { get; set; } = default!;
-
-        public string ClientSecret { get; set; } = default!;
-
-        public string? CodeVerifier { get; set; } = default!;
-
-        public override string ToLogString()
+        /// <summary>
+        /// Creates a ConfidentialClientTokenContext from the NameValueCollection from the HTTP request body.
+        /// </summary>
+        /// <param name="form">HTTP Form Encoded Body from Token Request</param>
+        public ConfidentialClientTokenContext(NameValueCollection form)
         {
-            ClientSecret = "***";
-            return JsonSerializer.Serialize(this);
+            if (form["grant_type"] != "authorization_code")
+            {
+                throw new ArgumentException("ConfidentialClientTokenContext requires the authorization code grant type.");
+            }
+
+            GrantType = GrantType.authorization_code;
+            Code = form["code"]!;
+            RedirectUri = new Uri(form["redirect_uri"]!);
+            ClientId = form["client_id"]!;
+            ClientSecret = form["client_secret"]!;
+            CodeVerifier = form["code_verifier"]!;
         }
+
+        public GrantType GrantType { get; } = default!;
+
+        public string Code { get; } = default!;
+
+        public Uri RedirectUri { get; } = default!;
+
+        public string ClientId { get; } = default!;
+
+        [JsonIgnore]
+        public string ClientSecret { get; } = default!;
+
+        public string? CodeVerifier { get; } = default!;
 
         public override FormUrlEncodedContent ToFormUrlEncodedContent()
         {

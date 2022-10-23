@@ -3,10 +3,30 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Specialized;
+
 namespace SMARTProxy.Models
 {
     public class PublicClientTokenContext : TokenContext
     {
+        /// <summary>
+        /// Creates a PublicClientTokenContext from the NameValueCollection from the HTTP request body.
+        /// </summary>
+        /// <param name="form">HTTP Form Encoded Body from Token Request</param>
+        public PublicClientTokenContext(NameValueCollection form)
+        {
+            if (form["grant_type"] != "authorization_code")
+            {
+                throw new ArgumentException("PublicClientTokenContext requires the authorization code grant type.");
+            }
+
+            GrantType = GrantType.authorization_code;
+            Code = form["code"]!;
+            RedirectUri = new Uri(form["redirect_uri"]!);
+            ClientId = form["client_id"]!;
+            CodeVerifier = form["code_verifier"]!;
+        }
+
         public GrantType GrantType { get; set; } = default!;
 
         public string Code { get; set; } = default!;

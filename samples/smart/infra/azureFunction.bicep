@@ -68,6 +68,16 @@ resource fhirProxyAppSettings 'Microsoft.Web/sites/config@2020-12-01' = {
   }, functionSettings)
 }
 
+resource funcTableService 'Microsoft.Storage/storageAccounts/tableServices@2022-05-01' = {
+  name: 'default'
+  parent: funcStorageAccount
+}
+
+resource symbolicname 'Microsoft.Storage/storageAccounts/tableServices/tables@2022-05-01' = {
+  name: 'jwksBackendService'
+  parent: funcTableService
+}
+
 output functionAppName string = functionAppName
 output functionAppPrincipalId string = functionApp.identity.principalId
 output hostName string = functionApp.properties.defaultHostName

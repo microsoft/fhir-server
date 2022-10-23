@@ -9,14 +9,14 @@ namespace SMARTProxy.Extensions
 {
     public static class ParseScopes
     {
-        public static string ParseScope(this string scope, string clientID)
+        public static string ParseScope(this string scopesString, string scopeAudience)
         {
             var scopesBuilder = new StringBuilder();
-            string scopeURI = $"api://{clientID}";
 
-            var scopes = scope.Split(' ');
-            if (!string.IsNullOrEmpty(scope))
+            if (!string.IsNullOrEmpty(scopesString))
             {
+                var scopes = scopesString.Replace('+', ' ').Split(' ');
+
                 foreach (var s in scopes)
                 {
                     // if scope starts with patient/ or encounter/ or user/ or system/ or launch or equals fhirUser
@@ -27,10 +27,13 @@ namespace SMARTProxy.Extensions
                         s.StartsWith("launch", StringComparison.InvariantCulture) ||
                         s == "fhirUser")
                     {
-                                                // Azure AD v2.0 uses fully qualified scope URIs
+                        // Azure AD v2.0 uses fully qualified scope URIs
                         // and does not allow '/'. Therefore, we need to
                         // replace '/' with '.' in the scope URI
-                        scopesBuilder.Append($"{scopeURI}/{s.Replace('/', '.')} ");
+                        var formattedScope = s.Replace("/", ".", StringComparison.InvariantCulture);
+                        formattedScope = formattedScope.Replace("*", "all", StringComparison.InvariantCulture);
+                        formattedScope = $"{scopeAudience}/{formattedScope}";
+                        scopesBuilder.Append(formattedScope);
                     }
                     else
                     {

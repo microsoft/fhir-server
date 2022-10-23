@@ -3,12 +3,37 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Specialized;
 using System.Text.Json;
+using SMARTProxy.Extensions;
 
 namespace SMARTProxy.Models
 {
     public class RefreshTokenContext : TokenContext
     {
+        /// <summary>
+        /// Creates a RefreshTokenContext from the NameValueCollection from the HTTP request body.
+        /// </summary>
+        /// <param name="form">HTTP Form Encoded Body from Token Request.</param>
+        /// <param name="audience">Azure Active Directory audience for the FHIR Server.</param>
+        public RefreshTokenContext(NameValueCollection form, string audience)
+        {
+            if (form["grant_type"] != "authorization_code")
+            {
+                throw new ArgumentException("RefreshTokenContext requires the refresh token type.");
+            }
+
+            GrantType = GrantType.refresh_token;
+            ClientId = form["client_id"]!;
+            RefreshToken = form["refresh_token"]!;
+            ClientSecret = form["client_secret"]!;
+
+            if (form.AllKeys.Contains("scope"))
+            {
+                Scope = form["scope"]!.ParseScope(audience)!;
+            }
+        }
+
         public GrantType GrantType { get; set; } = GrantType.refresh_token;
 
         public string RefreshToken { get; set; } = default!;

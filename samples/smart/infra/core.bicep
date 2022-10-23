@@ -129,6 +129,7 @@ module apim './apiManagement.bicep'= {
   }
 }
 
+output SmartFhirEndpoint string = apim.outputs.apimUrl
 output FhirServiceId string = fhir.outputs.fhirId
 output FhirServiceUrl string = 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
 output TenantId string = tenantId

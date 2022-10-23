@@ -73,3 +73,5 @@ module apimSmartApi 'apiManagement/smartApi.bicep' = {
 
   dependsOn: [ apimBackends ]
 }
+
+output apimUrl string = 'https://${apimService.name}.azure-api.net/smart'

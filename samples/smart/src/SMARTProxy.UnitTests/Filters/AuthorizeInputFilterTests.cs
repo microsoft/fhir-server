@@ -87,8 +87,7 @@ namespace SMARTProxy.UnitTests.Filters
             context.Request.RequestUri = new Uri(string.Concat(
                 "http://localhost/authorize",
                 "?response_type=code&client_id=xxxx-xxxxx-xxxxx-xxxxx&redirect_uri=http://localhost&scope=patient/Patient.read fhir user openid",
-                "&state=123&aud=https://workspace-fhir.fhir.azurehealthcareapis.com"
-            ));
+                "&state=123&aud=https://workspace-fhir.fhir.azurehealthcareapis.com"));
 
             await filter.ExecuteAsync(context);
 

@@ -34,5 +34,5 @@ module template 'core.bicep'= {
 
 // These map to user secrets for local execution of the program
 output LOCATION string = location
-output FhirServerUrl string = template.outputs.FhirServiceUrl
+output SmartFhirEndpoint string = template.outputs.SmartFhirEndpoint
 output TenantId string = template.outputs.TenantId

@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Specialized;
-using System.Net;
 using Microsoft.AzureHealth.DataServices.Bindings;
 using Microsoft.AzureHealth.DataServices.Clients;
 using Microsoft.AzureHealth.DataServices.Pipelines;
@@ -61,18 +60,18 @@ namespace SMARTProxy.Bindings
                 return context!;
             }
 
-            if (context.StatusCode == HttpStatusCode.Redirect)
+            // If the status code was set earlier in the pipeline, skip the binding.
+            if (context.StatusCode > 0)
             {
-                _logger?.LogInformation("Context is set to redirect. Skipping AAD binding.");
+                _logger?.LogInformation("Pipeline status code already set. Skipping AAD binding.");
                 return context;
             }
 
             try
             {
-                // NameValueCollection headers = context.Request.GetHeaders(false);
-
+                // Fetch
                 NameValueCollection headers = context.Headers.RequestAppendAndReplace(context.Request, false);
-                headers["User-Agent"] = "Azure Health Data Services Toolkit SMART Sample";
+                headers.Remove("User-Agent");
                 var contentType = context.Request.Content!.Headers.ContentType!.ToString();
 
                 string method = context.Request.Method.ToString();

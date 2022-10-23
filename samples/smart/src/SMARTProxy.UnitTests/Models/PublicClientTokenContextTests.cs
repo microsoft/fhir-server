@@ -27,7 +27,8 @@ namespace SMARTProxy.UnitTests.Models
         [MemberData(nameof(NormalTokenCollectionData))]
         public void GivenNormalAuthorizeCollection_WhenInitialized_ThenCorrectLaunchContextCreated(string tokenBody)
         {
-            TokenContext context = TokenContext.FromFormUrlEncodedContent(tokenBody, _audience);
+            NameValueCollection tokenBodyCol = HttpUtility.ParseQueryString(tokenBody);
+            TokenContext context = TokenContext.FromFormUrlEncodedContent(tokenBodyCol, _audience);
 
             if (context.GetType() != typeof(PublicClientTokenContext))
             {
@@ -35,8 +36,6 @@ namespace SMARTProxy.UnitTests.Models
             }
 
             var contextParsed = (PublicClientTokenContext)context;
-
-            NameValueCollection tokenBodyCol = HttpUtility.ParseQueryString(tokenBody);
 
             // SMART required fields should always exist and match
             Assert.Equal(tokenBodyCol["grant_type"], contextParsed.GrantType.ToString());

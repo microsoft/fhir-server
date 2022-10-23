@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using SMARTProxy.Bindings;
 using SMARTProxy.Configuration;
 using SMARTProxy.Filters;
+using SMARTProxy.Services;
 
 namespace SMARTProxy
 {
@@ -53,6 +54,8 @@ namespace SMARTProxy
                     }
 
                     services.AddSingleton<SMARTProxyConfig>(config);
+                    services.Add(new ServiceDescriptor(typeof(AsymmetricAuthorizationService), typeof(AsymmetricAuthorizationService), ServiceLifetime.Scoped));
+                    services.AddHttpClient();
 
                     services.UseAzureFunctionPipeline();
 
