@@ -20,9 +20,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _isRunning = false;
         }
 
-        protected internal void StartTimer(double periodHour)
+        protected internal void StartTimer(double periodSec)
         {
-            _timer = new Timer(_ => RunInternal(), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10)), TimeSpan.FromHours(periodHour));
+            _timer = new Timer(_ => RunInternal(), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), TimeSpan.FromSeconds(periodSec));
+        }
+
+        protected internal void ChangeTimer(double periodSec)
+        {
+            _timer.Change(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), TimeSpan.FromSeconds(periodSec));
         }
 
         protected abstract void Run();

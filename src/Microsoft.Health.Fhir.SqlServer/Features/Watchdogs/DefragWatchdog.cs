@@ -27,14 +27,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     {
         private const byte _queueType = (byte)QueueType.Defrag;
         private int _threads;
-        private const string _threadsId = "Defrag.Threads";
+        public const string ThreadsId = "Defrag.Threads";
         private int _heartbeatPeriodSec;
-        private const string _heartbeatPeriodSecId = "Defrag.HeartbeatPeriodSec";
+        public const string HeartbeatPeriodSecId = "Defrag.HeartbeatPeriodSec";
         private int _heartbeatTimeoutSec;
-        private const string _heartbeatTimeoutSecId = "Defrag.HeartbeatTimeoutSec";
-        private double _periodHour;
-        private const string _periodHourId = "Defrag.Period.Hours";
-        private const string _isEnabledId = "Defrag.IsEnabled";
+        public const string HeartbeatTimeoutSecId = "Defrag.HeartbeatTimeoutSec";
+        private double _periodSec;
+        public const string PeriodSecId = "Defrag.PeriodSec";
+        public const string IsEnabledId = "Defrag.IsEnabled";
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private SchemaInformation _schemaInformation;
         private SqlQueueClient _sqlQueueClient;
@@ -51,12 +51,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         public void Start()
         {
             InitParams();
-            _threads = GetThreads();
-            _heartbeatPeriodSec = GetHeartbeatPeriod();
-            _heartbeatTimeoutSec = GetHeartbeatTimeout();
-            _periodHour = GetPeriod();
+            StartTimer(_periodSec);
+        }
 
-            StartTimer(_periodHour);
+        public void Change(double periodSec)
+        {
+            ChangeTimer(periodSec);
         }
 
         protected override void Run()
@@ -274,31 +274,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private int GetThreads()
         {
-            var value = GetNumberParameterById(_threadsId);
+            var value = GetNumberParameterById(ThreadsId);
             return (int)value;
         }
 
         private int GetHeartbeatPeriod()
         {
-            var value = GetNumberParameterById(_heartbeatPeriodSecId);
+            var value = GetNumberParameterById(HeartbeatPeriodSecId);
             return (int)value;
         }
 
         private int GetHeartbeatTimeout()
         {
-            var value = GetNumberParameterById(_heartbeatTimeoutSecId);
+            var value = GetNumberParameterById(HeartbeatTimeoutSecId);
             return (int)value;
         }
 
         private double GetPeriod()
         {
-            var value = GetNumberParameterById(_periodHourId);
+            var value = GetNumberParameterById(PeriodSecId);
             return (double)value;
         }
 
         private bool IsEnabled()
         {
-            var value = GetNumberParameterById(_isEnabledId);
+            var value = GetNumberParameterById(IsEnabledId);
             return value == 1;
         }
 
@@ -311,7 +311,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private void InitParams()
         {
-retry:
+            _logger.LogInformation("InitParams starting...");
+        retry:
             try
             {
                 using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
@@ -319,16 +320,16 @@ retry:
                 cmd.CommandText = @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
-INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodHourId, 24 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodHourId)
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 24*3600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodSecId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
             ";
-                cmd.Parameters.AddWithValue("@IsEnabledId", _isEnabledId);
-                cmd.Parameters.AddWithValue("@ThreadsId", _threadsId);
-                cmd.Parameters.AddWithValue("@PeriodHourId", _periodHourId);
-                cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", _heartbeatPeriodSecId);
-                cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", _heartbeatTimeoutSecId);
+                cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
+                cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
+                cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
+                cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
+                cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
                 cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
             }
             catch (SqlException e)
@@ -336,12 +337,20 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
                 var str = e.ToString();
                 if (str.Contains("login failed", StringComparison.OrdinalIgnoreCase) || str.Contains("dbo.Parameters", StringComparison.OrdinalIgnoreCase))
                 {
+                    _logger.LogWarning($"InitParams exception={str}.");
                     Thread.Sleep(2000);
                     goto retry;
                 }
 
+                _logger.LogError($"InitParams exception={str}.");
                 throw;
             }
+
+            _threads = GetThreads();
+            _heartbeatPeriodSec = GetHeartbeatPeriod();
+            _heartbeatTimeoutSec = GetHeartbeatTimeout();
+            _periodSec = GetPeriod();
+            _logger.LogInformation("InitParams completed.");
         }
     }
 }

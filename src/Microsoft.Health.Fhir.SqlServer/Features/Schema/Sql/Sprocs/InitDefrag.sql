@@ -46,7 +46,7 @@ BEGIN TRY
         FROM (SELECT object_id, index_id, partition_number, FragGB = A.avg_fragmentation_in_percent*A.page_count*8.0/1024/1024/100
                 FROM sys.dm_db_index_physical_stats(db_id(), @ObjectId, NULL, NULL, 'LIMITED') A
                 WHERE index_id > 0
-                AND avg_fragmentation_in_percent >= @MinFragPct AND A.page_count > 500
+                  AND avg_fragmentation_in_percent >= @MinFragPct AND A.page_count > 500
              ) A
              JOIN sys.indexes I ON I.object_id = A.object_id AND I.index_id = A.index_id
     SET @Rows = @@rowcount
