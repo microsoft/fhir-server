@@ -112,10 +112,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public static SqlQueueClient SqlQueueClient { get; private set; }
-
-        public static SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; private set; }
-
         public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,

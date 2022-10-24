@@ -6,11 +6,13 @@
 using System;
 using System.Linq;
 using EnsureThat;
+using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -124,6 +126,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.AddFactory<IScoped<SqlQueueClient>>();
+
             services.Add<SqlImportOperation>()
                 .Scoped()
                 .AsSelf()
@@ -231,21 +235,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<SqlTransactionHandler>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SqlConnectionWrapperFactory>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SqlQueueClient>()
-                .Singleton()
-                .AsSelf();
-
             services.Add<DefragWorker>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
 
             services.AddHostedService<DefragBackgroundService>();
 

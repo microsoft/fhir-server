@@ -7,192 +7,257 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
+using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 {
-    public class DefragWorker : DefragTimer
+    public sealed class DefragWorker : IDisposable, INotificationHandler<StorageInitializedNotification>
     {
-        private const byte _queueType = (byte)QueueType.Defrag;
+        private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
+        private const string PeriodHourId = "Defrag.Period.Hours";
+        private const string IsEnabledId = "Defrag.IsEnabled";
+        private const string HeartbeatTimeoutSecId = "Defrag.HeartbeatTimeoutSec";
+        private const string HeartbeatPeriodSecId = "Defrag.HeartbeatPeriodSec";
+        private const string ThreadsId = "Defrag.Threads";
+
         private int _threads;
-        private const string _threadsId = "Defrag.Threads";
         private int _heartbeatPeriodSec;
-        private const string _heartbeatPeriodSecId = "Defrag.HeartbeatPeriodSec";
         private int _heartbeatTimeoutSec;
-        private const string _heartbeatTimeoutSecId = "Defrag.HeartbeatTimeoutSec";
         private double _periodHour;
-        private const string _periodHourId = "Defrag.Period.Hours";
-        private const string _isEnabledId = "Defrag.IsEnabled";
-        private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private SchemaInformation _schemaInformation;
-        private SqlQueueClient _sqlQueueClient;
-        private ILogger<DefragWorker> _logger;
 
-        public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation, SqlQueueClient sqlQueueClient, ILogger<DefragWorker> logger)
+        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private readonly SchemaInformation _schemaInformation;
+        private readonly Func<IScoped<SqlQueueClient>> _sqlQueueClient;
+        private readonly ILogger<DefragWorker> _logger;
+
+        private PeriodicTimer _periodicTimer;
+        private bool _storageReady;
+
+        public DefragWorker(
+            Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory,
+            SchemaInformation schemaInformation,
+            Func<IScoped<SqlQueueClient>> sqlQueueClient,
+            ILogger<DefragWorker> logger)
         {
-            _schemaInformation = schemaInformation;
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _sqlQueueClient = sqlQueueClient;
-            _logger = logger;
+            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _sqlQueueClient = EnsureArg.IsNotNull(sqlQueueClient, nameof(sqlQueueClient));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public void Start()
+        public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            InitParams();
-            _threads = GetThreads();
-            _heartbeatPeriodSec = GetHeartbeatPeriod();
-            _heartbeatTimeoutSec = GetHeartbeatTimeout();
-            _periodHour = GetPeriod();
-
-            StartTimer(_periodHour);
-        }
-
-        protected override void Run()
-        {
-            if (_schemaInformation.Current < SchemaVersionConstants.Defrag || !IsEnabled())
+            if (!_storageReady || _schemaInformation.Current < SchemaVersionConstants.Defrag)
             {
-                return;
+                await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
             }
 
-            try
+            await InitParamsAsync();
+
+            _threads = await GetThreads(cancellationToken);
+            _heartbeatPeriodSec = await GetHeartbeatPeriod(cancellationToken);
+            _heartbeatTimeoutSec = await GetHeartbeatTimeout(cancellationToken);
+            _periodHour = await GetPeriod(cancellationToken);
+            _periodicTimer = new PeriodicTimer(TimeSpan.FromHours(_periodHour));
+            bool initialRun = true;
+
+            while (!cancellationToken.IsCancellationRequested)
             {
-                var id = GetCoordinatorJob();
-                if (id.jobId == -1)
+                if (!initialRun)
                 {
-                    return;
+                    await _periodicTimer.WaitForNextTickAsync(cancellationToken);
                 }
 
-                ExecWithHeartbeat(
-                () =>
+                initialRun = false;
+
+                if (!await IsEnabled(cancellationToken))
                 {
-                    try
+                    _logger.LogInformation("DefragWorker is disabled.");
+                    continue;
+                }
+
+                try
+                {
+                    (long groupId, long jobId, long version) id = await GetCoordinatorJob(cancellationToken);
+                    if (id.jobId == -1)
                     {
-                        InitDefrag(id.groupId);
+                        continue;
+                    }
 
-                        ChangeDatabaseSettings(false);
+                    _logger.LogInformation("DefragWorker found {JobId}, executing.", id.jobId);
 
-                        var tasks = new List<Task>();
-                        for (var thread = 0; thread < _threads; thread++)
+                    await ExecWithHeartbeatAsync(
+                        async cancellationSource =>
                         {
-                            tasks.Add(StartTask(() => ExecDefrag()));
-                        }
+                            try
+                            {
+                                await InitDefragAsync(id.groupId, cancellationSource);
+                                await ChangeDatabaseSettings(false, cancellationSource);
 
-                        Task.WaitAll(tasks.ToArray());
+                                var tasks = new List<Task>();
+                                for (var thread = 0; thread < _threads; thread++)
+                                {
+                                    tasks.Add(ExecDefrag(cancellationSource));
+                                }
 
-                        ChangeDatabaseSettings(true);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e);
-                        throw;
-                    }
-                },
-                id.jobId,
-                id.version);
+                                await Task.WhenAll(tasks);
+                                await ChangeDatabaseSettings(true, cancellationSource);
+                            }
+                            catch (Exception e)
+                            {
+                                _logger.LogError(e, "Defrag failed.");
+                                throw;
+                            }
+                        },
+                        id.jobId,
+                        id.version,
+                        cancellationToken);
 
-                CompleteJob(id.jobId, id.version, false);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
+                    await CompleteJob(id.jobId, id.version, false, cancellationToken);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "DefragWorker failed");
+                }
             }
         }
 
-        private void ChangeDatabaseSettings(bool isOn)
+        private async Task ChangeDatabaseSettings(bool isOn, CancellationToken cancellationToken)
         {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
             VLatest.DefragChangeDatabaseSettings.PopulateCommand(cmd, isOn);
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        private void ExecDefrag()
+        private async Task ExecDefrag(CancellationToken cancellationToken)
         {
             var jobId = -2L;
-            while (jobId != -1)
+            while (true)
             {
-                var job = DequeueJob();
+                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId, cancellationToken);
+
                 jobId = job.jobId;
+
                 if (jobId == -1)
                 {
                     return;
                 }
 
-                ExecWithHeartbeat(
-                    () =>
+                await ExecWithHeartbeatAsync(
+                    async cancellationSource =>
                     {
                         var split = job.definition.Split(";");
-                        Defrag(split[0], split[1], int.Parse(split[2]), byte.Parse(split[3]) == 1);
+                        await DefragAsync(split[0], split[1], int.Parse(split[2]), byte.Parse(split[3]) == 1, cancellationSource);
                     },
                     jobId,
-                    job.version);
+                    job.version,
+                    cancellationToken);
 
-                CompleteJob(jobId, job.version, false);
+                await CompleteJob(jobId, job.version, false, cancellationToken);
             }
         }
 
-        private void Defrag(string table, string index, int partitionNumber, bool isPartitioned)
+        private async Task DefragAsync(string table, string index, int partitionNumber, bool isPartitioned, CancellationToken cancellationToken)
         {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
+            EnsureArg.IsNotNullOrWhiteSpace(table, nameof(table));
+            EnsureArg.IsNotNullOrWhiteSpace(index, nameof(index));
+
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
             VLatest.Defrag.PopulateCommand(cmd, table, index, partitionNumber, isPartitioned);
             cmd.CommandTimeout = 0; // this is long running
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        private void CompleteJob(long jobId, long version, bool failed)
+        private async Task CompleteJob(long jobId, long version, bool failed, CancellationToken cancellationToken)
         {
-            var jobInfo = new JobInfo() { QueueType = _queueType, Id = jobId, Version = version, Status = failed ? JobStatus.Failed : JobStatus.Completed };
-            _sqlQueueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None).Wait();
+            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
+            var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version, Status = failed ? JobStatus.Failed : JobStatus.Completed };
+            await scopedQueueClient.Value.CompleteJobAsync(jobInfo, false, cancellationToken);
         }
 
-        private void ExecWithHeartbeat(Action action, long jobId, long version)
+        private async Task ExecWithHeartbeatAsync(Func<CancellationToken, Task> action, long jobId, long version, CancellationToken cancellationToken)
         {
-            var heartbeat = new Timer(_ => PutJobHeartbeat(jobId, version), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(_heartbeatPeriodSec)), TimeSpan.FromSeconds(_heartbeatPeriodSec));
-            try
+            EnsureArg.IsNotNull(action, nameof(action));
+
+            using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_heartbeatPeriodSec));
+
+            CancellationToken timerToken = tokenSource.Token;
+            Task heartBeatTask = HeartbeatLoop(jobId, version, timer, timerToken);
+            Task actionTask = action.Invoke(timerToken);
+
+            await Task.WhenAny(actionTask, heartBeatTask);
+
+            if (!timerToken.IsCancellationRequested && timerToken.CanBeCanceled)
             {
-                action();
+                tokenSource.Cancel(false);
+                await heartBeatTask;
             }
-            finally
+
+            if (!actionTask.IsCompleted)
             {
-                heartbeat.Dispose();
+                await actionTask;
             }
         }
 
-        private void PutJobHeartbeat(long jobId, long version)
+        private async Task HeartbeatLoop(long jobId, long version, PeriodicTimer timer, CancellationToken cancellationToken)
         {
-            var jobInfo = new JobInfo() { QueueType = _queueType, Id = jobId, Version = version };
-            _sqlQueueClient.KeepAliveJobAsync(jobInfo, CancellationToken.None).Wait();
+            EnsureArg.IsNotNull(timer, nameof(timer));
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await timer.WaitForNextTickAsync(cancellationToken);
+                await PutJobHeartbeatAsync(jobId, version, cancellationToken);
+            }
         }
 
-        private void InitDefrag(long groupId)
+        private async Task PutJobHeartbeatAsync(long jobId, long version, CancellationToken cancellationToken)
         {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
-            VLatest.InitDefrag.PopulateCommand(cmd, _queueType, groupId);
+            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
+            var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version };
+            await scopedQueueClient.Value.KeepAliveJobAsync(jobInfo, cancellationToken);
+        }
+
+        private async Task InitDefragAsync(long groupId, CancellationToken cancellationToken)
+        {
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
+            VLatest.InitDefrag.PopulateCommand(cmd, QueueType, groupId);
             cmd.CommandTimeout = 0; // this is long running
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        private (long groupId, long jobId, long version) GetCoordinatorJob()
+        private async Task<(long groupId, long jobId, long version)> GetCoordinatorJob(CancellationToken cancellationToken)
         {
-            _sqlQueueClient.ArchiveJobs(_queueType);
+            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
+            await scopedQueueClient.Value.ArchiveJobsAsync(QueueType, cancellationToken);
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
             {
-                var job = _sqlQueueClient.EnqueueAsync(_queueType, new[] { "Defrag" }, null, true, false, CancellationToken.None).Result.FirstOrDefault();
+                JobInfo job = (await scopedQueueClient.Value
+                    .EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken))
+                    .FirstOrDefault();
+
                 if (job != null)
                 {
                     id = (job.GroupId, job.Id, job.Version);
@@ -208,44 +273,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
             if (id.jobId == -1)
             {
-                id = GetActiveCoordinatorJob();
+                id = await GetActiveCoordinatorJobAsync(cancellationToken);
             }
 
             if (id.jobId != -1)
             {
-                var job = DequeueJob(id.jobId);
+                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(id.jobId, cancellationToken);
                 id = (job.groupId, job.jobId, job.version);
             }
 
             return id;
         }
 
-        private (long groupId, long jobId, long version, string definition) DequeueJob(long? jobId = null)
+        private async Task<(long groupId, long jobId, long version, string definition)> DequeueJobAsync(long? jobId = null, CancellationToken cancellationToken = default)
         {
-            var job = _sqlQueueClient.DequeueAsync(_queueType, Environment.MachineName, _heartbeatTimeoutSec, CancellationToken.None, jobId).Result;
+            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
+            JobInfo job = await scopedQueueClient.Value.DequeueAsync(QueueType, Environment.MachineName, _heartbeatTimeoutSec, cancellationToken, jobId);
+
             if (job != null)
             {
                 return (job.GroupId, job.Id, job.Version, job.Definition);
             }
-            else
-            {
-                return (-1, -1, -1, string.Empty);
-            }
+
+            return (-1, -1, -1, string.Empty);
         }
 
-        private (long groupId, long jobId, long version) GetActiveCoordinatorJob()
+        private async Task<(long groupId, long jobId, long version)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
         {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
 
             // cannot use VLatest as it incorrectly asks for optional group id
             cmd.CommandText = "dbo.GetActiveJobs";
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.Parameters.AddWithValue("@QueueType", _queueType);
+            cmd.Parameters.AddWithValue("@QueueType", QueueType);
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            await using SqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
             {
                 if (reader.GetString(2) == "Defrag")
                 {
@@ -256,13 +322,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             return id;
         }
 
-        private double GetNumberParameterById(string id)
+        private async Task<double> GetNumberParameterById(string id, CancellationToken cancellationToken)
         {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
+            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
+
             cmd.CommandText = "SELECT Number FROM dbo.Parameters WHERE Id = @Id";
             cmd.Parameters.AddWithValue("@Id", id);
-            var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+            var value = await cmd.ExecuteScalarAsync(cancellationToken);
+
             if (value == null)
             {
                 throw new InvalidOperationException($"{id} is not set correctly in the Parameters table.");
@@ -271,51 +342,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
             return (double)value;
         }
 
-        private int GetThreads()
+        private async Task<int> GetThreads(CancellationToken cancellationToken)
         {
-            var value = GetNumberParameterById(_threadsId);
+            var value = await GetNumberParameterById(ThreadsId, cancellationToken);
             return (int)value;
         }
 
-        private int GetHeartbeatPeriod()
+        private async Task<int> GetHeartbeatPeriod(CancellationToken cancellationToken)
         {
-            var value = GetNumberParameterById(_heartbeatPeriodSecId);
+            var value = await GetNumberParameterById(HeartbeatPeriodSecId, cancellationToken);
             return (int)value;
         }
 
-        private int GetHeartbeatTimeout()
+        private async Task<int> GetHeartbeatTimeout(CancellationToken cancellationToken)
         {
-            var value = GetNumberParameterById(_heartbeatTimeoutSecId);
+            var value = await GetNumberParameterById(HeartbeatTimeoutSecId, cancellationToken);
             return (int)value;
         }
 
-        private double GetPeriod()
+        private async Task<double> GetPeriod(CancellationToken cancellationToken)
         {
-            var value = GetNumberParameterById(_periodHourId);
+            var value = await GetNumberParameterById(PeriodHourId, cancellationToken);
             return (double)value;
         }
 
-        private bool IsEnabled()
+        private async Task<bool> IsEnabled(CancellationToken cancellationToken)
         {
-            var value = GetNumberParameterById(_isEnabledId);
+            var value = await GetNumberParameterById(IsEnabledId, cancellationToken);
             return value == 1;
         }
 
-        public static Task StartTask(Action action, bool longRunning = true)
+        private async Task InitParamsAsync()
         {
-            var task = new Task(action, longRunning ? TaskCreationOptions.LongRunning : TaskCreationOptions.None);
-            task.Start(TaskScheduler.Default);
-            return task;
-        }
+            await Policy.Handle<SqlException>(e => !e.Message.Contains("login failed", StringComparison.OrdinalIgnoreCase) &&
+                                                   !e.Message.Contains("dbo.Parameters", StringComparison.OrdinalIgnoreCase))
+                .WaitAndRetryAsync(
+                    3,
+                    count => TimeSpan.FromSeconds(2),
+                    (ex, count) => _logger.LogWarning(ex, "Failed to initialize parameters. Retrying..."))
+                .ExecuteAsync(async () =>
+                {
+                    using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+                    using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory
+                        .Value
+                        .ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
+                    using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
 
-        private void InitParams()
-        {
-            retry:
-            try
-            {
-                using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-                using var cmd = conn.CreateRetrySqlCommand();
-                cmd.CommandText = @"
+                    cmd.CommandText = @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodHourId, 24 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodHourId)
@@ -323,24 +396,26 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60 WHERE NO
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
             ";
-                cmd.Parameters.AddWithValue("@IsEnabledId", _isEnabledId);
-                cmd.Parameters.AddWithValue("@ThreadsId", _threadsId);
-                cmd.Parameters.AddWithValue("@PeriodHourId", _periodHourId);
-                cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", _heartbeatPeriodSecId);
-                cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", _heartbeatTimeoutSecId);
-                cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
-            }
-            catch (SqlException e)
-            {
-                var str = e.ToString();
-                if (str.Contains("login failed", StringComparison.OrdinalIgnoreCase) || str.Contains("dbo.Parameters", StringComparison.OrdinalIgnoreCase))
-                {
-                    Thread.Sleep(2000);
-                    goto retry;
-                }
 
-                throw;
-            }
+                    cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
+                    cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
+                    cmd.Parameters.AddWithValue("@PeriodHourId", PeriodHourId);
+                    cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
+                    cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
+
+                    await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+                });
+        }
+
+        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            _storageReady = true;
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            _periodicTimer?.Dispose();
         }
     }
 }

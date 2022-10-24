@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -18,24 +16,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
     public class DefragBackgroundService : BackgroundService
     {
         private readonly DefragWorker _defragWorker;
-        private Timer _startTimer;
 
         public DefragBackgroundService(DefragWorker defragWorker)
         {
-            EnsureArg.IsNotNull(defragWorker, nameof(defragWorker));
-            _defragWorker = defragWorker;
+            _defragWorker = EnsureArg.IsNotNull(defragWorker, nameof(defragWorker));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _startTimer = new Timer(_ => StartDefragWorker(), null, TimeSpan.FromSeconds(2), TimeSpan.FromDays(30)); //// StartDefragWorker(() should be excuted once and then timer disposed
-            await Task.CompletedTask;
-        }
-
-        private void StartDefragWorker()
-        {
-            _defragWorker.Start();
-            _startTimer.Dispose();
+            await _defragWorker.ExecuteAsync(stoppingToken);
         }
     }
 }
