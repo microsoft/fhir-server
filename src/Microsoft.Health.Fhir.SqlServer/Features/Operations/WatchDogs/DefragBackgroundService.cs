@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _startTimer = new Timer(_ => StartDefragWorker(), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+            _startTimer = new Timer(_ => StartDefragWorker(), null, TimeSpan.FromSeconds(2), TimeSpan.FromDays(30)); //// StartDefragWorker(() should be excuted once and then timer disposed
             await Task.CompletedTask;
         }
 

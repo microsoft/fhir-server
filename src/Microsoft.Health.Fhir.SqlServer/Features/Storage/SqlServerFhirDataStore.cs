@@ -63,8 +63,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly SqlQueueClient _sqlQueueClient;
-        private static readonly object _sqlWatchdogLocker = new object();
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -87,8 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
             IModelInfoProvider modelInfoProvider,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            SqlQueueClient sqlQueueClient)
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -111,18 +108,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
-            _sqlQueueClient = EnsureArg.IsNotNull(sqlQueueClient, nameof(sqlQueueClient));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
-
-            lock (_sqlWatchdogLocker)
-            {
-                if (SqlQueueClient == null)
-                {
-                    SqlConnectionWrapperFactory = _sqlConnectionWrapperFactory;
-                    SqlQueueClient = _sqlQueueClient;
-                }
-            }
         }
 
         public static SqlQueueClient SqlQueueClient { get; private set; }

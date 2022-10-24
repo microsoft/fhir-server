@@ -26,6 +26,7 @@ using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -227,6 +228,18 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsService(typeof(IRequestExceptionAction<,>));
 
             services.Add<CompartmentSearchRewriter>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<SqlTransactionHandler>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<SqlConnectionWrapperFactory>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<SqlQueueClient>()
                 .Singleton()
                 .AsSelf();
 

@@ -11,6 +11,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -36,23 +37,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private SchemaInformation _schemaInformation;
         private SqlQueueClient _sqlQueueClient;
+        private ILogger<DefragWorker> _logger;
 
-        ////public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation, SqlQueueClient sqlQueueClient)
-        public DefragWorker(SchemaInformation schemaInformation)
+        public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation, SqlQueueClient sqlQueueClient, ILogger<DefragWorker> logger)
         {
             _schemaInformation = schemaInformation;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _sqlQueueClient = sqlQueueClient;
+            _logger = logger;
         }
 
         public void Start()
         {
-            while (SqlServerFhirDataStore.SqlQueueClient == null)
-            {
-                Thread.Sleep(1000);
-            }
-
-            _sqlConnectionWrapperFactory = SqlServerFhirDataStore.SqlConnectionWrapperFactory;
-            _sqlQueueClient = SqlServerFhirDataStore.SqlQueueClient;
-
             InitParams();
             _threads = GetThreads();
             _heartbeatPeriodSec = GetHeartbeatPeriod();
