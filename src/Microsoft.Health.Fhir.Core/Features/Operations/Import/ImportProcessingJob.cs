@@ -74,8 +74,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             long succeedImportCount = currentResult.SucceedCount;
             long failedImportCount = currentResult.FailedCount;
 
-            currentResult.ResourceType = currentResult.ResourceType;
-            currentResult.ResourceLocation = currentResult.ResourceLocation;
+            currentResult.ResourceType = inputData.ResourceType;
+            currentResult.ResourceLocation = inputData.ResourceLocation;
             progress.Report(JsonConvert.SerializeObject(currentResult));
 
             try
