@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// <summary>
     /// Class to hold metadata for an individual export request.
     /// </summary>
-    public class ExportJobRecord : JobRecord
+    public class ExportJobRecord : JobRecord, IJobData
     {
         public ExportJobRecord(
             Uri requestUri,

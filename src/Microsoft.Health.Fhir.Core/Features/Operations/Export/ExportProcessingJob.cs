@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Runtime;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -15,28 +14,22 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
+    [JobTypeId((int)JobType.ExportProcessing)]
     public class ExportProcessingJob : IJob
     {
-        private JobInfo _jobInfo;
-        private Func<IExportJobTask> _exportJobTaskFactory;
-        private IProgress<string> _progress;
-        private ExportJobRecord _record;
+        private readonly Func<IExportJobTask> _exportJobTaskFactory;
 
-        public ExportProcessingJob(JobInfo jobInfo, Func<IExportJobTask> exportJobTaskFactory)
+        public ExportProcessingJob(Func<IExportJobTask> exportJobTaskFactory)
         {
-            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
-
-            _jobInfo = jobInfo;
-            _exportJobTaskFactory = exportJobTaskFactory;
+            _exportJobTaskFactory = EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
         }
 
-        public Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
+        public Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            _progress = progress;
-            ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(string.IsNullOrEmpty(_jobInfo.Result) ? _jobInfo.Definition : _jobInfo.Result);
+            ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(string.IsNullOrEmpty(jobInfo.Result) ? jobInfo.Definition : jobInfo.Result);
             IExportJobTask exportJobTask = _exportJobTaskFactory();
 
             // The ExportJobTask was used to handling the database updates and etags itself, but the new job hosting flow manages it in a central location.
@@ -47,12 +40,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return exportTask.ContinueWith<string>(
                 (Task parent) =>
                 {
-                    switch (_record.Status)
+                    switch (record.Status)
                     {
                         case OperationStatus.Completed:
-                            return JsonConvert.SerializeObject(_record);
+                            return JsonConvert.SerializeObject(record);
                         case OperationStatus.Failed:
-                            throw new JobExecutionException(_record.FailureDetails.FailureReason);
+                            throw new JobExecutionException(record.FailureDetails.FailureReason);
                         case OperationStatus.Canceled:
                             // This throws a RetriableJobException so the job handler doesn't change the job status. The job will not be retried as cancelled jobs are ignored.
                             throw new RetriableJobException("Export job cancelled.");
@@ -68,13 +61,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 cancellationToken,
                 TaskContinuationOptions.None,
                 TaskScheduler.Current);
-        }
 
-        private Task<ExportJobOutcome> UpdateExportJob(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken)
-        {
-            _record = exportJobRecord;
-            _progress.Report(JsonConvert.SerializeObject(exportJobRecord));
-            return Task.FromResult(new ExportJobOutcome(exportJobRecord, weakETag));
+            Task<ExportJobOutcome> UpdateExportJob(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken innerCancellationToken)
+            {
+                record = exportJobRecord;
+                progress.Report(JsonConvert.SerializeObject(exportJobRecord));
+                return Task.FromResult(new ExportJobOutcome(exportJobRecord, weakETag));
+            }
         }
     }
 }
