@@ -7,15 +7,15 @@ using System;
 using System.Security.Cryptography;
 using System.Threading;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public abstract class DefragTimer : IDisposable
+    public abstract class WatchdogTimer : IDisposable
     {
         private bool _disposed = false;
         private Timer _timer;
         private bool _isRunning;
 
-        protected DefragTimer()
+        protected WatchdogTimer()
         {
             _isRunning = false;
         }

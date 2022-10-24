@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -20,9 +21,9 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public class DefragWorker : DefragTimer
+    public class DefragWatchdog : WatchdogTimer
     {
         private const byte _queueType = (byte)QueueType.Defrag;
         private int _threads;
@@ -37,13 +38,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private SchemaInformation _schemaInformation;
         private SqlQueueClient _sqlQueueClient;
-        private ILogger<DefragWorker> _logger;
+        private ILogger<DefragWatchdog> _logger;
 
-        public DefragWorker(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation, SqlQueueClient sqlQueueClient, ILogger<DefragWorker> logger)
+        public DefragWatchdog(SchemaInformation schemaInformation, Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, Func<IScoped<SqlQueueClient>> sqlQueueClient, ILogger<DefragWatchdog> logger)
         {
             _schemaInformation = schemaInformation;
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _sqlQueueClient = sqlQueueClient;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory.Invoke().Value;
+            _sqlQueueClient = sqlQueueClient.Invoke().Value;
             _logger = logger;
         }
 
@@ -310,7 +311,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
         private void InitParams()
         {
-            retry:
+retry:
             try
             {
                 using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;

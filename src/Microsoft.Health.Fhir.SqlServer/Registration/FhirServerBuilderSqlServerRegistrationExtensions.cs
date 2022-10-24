@@ -21,12 +21,12 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -119,10 +119,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlQueueClient>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
+            ////services.Add<SqlQueueClient>()
+            ////    .Scoped()
+            ////    .AsSelf()
+            ////    .AsImplementedInterfaces();
+
+            services.AddFactory<IScoped<SqlQueueClient>>();
 
             services.Add<SqlImportOperation>()
                 .Scoped()
@@ -231,23 +233,13 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<SqlTransactionHandler>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SqlConnectionWrapperFactory>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SqlQueueClient>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<DefragWorker>()
-                .Singleton()
-                .AsSelf();
-
-            services.AddHostedService<DefragBackgroundService>();
+            // next block of services is for watchdogs
+            ////services.Add<SqlTransactionHandler>().Singleton().AsSelf();
+            ////services.Add<SqlConnectionWrapperFactory>().Singleton().AsSelf();
+            ////services.Add<SqlQueueClient>().Singleton().AsSelf();
+            services.Add<DefragWatchdog>().Singleton().AsSelf();
+            services.AddHostedService<WatchdogsBackgroundService>();
+                ////.ReplaceService<INotificationHandler<StorageInitializedNotification>>();
 
             return fhirServerBuilder;
         }
