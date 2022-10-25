@@ -13,8 +13,11 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -23,20 +26,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlServerWatchdogTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private readonly SqlServerFhirStorageTestsFixture _fixture;
+        private readonly ITestOutputHelper _testOutputHelper;
 
-        public SqlServerWatchdogTests(SqlServerFhirStorageTestsFixture fixture)
+        public SqlServerWatchdogTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
+            _testOutputHelper = testOutputHelper;
         }
 
         [Fact]
         public async Task Defrag()
         {
+            bool finishedProcessingQueue = false;
+
+            SqlQueueClient queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+            queueClient
+                .When(x => x.CompleteJobAsync(Arg.Any<JobInfo>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()))
+                .Do(x => finishedProcessingQueue = true);
+
             var wd = new DefragWatchdog(
                 () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
                 _fixture.SchemaInformation,
-                () => new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, new NullLogger<SqlQueueClient>()).CreateMockScope(),
-                new NullLogger<DefragWatchdog>());
+                () => queueClient.CreateMockScope(),
+                XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
             await wd.Handle(new StorageInitializedNotification(), CancellationToken.None);
 
             // populate data
@@ -46,6 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var pagesBefore = GetPages();
 
             using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromMinutes(10));
 
             await wd.Initialize(cts.Token);
             wd.ChangeDelay(TimeSpan.FromSeconds(2));
@@ -55,7 +68,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ExecuteSql($"INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0");
             ExecuteSql($"INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01");
 
-            await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(10)));
+            while (finishedProcessingQueue == false && cts.IsCancellationRequested == false)
+            {
+                await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(10)));
+            }
 
             try
             {
@@ -99,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             conn.Open();
             using var cmd = new SqlCommand("SELECT TOP 10 Definition FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC", conn);
             cmd.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Defrag);
-            using var reader = cmd.ExecuteReader();
+            using SqlDataReader reader = cmd.ExecuteReader();
             var coordExists = false;
             var workExists = false;
             while (reader.Read())
