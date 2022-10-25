@@ -13,7 +13,9 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -35,10 +37,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task Defrag()
         {
+            bool finishedProcessingQueue = false;
+
+            SqlQueueClient queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+            queueClient
+                .When(x => x.CompleteJobAsync(Arg.Any<JobInfo>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()))
+                .Do(x => finishedProcessingQueue = true);
+
             var wd = new DefragWatchdog(
                 () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
                 _fixture.SchemaInformation,
-                () => new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)).CreateMockScope(),
+                () => queueClient.CreateMockScope(),
                 XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
             await wd.Handle(new StorageInitializedNotification(), CancellationToken.None);
 
@@ -49,6 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var pagesBefore = GetPages();
 
             using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromMinutes(10));
 
             await wd.Initialize(cts.Token);
             wd.ChangeDelay(TimeSpan.FromSeconds(2));
@@ -58,7 +68,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ExecuteSql($"INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0");
             ExecuteSql($"INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01");
 
-            await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(10)));
+            while (finishedProcessingQueue == false && cts.IsCancellationRequested == false)
+            {
+                await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(10)));
+            }
 
             try
             {

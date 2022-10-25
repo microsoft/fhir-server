@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
+        public virtual async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
         {
             try
             {
