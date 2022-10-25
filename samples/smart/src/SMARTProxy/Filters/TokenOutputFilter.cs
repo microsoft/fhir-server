@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.IdentityModel.Tokens.Jwt;
+using Azure.Core;
+using Azure.Identity;
 using Microsoft.AzureHealth.DataServices.Clients.Headers;
 using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Json;
@@ -86,6 +88,18 @@ namespace SMARTProxy.Filters
                 }
             }
 
+            try
+            {
+                _logger.LogInformation("Attempting to override the access token with MSI...");
+                var token = await GetOverrideAccessToken(_configuration.BackendFhirUrl!, _configuration.TenantId!);
+                tokenResponse["access_token"] = token.Token;
+                _logger.LogInformation("Access token overridden with {Token}", tokenResponse["access_token"]);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not get token override. {Message}", ex.Message);
+            }
+
             context.ContentString = tokenResponse.ToString();
 
             // context.Headers.Add(new HeaderNameValuePair("Content-Type", "application/json", CustomHeaderType.ResponseStatic));
@@ -97,6 +111,14 @@ namespace SMARTProxy.Filters
             await Task.CompletedTask;
 
             return context;
+        }
+
+        private static async ValueTask<AccessToken> GetOverrideAccessToken(string backendFhirUrl, string tenantId)
+        {
+            string[] scopes = new string[] { $"{backendFhirUrl}/.default" };
+            TokenRequestContext tokenRequestContext = new TokenRequestContext(scopes: scopes, tenantId: tenantId);
+            var credential = new DefaultAzureCredential(true);
+            return await credential.GetTokenAsync(tokenRequestContext);
         }
     }
 }

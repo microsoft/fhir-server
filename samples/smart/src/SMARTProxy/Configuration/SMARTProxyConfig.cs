@@ -8,7 +8,9 @@ namespace SMARTProxy.Configuration
     public class SMARTProxyConfig
     {
 #pragma warning disable CA1056 // Needs to be string to parse from config easily.
-        public string? FhirServerUrl { get; set; }
+        public string? SmartFhirEndpoint { get; set; }
+
+        public string? BackendFhirUrl { get; set; }
 #pragma warning restore CA1056 // Needs to be string to parse from config easily.
 
         public string? AppInsightsConnectionString { get; set; }
@@ -19,8 +21,24 @@ namespace SMARTProxy.Configuration
 
         public string? Audience { get; set; }
 
+        public string? TestBackendClientId { get; set; }
+
+        public string? TestBackendClientSecret { get; set; }
+
+        public string? TestBackendClientJwks { get; set; }
+
         public void Validate()
         {
+            if (string.IsNullOrEmpty(SmartFhirEndpoint))
+            {
+                throw new ArgumentException("SmartFhirEndpoint must be configured for this application.");
+            }
+
+            if (string.IsNullOrEmpty(BackendFhirUrl))
+            {
+                throw new ArgumentException("BackendFhirUrl must be configured for this application.");
+            }
+
             if (string.IsNullOrEmpty(TenantId))
             {
                 throw new ArgumentException("TenantId must be configured for this application.");

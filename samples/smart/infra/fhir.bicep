@@ -2,6 +2,7 @@ param createWorkspace bool
 param createFhirService bool
 param workspaceName string
 param fhirServiceName string
+param exportStoreName string
 param tenantId string
 param location string
 param appTags object = {}
@@ -40,6 +41,17 @@ resource fhir 'Microsoft.HealthcareApis/workspaces/fhirservices@2021-06-01-previ
 
   tags: appTags
 }
+
+/*@description('FHIR Export required linked storage account')
+resource exportStorageAccount 'Microsoft.Storage/storageAccounts@2021-08-01' = {
+  name: exportStoreName
+  location: location
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  tags: appTags
+}*/
 
 resource fhirExisting 'Microsoft.HealthcareApis/workspaces/fhirservices@2021-06-01-preview' existing = if (!createFhirService) {
   name: '${newOrExistingWorkspaceName}/${fhirServiceName}'

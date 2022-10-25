@@ -11,20 +11,20 @@
     - Comments within policy elements are not supported and may disappear. Place your comments between policy elements or at a higher level scope.
 -->
 <policies>
-	<inbound>
-		<base />
-	</inbound>
-	<backend>
-		<base />
-	</backend>
-	<outbound>
-		<base />
-		<set-header name="Content-Type" exists-action="override">
-			<value>application/json</value>
-		</set-header>
-		<choose>
-			<when condition="@(context.Response.StatusCode == 200)">
-				<set-body>@{
+    <inbound>
+        <base />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <choose>
+            <when condition="@(context.Response.StatusCode == 200)">
+                <set-body>@{
                     // Get response body and flag the oauth URLs as SMART compatible
                     var responseBody = context.Response.Body.As<JObject>();
                     responseBody["rest"][0]["security"]["extension"][0]["url"] = "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris";
@@ -45,12 +45,23 @@
                     );
 
                     responseBody["rest"][0]["security"]["extension"][0]["extension"][1].AddAfterSelf(revoke);
+
+                    // Add bulk data
+                    string instantiatesJson = @"[
+                        'http://hl7.org/fhir/us/core/CapabilityStatement/us-core-server',
+                        'http://hl7.org/fhir/uv/bulkdata/CapabilityStatement/bulk-data'
+                    ]";
+                    responseBody["instantiates"] = JArray.Parse(instantiatesJson);
+
+                    var group = responseBody["rest"][0].SelectToken("$.resource[?(@.type=='Group')]");
+                    group["operation"] = JToken.Parse("[{'name':'export','definition':'http://hl7.org/fhir/uv/bulkdata/OperationDefinition/group-export'}]");
+
                     return responseBody.ToString();
                 }</set-body>
-			</when>
-		</choose>
-	</outbound>
-	<on-error>
-		<base />
-	</on-error>
+            </when>
+        </choose>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
 </policies>

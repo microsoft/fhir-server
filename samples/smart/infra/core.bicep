@@ -28,6 +28,9 @@ param location string = resourceGroup().location
 @description('ID of principals to give FHIR Contributor on the FHIR service')
 param fhirContributorPrincipals array = []
 
+@description('ID of principals to give KeyVault Writer access to')
+param keyVaultWriterPrincipals array = []
+
 @description('Any custom function app settings')
 param functionAppCustomSettings object = {}
 
@@ -39,6 +42,9 @@ var appTags = {
     AppID: 'fhir-smart-onc-g10-sample'
   }
 
+@description('Name for the storage account needed for the Function App')
+var exportStoreName = '${prefixNameCleanShort}expsa'
+
 @description('Deploy Azure Health Data Services and FHIR service')
 module fhir './fhir.bicep'= {
   name: 'fhirDeploy'
@@ -47,6 +53,7 @@ module fhir './fhir.bicep'= {
     createFhirService: createFhirService
     workspaceName: workspaceName
     fhirServiceName: fhirServiceName
+    exportStoreName: exportStoreName
     location: location
     tenantId: tenantId
     appTags: appTags
@@ -76,6 +83,8 @@ var functionAppName = '${prefixName}-func'
 @description('Name for the storage account needed for the Function App')
 var funcStorName = '${prefixNameCleanShort}funcsa'
 
+var fhirUrl = 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
+
 @description('Deploy Azure Function to run SDK custom operations')
 module function './azureFunction.bicep'= {
   name: 'functionDeploy'
@@ -87,10 +96,11 @@ module function './azureFunction.bicep'= {
     appInsightsInstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     functionSettings: union({
-      AZURE_FhirServerUrl: 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
+      AZURE_BackendFhirUrl: fhirUrl
+      AZURE_SmartFhirEndpoint: 'https://${apimName}.azure-api.net/smart'
       AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
       AZURE_TenantId: tenantId
-      Azure_Audience: smartAudience
+      Azure_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
     }, functionAppCustomSettings)
     appTags: appTags
   }
@@ -115,11 +125,13 @@ module specifiedIdentity './fhirIdentity.bicep' =  [for principalId in  fhirCont
   }
 }]
 
+var apimName = '${prefixName}-apim'
+
 @description('Deploy Azure API Management for the FHIR gateway')
 module apim './apiManagement.bicep'= {
   name: 'apiManagementDeploy'
   params: {
-    apiManagementServiceName: '${prefixName}-apim'
+    apiManagementServiceName: apimName
     publisherEmail: 'mikael.weaver@microsoft.com'
     publisherName: 'Mikael Weaver'
     location: location
@@ -129,7 +141,20 @@ module apim './apiManagement.bicep'= {
   }
 }
 
-output SmartFhirEndpoint string = apim.outputs.apimUrl
+var backendServiceVaultName = '${prefixName}-backkv'
+@description('KeyVault to hold backend service principal maps')
+module keyVault './keyVault.bicep' = {
+  name: 'vaultDeploy'
+  params: {
+    vaultName: backendServiceVaultName
+    location: location
+    tenantId: tenantId
+    writerObjectIds: keyVaultWriterPrincipals
+    readerObjectIds: [ function.outputs.functionAppPrincipalId ]
+  }
+}
+
+output SmartFhirEndpoint string = apim.outputs.apimSmartUrl
 output FhirServiceId string = fhir.outputs.fhirId
 output FhirServiceUrl string = 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
 output TenantId string = tenantId

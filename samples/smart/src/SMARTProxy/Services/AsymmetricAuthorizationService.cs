@@ -7,6 +7,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using SMARTProxy.Configuration;
+using SMARTProxy.Models;
 
 namespace SMARTProxy.Services
 {
@@ -15,15 +16,27 @@ namespace SMARTProxy.Services
         private SMARTProxyConfig _functionConfig;
         private IHttpClientFactory _httpClientFactory;
         private ILogger _logger;
+        private IClientConfigService _clientConfigService;
 
-        public AsymmetricAuthorizationService(SMARTProxyConfig functionConfig, IHttpClientFactory httpClientFactory, ILogger<AsymmetricAuthorizationService> logger)
+        public AsymmetricAuthorizationService(SMARTProxyConfig functionConfig, IHttpClientFactory httpClientFactory, ILogger<AsymmetricAuthorizationService> logger, IClientConfigService clientConfigService)
         {
             _httpClientFactory = httpClientFactory;
             _functionConfig = functionConfig;
             _logger = logger;
+            _clientConfigService = clientConfigService;
         }
 
-        public async Task<JsonWebKeySet> FetchJwks(ClientConfiguration clientConfig)
+        public async Task<BackendClientConfiguration> AuthenticateBackendAsyncClient(ClientConfidentialAsyncTokenContext castTokenContext)
+        {
+            var clientConfig = await _clientConfigService.FetchBackendClientConfiguration(_functionConfig, castTokenContext.ClientId);
+
+            var jwks = await FetchJwks(clientConfig);
+            ValidateToken(clientConfig, jwks, castTokenContext.ClientAssertion);
+
+            return clientConfig;
+        }
+
+        public async Task<JsonWebKeySet> FetchJwks(BackendClientConfiguration clientConfig)
         {
 #pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
             var client = _httpClientFactory.CreateClient();
@@ -63,15 +76,19 @@ namespace SMARTProxy.Services
             }
         }
 
-        public JwtSecurityToken ValidateToken(ClientConfiguration clientConfig, JsonWebKeySet jwks, string token)
+        public JwtSecurityToken ValidateToken(BackendClientConfiguration clientConfig, JsonWebKeySet jwks, string token)
         {
             var signingKeys = jwks.GetSigningKeys();
 
             var validationParameters = new TokenValidationParameters()
             {
                 ValidateAudience = true,
-                ValidAudience = $"{_functionConfig.FhirServerUrl}/token",
+
+                // This MUST be set to the token endpoint per the SMART IG
+                ValidAudience = $"{_functionConfig.SmartFhirEndpoint}/token",
                 ValidateLifetime = true,
+
+                // This MUST be the to the client id
                 ValidIssuers = new List<string> { clientConfig.ClientId },
                 IssuerSigningKeys = signingKeys,
                 RequireSignedTokens = true,

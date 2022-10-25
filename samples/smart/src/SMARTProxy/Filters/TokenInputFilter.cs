@@ -89,19 +89,18 @@ namespace SMARTProxy.Filters
                 var castTokenContext = (ClientConfidentialAsyncTokenContext)tokenContext;
 
                 // Check client id to see if it exists. Get JWKS.
-                var clientConfig = ClientConfiguratinService.FetchClientConfiguration(string.Empty);
+                BackendClientConfiguration? clientConfig = null;
 
                 // Fetch the jwks for this client and validate
 
                 try
                 {
-                    var jwks = await _asymmetricAuthorizationService.FetchJwks(clientConfig);
-                    _asymmetricAuthorizationService.ValidateToken(clientConfig, jwks, castTokenContext.ClientAssertion);
+                    clientConfig = await _asymmetricAuthorizationService.AuthenticateBackendAsyncClient(castTokenContext);
                 }
                 catch (HttpRequestException ex)
                 {
                     context.IsFatal = true;
-                    context.ContentString = new PipelineError("JWKS url not responding.", $"JWKS url {clientConfig.JwksUri} is not responding. Please check the client configuration.", DateTime.Now, _id).ToContentString();
+                    context.ContentString = new PipelineError("JWKS url not responding.", $"JWKS url {clientConfig?.JwksUri.ToString()} is not responding. Please check the client configuration.", DateTime.Now, _id).ToContentString();
                     context.StatusCode = HttpStatusCode.BadRequest;
                     _logger.LogError(ex, "JWT Assertion Invalid. {TokenContext}. {Content}.", castTokenContext.ToLogString(), context.ContentString);
                     return context;

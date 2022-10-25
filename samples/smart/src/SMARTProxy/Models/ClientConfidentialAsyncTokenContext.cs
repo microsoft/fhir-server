@@ -4,12 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Specialized;
+using System.IdentityModel.Tokens.Jwt;
 using SMARTProxy.Services;
 
 namespace SMARTProxy.Models
 {
     public class ClientConfidentialAsyncTokenContext : TokenContext
     {
+        private static JwtSecurityTokenHandler _handler = new JwtSecurityTokenHandler();
+
         /// <summary>
         /// Creates a RefreshTokenContext from the NameValueCollection from the HTTP request body.
         /// </summary>
@@ -40,6 +43,8 @@ namespace SMARTProxy.Models
 
         public string ClientAssertion { get; }
 
+        public string ClientId => _handler.ReadJwtToken(ClientAssertion).Subject;
+
         public override FormUrlEncodedContent ToFormUrlEncodedContent()
         {
             throw new InvalidOperationException("ClientConfidentialAsync cannot be encoded to Form URL Content since this flow does not interact with Azure Active Directory.");
@@ -56,7 +61,7 @@ namespace SMARTProxy.Models
             }
         }
 
-        public FormUrlEncodedContent ConvertToClientCredentialsFormUrlEncodedContent(ClientConfiguration client)
+        public FormUrlEncodedContent ConvertToClientCredentialsFormUrlEncodedContent(BackendClientConfiguration client)
         {
             List<KeyValuePair<string, string>> formValues = new();
 
