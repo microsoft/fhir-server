@@ -61,8 +61,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected override void Run()
         {
+            _logger.LogInformation("Run starting...");
             if (_schemaInformation.Current < SchemaVersionConstants.Defrag || !IsEnabled())
             {
+                _logger.LogInformation($"Current schema = {_schemaInformation.Current} required schema = {SchemaVersionConstants.Defrag} or defrag is not enabled. Existing...");
                 return;
             }
 
@@ -71,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 var id = GetCoordinatorJob();
                 if (id.jobId == -1)
                 {
+                    _logger.LogInformation("Cannot get coordinator job. Existing...");
                     return;
                 }
 
@@ -92,6 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         Task.WaitAll(tasks.ToArray());
 
                         ChangeDatabaseSettings(true);
+                        _logger.LogInformation("Defrag execution completed.");
                     }
                     catch (Exception e)
                     {
@@ -103,6 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 id.version);
 
                 CompleteJob(id.jobId, id.version, false);
+                _logger.LogInformation("Defrag coordinator job completed.");
             }
             catch (Exception e)
             {
@@ -179,11 +184,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private void InitDefrag(long groupId)
         {
+            _logger.LogInformation("InitDefrag starting...");
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
             using var cmd = conn.CreateRetrySqlCommand();
             VLatest.InitDefrag.PopulateCommand(cmd, _queueType, groupId);
             cmd.CommandTimeout = 0; // this is long running
             cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+            _logger.LogInformation("InitDefrag completed.");
         }
 
         private (long groupId, long jobId, long version) GetCoordinatorJob()
