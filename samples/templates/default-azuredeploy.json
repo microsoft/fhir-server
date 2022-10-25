@@ -151,6 +151,13 @@
                 "description": "Name of Sql Server (existing or new). If empty, a name will be generated."
             }
         },
+        "sqlServerNewOrExisting": {
+            "type": "string",
+            "defaultValue": "new",
+            "metadata": {
+                "description": "Determines whether or not a new SqlServer should be provisioned."
+            }
+        },
         "sqlAdminPassword": {
             "type": "securestring",
             "defaultValue": "",
@@ -167,7 +174,7 @@
         },
         "sqlSchemaAutomaticUpdatesEnabled": {
             "type": "string",
-            "allowedValues":["auto", "tool"],
+            "allowedValues": [ "auto", "tool" ],
             "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'tool', '')]",
             "metadata": {
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If set to 'tool', sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If set to 'auto', sql schema will be upgraded to the maximum supported version."
@@ -392,8 +399,7 @@
             }
         },
         {
-            //"condition": "[and(bool(equals(parameters('solutionType'),'FhirServerSqlServer')), bool(empty(parameters('sqlServerName'))))]",
-            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
+            "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'),equals(parameters('sqlServerNewOrExisting'), 'new'))]",
             "name": "[variables('sqlServerDerivedName')]",
             "type": "Microsoft.Sql/servers",
             "apiVersion": "2015-05-01-preview",

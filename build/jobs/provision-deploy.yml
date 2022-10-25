@@ -89,6 +89,7 @@ jobs:
             $templateParameters["solutionType"] = "FhirServerSqlServer"
             $templateParameters["sqlAdminPassword"] = "${{parameters.sqlServerAdminPassword}}"
             $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}"
+            $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
 

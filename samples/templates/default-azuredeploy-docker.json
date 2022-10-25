@@ -144,6 +144,13 @@
                 "description": "Name of Sql Server (existing or new). If empty, a name will be generated."
             }
         },
+        "sqlServerNewOrExisting": {
+            "type": "string",
+            "defaultValue": "new",
+            "metadata": {
+                "description": "Determines whether or not a new SqlServer should be provisioned."
+            }
+        },
         "sqlAdminPassword": {
             "type": "securestring",
             "defaultValue": "",
@@ -399,7 +406,7 @@
             }
         },
         {
-            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
+            "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'),equals(parameters('sqlServerNewOrExisting'), 'new'))]",
             "name": "[variables('sqlServerDerivedName')]",
             "type": "Microsoft.Sql/servers",
             "apiVersion": "2015-05-01-preview",
