@@ -17,6 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _isUSCoreEnabled = isUSCoreEnabled;
         }
 
+        public static SearchResultFilter CreateDefault()
+        {
+            return new SearchResultFilter(isUSCoreEnabled: false);
+        }
+
         public SearchResult Filter(bool isSmartRequest, SearchResult searchResult)
         {
             EnsureArg.IsNotNull(searchResult);

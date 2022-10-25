@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 {
@@ -47,7 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
             {
                 if (_requiredStatusElementsByResourceType.TryGetValue(resultEntry.Resource.ResourceTypeName, out string requiredStatusElementName))
                 {
-                    continue;
+                    if (!DoesResourceContainStatusElement(resultEntry.Resource, requiredStatusElementName))
+                    {
+                        // Resource does not contain the required status code.
+                        continue;
+                    }
                 }
             }
 
@@ -61,7 +66,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 
             if (resourceWrapper.RawResource.Format == Models.FhirResourceFormat.Json)
             {
-
+                JObject jsonResource = JObject.Parse(resourceWrapper.RawResource.Data);
+                if (jsonResource.ContainsKey(requiredStatusElementName))
+                {
+                    return true;
+                }
             }
 
             // FERNFE: Should we check the same for records in XML format?

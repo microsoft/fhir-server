@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchResult searchResult = await _searchService.SearchCompartmentAsync(request.CompartmentType, request.CompartmentId, request.ResourceType, request.Queries, cancellationToken);
 
             // FERNFE: Adding filtering on top of the data.
+            // Move this interface and a constructor dependency.
             ISearchResultFilter searchResultFilter = new SearchResultFilter(isUSCoreEnabled: true);
             searchResult = searchResultFilter.Filter(isSmartRequest: true, searchResult: searchResult);
 

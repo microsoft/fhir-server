@@ -5,8 +5,8 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public class ISearchResultFilter
+    public interface ISearchResultFilter
     {
-        SearchResult Filter(SearchResult searchResult);
+        SearchResult Filter(bool isSmartRequest, SearchResult searchResult);
     }
 }

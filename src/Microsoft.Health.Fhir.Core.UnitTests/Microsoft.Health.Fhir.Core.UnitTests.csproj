@@ -23,4 +23,7 @@
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Features\Search\Filters\" />
+  </ItemGroup>
 </Project>
