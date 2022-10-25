@@ -231,6 +231,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
 
+INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
+INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 10
+INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2
+INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 20
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01
+
                         INSERT INTO dbo.ResourceType (Name)
                         SELECT value FROM string_split(@resourceTypes, ',')
                         EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX);
@@ -266,7 +274,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SELECT Value, SystemId from dbo.System;
 
                         -- result set 6
-                        SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
+                        SELECT Value, QuantityCodeId FROM dbo.QuantityCode
+                          ";
+
+                sqlCommandWrapper.Parameters.AddWithValue("@IsEnabledId", Watchdogs.DefragWatchdog.IsEnabledId);
+                sqlCommandWrapper.Parameters.AddWithValue("@ThreadsId", Watchdogs.DefragWatchdog.ThreadsId);
+                sqlCommandWrapper.Parameters.AddWithValue("@PeriodSecId", Watchdogs.DefragWatchdog.PeriodSecId);
+                sqlCommandWrapper.Parameters.AddWithValue("@HeartbeatPeriodSecId", Watchdogs.DefragWatchdog.HeartbeatPeriodSecId);
+                sqlCommandWrapper.Parameters.AddWithValue("@HeartbeatTimeoutSecId", Watchdogs.DefragWatchdog.HeartbeatTimeoutSecId);
 
                 string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url }));
                 string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
