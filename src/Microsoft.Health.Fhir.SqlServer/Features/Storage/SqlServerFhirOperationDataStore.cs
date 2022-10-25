@@ -77,11 +77,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
-            using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             if (!long.TryParse(id, out var jobId))
             {
                 // Invoke old logic. Must be eventually removed.
+                using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+
                 VLatest.GetExportJobById.PopulateCommand(sqlCommandWrapper, id);
                 using var readerToBeDeprecated = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
                 if (!await readerToBeDeprecated.ReadAsync(cancellationToken))
@@ -98,20 +99,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
             }
 
-            VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, (byte)QueueType.Export, jobId, null, null, true);
-            using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-            if (!await reader.ReadAsync(cancellationToken))
+            var jobInfo = await _queueClient.GetJobByIdAsync((byte)QueueType.Export, jobId, true, cancellationToken);
+
+            if (jobInfo == null)
             {
                 throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
             }
 
-            var def = reader.GetString(VLatest.JobQueue.Definition);
-            var version = reader.GetInt64(VLatest.JobQueue.Version);
-            var status = reader.GetByte(VLatest.JobQueue.Status);
-            var result = reader.IsDBNull(VLatest.JobQueue.Result) ? null : reader.GetString(VLatest.JobQueue.Result);
-            var createDate = reader.GetDateTime(VLatest.JobQueue.CreateDate);
+            var def = jobInfo.Definition;
+            var result = jobInfo.Result;
             var rawJobRecord = result ?? def;
-            return CreateExportJobOutcome(jobId, rawJobRecord, version, status, createDate);
+            return CreateExportJobOutcome(jobId, rawJobRecord, jobInfo.Version, (byte)jobInfo.Status, jobInfo.CreateDate);
         }
 
         public async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
@@ -130,19 +128,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var jobInfo = JobInfoFromJobRecord(jobRecord, version);
-            if (jobRecord.Status == OperationStatus.Running)
+            try
             {
-                jobInfo.Data = null;
-                await _queueClient.KeepAliveJobAsync(jobInfo, cancellationToken);
+                if (jobRecord.Status == OperationStatus.Running)
+                {
+                    jobInfo.Data = null;
+                    await _queueClient.KeepAliveJobAsync(jobInfo, cancellationToken);
+                }
+                else if (jobRecord.Status == OperationStatus.Canceled)
+                {
+                    await _queueClient.CancelJobByIdAsync((byte)QueueType.Export, jobId, cancellationToken);
+                }
+                else
+                {
+                    jobInfo.Data = -1;
+                    await _queueClient.CompleteJobAsync(jobInfo, true, cancellationToken);
+                }
             }
-            else if (jobRecord.Status == OperationStatus.Canceled)
+            catch (JobNotExistException ex)
             {
-                await _queueClient.CancelJobByIdAsync((byte)QueueType.Export, jobId, cancellationToken);
-            }
-            else
-            {
-                jobInfo.Data = -1;
-                await _queueClient.CompleteJobAsync(jobInfo, true, cancellationToken);
+                throw new JobNotFoundException(ex.Message);
             }
 
             return new ExportJobOutcome(jobRecord, eTag);
