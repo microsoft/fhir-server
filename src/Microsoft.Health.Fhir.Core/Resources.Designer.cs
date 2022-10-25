@@ -690,7 +690,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("InvalidSecurityConfigurationBaseEndpoint", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
@@ -1347,7 +1347,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("SecurityConfigurationAuthorizationNotEnabled", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to FHIR Server for Azure.
         /// </summary>
@@ -1489,6 +1489,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UpdateRequestsRequireId {
             get {
                 return ResourceManager.GetString("UpdateRequestsRequireId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error deserializing record for validation: {0}.
+        /// </summary>
+        internal static string USCoreDeserializationError {
+            get {
+                return ResourceManager.GetString("USCoreDeserializationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Status code is missing..
+        /// </summary>
+        internal static string USCoreMissingDataRequirement {
+            get {
+                return ResourceManager.GetString("USCoreMissingDataRequirement", resourceCulture);
             }
         }
         

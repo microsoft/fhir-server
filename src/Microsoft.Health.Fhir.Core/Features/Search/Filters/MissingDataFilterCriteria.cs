@@ -4,8 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
@@ -39,27 +42,57 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
         {
             EnsureArg.IsNotNull(searchResult);
 
-            if (!_isCriteriaEnabled || !_isSmartRequest)
+            if (!_isCriteriaEnabled || !_isSmartRequest || !searchResult.Results.Any())
             {
                 return searchResult;
             }
 
+            List<SearchResultEntry> finalResults = new List<SearchResultEntry>();
+            List<OperationOutcomeIssue> searchIssues = new List<OperationOutcomeIssue>();
+
             foreach (SearchResultEntry resultEntry in searchResult.Results)
             {
-                if (_requiredStatusElementsByResourceType.TryGetValue(resultEntry.Resource.ResourceTypeName, out string requiredStatusElementName))
+                if (IsRecordFromEligibleResourceType(resultEntry.Resource.ResourceTypeName, out string requiredStatusElementName))
                 {
-                    if (!DoesResourceContainStatusElement(resultEntry.Resource, requiredStatusElementName))
+                    try
                     {
-                        // Resource does not contain the required status code.
+                        if (!ContainStatusElement(resultEntry.Resource, requiredStatusElementName))
+                        {
+                            // Resource does not contain the required status code.
+                            searchIssues.Add(
+                                new OperationOutcomeIssue(
+                                    OperationOutcomeConstants.IssueSeverity.Error,
+                                    OperationOutcomeConstants.IssueType.NotFound,
+                                    Core.Resources.USCoreMissingDataRequirement));
+                            continue;
+                        }
+                    }
+                    catch (JsonReaderException jre)
+                    {
+                        searchIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Error,
+                                OperationOutcomeConstants.IssueType.Incomplete,
+                                string.Format(Core.Resources.USCoreDeserializationError, jre.Message)));
                         continue;
                     }
                 }
+
+                finalResults.Add(resultEntry);
             }
 
-            return searchResult;
+            // Add new data type to handle outcomes.
+            return new SearchResult(
+                searchResult.Results,
+                searchResult.ContinuationToken,
+                searchResult.SortOrder,
+                searchResult.UnsupportedSearchParameters);
         }
 
-        private static bool DoesResourceContainStatusElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
+        private static bool IsRecordFromEligibleResourceType(string resourceTypeName, out string requiredStatusElementName) =>
+            _requiredStatusElementsByResourceType.TryGetValue(resourceTypeName, out requiredStatusElementName);
+
+        private static bool ContainStatusElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
         {
             EnsureArg.IsNotNull(resourceWrapper);
             EnsureArg.IsNotEmptyOrWhiteSpace(requiredStatusElementName);
@@ -70,6 +103,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                 if (jsonResource.ContainsKey(requiredStatusElementName))
                 {
                     return true;
+                }
+                else
+                {
+                    return false;
                 }
             }
 

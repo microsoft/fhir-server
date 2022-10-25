@@ -661,4 +661,12 @@
   <data name="SqlQueryProcessorRanOutOfInternalResourcesException" xml:space="preserve">
     <value>The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry.</value>
   </data>
+  <data name="USCoreDeserializationError" xml:space="preserve">
+    <value>Error deserializing record for validation: {0}</value>
+    <comment>The record caused a failure while deserializing for validation.</comment>
+  </data>
+  <data name="USCoreMissingDataRequirement" xml:space="preserve">
+    <value>Status code is missing.</value>
+    <comment>The record does not contain the expected status code following US Core requirements.</comment>
+  </data>
 </root>

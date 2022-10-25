@@ -174,6 +174,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 });
             }
 
+            if (result.SearchIssues.Any())
+            {
+                // FERNFE - Should I create one operation outcome for each record not matching? Or should I continue doing similar to the BundleIssues?
+                var operationOutcome = new OperationOutcome
+                {
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
+                    Issue = new List<OperationOutcome.IssueComponent>(result.SearchIssues.Select(x => x.ToPoco())),
+                };
+
+                bundle.Entry.Add(new Bundle.EntryComponent
+                {
+                    Resource = operationOutcome,
+                    Search = new Bundle.SearchComponent
+                    {
+                        Mode = Bundle.SearchEntryMode.Outcome,
+                    },
+                });
+            }
+
             IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(selectionFunction);
 
             bundle.Entry.AddRange(entries);
