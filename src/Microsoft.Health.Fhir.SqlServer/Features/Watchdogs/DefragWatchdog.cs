@@ -116,6 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
                     if (id.jobId == -1)
                     {
+                        _logger.LogInformation("Coordinator job was not found.");
                         continue;
                     }
 
@@ -126,8 +127,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         {
                             try
                             {
-                                _logger.LogInformation("ExecWithHeartbeatAsync on Group: {GroupId}", id.groupId);
-
                                 await InitDefragAsync(id.groupId, cancellationSource);
                                 await ChangeDatabaseSettings(false, cancellationSource);
 
@@ -156,11 +155,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, "DefragWorker failed");
+                    _logger.LogError(e, "DefragWorker failed.");
                 }
             }
 
-            _logger.LogInformation("DefragWorker stopped");
+            _logger.LogInformation("DefragWorker stopped.");
         }
 
         private async Task ChangeDatabaseSettings(bool isOn, CancellationToken cancellationToken)
@@ -170,6 +169,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
             VLatest.DefragChangeDatabaseSettings.PopulateCommand(cmd, isOn);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+            _logger.LogInformation("ChangeDatabaseSettings: {IsOn}.", isOn);
         }
 
         private async Task ExecDefrag(CancellationToken cancellationToken)
@@ -204,19 +205,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             EnsureArg.IsNotNullOrWhiteSpace(table, nameof(table));
             EnsureArg.IsNotNullOrWhiteSpace(index, nameof(index));
 
-            using (_logger.BeginScope("Defrag {Table} {Index} {PartitionNumber}", table, index, partitionNumber))
-            {
-                _logger.LogInformation("Beginning defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
+            _logger.LogInformation("Beginning defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
 
-                using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-                using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
-                using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-                VLatest.Defrag.PopulateCommand(cmd, table, index, partitionNumber, isPartitioned);
-                cmd.CommandTimeout = 0; // this is long running
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
+            VLatest.Defrag.PopulateCommand(cmd, table, index, partitionNumber, isPartitioned);
+            cmd.CommandTimeout = 0; // this is long running
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
 
-                _logger.LogInformation("Finished defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
-            }
+            _logger.LogInformation("Finished defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
         }
 
         private async Task CompleteJob(long jobId, long version, bool failed, CancellationToken cancellationToken)
@@ -273,11 +271,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             while (!cancellationToken.IsCancellationRequested)
             {
                 await timer.WaitForNextTickAsync(cancellationToken);
-                await PutJobHeartbeatAsync(jobId, version, cancellationToken);
+                await UpdateJobHeartbeatAsync(jobId, version, cancellationToken);
             }
         }
 
-        private async Task PutJobHeartbeatAsync(long jobId, long version, CancellationToken cancellationToken)
+        private async Task UpdateJobHeartbeatAsync(long jobId, long version, CancellationToken cancellationToken)
         {
             using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
             var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version };
@@ -424,6 +422,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             // No CancellationToken is passed since we shouldn't cancel initialization.
 
+            _logger.LogInformation("InitParams starting...");
+
             // Offset for other instances running init
             await Task.Delay(RandomDelay(), CancellationToken.None);
 
@@ -449,6 +449,8 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
             cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
 
             await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+
+            _logger.LogInformation("InitParams completed.");
         }
 
         private static TimeSpan RandomDelay()
