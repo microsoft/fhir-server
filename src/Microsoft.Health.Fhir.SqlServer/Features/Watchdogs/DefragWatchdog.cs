@@ -25,7 +25,7 @@ using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public sealed class DefragWorker : IDisposable, INotificationHandler<StorageInitializedNotification>
+    public sealed class DefragWatchdog : INotificationHandler<StorageInitializedNotification>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private const string PeriodHourId = "Defrag.Period.Hours";
@@ -42,16 +42,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
         private readonly SchemaInformation _schemaInformation;
         private readonly Func<IScoped<SqlQueueClient>> _sqlQueueClient;
-        private readonly ILogger<DefragWorker> _logger;
+        private readonly ILogger<DefragWatchdog> _logger;
 
-        private PeriodicTimer _periodicTimer;
+        private TimeSpan _timerDelay;
         private bool _storageReady;
 
-        public DefragWorker(
+        public DefragWatchdog(
             Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             Func<IScoped<SqlQueueClient>> sqlQueueClient,
-            ILogger<DefragWorker> logger)
+            ILogger<DefragWatchdog> logger)
         {
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
@@ -59,10 +59,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        internal void ChangeDelay(TimeSpan newTimerDelay)
+        {
+            _timerDelay = newTimerDelay;
+        }
+
+        public async Task Initialize(CancellationToken cancellationToken)
         {
             if (!_storageReady || _schemaInformation.Current < SchemaVersionConstants.Defrag)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
             }
 
@@ -72,17 +78,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _heartbeatPeriodSec = await GetHeartbeatPeriod(cancellationToken);
             _heartbeatTimeoutSec = await GetHeartbeatTimeout(cancellationToken);
             _periodHour = await GetPeriod(cancellationToken);
-            _periodicTimer = new PeriodicTimer(TimeSpan.FromHours(_periodHour));
+
+            _timerDelay = TimeSpan.FromHours(_periodHour);
+        }
+
+        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        {
             bool initialRun = true;
 
             while (!cancellationToken.IsCancellationRequested)
             {
                 if (!initialRun)
                 {
-                    await _periodicTimer.WaitForNextTickAsync(cancellationToken);
+                    await Task.Delay(_timerDelay, cancellationToken);
                 }
 
                 initialRun = false;
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    continue;
+                }
 
                 if (!await IsEnabled(cancellationToken))
                 {
@@ -93,18 +109,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 try
                 {
                     (long groupId, long jobId, long version) id = await GetCoordinatorJob(cancellationToken);
+
                     if (id.jobId == -1)
                     {
                         continue;
                     }
 
-                    _logger.LogInformation("DefragWorker found {JobId}, executing.", id.jobId);
+                    _logger.LogInformation("DefragWorker found JobId: {JobId}, executing.", id.jobId);
 
                     await ExecWithHeartbeatAsync(
                         async cancellationSource =>
                         {
                             try
                             {
+                                _logger.LogInformation("ExecWithHeartbeatAsync on Group: {GroupId}", id.groupId);
+
                                 await InitDefragAsync(id.groupId, cancellationSource);
                                 await ChangeDatabaseSettings(false, cancellationSource);
 
@@ -116,6 +135,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
                                 await Task.WhenAll(tasks);
                                 await ChangeDatabaseSettings(true, cancellationSource);
+
+                                _logger.LogInformation("All {ParallelTasks} tasks complete for Group: {GroupId}.", tasks.Count, id.groupId);
                             }
                             catch (Exception e)
                             {
@@ -134,6 +155,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     _logger.LogError(e, "DefragWorker failed");
                 }
             }
+
+            _logger.LogInformation("DefragWorker stopped");
         }
 
         private async Task ChangeDatabaseSettings(bool isOn, CancellationToken cancellationToken)
@@ -150,7 +173,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             var jobId = -2L;
             while (true)
             {
-                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId, cancellationToken);
+                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId: null, cancellationToken);
 
                 jobId = job.jobId;
 
@@ -178,12 +201,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             EnsureArg.IsNotNullOrWhiteSpace(table, nameof(table));
             EnsureArg.IsNotNullOrWhiteSpace(index, nameof(index));
 
-            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            VLatest.Defrag.PopulateCommand(cmd, table, index, partitionNumber, isPartitioned);
-            cmd.CommandTimeout = 0; // this is long running
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
+            using (_logger.BeginScope("Defrag {Table} {Index} {PartitionNumber}", table, index, partitionNumber))
+            {
+                _logger.LogInformation("Beginning defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
+
+                using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+                using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
+                VLatest.Defrag.PopulateCommand(cmd, table, index, partitionNumber, isPartitioned);
+                cmd.CommandTimeout = 0; // this is long running
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+                _logger.LogInformation("Finished defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
+            }
         }
 
         private async Task CompleteJob(long jobId, long version, bool failed, CancellationToken cancellationToken)
@@ -191,6 +221,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
             var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version, Status = failed ? JobStatus.Failed : JobStatus.Completed };
             await scopedQueueClient.Value.CompleteJobAsync(jobInfo, false, cancellationToken);
+
+            _logger.LogInformation("Completed JobId: {JobId}, Version: {Version}, Failed: {Failed}", jobId, version, failed);
         }
 
         private async Task ExecWithHeartbeatAsync(Func<CancellationToken, Task> action, long jobId, long version, CancellationToken cancellationToken)
@@ -201,15 +233,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_heartbeatPeriodSec));
 
             CancellationToken timerToken = tokenSource.Token;
+
             Task heartBeatTask = HeartbeatLoop(jobId, version, timer, timerToken);
-            Task actionTask = action.Invoke(timerToken);
+            Task<Task> actionTask = action.Invoke(timerToken).ContinueWith(
+                _ =>
+                {
+                    tokenSource.Cancel();
+                    return Task.CompletedTask;
+                },
+                TaskScheduler.Current);
 
-            await Task.WhenAny(actionTask, heartBeatTask);
-
-            if (!timerToken.IsCancellationRequested && timerToken.CanBeCanceled)
+            try
             {
-                tokenSource.Cancel(false);
-                await heartBeatTask;
+                await Task.WhenAll(actionTask, heartBeatTask);
+            }
+            catch (OperationCanceledException) when (tokenSource.IsCancellationRequested)
+            {
+                // ending heartbeat loop
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExecWithHeartbeatAsync failed.");
+                throw;
             }
 
             if (!actionTask.IsCompleted)
@@ -411,11 +456,6 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
         {
             _storageReady = true;
             return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            _periodicTimer?.Dispose();
         }
     }
 }

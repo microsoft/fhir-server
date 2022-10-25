@@ -24,9 +24,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlQueueClient : IQueueClient
     {
-        private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private SchemaInformation _schemaInformation;
-        private ILogger<SqlQueueClient> _logger;
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly SchemaInformation _schemaInformation;
+        private readonly ILogger<SqlQueueClient> _logger;
 
         public SqlQueueClient(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommandWrapper.Parameters.AddWithValue("@InputJobId", jobId.Value);
                 }
 
-                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
                 JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
                 if (jobInfo != null)
                 {
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, queueType, definitions.Select(d => new StringListRow(d)), groupId, forceOneActiveJobGroup, isCompleted);
                 try
                 {
-                    using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                    await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                     return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
                 }
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
                 VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, null, null, groupId, returnDefinition);
-                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                 return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
             }
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
                 VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, jobId, null, null, returnDefinition);
-                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                 return await sqlDataReader.ReadJobInfoAsync(cancellationToken);
             }
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
                 VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, null, jobIds.Select(i => new BigintListRow(i)), null, returnDefinition);
-                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                 return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
             }

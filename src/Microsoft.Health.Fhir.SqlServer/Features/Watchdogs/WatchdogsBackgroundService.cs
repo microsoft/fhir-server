@@ -12,16 +12,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     public class WatchdogsBackgroundService : BackgroundService
     {
-        private readonly DefragWorker _defragWorker;
+        private readonly DefragWatchdog _defragWatchdog;
 
-        public WatchdogsBackgroundService(DefragWorker defragWorker)
+        public WatchdogsBackgroundService(DefragWatchdog defragWatchdog)
         {
-            _defragWorker = EnsureArg.IsNotNull(defragWorker, nameof(defragWorker));
+            _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await _defragWorker.ExecuteAsync(stoppingToken);
+            await _defragWatchdog.Initialize(stoppingToken);
+            await _defragWatchdog.ExecuteAsync(stoppingToken);
         }
     }
 }
