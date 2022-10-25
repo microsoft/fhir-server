@@ -25,7 +25,7 @@ using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public sealed class DefragWorker : IDisposable, INotificationHandler<StorageInitializedNotification>
+    public sealed class DefragWatchdog : INotificationHandler<StorageInitializedNotification>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private const string PeriodHourId = "Defrag.Period.Hours";
@@ -42,16 +42,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
         private readonly SchemaInformation _schemaInformation;
         private readonly Func<IScoped<SqlQueueClient>> _sqlQueueClient;
-        private readonly ILogger<DefragWorker> _logger;
+        private readonly ILogger<DefragWatchdog> _logger;
 
-        private PeriodicTimer _periodicTimer;
+        private TimeSpan _timerDelay;
         private bool _storageReady;
 
-        public DefragWorker(
+        public DefragWatchdog(
             Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             Func<IScoped<SqlQueueClient>> sqlQueueClient,
-            ILogger<DefragWorker> logger)
+            ILogger<DefragWatchdog> logger)
         {
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
@@ -59,10 +59,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        internal void ChangeDelay(TimeSpan newTimerDelay)
+        {
+            _timerDelay = newTimerDelay;
+        }
+
+        public async Task Initialize(CancellationToken cancellationToken)
         {
             if (!_storageReady || _schemaInformation.Current < SchemaVersionConstants.Defrag)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
             }
 
@@ -72,14 +78,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _heartbeatPeriodSec = await GetHeartbeatPeriod(cancellationToken);
             _heartbeatTimeoutSec = await GetHeartbeatTimeout(cancellationToken);
             _periodHour = await GetPeriod(cancellationToken);
-            _periodicTimer = new PeriodicTimer(TimeSpan.FromHours(_periodHour));
+
+            _timerDelay = TimeSpan.FromHours(_periodHour);
+        }
+
+        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        {
             bool initialRun = true;
 
             while (!cancellationToken.IsCancellationRequested)
             {
                 if (!initialRun)
                 {
-                    await _periodicTimer.WaitForNextTickAsync(cancellationToken);
+                    await Task.Delay(_timerDelay, cancellationToken);
                 }
 
                 initialRun = false;
@@ -109,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                                 await ChangeDatabaseSettings(false, cancellationSource);
 
                                 var tasks = new List<Task>();
-                                for (var thread = 0; thread < _threads; thread++)
+                                for (var thread = 0; thread < 1; thread++)
                                 {
                                     tasks.Add(ExecDefrag(cancellationSource));
                                 }
@@ -134,6 +145,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     _logger.LogError(e, "DefragWorker failed");
                 }
             }
+
+            _logger.LogInformation("DefragWorker stopped");
         }
 
         private async Task ChangeDatabaseSettings(bool isOn, CancellationToken cancellationToken)
@@ -150,7 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             var jobId = -2L;
             while (true)
             {
-                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId, cancellationToken);
+                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId: null, cancellationToken);
 
                 jobId = job.jobId;
 
@@ -201,15 +214,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_heartbeatPeriodSec));
 
             CancellationToken timerToken = tokenSource.Token;
+
             Task heartBeatTask = HeartbeatLoop(jobId, version, timer, timerToken);
-            Task actionTask = action.Invoke(timerToken);
+            Task<Task> actionTask = action.Invoke(timerToken).ContinueWith(
+                _ =>
+                {
+                    tokenSource.Cancel();
+                    return Task.CompletedTask;
+                },
+                TaskScheduler.Current);
 
-            await Task.WhenAny(actionTask, heartBeatTask);
-
-            if (!timerToken.IsCancellationRequested && timerToken.CanBeCanceled)
+            try
             {
-                tokenSource.Cancel(false);
-                await heartBeatTask;
+                await Task.WhenAll(actionTask, heartBeatTask);
+            }
+            catch (OperationCanceledException)
+            {
+                // ending heartbeat loop
             }
 
             if (!actionTask.IsCompleted)
@@ -411,11 +432,6 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
         {
             _storageReady = true;
             return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            _periodicTimer?.Dispose();
         }
     }
 }

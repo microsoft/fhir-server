@@ -235,7 +235,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<DefragWorker>()
+            services.Add<DefragWatchdog>()
                 .Singleton()
                 .AsSelf()
                 .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
