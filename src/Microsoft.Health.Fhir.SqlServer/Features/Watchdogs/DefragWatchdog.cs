@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -21,7 +22,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
-using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
@@ -91,6 +91,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 if (!initialRun)
                 {
                     await Task.Delay(_timerDelay, cancellationToken);
+                }
+                else
+                {
+                    await Task.Delay(RandomDelay(), cancellationToken);
                 }
 
                 initialRun = false;
@@ -162,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private async Task ChangeDatabaseSettings(bool isOn, CancellationToken cancellationToken)
         {
             using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
             using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
             VLatest.DefragChangeDatabaseSettings.PopulateCommand(cmd, isOn);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
@@ -170,12 +174,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task ExecDefrag(CancellationToken cancellationToken)
         {
-            var jobId = -2L;
             while (true)
             {
                 (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId: null, cancellationToken);
 
-                jobId = job.jobId;
+                long jobId = job.jobId;
 
                 if (jobId == -1)
                 {
@@ -206,7 +209,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _logger.LogInformation("Beginning defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
 
                 using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-                using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
                 using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
                 VLatest.Defrag.PopulateCommand(cmd, table, index, partitionNumber, isPartitioned);
                 cmd.CommandTimeout = 0; // this is long running
@@ -284,7 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private async Task InitDefragAsync(long groupId, CancellationToken cancellationToken)
         {
             using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
             using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
             VLatest.InitDefrag.PopulateCommand(cmd, QueueType, groupId);
             cmd.CommandTimeout = 0; // this is long running
@@ -346,7 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private async Task<(long groupId, long jobId, long version)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
         {
             using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
             using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
 
             // cannot use VLatest as it incorrectly asks for optional group id
@@ -372,7 +375,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
 
             using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
             using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
 
             cmd.CommandText = "SELECT Number FROM dbo.Parameters WHERE Id = @Id";
@@ -408,7 +411,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private async Task<double> GetPeriod(CancellationToken cancellationToken)
         {
             var value = await GetNumberParameterById(PeriodHourId, cancellationToken);
-            return (double)value;
+            return value;
         }
 
         private async Task<bool> IsEnabled(CancellationToken cancellationToken)
@@ -419,21 +422,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task InitParamsAsync()
         {
-            await Policy.Handle<SqlException>(e => !e.Message.Contains("login failed", StringComparison.OrdinalIgnoreCase) &&
-                                                   !e.Message.Contains("dbo.Parameters", StringComparison.OrdinalIgnoreCase))
-                .WaitAndRetryAsync(
-                    3,
-                    count => TimeSpan.FromSeconds(2),
-                    (ex, count) => _logger.LogWarning(ex, "Failed to initialize parameters. Retrying..."))
-                .ExecuteAsync(async () =>
-                {
-                    using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-                    using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory
-                        .Value
-                        .ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-                    using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
+            // No CancellationToken is passed since we shouldn't cancel initialization.
 
-                    cmd.CommandText = @"
+            // Offset for other instances running init
+            await Task.Delay(RandomDelay(), CancellationToken.None);
+
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory
+                .Value
+                .ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
+
+            cmd.CommandText = @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodHourId, 24 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodHourId)
@@ -442,14 +442,18 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600 WHERE 
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
             ";
 
-                    cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
-                    cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
-                    cmd.Parameters.AddWithValue("@PeriodHourId", PeriodHourId);
-                    cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
-                    cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
+            cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
+            cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
+            cmd.Parameters.AddWithValue("@PeriodHourId", PeriodHourId);
+            cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
+            cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
 
-                    await cmd.ExecuteNonQueryAsync(CancellationToken.None);
-                });
+            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        private static TimeSpan RandomDelay()
+        {
+            return TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10));
         }
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
