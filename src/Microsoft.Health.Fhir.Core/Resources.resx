@@ -655,4 +655,7 @@
   <data name="SqlQueryProcessorRanOutOfInternalResourcesException" xml:space="preserve">
     <value>The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry.</value>
   </data>
+  <data name="OperationCanceled" xml:space="preserve">
+    <value>The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support.</value>
+  </data>
 </root>
