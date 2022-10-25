@@ -172,8 +172,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance));
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<SearchResourceRequest, SearchResourceResponse>), new SearchResourceHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, SearchResultFilter.Default));
+            collection.AddSingleton(typeof(IRequestHandler<SearchResourceRequest, SearchResourceResponse>), new SearchResourceHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance, SearchResultFilter.Default));
 
             ServiceProvider services = collection.BuildServiceProvider();
 

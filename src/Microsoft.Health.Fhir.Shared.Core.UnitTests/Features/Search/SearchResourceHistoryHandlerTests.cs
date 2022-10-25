@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchResourceHistoryHandlerTests()
         {
-            _searchResourceHistoryHandler = new SearchResourceHistoryHandler(_searchService, _bundleFactory, DisabledFhirAuthorizationService.Instance);
+            _searchResourceHistoryHandler = new SearchResourceHistoryHandler(_searchService, _bundleFactory, DisabledFhirAuthorizationService.Instance, SearchResultFilter.Default);
         }
 
         [Fact]

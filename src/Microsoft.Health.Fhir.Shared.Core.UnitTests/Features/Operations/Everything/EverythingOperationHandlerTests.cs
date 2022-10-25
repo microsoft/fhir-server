@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 
         public EverythingOperationHandlerTests()
         {
-            _everythingOperationHandler = new EverythingOperationHandler(_patientEverythingService, _bundleFactory, DisabledFhirAuthorizationService.Instance);
+            _everythingOperationHandler = new EverythingOperationHandler(_patientEverythingService, _bundleFactory, DisabledFhirAuthorizationService.Instance, SearchResultFilter.Default);
         }
 
         [Fact]

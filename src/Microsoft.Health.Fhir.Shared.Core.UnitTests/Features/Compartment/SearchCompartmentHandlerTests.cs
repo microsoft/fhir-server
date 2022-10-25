@@ -30,7 +30,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
 
         public SearchCompartmentHandlerTests()
         {
-            _searchCompartmentHandler = new SearchCompartmentHandler(_searchService, _bundleFactory, DisabledFhirAuthorizationService.Instance);
+            _searchCompartmentHandler = new SearchCompartmentHandler(
+                _searchService,
+                _bundleFactory,
+                DisabledFhirAuthorizationService.Instance,
+                SearchResultFilter.Default);
         }
 
         [Fact]
