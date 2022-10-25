@@ -8,16 +8,13 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Hosting;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    /// <summary>
-    /// The background service used to host the <see cref="DefragWorker"/>.
-    /// </summary>
-    public class DefragBackgroundService : BackgroundService
+    public class WatchdogsBackgroundService : BackgroundService
     {
         private readonly DefragWorker _defragWorker;
 
-        public DefragBackgroundService(DefragWorker defragWorker)
+        public WatchdogsBackgroundService(DefragWorker defragWorker)
         {
             _defragWorker = EnsureArg.IsNotNull(defragWorker, nameof(defragWorker));
         }

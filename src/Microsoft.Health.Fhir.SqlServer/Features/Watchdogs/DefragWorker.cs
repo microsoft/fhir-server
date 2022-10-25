@@ -23,13 +23,13 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Polly;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     public sealed class DefragWorker : IDisposable, INotificationHandler<StorageInitializedNotification>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private const string PeriodHourId = "Defrag.Period.Hours";
-        private const string IsEnabledId = "Defrag.IsEnabled";
+        internal const string IsEnabledId = "Defrag.IsEnabled";
         private const string HeartbeatTimeoutSecId = "Defrag.HeartbeatTimeoutSec";
         private const string HeartbeatPeriodSecId = "Defrag.HeartbeatPeriodSec";
         private const string ThreadsId = "Defrag.Threads";

@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _sqlConnectionBuilder = sqlConnectionBuilder;
 
             _dbSetupRetryPolicy = Policy
-                .Handle<SqlException>()
+                .Handle<Exception>()
                 .WaitAndRetryAsync(
                     retryCount: 7,
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));

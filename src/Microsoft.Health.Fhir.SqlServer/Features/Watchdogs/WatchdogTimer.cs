@@ -7,22 +7,27 @@ using System;
 using System.Security.Cryptography;
 using System.Threading;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
+namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public abstract class DefragTimer : IDisposable
+    public abstract class WatchdogTimer : IDisposable
     {
         private bool _disposed = false;
         private Timer _timer;
         private bool _isRunning;
 
-        protected DefragTimer()
+        protected WatchdogTimer()
         {
             _isRunning = false;
         }
 
-        protected internal void StartTimer(double periodHour)
+        protected internal void StartTimer(double periodSec)
         {
-            _timer = new Timer(_ => RunInternal(), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10)), TimeSpan.FromHours(periodHour));
+            _timer = new Timer(_ => RunInternal(), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), TimeSpan.FromSeconds(periodSec));
+        }
+
+        protected internal void ChangeTimer(double periodSec)
+        {
+            _timer.Change(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), TimeSpan.FromSeconds(periodSec));
         }
 
         protected abstract void Run();

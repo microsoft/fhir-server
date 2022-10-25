@@ -23,12 +23,12 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -240,7 +240,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
 
-            services.AddHostedService<DefragBackgroundService>();
+            services.AddHostedService<WatchdogsBackgroundService>();
 
             return fhirServerBuilder;
         }
