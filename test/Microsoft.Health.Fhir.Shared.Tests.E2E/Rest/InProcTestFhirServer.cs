@@ -63,6 +63,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:Operations:Import:PollingFrequencyInSeconds"] = "2";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
+            // enable rebuild indexes for testing
+            configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "true";
+            configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "true";
+
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
                 // Alter the configuration so that the server will create a new, isolated database/container.

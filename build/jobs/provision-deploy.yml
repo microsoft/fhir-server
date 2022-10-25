@@ -24,7 +24,7 @@ parameters:
   default: 'tool'
 - name: reindexEnabled
   type: boolean
-  default: false
+  default: true
 
 jobs:
 - job: provisionEnvironment

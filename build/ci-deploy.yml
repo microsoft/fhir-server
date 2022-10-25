@@ -97,6 +97,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true
 
 - stage: deployR4
   displayName: 'Deploy R4 CosmosDB Site'
@@ -134,6 +135,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true
 
 - stage: deployR4B
   displayName: 'Deploy R4B CosmosDB Site'
@@ -208,3 +210,4 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true
