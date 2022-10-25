@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            // try to query both the patient and the observation using revinclude
+            // try to query both the Patient resource and the Observation resource using revinclude
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
             query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            // try to query both the patient and the observation using revinclude
+            // try to query both the Patient resource and the Observation resource using revinclude
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
             query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
@@ -170,6 +170,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             // assert that only the patient is returned
             Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Patient");
         }
 
         [SkippableFact]
@@ -180,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            // try to query both the patient and the observation using revinclude
+            // Query the Observation resources where they refer to Patients with the name "SMARTGivenName1"
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("subject:Patient.name", "SMARTGivenName1"));
 
@@ -200,7 +201,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            // try to query both the patient and the observation using revinclude
+            // Query the Observation resources where they refer to Patients with the name "SMARTGivenName1"
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("subject:Patient.name", "SMARTGivenName1"));
 
@@ -225,7 +226,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            // try to query both the patient and the observation using revinclude
+            // Query Patient resources where there are Observations referring to the Patient, which have the code "4548-4"
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_has:Observation:subject:code", "4548-4"));
 
@@ -245,7 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            // try to query both the patient and the observation using revinclude
+            // Query Patient resources where there are Observations referring to the Patient, which have the code "4548-4"
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_has:Observation:patient:code", "4548-4"));
 
@@ -265,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
 
-            // try to query both the patient and the observation using revinclude
+            // Query Patient resources where there are Observations referring to the Patient, which have the code "4548-4"
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_has:Observation:subject:code", "4548-4"));
 

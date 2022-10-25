@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     {
                         if (!ResourceTypeAllowedByClinicalScopes(targetResourceType))
                         {
-                            throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceNotAllowedRestrictedByClinicalScopes, targetResourceType));
+                            throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceTypeNotAllowedRestrictedByClinicalScopes, targetResourceType));
                         }
                     }
                 }
