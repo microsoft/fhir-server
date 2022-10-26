@@ -51,9 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IUrlResolver, UrlResolver>();
             services.AddSingleton<IBundleFactory, BundleFactory>();
-
-            // FERNFE - Change this part to handle US Core configuration changes.
-            services.AddSingleton<ISearchResultFilter>(SearchResultFilter.Default);
+            services.AddSingleton<ISearchResultFilter, SearchResultFilter>();
 
             services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 

@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -12,7 +14,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly bool _isUSCoreEnabled;
 
-        public SearchResultFilter(bool isUSCoreEnabled)
+        public SearchResultFilter(IOptions<ImplementationGuidesConfiguration> implementationGuides)
+        {
+            _isUSCoreEnabled = implementationGuides.Value.USCore.MissingData;
+        }
+
+        private SearchResultFilter(bool isUSCoreEnabled)
         {
             _isUSCoreEnabled = isUSCoreEnabled;
         }
