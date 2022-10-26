@@ -52,8 +52,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IUrlResolver, UrlResolver>();
             services.AddSingleton<IBundleFactory, BundleFactory>();
 
-            services.AddScoped<ISearchResultFilter, SearchResultFilter>();
-
             services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 
             services.Add<SearchParameterDefinitionManager>()
@@ -131,6 +129,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<SearchParameterFilterAttribute>();
             services.AddSingleton<ISearchParameterOperations, SearchParameterOperations>();
 
+            services.AddTransient<ISearchResultFilter, SearchResultFilter>();
             services.AddTransient(typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>));
             services.AddTransient(typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>));
             services.AddTransient(typeof(IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>), typeof(DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>));

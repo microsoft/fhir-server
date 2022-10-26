@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 request.Sort,
                 cancellationToken);
 
-            searchResult = _searchResultFilter.Filter(isSmartRequest: true, searchResult: searchResult);
+            searchResult = _searchResultFilter.Filter(searchResult: searchResult);
 
             ResourceElement bundle = _bundleFactory.CreateHistoryBundle(searchResult);
 
