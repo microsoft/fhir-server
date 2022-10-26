@@ -881,6 +881,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support..
+        /// </summary>
+        internal static string OperationCanceled {
+            get {
+                return ResourceManager.GetString("OperationCanceled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
         /// </summary>
         internal static string OperationFailed {
