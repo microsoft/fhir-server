@@ -9,6 +9,7 @@ parameters:
   default: 'auto'
 - name: sqlServerAdminPassword
   type: string
+  default: ''
 
 jobs:
 - job: provisionEnvironment
