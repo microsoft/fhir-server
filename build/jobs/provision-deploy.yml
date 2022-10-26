@@ -24,7 +24,6 @@ parameters:
   default: 'tool'
 - name: sqlServerAdminPassword
   type: string
-  default: 'test@123'
 - name: sqlServerName
   type: string
   default: ''

@@ -9,7 +9,6 @@ parameters:
   default: 'auto'
 - name: sqlServerAdminPassword
   type: string
-  default: 'test@123'
 
 jobs:
 - job: provisionEnvironment
