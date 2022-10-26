@@ -10,7 +10,6 @@ using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
 using SMARTProxy.Configuration;
-using SMARTProxy.Extensions;
 using SMARTProxy.Models;
 
 namespace SMARTProxy.Filters

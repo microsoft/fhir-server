@@ -96,7 +96,7 @@ namespace SMARTProxy.Filters
             }
 
             // TODO - change to "NeedsOrigin" on base token class.
-            if (requestData.AllKeys.Contains("code_verifier"))
+            if (requestData.AllKeys.Contains("code_verifier") && tokenContext.GetType() == typeof(PublicClientTokenContext))
             {
                 context.Headers.Add(new HeaderNameValuePair("Origin", "http://localhost", CustomHeaderType.RequestStatic));
             }

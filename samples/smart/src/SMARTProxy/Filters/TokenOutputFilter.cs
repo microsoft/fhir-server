@@ -88,6 +88,8 @@ namespace SMARTProxy.Filters
                 }
             }
 
+            // BEGIN OVERRIDE - TODO remove as it's temp until we get fhirUser claim
+
             try
             {
                 _logger.LogInformation("Attempting to override the access token with MSI...");
@@ -99,6 +101,8 @@ namespace SMARTProxy.Filters
             {
                 _logger.LogError(ex, "Could not get token override. {Message}", ex.Message);
             }
+
+            // END OVERRIDE
 
             context.ContentString = tokenResponse.ToString();
 

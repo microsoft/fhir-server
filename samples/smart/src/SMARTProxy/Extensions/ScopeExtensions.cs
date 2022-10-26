@@ -32,7 +32,17 @@ namespace SMARTProxy.Extensions
                         // replace '/' with '.' in the scope URI
                         var formattedScope = s.Replace("/", ".", StringComparison.InvariantCulture);
                         formattedScope = formattedScope.Replace("*", "all", StringComparison.InvariantCulture);
-                        formattedScope = $"{scopeAudience}/{formattedScope}";
+
+                        // Leave the space in the string below
+                        if (scopeAudience.EndsWith("/"))
+                        {
+                            formattedScope = $"{scopeAudience}{formattedScope} ";
+                        }
+                        else
+                        {
+                            formattedScope = $"{scopeAudience}/{formattedScope} ";
+                        }
+                        
                         scopesBuilder.Append(formattedScope);
                     }
                     else
