@@ -51,6 +51,12 @@
         {
             "id": "wrongAudienceClient",
             "roles": []
+        },
+        {
+            "id": "smartUserClient",
+            "roles": [
+                "smartUser"
+            ]
         }
     ]
 }

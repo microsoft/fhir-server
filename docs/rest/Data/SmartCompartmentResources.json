@@ -1,7 +1,7 @@
 {
     "resourceType": "Bundle",
     "id": "1eb6b09c8316564abe35fad9b948e0d3",
-    "type": "transaction",
+    "type": "batch",
     "entry": [	    
 		{
             "resource": {

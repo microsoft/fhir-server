@@ -363,18 +363,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out Stream rawResourceStream);
                         numberOfColumnsRead = reader.FieldCount;
 
-                        // If we get to this point, we know there are more results so we need a continuation token
-                        // Additionally, this resource shouldn't be included in the results
-                        if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
-                        {
-                            moreResults = true;
-
-                            continue;
-                        }
-
                         string rawResource;
-                        using (rawResourceStream)
+                        await using (rawResourceStream)
                         {
+                            // If we get to this point, we know there are more results so we need a continuation token
+                            // Additionally, this resource shouldn't be included in the results
+                            if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
+                            {
+                                moreResults = true;
+
+                                continue;
+                            }
+
                             rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 

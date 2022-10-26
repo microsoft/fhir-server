@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     {
         internal const string Metadata = "Metadata";
 
+        internal const string WellKnownSmartConfiguration = "WellKnownSmartConfiguration";
+
         internal const string ReadResource = "ReadResource";
 
         internal const string ReadResourceWithVersionRoute = "ReadResourceWithVersionRoute";
