@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,7 +7,7 @@ using System.Text;
 
 namespace SMARTProxy.Extensions
 {
-    public static class ParseScopes
+    public static class ScopeExtensions
     {
         public static string ParseScope(this string scopesString, string scopeAudience)
         {

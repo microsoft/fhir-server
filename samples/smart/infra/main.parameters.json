@@ -13,6 +13,15 @@
         },
         "smartAudience": {
             "value": ""
+        },
+        "testBackendClientId": {
+            "value": ""
+        },
+        "testBackendClientSecret": {
+            "value": ""
+        },
+        "testBackendClientJwks": {
+            "value": ""
         }
     }
 }

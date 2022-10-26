@@ -16,7 +16,7 @@ var readerAccessPolicy = [for readerId in readerObjectIds: {
   objectId: readerId
   tenantId: tenantId
   permissions: {
-    secrets: ['list', 'read']
+    secrets: ['list', 'get']
   }
 }]
 

@@ -54,7 +54,7 @@ namespace SMARTProxy
                     }
 
                     services.AddSingleton<SMARTProxyConfig>(config);
-                    services.Add(new ServiceDescriptor(typeof(AsymmetricAuthorizationService), typeof(AsymmetricAuthorizationService), ServiceLifetime.Scoped));
+                    services.Add(new ServiceDescriptor(typeof(IAsymmetricAuthorizationService), typeof(AsymmetricAuthorizationService), ServiceLifetime.Scoped));
                     services.Add(new ServiceDescriptor(typeof(IClientConfigService), typeof(StaticEnvironmentClientConfiguratinService), ServiceLifetime.Scoped));
                     services.AddHttpClient();
 

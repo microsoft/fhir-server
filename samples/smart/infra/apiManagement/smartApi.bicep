@@ -83,6 +83,116 @@ resource smartApi 'Microsoft.ApiManagement/service/apis@2021-12-01-preview' = {
     }
   }
 
+  resource exportStatusCheckEndpoint 'operations' = {
+    name: 'exportStatusCheck'
+    properties: {
+      displayName: 'Export Check Status'
+      method: 'GET'
+      urlTemplate: '/_operations/export/{exportId}'
+      templateParameters: [
+        {
+          name: 'exportId'
+          description: 'Identifier of the $export operation'
+          required: true
+          type: 'SecureString'
+        }
+      ]
+    }
+
+    resource exportStatusCheckEndpointPolicy 'policies' = {
+      name: 'policy'
+      properties: {
+        format: 'rawxml'
+        value: loadTextContent('./policies/exportCheck.xml')
+      }
+    }
+  }
+
+  resource exportGetDataEndpoint 'operations' = {
+    name: 'getExportedData'
+    properties: {
+      displayName: 'GET Exported Data'
+      method: 'GET'
+      urlTemplate: '/export-output/{containerName}/{folderName}/{fileName}'
+      templateParameters: [
+        {
+          name: 'containerName'
+          description: 'Name of the export storage container. Must match the object id of the token'
+          required: true
+          type: 'SecureString'
+        }
+        {
+          name: 'folderName'
+          required: true
+          type: 'SecureString'
+        }
+        {
+          name: 'fileName'
+          required: true
+          type: 'SecureString'
+        }
+      ]
+    }
+
+    resource exportStatusCheckEndpointPolicy 'policies' = {
+      name: 'policy'
+      properties: {
+        format: 'rawxml'
+        value: loadTextContent('./policies/exportGetData.xml')
+      }
+    }
+  }
+
+  resource groupExportEndpoint 'operations' = {
+    name: 'groupExport'
+    properties: {
+      displayName: 'Export Group'
+      method: 'GET'
+      urlTemplate: '/Group/{logicalId}/$export'
+      templateParameters: [
+        {
+          name: 'logicalId'
+          description: 'ID of the group to export'
+          required: true
+          type: 'SecureString'
+        }
+      ]
+    }
+
+    resource exportStatusCheckEndpointPolicy 'policies' = {
+      name: 'policy'
+      properties: {
+        format: 'rawxml'
+        value: loadTextContent('./policies/groupExport.xml')
+      }
+    }
+  }
+
+  resource deleteExportEndpoint 'operations' = {
+    name: 'deleteExport'
+    properties: {
+      displayName: 'Export Delete'
+      method: 'DELETE'
+      urlTemplate: '/_operations/export/{exportId}'
+      templateParameters: [
+        {
+          name: 'exportId'
+          description: 'ID of the export to delete'
+          required: true
+          type: 'SecureString'
+        }
+      ]
+    }
+
+    resource exportStatusCheckEndpointPolicy 'policies' = {
+      name: 'policy'
+      properties: {
+        format: 'rawxml'
+        value: loadTextContent('./policies/groupExport.xml')
+      }
+    }
+  }
+
   resource allOtherRequestsOperations 'operations' = {
     name: 'allOtherRequests'
     properties: {

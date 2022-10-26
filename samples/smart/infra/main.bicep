@@ -13,6 +13,11 @@ param location string
 param principalId string = ''
 
 param smartAudience string
+param testBackendClientId string
+@secure()
+param testBackendClientSecret string
+param testBackendClientJwks string
+
 
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: '${name}-rg'
@@ -30,6 +35,9 @@ module template 'core.bicep'= {
     fhirContributorPrincipals: [principalId]
     keyVaultWriterPrincipals: [principalId]
     smartAudience: smartAudience
+    testBackendClientId: testBackendClientId
+    testBackendClientSecret: testBackendClientSecret
+    testBackendClientJwks: testBackendClientJwks
   }
 }
 

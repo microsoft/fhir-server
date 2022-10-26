@@ -3,8 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Specialized;
+using System.Configuration;
 using System.Net;
-using System.Web;
 using Microsoft.AzureHealth.DataServices.Clients.Headers;
 using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
@@ -20,9 +21,9 @@ namespace SMARTProxy.Filters
         private readonly ILogger _logger;
         private readonly SMARTProxyConfig _configuration;
         private readonly string _id;
-        private readonly AsymmetricAuthorizationService _asymmetricAuthorizationService;
+        private readonly IAsymmetricAuthorizationService _asymmetricAuthorizationService;
 
-        public TokenInputFilter(ILogger<TokenInputFilter> logger, SMARTProxyConfig configuration, AsymmetricAuthorizationService asymmetricAuthorizationService)
+        public TokenInputFilter(ILogger<TokenInputFilter> logger, SMARTProxyConfig configuration, IAsymmetricAuthorizationService asymmetricAuthorizationService)
         {
             _logger = logger;
             _configuration = configuration;
@@ -59,19 +60,19 @@ namespace SMARTProxy.Filters
                 return context;
             }
 
-            // Parse the request body
+            // Read the request body
             TokenContext? tokenContext = null;
+            NameValueCollection requestData = await context.Request.Content.ReadAsFormDataAsync();
 
+            // Parse the request body
             try
             {
-                var requestData = HttpUtility.ParseQueryString(context.ContentString);
-                tokenContext = TokenContext.FromRequest(requestData!, context.Request.Headers, _configuration.Audience!, _logger!);
+                tokenContext = TokenContext.FromFormUrlEncodedContent(requestData!, context.Request.Headers.Authorization, _configuration.Audience!);
                 tokenContext.Validate();
             }
             catch (Exception ex)
             {
                 context.IsFatal = true;
-                context.ContentString = $"Token request invalid. Trace ID {_id}.";
                 context.ContentString = new PipelineError("Token request is invalid.", string.Empty, DateTime.Now, _id).ToContentString();
                 context.StatusCode = HttpStatusCode.BadRequest;
                 _logger.LogError(ex, "Token request invalid. {TokenContext}", tokenContext?.ToLogString() ?? context.ContentString);
@@ -84,48 +85,70 @@ namespace SMARTProxy.Filters
             context.UpdateRequestUri(context.Request.Method, tokenEndpoint, tokenPath);
 
             // Azure AD does not support bare JWKS auth or 384 JWKS auth. We must convert to an associated client secret flow.
-            if (tokenContext.GetType() == typeof(ClientConfidentialAsyncTokenContext))
+            if (tokenContext.GetType() == typeof(BackendServiceTokenContext))
             {
-                var castTokenContext = (ClientConfidentialAsyncTokenContext)tokenContext;
-
-                // Check client id to see if it exists. Get JWKS.
-                BackendClientConfiguration? clientConfig = null;
-
-                // Fetch the jwks for this client and validate
-
-                try
-                {
-                    clientConfig = await _asymmetricAuthorizationService.AuthenticateBackendAsyncClient(castTokenContext);
-                }
-                catch (HttpRequestException ex)
-                {
-                    context.IsFatal = true;
-                    context.ContentString = new PipelineError("JWKS url not responding.", $"JWKS url {clientConfig?.JwksUri.ToString()} is not responding. Please check the client configuration.", DateTime.Now, _id).ToContentString();
-                    context.StatusCode = HttpStatusCode.BadRequest;
-                    _logger.LogError(ex, "JWT Assertion Invalid. {TokenContext}. {Content}.", castTokenContext.ToLogString(), context.ContentString);
-                    return context;
-                }
-                catch (Microsoft.IdentityModel.Tokens.SecurityTokenValidationException ex)
-                {
-                    context.IsFatal = true;
-                    context.ContentString = new PipelineError("JWT assestion invalid.", $"Error occured while processing you JWT assertion {ex.GetType().ToString().Split('.').Last()}", DateTime.Now, _id).ToContentString();
-                    context.StatusCode = HttpStatusCode.BadRequest;
-                    _logger.LogError(ex, "JWT Assertion Invalid. {TokenContext}. {Content}.", castTokenContext.ToLogString(), context.ContentString);
-                    return context;
-                }
-
-                context.Request.Content = castTokenContext.ConvertToClientCredentialsFormUrlEncodedContent(clientConfig);
+                var castTokenContext = (BackendServiceTokenContext)tokenContext;
+                context = await HandleBackendService(context, castTokenContext);
             }
             else
             {
                 context.Request.Content = tokenContext.ToFormUrlEncodedContent();
             }
 
-            // TODO - change to "NeedsCoors" or something similar.
-            if (tokenContext.GetType() == typeof(PublicClientTokenContext))
+            // TODO - change to "NeedsOrigin" on base token class.
+            if (requestData.AllKeys.Contains("code_verifier"))
             {
                 context.Headers.Add(new HeaderNameValuePair("Origin", "http://localhost", CustomHeaderType.RequestStatic));
             }
+
+            return context;
+        }
+
+        private async Task<OperationContext> HandleBackendService(OperationContext context, BackendServiceTokenContext castTokenContext)
+        {
+            // Check client id to see if it exists. Get JWKS.
+            BackendClientConfiguration? clientConfig = null;
+
+            // Fetch the jwks for this client and validate
+
+            try
+            {
+                clientConfig = await _asymmetricAuthorizationService.AuthenticateBackendAsyncClient(castTokenContext.ClientId, castTokenContext.ClientAssertion);
+            }
+            catch (HttpRequestException ex)
+            {
+                context.IsFatal = true;
+                context.ContentString = new PipelineError("JWKS url not responding.", $"JWKS url {clientConfig?.JwksUri?.ToString()} is not responding. Please check the client configuration.", DateTime.Now, _id).ToContentString();
+                context.StatusCode = HttpStatusCode.BadRequest;
+                _logger.LogError(ex, "JWT Assertion Invalid. {TokenContext}. {Content}.", castTokenContext.ToLogString(), context.ContentString);
+                return context;
+            }
+            catch (Microsoft.IdentityModel.Tokens.SecurityTokenValidationException ex)
+            {
+                context.IsFatal = true;
+                context.ContentString = new PipelineError("JWT assestion invalid.", $"Error occured while processing you JWT assertion {ex.GetType().ToString().Split('.').Last()}", DateTime.Now, _id).ToContentString();
+                context.StatusCode = HttpStatusCode.BadRequest;
+                _logger.LogError(ex, "JWT Assertion Invalid. {TokenContext}. {Content}.", castTokenContext.ToLogString(), context.ContentString);
+                return context;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                context.IsFatal = true;
+                context.ContentString = new PipelineError("Configuration error with backend service", string.Empty, DateTime.Now, _id).ToContentString();
+                context.StatusCode = HttpStatusCode.InternalServerError;
+                _logger.LogError(ex, "Failure in backend service flow.. {TokenContext}. {Content}.", castTokenContext.ToLogString(), context.ContentString);
+                return context;
+            }
+            catch (Exception ex)
+            {
+                context.IsFatal = true;
+                context.ContentString = new PipelineError("Failure in backend service flow.", string.Empty, DateTime.Now, _id).ToContentString();
+                context.StatusCode = HttpStatusCode.BadRequest;
+                _logger.LogError(ex, "Failure in backend service flow.. {TokenContext}. {Content}.", castTokenContext.ToLogString(), context.ContentString);
+                return context;
+            }
+
+            context.Request.Content = castTokenContext.ConvertToClientCredentialsFormUrlEncodedContent(clientConfig.ClientSecret);
 
             return context;
         }

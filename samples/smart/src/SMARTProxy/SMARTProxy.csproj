@@ -1,11 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <RuntimeFrameworkVersion>6.0.9</RuntimeFrameworkVersion>
     <AzureFunctionsVersion>v4</AzureFunctionsVersion>
     <OutputType>Exe</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>a0c4e016-b32c-4444-878c-2e7b7d4d5064</UserSecretsId>
+    <ExcludeGeneratedDebugSymbol>False</ExcludeGeneratedDebugSymbol>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="HttpMultipartParser" />
@@ -16,6 +18,7 @@
     <PackageReference Include="Microsoft.AzureHealth.DataServices.Core" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
     <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
   </ItemGroup>
   <ItemGroup>

@@ -18,7 +18,7 @@ namespace SMARTProxy.Models
         /// <param name="audience">Azure Active Directory audience for the FHIR Server.</param>
         public RefreshTokenContext(NameValueCollection form, string audience)
         {
-            if (form["grant_type"] != "authorization_code")
+            if (form["grant_type"] != GrantType.refresh_token.ToString())
             {
                 throw new ArgumentException("RefreshTokenContext requires the refresh token type.");
             }

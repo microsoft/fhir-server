@@ -17,6 +17,7 @@ namespace SMARTProxy.UnitTests.Filters
         private static SMARTProxyConfig config = new SMARTProxyConfig()
         {
             TenantId = "xxxx-xxxx-xxxx-xxxx",
+            Audience = "12345678-90ab-cdef-1234-567890abcdef",
         };
 
         [Fact]
@@ -30,7 +31,7 @@ namespace SMARTProxy.UnitTests.Filters
             context.Request.Method = HttpMethod.Get;
             context.Request.RequestUri = new Uri(string.Concat(
                 "http://localhost/authorize",
-                "?response_type=code&client_id=xxxx-xxxxx-xxxxx-xxxxx&redirect_uri=http://localhost&scope=patient/Patient.read fhir user openid",
+                "?response_type=code&client_id=xxxx-xxxxx-xxxxx-xxxxx&redirect_uri=http://localhost/&scope=patient/Patient.read fhir user openid",
                 "&state=123&aud=https://workspace-fhir.fhir.azurehealthcareapis.com&code_challenge_method=S256&code_challenge=ECgEuvKylvpiOS9pF2pfu5NKoBErrx8fAWdneyiPT2E"));
 
             await filter.ExecuteAsync(context);
@@ -57,7 +58,7 @@ namespace SMARTProxy.UnitTests.Filters
             {
                 new KeyValuePair<string, string>("response_type", "code"),
                 new KeyValuePair<string, string>("client_id", "xxxx-xxxxx-xxxxx-xxxxx"),
-                new KeyValuePair<string, string>("redirect_uri", "http://localhost"),
+                new KeyValuePair<string, string>("redirect_uri", "http://localhost/"),
                 new KeyValuePair<string, string>("scope", "patient/Patient.read fhir user openid"),
                 new KeyValuePair<string, string>("state", "567"),
                 new KeyValuePair<string, string>("aud", "https://workspace-fhir.fhir.azurehealthcareapis.com"),
@@ -86,7 +87,7 @@ namespace SMARTProxy.UnitTests.Filters
             context.Request.Method = HttpMethod.Get;
             context.Request.RequestUri = new Uri(string.Concat(
                 "http://localhost/authorize",
-                "?response_type=code&client_id=xxxx-xxxxx-xxxxx-xxxxx&redirect_uri=http://localhost&scope=patient/Patient.read fhir user openid",
+                "?response_type=code&client_id=xxxx-xxxxx-xxxxx-xxxxx&redirect_uri=http://localhost/&scope=patient/Patient.read fhir user openid",
                 "&state=123&aud=https://workspace-fhir.fhir.azurehealthcareapis.com"));
 
             await filter.ExecuteAsync(context);
@@ -113,7 +114,7 @@ namespace SMARTProxy.UnitTests.Filters
             {
                 new KeyValuePair<string, string>("response_type", "code"),
                 new KeyValuePair<string, string>("client_id", "xxxx-xxxxx-xxxxx-xxxxx"),
-                new KeyValuePair<string, string>("redirect_uri", "http://localhost"),
+                new KeyValuePair<string, string>("redirect_uri", "http://localhost/"),
                 new KeyValuePair<string, string>("scope", "patient/Patient.read fhir user openid"),
                 new KeyValuePair<string, string>("state", "567"),
                 new KeyValuePair<string, string>("aud", "https://workspace-fhir.fhir.azurehealthcareapis.com"),

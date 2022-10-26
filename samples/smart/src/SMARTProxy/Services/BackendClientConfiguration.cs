@@ -7,19 +7,27 @@ namespace SMARTProxy.Services
 {
     public class BackendClientConfiguration
     {
-        public BackendClientConfiguration(string clientId, string clientSecret, string jwksUri, string? allowedScopes = null)
+        public BackendClientConfiguration()
+        {
+            ClientId = default!;
+            ClientSecret = default!;
+        }
+
+        public BackendClientConfiguration(string clientId, string clientSecret, string jwksUri)
         {
             ClientId = clientId;
             ClientSecret = clientSecret;
-            JwksUri = new Uri(jwksUri);
 
-            var scopeBuild = new List<string>();
+            if (jwksUri is not null)
+            {
+                JwksUri = new Uri(jwksUri);
+            }
         }
 
         public string ClientId { get; }
 
         public string ClientSecret { get; }
 
-        public Uri JwksUri { get; }
+        public Uri? JwksUri { get; }
     }
 }

@@ -37,12 +37,15 @@ resource fhir 'Microsoft.HealthcareApis/workspaces/fhirservices@2021-06-01-previ
       audience: audience
       smartProxyEnabled: false
     }
+    exportConfiguration: {
+      storageAccountName: exportStorageAccount.name
+    }
   }
 
   tags: appTags
 }
 
-/*@description('FHIR Export required linked storage account')
+@description('FHIR Export required linked storage account')
 resource exportStorageAccount 'Microsoft.Storage/storageAccounts@2021-08-01' = {
   name: exportStoreName
   location: location
@@ -51,10 +54,21 @@ resource exportStorageAccount 'Microsoft.Storage/storageAccounts@2021-08-01' = {
     name: 'Standard_LRS'
   }
   tags: appTags
-}*/
+}
+
+module exportFhirRoleAssignment './identity.bicep'= {
+  name: 'fhirExportRoleAssignment'
+  params: {
+    principalId: createFhirService ? fhir.identity.principalId : fhirExisting.identity.principalId
+    fhirId: createFhirService ? fhir.id : fhirExisting.id
+    roleType: 'storageBlobContributor'
+  }
+}
 
 resource fhirExisting 'Microsoft.HealthcareApis/workspaces/fhirservices@2021-06-01-preview' existing = if (!createFhirService) {
   name: '${newOrExistingWorkspaceName}/${fhirServiceName}'
 }
 
 output fhirId string = createFhirService ? fhir.id : fhirExisting.id
+output fhirIdentity string = createFhirService ? fhir.identity.principalId : fhirExisting.identity.principalId
+output exportStorageUrl string = exportStorageAccount.properties.primaryEndpoints.blob

@@ -7,11 +7,10 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using SMARTProxy.Configuration;
-using SMARTProxy.Models;
 
 namespace SMARTProxy.Services
 {
-    public class AsymmetricAuthorizationService
+    public class AsymmetricAuthorizationService : IAsymmetricAuthorizationService
     {
         private SMARTProxyConfig _functionConfig;
         private IHttpClientFactory _httpClientFactory;
@@ -26,12 +25,12 @@ namespace SMARTProxy.Services
             _clientConfigService = clientConfigService;
         }
 
-        public async Task<BackendClientConfiguration> AuthenticateBackendAsyncClient(ClientConfidentialAsyncTokenContext castTokenContext)
+        public async Task<BackendClientConfiguration> AuthenticateBackendAsyncClient(string clientId, string clientAssertion)
         {
-            var clientConfig = await _clientConfigService.FetchBackendClientConfiguration(_functionConfig, castTokenContext.ClientId);
+            var clientConfig = await _clientConfigService.FetchBackendClientConfiguration(_functionConfig, clientId);
 
             var jwks = await FetchJwks(clientConfig);
-            ValidateToken(clientConfig, jwks, castTokenContext.ClientAssertion);
+            ValidateToken(clientConfig, jwks, clientAssertion);
 
             return clientConfig;
         }

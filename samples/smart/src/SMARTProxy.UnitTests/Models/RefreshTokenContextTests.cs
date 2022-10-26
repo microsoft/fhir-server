@@ -5,48 +5,46 @@
 
 using System.Collections.Specialized;
 using System.Web;
+using SMARTProxy.Extensions;
 using SMARTProxy.Models;
 
 namespace SMARTProxy.UnitTests.Models
 {
-    public class ConfidentialClientTokenContextTests
+    public class RefreshTokenContextTests
     {
         private static string _audience = "12345678-90ab-cdef-1234-567890abcdef";
 
         public static TheoryData<string> NormalTokenCollectionData =>
             new TheoryData<string>
             {
-                // PKCE
-                "grant_type=authorization_code&code=12345678&redirect_uri=http%3A%2F%2Flocalhost%2F&client_id=xxxx-xxxxx-xxxxx-xxxxx&client_secret=super-secret&code_verifier=test",
+                // Confidential clients
+                "grant_type=refresh_token&client_id=xxxx-xxxxx-xxxxx-xxxxx&client_secret=super-secret&refresh_token=12345678&scope=patient/*.read",
 
-                // Non-PKCE
-                "grant_type=authorization_code&code=12345678&redirect_uri=http%3A%2F%2Flocalhost%2F&client_id=xxxx-xxxxx-xxxxx-xxxxx&client_secret=super-secret",
+                // Public clients
+                "grant_type=refresh_token&client_id=xxxx-xxxxx-xxxxx-xxxxx&refresh_token=12345678&scope=patient/*.read",
             };
 
         [Theory]
         [MemberData(nameof(NormalTokenCollectionData))]
-        public async Task GivenNormalConfidentialClientTokenCollection_WhenInitialized_ThenCorrectTokenContextCreated(string tokenBody)
+        public async Task GivenNormalRefreshTokenCollection_WhenInitialized_ThenCorrectTokenContextCreated(string tokenBody)
         {
             NameValueCollection tokenBodyCol = HttpUtility.ParseQueryString(tokenBody);
 
             TokenContext context = TokenContext.FromFormUrlEncodedContent(tokenBodyCol, null, _audience);
 
-            if (context.GetType() != typeof(ConfidentialClientTokenContext))
+            if (context.GetType() != typeof(RefreshTokenContext))
             {
                 Assert.Fail("token body not parsed to the correct type");
             }
 
-            var contextParsed = (ConfidentialClientTokenContext)context;
+            var contextParsed = (RefreshTokenContext)context;
 
             // SMART required fields should always exist and match
             Assert.Equal(tokenBodyCol["grant_type"], contextParsed.GrantType.ToString());
-            Assert.Equal(tokenBodyCol["code"], contextParsed.Code);
-            Assert.Equal(tokenBodyCol["redirect_uri"], contextParsed.RedirectUri.ToString());
             Assert.Equal(tokenBodyCol["client_id"], contextParsed.ClientId);
             Assert.Equal(tokenBodyCol["client_secret"], contextParsed.ClientSecret);
-
-            // SMART optional fields should be null or match
-            Assert.True(contextParsed.CodeVerifier is null || tokenBodyCol["code_verifier"] == contextParsed.CodeVerifier);
+            Assert.Equal(tokenBodyCol["refresh_token"], contextParsed.RefreshToken);
+            Assert.Equal(tokenBodyCol["scope"]!.ParseScope(_audience), contextParsed.Scope);
 
             try
             {
@@ -59,14 +57,17 @@ namespace SMARTProxy.UnitTests.Models
 
             // Test serialization logic
             var serializedData = await contextParsed.ToFormUrlEncodedContent().ReadAsFormDataAsync();
-            Assert.Equal(serializedData["code"], contextParsed.Code);
             Assert.Equal(serializedData["grant_type"], contextParsed.GrantType.ToString());
-            Assert.Equal(serializedData["redirect_uri"], contextParsed.RedirectUri.ToString());
             Assert.Equal(serializedData["client_id"], contextParsed.ClientId);
             Assert.Equal(serializedData["client_secret"], contextParsed.ClientSecret);
+            Assert.Equal(serializedData["refresh_token"], contextParsed.RefreshToken);
+            Assert.Equal(serializedData["scope"], contextParsed.Scope);
 
             // SECRET SHOULD NOT BE SERIALOZID
-            Assert.DoesNotContain(contextParsed.ClientSecret, contextParsed.ToLogString());
+            if (contextParsed.ClientSecret is not null)
+            {
+                Assert.DoesNotContain(contextParsed.ClientSecret!, contextParsed.ToLogString());
+            }
         }
     }
 }

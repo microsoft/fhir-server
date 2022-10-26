@@ -5,11 +5,10 @@
 
 using System.Collections.Specialized;
 using System.IdentityModel.Tokens.Jwt;
-using SMARTProxy.Services;
 
 namespace SMARTProxy.Models
 {
-    public class ClientConfidentialAsyncTokenContext : TokenContext
+    public class BackendServiceTokenContext : TokenContext
     {
         private static JwtSecurityTokenHandler _handler = new JwtSecurityTokenHandler();
 
@@ -18,7 +17,7 @@ namespace SMARTProxy.Models
         /// </summary>
         /// <param name="form">HTTP Form Encoded Body from Token Request.</param>
         /// <param name="audience">Azure Active Directory audience for the FHIR Server.</param>
-        public ClientConfidentialAsyncTokenContext(NameValueCollection form, string audience)
+        public BackendServiceTokenContext(NameValueCollection form, string audience)
         {
             if (form["grant_type"] != GrantType.client_credentials.ToString())
             {
@@ -57,18 +56,18 @@ namespace SMARTProxy.Models
                 string.IsNullOrEmpty(ClientAssertionType) ||
                 string.IsNullOrEmpty(ClientAssertion))
             {
-                throw new ArgumentException("ClientConfidentialAsyncTokenContext invalid");
+                throw new ArgumentException("BackendServiceTokenContext invalid");
             }
         }
 
-        public FormUrlEncodedContent ConvertToClientCredentialsFormUrlEncodedContent(BackendClientConfiguration client)
+        public FormUrlEncodedContent ConvertToClientCredentialsFormUrlEncodedContent(string clientSecret)
         {
             List<KeyValuePair<string, string>> formValues = new();
 
             formValues.Add(new KeyValuePair<string, string>("grant_type", "client_credentials"));
             formValues.Add(new KeyValuePair<string, string>("scope", Scope));
-            formValues.Add(new KeyValuePair<string, string>("client_id", client.ClientId));
-            formValues.Add(new KeyValuePair<string, string>("client_secret", client.ClientSecret));
+            formValues.Add(new KeyValuePair<string, string>("client_id", ClientId));
+            formValues.Add(new KeyValuePair<string, string>("client_secret", clientSecret));
 
             return new FormUrlEncodedContent(formValues);
         }

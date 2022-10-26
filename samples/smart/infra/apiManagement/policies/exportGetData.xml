@@ -1,0 +1,57 @@
+<!--
+    IMPORTANT:
+    - Policy elements can appear only within the <inbound>, <outbound>, <backend> section elements.
+    - To apply a policy to the incoming request (before it is forwarded to the backend service), place a corresponding policy element within the <inbound> section element.
+    - To apply a policy to the outgoing response (before it is sent back to the caller), place a corresponding policy element within the <outbound> section element.
+    - To add a policy, place the cursor at the desired insertion point and select a policy from the sidebar.
+    - To remove a policy, delete the corresponding policy statement from the policy document.
+    - Position the <base> element within a section element to inherit all policies from the corresponding section element in the enclosing scope.
+    - Remove the <base> element to prevent inheriting policies from the corresponding section element in the enclosing scope.
+    - Policies are applied in the order of their appearance, from the top down.
+    - Comments within policy elements are not supported and may disappear. Place your comments between policy elements or at a higher level scope.
+-->
+<policies>
+    <inbound>
+        <base />
+        <include-fragment fragment-id="set-oid-header-from-token" />
+        <choose>
+            <when condition="@(context.Request.Headers.GetValueOrDefault("oid", "") == context.Request.MatchedParameters["containerName"] )">
+                <set-header name="Blob" exists-action="delete" />
+                <set-header name="Container" exists-action="delete" />
+                <set-header name="Sec-Fetch-Site" exists-action="delete" />
+                <set-header name="Sec-Fetch-Mode" exists-action="delete" />
+                <set-header name="Sec-Fetch-Dest" exists-action="delete" />
+                <set-header name="Accept" exists-action="delete" />
+                <set-header name="Accept-Encoding" exists-action="delete" />
+                <set-header name="Referer" exists-action="delete" />
+                <set-header name="X-Forwarded-For" exists-action="delete" />
+                <set-header name="x-ms-version" exists-action="override">
+                    <value>@{string version = "2017-11-09"; return version;}</value>
+                </set-header>
+                <rewrite-uri template="/{containerName}/{folderName}/{fileName}" />
+                <set-backend-service id="apim-generated-policy" backend-id="export-storage-account" />
+                <authentication-managed-identity resource="https://storage.azure.com/" />
+            </when>
+            <otherwise>
+                <return-response>
+                    <set-status code="401" reason="Unauthorized" />
+                    <set-header name="WWW-Authenticate" exists-action="override">
+                        <value>@("You cannot request another user's data. You are " + context.Request.Headers.GetValueOrDefault("oid", "") + " requesting " + context.Request.MatchedParameters["containerName"] )</value>
+                    </set-header>
+                </return-response>
+            </otherwise>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/fhir+ndjson</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

@@ -1,0 +1,27 @@
+<!--
+    IMPORTANT:
+    - Policy fragment are included as-is whenever they are referenced.
+    - If using variables. Ensure they are setup before use.
+    - Copy and paste your code here or simply start coding
+-->
+<fragment>
+	<set-header name="oid" exists-action="override">
+		<value>@{
+            string oid = "";
+            string authHeader = context.Request.Headers.GetValueOrDefault("Authorization", "");
+            if (authHeader?.Length > 0)
+            {
+                string[] authHeaderParts = authHeader.Split(' ');
+                if (authHeaderParts?.Length == 2 && authHeaderParts[0].Equals("Bearer", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    Jwt jwt;
+                    if (authHeaderParts[1].TryParseJwt(out jwt))
+                    {
+                        oid = (jwt.Claims.GetValueOrDefault("oid", ""));
+                    }
+                }
+            }
+            return oid;
+            }</value>
+	</set-header>
+</fragment>

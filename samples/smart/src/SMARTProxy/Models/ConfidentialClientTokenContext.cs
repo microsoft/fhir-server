@@ -23,10 +23,14 @@ namespace SMARTProxy.Models
 
             GrantType = GrantType.authorization_code;
             Code = form["code"]!;
-            RedirectUri = new Uri(form["redirect_uri"]!);
             ClientId = form["client_id"]!;
             ClientSecret = form["client_secret"]!;
             CodeVerifier = form["code_verifier"]!;
+
+            if (form.AllKeys.Contains("redirect_uri"))
+            {
+                RedirectUri = new Uri(form["redirect_uri"]!);
+            }
         }
 
         public GrantType GrantType { get; } = default!;
@@ -65,10 +69,10 @@ namespace SMARTProxy.Models
                 string.IsNullOrEmpty(Code) ||
                 string.IsNullOrEmpty(RedirectUri.ToString()) ||
                 string.IsNullOrEmpty(ClientId) ||
-                string.IsNullOrEmpty(ClientSecret) ||
+                string.IsNullOrEmpty(ClientSecret))
 
-                // TODO - do we want to force PKCE?
-                string.IsNullOrEmpty(CodeVerifier))
+            // TODO - add option to force PKCE?
+            // string.IsNullOrEmpty(CodeVerifier)
             {
                 throw new ArgumentException("TokenContext invalid");
             }

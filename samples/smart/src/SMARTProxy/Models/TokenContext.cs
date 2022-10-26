@@ -6,7 +6,6 @@
 using System.Collections.Specialized;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using SMARTProxy.Extensions;
 
 namespace SMARTProxy.Models
@@ -31,8 +30,10 @@ namespace SMARTProxy.Models
 
         public abstract FormUrlEncodedContent ToFormUrlEncodedContent();
 
-        public static TokenContext FromFormUrlEncodedContent(NameValueCollection formData, string audience)
+        public static TokenContext FromFormUrlEncodedContent(NameValueCollection formData, AuthenticationHeaderValue? authHeaderValue, string audience)
         {
+            AddBasicAuthData(formData, authHeaderValue);
+
             TokenContext? tokenContext = null;
 
             // For public apps and confidential apps
@@ -57,7 +58,7 @@ namespace SMARTProxy.Models
                 if (formData.AllKeys.Contains("client_assertion_type") && formData.AllKeys.Contains("client_assertion_type") &&
                     Uri.UnescapeDataString(formData["client_assertion_type"]!) == "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
                 {
-                    tokenContext = new ClientConfidentialAsyncTokenContext(formData, audience);
+                    tokenContext = new BackendServiceTokenContext(formData, audience);
                 }
             }
 
@@ -69,25 +70,26 @@ namespace SMARTProxy.Models
             return tokenContext;
         }
 
-        public static TokenContext FromRequest(NameValueCollection formData, HttpRequestHeaders headers, string audience, ILogger logger)
+        private static void AddBasicAuthData(NameValueCollection formData, AuthenticationHeaderValue? reqAuth)
         {
             // Inferno 1 Standalone Patient App depends on symetric confidential client
             // We have no choice but to provide client secret on the tests and this forces the basic auth header in the test.
             // https://github.com/inferno-framework/smart-app-launch-test-kit/blob/b7fbba193f43b65fd00568e18591a8518210f2d0/lib/smart_app_launch/token_exchange_test.rb#L51
 
-            var reqAuth = headers!.Authorization;
-
-            // TODO - this may need refactoring and needs better tests / error handling
-            if (reqAuth?.Scheme == "Basic" && reqAuth?.Parameter is not null)
+            if (reqAuth is not null)
             {
-                logger?.LogTrace("Request is using basic auth via header.");
-                var authParameterDecoded = reqAuth!.Parameter!.DecodeBase64().Split(":");
+                // TODO - this may need refactoring and needs better tests / error handling
+                if (reqAuth?.Scheme == "Basic" && reqAuth?.Parameter is not null)
+                {
+                    formData.Remove("client_id");
+                    formData.Remove("client_secret");
 
-                formData.Add("client_id", authParameterDecoded[0]);
-                formData.Add("client_secret", authParameterDecoded[1]);
+                    var authParameterDecoded = reqAuth!.Parameter!.DecodeBase64().Split(":");
+
+                    formData.Add("client_id", authParameterDecoded[0]);
+                    formData.Add("client_secret", authParameterDecoded[1]);
+                }
             }
-
-            return FromFormUrlEncodedContent(formData, audience);
         }
     }
 }

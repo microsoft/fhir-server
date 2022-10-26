@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Configuration;
+
 namespace SMARTProxy.Configuration
 {
     public class SMARTProxyConfig
@@ -31,22 +33,22 @@ namespace SMARTProxy.Configuration
         {
             if (string.IsNullOrEmpty(SmartFhirEndpoint))
             {
-                throw new ArgumentException("SmartFhirEndpoint must be configured for this application.");
+                throw new ConfigurationErrorsException("SmartFhirEndpoint must be configured for this application.");
             }
 
             if (string.IsNullOrEmpty(BackendFhirUrl))
             {
-                throw new ArgumentException("BackendFhirUrl must be configured for this application.");
+                throw new ConfigurationErrorsException("BackendFhirUrl must be configured for this application.");
             }
 
             if (string.IsNullOrEmpty(TenantId))
             {
-                throw new ArgumentException("TenantId must be configured for this application.");
+                throw new ConfigurationErrorsException("TenantId must be configured for this application.");
             }
 
             if (string.IsNullOrEmpty(Audience))
             {
-                throw new ArgumentException("Audience must be configured for this application.");
+                throw new ConfigurationErrorsException("Audience must be configured for this application.");
             }
         }
     }

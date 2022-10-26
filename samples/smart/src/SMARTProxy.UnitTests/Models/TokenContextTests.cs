@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Specialized;
+using System.Net.Http.Headers;
 using System.Web;
 using SMARTProxy.Models;
 
@@ -11,40 +12,32 @@ namespace SMARTProxy.UnitTests.Models
 {
     public class TokenContextTests
     {
-        private static string _audience = "12345678-90ab-cdef-1234-567890abcdef";
-
-        public static TheoryData<string> NormalTokenCollectionData =>
-            new TheoryData<string>
-            {
-                // PKCE
-                "grant_type=authorization_code&code=12345678&redirect_uri=http://localhost&client_id=xxxx-xxxxx-xxxxx-xxxxx&code_verifier=test",
-
-                // Non-PKCE
-                "grant_type=authorization_code&code=12345678&redirect_uri=http://localhost&client_id=xxxx-xxxxx-xxxxx-xxxxx",
-            };
+        // Base64 encoding of "username:password"
+        private const string TestBasicAuthParameterNormal = "dXNlcm5hbWU6cGFzc3dvcmQ=";
+        private const string TestBasicAuthParameterInvalidLikeInfernoDoes = "dXNlcm5hbWU6cGFzc3dvcmQ";
 
         [Theory]
-        [MemberData(nameof(NormalTokenCollectionData))]
-        public void GivenNormalAuthorizeCollection_WhenInitialized_ThenCorrectLaunchContextCreated(string tokenBody)
+        [InlineData(TestBasicAuthParameterNormal)]
+        [InlineData(TestBasicAuthParameterInvalidLikeInfernoDoes)]
+        public void GivenATokenStringAndBasicAuthorizaton_WhenInitialized_BasicAuthAddedToBody(string parameter)
         {
-            NameValueCollection tokenBodyCol = HttpUtility.ParseQueryString(tokenBody);
-            TokenContext context = TokenContext.FromFormUrlEncodedContent(tokenBodyCol, _audience);
+            string tokenBody = "grant_type=authorization_code&code=12345678&redirect_uri=http://localhost&client_id=xxxx-xxxxx-xxxxx-xxxxx";
+            string testAud = "api://test";
+            var auth = new AuthenticationHeaderValue("Basic", parameter);
 
-            if (context.GetType() != typeof(PublicClientTokenContext))
+            NameValueCollection tokenBodyCol = HttpUtility.ParseQueryString(tokenBody);
+            TokenContext context = TokenContext.FromFormUrlEncodedContent(tokenBodyCol, auth, testAud);
+
+            if (context.GetType() != typeof(ConfidentialClientTokenContext))
             {
-                Assert.Fail("token body not parsed to the correct type");
+                Assert.Fail("Authorization header should make this a confidential client.");
             }
 
-            var contextParsed = (PublicClientTokenContext)context;
+            var contextParsed = (ConfidentialClientTokenContext)context;
 
             // SMART required fields should always exist and match
-            Assert.Equal(tokenBodyCol["grant_type"], contextParsed.GrantType.ToString());
-            Assert.Equal(tokenBodyCol["code"], contextParsed.Code);
-            Assert.Equal(tokenBodyCol["redirect_uri"], contextParsed.RedirectUri.ToString());
-            Assert.Equal(tokenBodyCol["client_id"], contextParsed.ClientId);
-
-            // SMART optional fields should be null or match
-            Assert.True(contextParsed.CodeVerifier is null || tokenBodyCol["code_verifier"] == contextParsed.CodeVerifier);
+            Assert.Equal("username", contextParsed.ClientId);
+            Assert.Equal("password", contextParsed.ClientSecret);
         }
     }
 }

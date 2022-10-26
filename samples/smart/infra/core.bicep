@@ -19,6 +19,12 @@ param fhirServiceName string
 @description('AAD Audience of app with SMART scopes')
 param smartAudience string
 
+param testBackendClientId string
+@secure()
+param testBackendClientSecret string
+param testBackendClientJwks string
+
+
 @description('Name of the Log Analytics workspace to deploy or use. Leave blank to skip deployment')
 param logAnalyticsName string = '${prefixName}-la'
 
@@ -85,6 +91,26 @@ var funcStorName = '${prefixNameCleanShort}funcsa'
 
 var fhirUrl = 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
 
+var functionParams = union(
+  {
+    AZURE_BackendFhirUrl: fhirUrl
+    AZURE_SmartFhirEndpoint: 'https://${apimName}.azure-api.net/smart'
+    AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
+    AZURE_TenantId: tenantId
+    Azure_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
+  }, 
+  functionAppCustomSettings, 
+  length(testBackendClientId) > 0 ? {
+    AZURE_TestBackendClientId: testBackendClientId
+  } : {},
+  length(testBackendClientSecret) > 0 ? {
+    AZURE_TestBackendClientSecret: testBackendClientSecret
+  } : {},
+  length(testBackendClientJwks) > 0 ? {
+    AZURE_TestBackendClientJwks: testBackendClientJwks
+  } : {}
+)
+
 @description('Deploy Azure Function to run SDK custom operations')
 module function './azureFunction.bicep'= {
   name: 'functionDeploy'
@@ -95,33 +121,29 @@ module function './azureFunction.bicep'= {
     location: location
     appInsightsInstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
-    functionSettings: union({
-      AZURE_BackendFhirUrl: fhirUrl
-      AZURE_SmartFhirEndpoint: 'https://${apimName}.azure-api.net/smart'
-      AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
-      AZURE_TenantId: tenantId
-      Azure_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
-    }, functionAppCustomSettings)
+    functionSettings: functionParams
     appTags: appTags
   }
 }
 
 @description('Setup identity connection between FHIR and the function app')
-module functionFhirIdentity './fhirIdentity.bicep'= {
+module functionFhirIdentity './identity.bicep'= {
   name: 'fhirIdentity-function'
   params: {
     fhirId: fhir.outputs.fhirId
     principalId: function.outputs.functionAppPrincipalId
+    roleType: 'fhirContributor'
   }
 }
 
 @description('Setup identity connection between FHIR and the function app')
-module specifiedIdentity './fhirIdentity.bicep' =  [for principalId in  fhirContributorPrincipals: {
+module specifiedIdentity './identity.bicep' =  [for principalId in  fhirContributorPrincipals: {
   name: 'fhirIdentity-${principalId}'
   params: {
     fhirId: fhir.outputs.fhirId
     principalId: principalId
     principalType: 'User'
+    roleType: 'fhirContributor'
   }
 }]
 
@@ -138,6 +160,7 @@ module apim './apiManagement.bicep'= {
     fhirBaseUrl: 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
     smartAuthFunctionBaseUrl: 'https://${function.outputs.hostName}/api'
     appInsightsInstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
+    exportStorageAccountUrl: fhir.outputs.exportStorageUrl
   }
 }
 
