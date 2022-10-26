@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 request.ContinuationToken,
                 cancellationToken);
 
-            searchResult = _searchResultFilter.Filter(isSmartRequest: true, searchResult: searchResult);
+            searchResult = _searchResultFilter.Filter(searchResult: searchResult);
 
             ResourceElement bundle = request.UnsupportedParameters != null && request.UnsupportedParameters.Any()
                 ? _bundleFactory.CreateSearchBundle(new SearchResult(searchResult.Results, searchResult.ContinuationToken, searchResult.SortOrder, request.UnsupportedParameters))

@@ -51,7 +51,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IUrlResolver, UrlResolver>();
             services.AddSingleton<IBundleFactory, BundleFactory>();
-            services.AddSingleton<ISearchResultFilter, SearchResultFilter>();
+
+            services.AddScoped<ISearchResultFilter, SearchResultFilter>();
 
             services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 

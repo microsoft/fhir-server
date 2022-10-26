@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             SearchResult searchResult = await _searchService.SearchCompartmentAsync(request.CompartmentType, request.CompartmentId, request.ResourceType, request.Queries, cancellationToken);
-            searchResult = _searchResultFilter.Filter(isSmartRequest: true, searchResult: searchResult);
+            searchResult = _searchResultFilter.Filter(searchResult: searchResult);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 
