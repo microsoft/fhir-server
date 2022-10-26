@@ -115,6 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var data = new List<object[]>();
             data.Add(new object[] { duplicateCode1, "POST" });
             data.Add(new object[] { duplicateCode2, "POST" });
+            data.Add(new object[] { duplicateCode2, "PUT" });
             return data;
         }
 
