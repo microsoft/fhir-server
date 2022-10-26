@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
@@ -141,13 +142,47 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                             nameof(searchParam.Code),
                             string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType.ToString())));
                 }
-                else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
+                else
                 {
-                    // The search parameter's code value conflicts with an existing one
-                    validationFailures.Add(
+                    if (baseType.ToString() == KnownResourceTypes.Resource)
+                    {
+                        foreach (string resource in ModelInfoProvider.GetResourceTypeNames())
+                        {
+                            if (_searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, out _))
+                            {
+                                validationFailures.Add(
+                                    new ValidationFailure(
+                                    nameof(searchParam.Code),
+                                    string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, resource)));
+                                break;
+                            }
+                        }
+                    }
+                    else if (baseType.ToString() == KnownResourceTypes.DomainResource)
+                    {
+                        foreach (string resource in ModelInfoProvider.GetResourceTypeNames())
+                        {
+                            Type type = ModelInfoProvider.GetTypeForFhirType(resource);
+                            string fhirBaseType = ModelInfoProvider.GetFhirTypeNameForType(type.BaseType);
+
+                            if (fhirBaseType == KnownResourceTypes.DomainResource && _searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, out _))
+                            {
+                                validationFailures.Add(
+                                    new ValidationFailure(
+                                    nameof(searchParam.Code),
+                                    string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, resource)));
+                                break;
+                            }
+                        }
+                    }
+                    else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
+                    {
+                        // The search parameter's code value conflicts with an existing one
+                        validationFailures.Add(
                         new ValidationFailure(
                             nameof(searchParam.Code),
                             string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
+                    }
                 }
             }
         }

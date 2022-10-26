@@ -77,6 +77,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await Assert.ThrowsAsync<JobConflictException>(() => validator.ValidateSearchParameterInput(new SearchParameter(), "POST", CancellationToken.None));
         }
 
+        [Theory]
+        [MemberData(nameof(DuplicateCodeAtBaseResourceData))]
+        public async Task GivenInvalidSearchParamWithDuplicateCode_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
+        {
+            var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager);
+            await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
+        }
+
         public static IEnumerable<object[]> InvalidSearchParamData()
         {
             var missingUrl = new SearchParameter();
@@ -96,6 +104,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             data.Add(new object[] { duplicateCode, "PUT" });
             data.Add(new object[] { nullCode, "POST" });
 
+            return data;
+        }
+
+        public static IEnumerable<object[]> DuplicateCodeAtBaseResourceData()
+        {
+            var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { ResourceType.Resource as ResourceType? } };
+            var duplicateCode2 = new SearchParameter { Url = "http://unique3", Code = "duplicate", Base = new[] { ResourceType.DomainResource as ResourceType? } };
+
+            var data = new List<object[]>();
+            data.Add(new object[] { duplicateCode1, "POST" });
+            data.Add(new object[] { duplicateCode2, "POST" });
             return data;
         }
 
