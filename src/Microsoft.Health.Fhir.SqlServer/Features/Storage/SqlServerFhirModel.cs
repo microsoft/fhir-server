@@ -231,13 +231,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
 
-INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
-INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
-INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 10
-INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2
-INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 20
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0
-INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01
+IF object_id('dbo.Parameters') IS NOT NULL
+BEGIN
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 10
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 20
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01
+END
 
                         INSERT INTO dbo.ResourceType (Name)
                         SELECT value FROM string_split(@resourceTypes, ',')
