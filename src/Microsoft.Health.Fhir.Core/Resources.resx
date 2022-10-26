@@ -274,6 +274,9 @@
     <value>The '_total' parameter value '{0}' is invalid. The supported values are: {1}.</value>
     <comment>{0}: the invalid _total parameter value. {1}: the supported _total parameter values.</comment>
   </data>
+  <data name="InvalidSecurityConfigurationBaseEndpoint" xml:space="preserve">
+    <value>"Security configuration base endpoint {0} is an invalid Uri".</value>
+  </data>
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>Invalid value for :missing modifier. Valid values are: true, false.</value>
   </data>
@@ -357,6 +360,9 @@
   </data>
   <data name="ReverseChainMissingType" xml:space="preserve">
     <value>The reverse chain search is missing the type to search.</value>
+  </data>
+  <data name="SecurityConfigurationAuthorizationNotEnabled" xml:space="preserve">
+    <value>Security configuration authorization is not enabled.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>

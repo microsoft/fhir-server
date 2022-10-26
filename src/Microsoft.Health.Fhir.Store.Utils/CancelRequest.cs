@@ -11,9 +11,9 @@ namespace Microsoft.Health.Fhir.Store.Utils
     {
         private long _value;
 
-        internal bool IsSet => Interlocked.Read(ref _value) == 1;
+        public bool IsSet => Interlocked.Read(ref _value) == 1;
 
-        internal void Set()
+        public void Set()
         {
             Interlocked.Exchange(ref _value, 1);
         }

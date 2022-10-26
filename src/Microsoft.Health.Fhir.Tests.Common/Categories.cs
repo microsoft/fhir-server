@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// <summary>
         /// Set of tests validating FHIR domain related logic.
         /// </summary>
+        public const string Conformance = nameof(Conformance);
+
         public const string DomainLogicValidation = nameof(DomainLogicValidation);
 
         public const string Export = nameof(Export);

@@ -1,0 +1,91 @@
+# Please note that to use this file for local testing
+# you must make an update
+# in the appsettings.json
+# FhirServer:Security:Authorization:ScopesClaim = "scope"
+# Due to the in-memory Identity Provider using "scope"
+# as the claim name for scopes, which is not the default
+
+
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the globalAdminServicePrincipal to verify scopes not enforced, and to be able to POST test data
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=patient/Observation.read fhirUser fhir-api user/Encounter.*
+
+
+### POST the test data
+# @name patient
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/SmartCompartmentResources.json
+
+
+### Get the smartUser bearer token, for testing scopes
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Observation.read fhirUser fhir-api user/Encounter.*
+
+### Get all Patient
+GET https://{{hostname}}/Patient
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get Observation
+GET https://{{hostname}}/Observation
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get Encounter
+GET https://{{hostname}}/Encounter
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get Observation with _include Patient
+GET https://{{hostname}}/Observation?_id=smart-observation-A1&_include=Observation:subject
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+### Get a single Patient
+GET https://{{hostname}}/Patient/smart-patient-A
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get a single Patient with _revinclude Observations
+GET https://{{hostname}}/Patient/?_id=smart-patient-A&_revinclude=Observation:subject
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get a Patient using _type search
+GET https://{{hostname}}/?_type=Patient
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Reverse chained search
+GET https://{{hostname}}/Patient?_has:Observation:patient:code=4548-4&_count=1000
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get all resources
+GET https://{{hostname}}/
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Scoped to be able to read all resources
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.read fhirUser fhir-api
+
+
