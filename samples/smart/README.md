@@ -23,13 +23,13 @@ This sample is still under active development.
 - EHR Launch 
 - Standalone Launch Public Client
 - Bulk Data APIs
+- Auth for SMART Backend Services (RSA384)
+- Export storage access
 
 ### To Do
 
 - Connecting sample to FHIR Server (finishing scope work first)
-- Proper exposing of scopes for FHIR in Azure Active Directory
 - Limited Patient
-- Auth for SMART Backend Services (RSA384)
 - Documentation for loading US Core
 
 ## Prerequisites
