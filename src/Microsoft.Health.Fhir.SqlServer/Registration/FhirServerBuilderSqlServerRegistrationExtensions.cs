@@ -10,6 +10,7 @@ using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -235,10 +236,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<DefragWatchdog>()
+            services
+                .RemoveServiceTypeExact<DefragWatchdog, INotificationHandler<StorageInitializedNotification>>()
+                .Add<DefragWatchdog>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
+                .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             services.AddHostedService<WatchdogsBackgroundService>();
 
