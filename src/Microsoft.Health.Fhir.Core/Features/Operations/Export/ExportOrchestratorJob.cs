@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     processingRecord = CreateExportRecord(
                         record,
                         sequence: numberOfParallelJobs - 1,
-                        since: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + (9 * lengthOfRange)))),
+                        since: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + ((numberOfParallelJobs - 1) * lengthOfRange)))),
                         till: record.Till);
                     definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
 
