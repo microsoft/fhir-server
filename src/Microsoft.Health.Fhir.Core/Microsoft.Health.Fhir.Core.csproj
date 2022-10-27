@@ -60,7 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Transitive Dependency of Microsoft.Health.SqlServer. Fixing version to mitigate CVE -->
-    <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
+    <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
