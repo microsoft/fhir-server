@@ -34,7 +34,7 @@ namespace SMARTProxy.Extensions
                         formattedScope = formattedScope.Replace("*", "all", StringComparison.InvariantCulture);
 
                         // Leave the space in the string below
-                        if (scopeAudience.EndsWith("/"))
+                        if (scopeAudience.EndsWith("/", StringComparison.InvariantCultureIgnoreCase))
                         {
                             formattedScope = $"{scopeAudience}{formattedScope} ";
                         }
@@ -42,7 +42,7 @@ namespace SMARTProxy.Extensions
                         {
                             formattedScope = $"{scopeAudience}/{formattedScope} ";
                         }
-                        
+
                         scopesBuilder.Append(formattedScope);
                     }
                     else
