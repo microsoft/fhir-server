@@ -66,18 +66,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public async Task Initialize(CancellationToken cancellationToken)
         {
-            if (!_storageReady || _schemaInformation.Current < SchemaVersionConstants.Defrag)
+            // wait till we can truly init
+            while (!_storageReady || _schemaInformation.Current < SchemaVersionConstants.Defrag)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
 
             await InitParamsAsync();
-
-            _threads = await GetThreads(cancellationToken);
-            _heartbeatPeriodSec = await GetHeartbeatPeriod(cancellationToken);
-            _heartbeatTimeoutSec = await GetHeartbeatTimeout(cancellationToken);
-            _periodSec = await GetPeriod(cancellationToken);
 
             _timerDelay = TimeSpan.FromSeconds(_periodSec);
         }
@@ -449,6 +445,11 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
             cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
 
             await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+
+            _threads = await GetThreads(CancellationToken.None);
+            _heartbeatPeriodSec = await GetHeartbeatPeriod(CancellationToken.None);
+            _heartbeatTimeoutSec = await GetHeartbeatTimeout(CancellationToken.None);
+            _periodSec = await GetPeriod(CancellationToken.None);
 
             _logger.LogInformation("InitParams completed.");
         }

@@ -233,13 +233,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
 IF object_id('dbo.Parameters') IS NOT NULL
 BEGIN
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 10
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 10
-  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0
-  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinFragPct')
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB')
 END
 
                         INSERT INTO dbo.ResourceType (Name)
