@@ -58,15 +58,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var pagesBefore = GetPages();
 
             using var cts = new CancellationTokenSource();
-            cts.CancelAfter(TimeSpan.FromMinutes(10));
+            cts.CancelAfter(TimeSpan.FromMinutes(5));
 
             await wd.Initialize(cts.Token);
-            wd.ChangeDelay(TimeSpan.FromSeconds(2));
             Task task = wd.ExecuteAsync(cts.Token);
-
-            ExecuteSql($"UPDATE dbo.Parameters SET Number = 1 WHERE Id = '{DefragWatchdog.IsEnabledId}'");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01");
 
             while (finishedProcessingQueue == false && cts.IsCancellationRequested == false)
             {

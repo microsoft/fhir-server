@@ -28,16 +28,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     public sealed class DefragWatchdog : INotificationHandler<StorageInitializedNotification>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
-        private const string PeriodHourId = "Defrag.Period.Hours";
+        internal const string PeriodSecId = "Defrag.PeriodSec";
         internal const string IsEnabledId = "Defrag.IsEnabled";
-        private const string HeartbeatTimeoutSecId = "Defrag.HeartbeatTimeoutSec";
-        private const string HeartbeatPeriodSecId = "Defrag.HeartbeatPeriodSec";
-        private const string ThreadsId = "Defrag.Threads";
+        internal const string HeartbeatTimeoutSecId = "Defrag.HeartbeatTimeoutSec";
+        internal const string HeartbeatPeriodSecId = "Defrag.HeartbeatPeriodSec";
+        internal const string ThreadsId = "Defrag.Threads";
 
         private int _threads;
         private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
-        private double _periodHour;
+        private double _periodSec;
 
         private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
         private readonly SchemaInformation _schemaInformation;
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             if (!_storageReady || _schemaInformation.Current < SchemaVersionConstants.Defrag)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
 
             await InitParamsAsync();
@@ -77,9 +77,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _threads = await GetThreads(cancellationToken);
             _heartbeatPeriodSec = await GetHeartbeatPeriod(cancellationToken);
             _heartbeatTimeoutSec = await GetHeartbeatTimeout(cancellationToken);
-            _periodHour = await GetPeriod(cancellationToken);
+            _periodSec = await GetPeriod(cancellationToken);
 
-            _timerDelay = TimeSpan.FromHours(_periodHour);
+            _timerDelay = TimeSpan.FromSeconds(_periodSec);
         }
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
                 if (!await IsEnabled(cancellationToken))
                 {
-                    _logger.LogInformation("DefragWorker is disabled.");
+                    _logger.LogInformation("DefragWatchdog is disabled.");
                     continue;
                 }
 
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         continue;
                     }
 
-                    _logger.LogInformation("DefragWorker found JobId: {JobId}, executing.", id.jobId);
+                    _logger.LogInformation("DefragWatchdog found JobId: {JobId}, executing.", id.jobId);
 
                     await ExecWithHeartbeatAsync(
                         async cancellationSource =>
@@ -155,11 +155,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, "DefragWorker failed.");
+                    _logger.LogError(e, "DefragWatchdog failed.");
                 }
             }
 
-            _logger.LogInformation("DefragWorker stopped.");
+            _logger.LogInformation("DefragWatchdog stopped.");
         }
 
         private async Task ChangeDatabaseSettings(bool isOn, CancellationToken cancellationToken)
@@ -408,7 +408,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<double> GetPeriod(CancellationToken cancellationToken)
         {
-            var value = await GetNumberParameterById(PeriodHourId, cancellationToken);
+            var value = await GetNumberParameterById(PeriodSecId, cancellationToken);
             return value;
         }
 
@@ -436,7 +436,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             cmd.CommandText = @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
-INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodHourId, 24 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodHourId)
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 24*3600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodSecId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
@@ -444,7 +444,7 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
 
             cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
             cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
-            cmd.Parameters.AddWithValue("@PeriodHourId", PeriodHourId);
+            cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
             cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
             cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
 
@@ -455,7 +455,7 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
 
         private static TimeSpan RandomDelay()
         {
-            return TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10));
+            return TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0);
         }
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
