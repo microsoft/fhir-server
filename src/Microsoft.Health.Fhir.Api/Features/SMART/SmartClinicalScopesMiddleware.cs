@@ -12,6 +12,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -36,7 +37,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfigurationOptions)
+        public async Task Invoke(
+            HttpContext context,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            IOptions<SecurityConfiguration> securityConfigurationOptions,
+            IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(securityConfigurationOptions, nameof(securityConfigurationOptions));
@@ -50,8 +55,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 var principal = fhirRequestContext.Principal;
                 var roles = principal.FindAll(authorizationConfiguration.RolesClaim).Select(r => r.Value);
 
-                // Only read and apply SMART clinical scopes if the SmartUserRole is present
-                if (roles.Contains(authorizationConfiguration.SmartUserRole))
+                var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
+
+                // Only read and apply SMART clinical scopes if has Smart data action
+                if (dataActions.HasFlag(DataActions.Smart))
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 
