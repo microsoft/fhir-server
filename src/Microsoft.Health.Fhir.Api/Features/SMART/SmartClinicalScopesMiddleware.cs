@@ -15,6 +15,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Smart
 {
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         private readonly RequestDelegate _next;
 
         // Regex based on SMART on FHIR clinical scopes v1.0, http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
-        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|.)(?<resource>\*|([a-zA-Z]*))\.(?<accessLevel>read|write|\*)", RegexOptions.Compiled);
+        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all)", RegexOptions.Compiled);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next)
         {
@@ -90,6 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     permittedDataActions |= DataActions.Write;
                                     break;
                                 case "*":
+                                case KnownResourceTypes.All:
                                     permittedDataActions |= DataActions.Read | DataActions.Write;
                                     break;
                             }
@@ -97,6 +99,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             if (!string.IsNullOrEmpty(resource)
                                 && !string.IsNullOrEmpty(id))
                             {
+                                if (resource.Equals("*", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    resource = KnownResourceTypes.All;
+                                }
+
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
                             }
                         }

@@ -405,7 +405,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         {
             var resourceTypes = _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions.Select(r => r.Resource).Distinct().ToList();
 
-            if (resourceTypes.Contains("*") || resourceTypes.Contains(resourceType))
+            if (resourceTypes.Contains(KnownResourceTypes.All) || resourceTypes.Contains(resourceType))
             {
                 return true;
             }

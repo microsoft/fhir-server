@@ -451,7 +451,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
                     {
                         var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
-                        if (!allowedResourceTypesByScope.Contains("*") && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                        if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
                         {
                             _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
                             return null;
@@ -482,7 +482,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
                 {
-                    if (restriction.Resource == "*")
+                    if (restriction.Resource == KnownResourceTypes.All)
                     {
                         allowAllResourceTypes = true;
                         break;
