@@ -31,7 +31,7 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
 
 - Create a new application in Azure Active Directory. Make sure to select `Web` as the platform and add the redirect URL for Inferno (`https://inferno.healthit.gov/suites/custom/smart/redirect`).
 - In API Permissions for this new application, add the below:
-  - Azure Healthcare APIs
+  - Azure Healthcare APIs (Delegated)
     - fhirUser
     - launch
     - patient.AllergyIntolerance.read
@@ -54,7 +54,7 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
     - patient.PractitionerRole.read
     - patient.Procedure.read
     - patient.Provenance.read
-  - Microsoft Graph
+  - Microsoft Graph (Delegated)
     - openid
     - offline_access
 
@@ -65,7 +65,7 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
 - Create a new application in Azure Active Directory. Make sure to select `Web` as the platform and add the redirect URL for Inferno (`https://inferno.healthit.gov/suites/custom/smart/redirect`).
 - In API Permissions for this new application, add the below:
 
-  - Azure Healthcare APIs
+  - Azure Healthcare APIs (Delegated)
     - fhirUser
     - launch
     - user.AllergyIntolerance.read
@@ -88,7 +88,7 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
     - user.PractitionerRole.read
     - user.Procedure.read
     - user.Provenance.read
-  - Microsoft Graph
+  - Microsoft Graph (Delegated)
     - openid
     - offline_access
 
@@ -96,7 +96,18 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
 
 #### Backend Service Client Application
 
-#### Public Client Application
+- Create a new application in Azure Active Directory. No platform or redirect URL is needed. 
+- In API Permissions for this new application, add the below:
+  - Azure Healthcare APIs (Application)
+    - system.all.read
+- Grant admin consent for your Application on the API Permission page
+- Generate a secret for this application. Save this and the client id.
+- In the resource group that matches your environment, open the KeyVault with the suffix `backkv`.
+- Add a new secret that corresponds to the Application you just generated. 
+  - Name: Application ID/Client ID of the application
+  - Secret: The secret you generated for the application
+  - Tags: Make sure to add the tag `jwks_url` with the backend service JWKS URL. For Inferno testing, this is: https://inferno.healthit.gov/suites/custom/g10_certification/.well-known/jwks.json
+![](./docs/keyvault-reg.png)
 
 ## Components 
 
