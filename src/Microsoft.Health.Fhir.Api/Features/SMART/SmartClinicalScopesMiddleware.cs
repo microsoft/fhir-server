@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                 var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
 
-                // Only read and apply SMART clinical scopes if has Smart data action
+                // Only read and apply SMART clinical scopes if the user has the Smart Data action
                 if (dataActions.HasFlag(DataActions.Smart))
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
