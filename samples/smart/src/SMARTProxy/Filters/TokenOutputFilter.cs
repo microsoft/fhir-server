@@ -64,15 +64,17 @@ namespace SMARTProxy.Filters
                 ns = ns.Replace("system.", "system/", StringComparison.InvariantCulture);
                 ns = ns.Replace("launch.", "launch/", StringComparison.InvariantCulture);
 
-                if (!ns.Contains("offline_access", StringComparison.InvariantCulture))
-                {
-                    ns += " offline_access";
-                }
+                // Why is this here?
+                // if (!ns.Contains("offline_access", StringComparison.InvariantCulture))
+                // {
+                //     ns += " offline_access";
+                // }
 
-                if (!ns.Contains("openid", StringComparison.InvariantCulture))
-                {
-                    ns += " openid";
-                }
+                // Why is this here?
+                // if (!ns.Contains("openid", StringComparison.InvariantCulture))
+                // {
+                //     ns += " openid";
+                // }
 
                 tokenResponse["scope"] = ns;
             }

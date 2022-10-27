@@ -80,7 +80,7 @@ module apimNamedValues 'apiManagement/namedValues.bicep' = {
 
 @description('API Management Policy Fragments')
 module apimFragments 'apiManagement/fragments.bicep' = {
-  name: '${apiManagementServiceName}-named-values'
+  name: '${apiManagementServiceName}-fragments'
   params: {
     apiManagementServiceName: apimService.name
   }
