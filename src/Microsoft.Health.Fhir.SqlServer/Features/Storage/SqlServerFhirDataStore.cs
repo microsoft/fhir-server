@@ -9,7 +9,6 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -133,6 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             const int deadlockVictim = 1205;
             const int maxRetryCount = 5;
             int retryCount = 0;
+            int baseDelay = 5;
 
             while (true)
             {
@@ -277,14 +277,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         switch (e.Number)
                         {
                             case deadlockVictim:
-                                if (retryCount++ >= maxRetryCount)
+                                if (retryCount >= maxRetryCount)
                                 {
                                     throw;
                                 }
 
-                                var delayTime = TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(10, 2000));
+                                var delayTime = TimeSpan.FromSeconds(baseDelay * Math.Pow(2, retryCount));
                                 _logger.LogError(e, $"Sql deadlock encountered - delaying for {delayTime.Duration()}");
                                 await Task.Delay(delayTime, cancellationToken);
+                                retryCount++;
                                 continue;
                             case SqlErrorCodes.Conflict:
                                 // someone else beat us to it, re-read and try comparing again - Compared resource was updated
