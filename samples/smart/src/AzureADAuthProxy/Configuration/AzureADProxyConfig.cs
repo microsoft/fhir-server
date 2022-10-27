@@ -9,6 +9,8 @@ namespace AzureADAuthProxy.Configuration
 {
     public class AzureADProxyConfig
     {
+        private string? _audience;
+
 #pragma warning disable CA1056 // Needs to be string to parse from config easily.
         public string? SmartFhirEndpoint { get; set; }
 
@@ -21,7 +23,24 @@ namespace AzureADAuthProxy.Configuration
 
         public string? TenantId { get; set; }
 
-        public string? Audience { get; set; }
+        public string? Audience
+        {
+            get => _audience;
+            set
+            {
+                if (value is not null && value.Length > 0)
+                {
+                    if (!value.EndsWith("/", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        _audience = value + "/";
+                    }
+                    else
+                    {
+                        _audience = value;
+                    }
+                }
+            }
+        }
 
         public string? BackendServiceKeyVaultStore { get; set; }
 

@@ -47,6 +47,7 @@ module template 'core.bicep'= {
     fhirServiceName: 'fhirdata'
     location: location
     fhirContributorPrincipals: [principalId]
+    fhirSMARTPrincipals: [principalId]
     keyVaultWriterPrincipals: [principalId]
     smartAudience: smartAudience
     apimPublisherName: apimPublisherName

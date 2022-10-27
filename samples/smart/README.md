@@ -17,6 +17,8 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
   - `apimPublisherName`: Sample owner name.
   - `apimPublisherEmail`: Sample owner email address.
 - Open a terminal to this directory (`samples/smart`).
+- Login with the Azure CLI. Specify the tenant if you have more than one.
+  - `az login` or `az login -t <tenant-id>`.
 - Run the `azd up` command from this directory. Enter 
   - Environment Name: Prefix for the resource group that will be created to hold all Azure resources ([see more details](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/faq#what-is-an-environment-name)). You can always create a new environment with `azd env new`.
   - Azure Location: The Azure location where your resources will be deployed.
@@ -25,12 +27,70 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
 
 ### 3. Setup Azure Active Directory
 
-#### Confidential Client Application
+#### Patient Standalone Confidential Client Application
+
+- Create a new application in Azure Active Directory. Make sure to select `Web` as the platform and add the redirect URL for Inferno (`https://inferno.healthit.gov/suites/custom/smart/redirect`).
+- In API Permissions for this new application, add the below:
+  - Azure Healthcare APIs
+    - fhirUser
+    - launch
+    - patient.AllergyIntolerance.read
+    - patient.CarePlan.read
+    - patient.CareTeam.read
+    - patient.Condition.read
+    - patient.Device.read
+    - patient.DiagnosticReport.read
+    - patient.DocumentReference.read
+    - patient.Encounter.read
+    - patient.Goal.read
+    - patient.Immunization.read
+    - patient.Location.read
+    - patient.MedicationRequest.read
+    - patient.Medication.read
+    - patient.Observation.read
+    - patient.Organization.read
+    - patient.Patient.read
+    - patient.Practitioner.read
+    - patient.PractitionerRole.read
+    - patient.Procedure.read
+    - patient.Provenance.read
+  - Microsoft Graph
+    - openid
+    - offline_access
+
+- Generate a secret for this application. Save this and the client id for later testing.
+
+#### EHR Launch Confidential Client Application
 
 - Create a new application in Azure Active Directory. Make sure to select `Web` as the platform and add the redirect URL for Inferno (`https://inferno.healthit.gov/suites/custom/smart/redirect`).
 - In API Permissions for this new application, add the below:
 
-![](./docs/client-confidental-app-scopes.png)
+  - Azure Healthcare APIs
+    - fhirUser
+    - launch
+    - user.AllergyIntolerance.read
+    - user.CarePlan.read
+    - user.CareTeam.read
+    - user.Condition.read
+    - user.Device.read
+    - user.DiagnosticReport.read
+    - user.DocumentReference.read
+    - user.Encounter.read
+    - user.Goal.read
+    - user.Immunization.read
+    - user.Location.read
+    - user.MedicationRequest.read
+    - user.Medication.read
+    - user.Observation.read
+    - user.Organization.read
+    - user.Patient.read
+    - user.Practitioner.read
+    - user.PractitionerRole.read
+    - user.Procedure.read
+    - user.Provenance.read
+  - Microsoft Graph
+    - openid
+    - offline_access
 
 - Generate a secret for this application. Save this and the client id for later testing.
 

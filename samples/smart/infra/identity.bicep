@@ -2,7 +2,7 @@ param fhirId string
 param principalId string
 param principalType string = 'ServicePrincipal'
 
-@allowed(['fhirContributor', 'storageBlobContributor'])
+@allowed(['fhirContributor', 'storageBlobContributor', 'fhirSmart'])
 param roleType string
 
 @description('This is the built-in FHIR Data Contributor role. See https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#fhir-data-contributor')
@@ -10,6 +10,13 @@ resource fhirContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@
   scope: subscription()
   name: '5a1fc7df-4bf1-4951-a576-89034ee01acd'
 }
+
+@description('This is the built-in FHIR Data Contributor role. See https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#fhir-data-contributor')
+resource fhirSmartRoleDefinition 'Microsoft.Authorization/roleDefinitions@2018-01-01-preview' existing = {
+  scope: subscription()
+  name: '4ba50f17-9666-485c-a643-ff00808643f0'
+}
+
 
 @description('This is the built-in Storage Blob Data Contributor role. See https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#storage-blob-data-contributor')
 resource storageBlobDataControbutorRole 'Microsoft.Authorization/roleDefinitions@2018-01-01-preview' existing = {
@@ -21,6 +28,15 @@ resource fhirDataContributorAccess 'Microsoft.Authorization/roleAssignments@2020
   name: guid(fhirId, principalId, fhirContributorRoleDefinition.id)
   properties: {
     roleDefinitionId: fhirContributorRoleDefinition.id
+    principalId: principalId
+    principalType: principalType
+  }
+}
+
+resource fhirSmartAccess 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' =  if (roleType == 'fhirSmart') {
+  name: guid(fhirId, principalId, fhirSmartRoleDefinition.id)
+  properties: {
+    roleDefinitionId: fhirSmartRoleDefinition.id
     principalId: principalId
     principalType: principalType
   }

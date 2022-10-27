@@ -52,6 +52,8 @@ namespace AzureADAuthProxy.Filters
 
             JObject tokenResponse = JObject.Parse(context.ContentString);
 
+            var audience = _configuration.Audience!;
+
             // TODO: Check for fhirUser in id_token
 
             // Replace scopes from fully qualified AD scopes to SMART scopes
@@ -66,16 +68,19 @@ namespace AzureADAuthProxy.Filters
                 ns = ns.Replace("launch.", "launch/", StringComparison.InvariantCulture);
 
                 // Why is this here?
-                // if (!ns.Contains("offline_access", StringComparison.InvariantCulture))
-                // {
-                //     ns += " offline_access";
-                // }
+                if (tokenResponse.ContainsKey("refresh_token"))
+                {
+                    ns += " offline_access";
+                }
+                else
+                {
+                    ns += " online_access";
+                }
 
-                // Why is this here?
-                // if (!ns.Contains("openid", StringComparison.InvariantCulture))
-                // {
-                //     ns += " openid";
-                // }
+                if (tokenResponse.ContainsKey("id_token"))
+                {
+                    ns += " openid";
+                }
 
                 tokenResponse["scope"] = ns;
             }

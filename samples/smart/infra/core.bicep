@@ -41,8 +41,11 @@ param logAnalyticsName string = '${prefixName}-la'
 @description('Location to deploy resources')
 param location string = resourceGroup().location
 
-@description('ID of principals to give FHIR Contributor on the FHIR service')
+@description('ID of principals to give FHIR Contributor role assignment on the FHIR service')
 param fhirContributorPrincipals array = []
+
+@description('ID of principals to give FHIR SMART role assignment to on the FHIR service')
+param fhirSMARTPrincipals array = []
 
 @description('ID of principals to give KeyVault Writer access to')
 param keyVaultWriterPrincipals array = []
@@ -150,8 +153,19 @@ module functionFhirIdentity './identity.bicep'= {
   }
 }
 
-@description('Setup identity connection between FHIR and the function app')
-module specifiedIdentity './identity.bicep' =  [for principalId in  fhirContributorPrincipals: {
+@description('Setup identity connection between FHIR and the given contributors')
+module fhirContributorIdentities './identity.bicep' =  [for principalId in  fhirContributorPrincipals: {
+  name: 'fhirIdentity-${principalId}'
+  params: {
+    fhirId: fhir.outputs.fhirId
+    principalId: principalId
+    principalType: 'User'
+    roleType: 'fhirContributor'
+  }
+}]
+
+@description('Setup identity connection between FHIR and the given SMART users')
+module fhirSMARTIdentities './identity.bicep' =  [for principalId in  fhirSMARTPrincipals: {
   name: 'fhirIdentity-${principalId}'
   params: {
     fhirId: fhir.outputs.fhirId
