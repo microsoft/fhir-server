@@ -239,7 +239,7 @@ BEGIN
   INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
   INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
   INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinFragPct')
-  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB')
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB')
 END
 
                         INSERT INTO dbo.ResourceType (Name)

@@ -91,6 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
             using var cmd = new SqlCommand(sql, conn);
+            cmd.CommandTimeout = 60;
             cmd.ExecuteNonQuery();
         }
 
