@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
-            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
+            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser, _fhirRequestContextAccessor);
 
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
