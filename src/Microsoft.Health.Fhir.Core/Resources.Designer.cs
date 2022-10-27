@@ -367,6 +367,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A SqlTransaction was deadlocked on lock resources with another process and this process has been chosen as the deadlock victim. Rerun the transaction..
+        /// </summary>
+        internal static string DeadlockVictim {
+            get {
+                return ResourceManager.GetString("DeadlockVictim", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {
@@ -690,7 +699,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("InvalidSecurityConfigurationBaseEndpoint", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
@@ -1347,7 +1356,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("SecurityConfigurationAuthorizationNotEnabled", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to FHIR Server for Azure.
         /// </summary>

@@ -9,6 +9,7 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -129,6 +130,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
+            const int deadlockVictim = 1205;
+            const int maxRetryCount = 5;
+            int retryCount = 0;
+
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -136,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // ** We must use CreateNonRetrySqlCommand here because the retry will not reset the Stream containing the RawResource, resulting in a failure to save the data
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand())
-                using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
+                await using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
                 {
                     // Read the latest resource
                     var existingResource = await GetAsync(new ResourceKey(resource.ResourceTypeName, resource.ResourceId), cancellationToken);
@@ -267,13 +272,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (SqlException e)
                     {
+                        _logger.LogError(e, $"Error from SQL database on {nameof(UpsertAsync)}");
+
                         switch (e.Number)
                         {
+                            case deadlockVictim:
+                                if (retryCount++ >= maxRetryCount)
+                                {
+                                    throw;
+                                }
+
+                                var delayTime = TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(10, 2000));
+                                _logger.LogError(e, $"Sql deadlock encountered - delaying for {delayTime.Duration()}");
+                                await Task.Delay(delayTime, cancellationToken);
+                                continue;
                             case SqlErrorCodes.Conflict:
                                 // someone else beat us to it, re-read and try comparing again - Compared resource was updated
                                 continue;
                             default:
-                                _logger.LogError(e, "Error from SQL database on upsert");
                                 throw;
                         }
                     }

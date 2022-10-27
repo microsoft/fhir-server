@@ -661,4 +661,7 @@
   <data name="SqlQueryProcessorRanOutOfInternalResourcesException" xml:space="preserve">
     <value>The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry.</value>
   </data>
+  <data name="DeadlockVictim" xml:space="preserve">
+    <value>A SqlTransaction was deadlocked on lock resources with another process and this process has been chosen as the deadlock victim. Rerun the transaction.</value>
+  </data>
 </root>
