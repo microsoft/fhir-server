@@ -25,7 +25,7 @@ param apimPublisherName string
 @description('Email of the owner of the API Management resource')
 param apimPublisherEmail string
 
-@description('Client ID for single principal based JWKS backend auth')
+/*@description('Client ID for single principal based JWKS backend auth')
 param testBackendClientId string
 
 @secure()
@@ -33,7 +33,7 @@ param testBackendClientId string
 param testBackendClientSecret string
 
 @description('JWKS URL for single principal based JWKS backend auth')
-param testBackendClientJwks string
+param testBackendClientJwks string*/
 
 @description('Name of the Log Analytics workspace to deploy or use. Leave blank to skip deployment')
 param logAnalyticsName string = '${prefixName}-la'
@@ -109,8 +109,13 @@ var functionParams = union(
     AZURE_TenantId: tenantId
     Azure_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
   }, 
-  functionAppCustomSettings, 
-  length(testBackendClientId) > 0 ? {
+  functionAppCustomSettings,
+  {
+    AZURE_BackendServiceKeyVaultStore: backendServiceVaultName
+  }
+)
+
+  /*length(testBackendClientId) > 0 ? {
     AZURE_TestBackendClientId: testBackendClientId
   } : {},
   length(testBackendClientSecret) > 0 ? {
@@ -118,8 +123,7 @@ var functionParams = union(
   } : {},
   length(testBackendClientJwks) > 0 ? {
     AZURE_TestBackendClientJwks: testBackendClientJwks
-  } : {}
-)
+  } : {}*/
 
 @description('Deploy Azure Function to run SDK custom operations')
 module function './azureFunction.bicep'= {

@@ -21,7 +21,7 @@ param apimPublisherName string
 @description('Email of the owner of the API Management resource')
 param apimPublisherEmail string
 
-@description('Client ID for single principal based JWKS backend auth')
+/*@description('Client ID for single principal based JWKS backend auth')
 param testBackendClientId string
 
 @secure()
@@ -29,7 +29,7 @@ param testBackendClientId string
 param testBackendClientSecret string
 
 @description('JWKS URL for single principal based JWKS backend auth')
-param testBackendClientJwks string
+param testBackendClientJwks string*/
 
 @description('Resource group to deploy sample in.')
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
@@ -51,9 +51,9 @@ module template 'core.bicep'= {
     smartAudience: smartAudience
     apimPublisherName: apimPublisherName
     apimPublisherEmail: apimPublisherEmail
-    testBackendClientId: testBackendClientId
+    /*testBackendClientId: testBackendClientId
     testBackendClientSecret: testBackendClientSecret
-    testBackendClientJwks: testBackendClientJwks
+    testBackendClientJwks: testBackendClientJwks*/
   }
 }
 
