@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using Azure.Core;
 using Azure.Identity;
 using AzureADAuthProxy.Configuration;
@@ -19,10 +20,10 @@ namespace AzureADAuthProxy.Filters
     public sealed class TokenOutputFilter : IOutputFilter
     {
         private readonly ILogger _logger;
-        private readonly SMARTProxyConfig _configuration;
+        private readonly AzureADProxyConfig _configuration;
         private readonly string _id;
 
-        public TokenOutputFilter(ILogger<TokenOutputFilter> logger, SMARTProxyConfig configuration)
+        public TokenOutputFilter(ILogger<TokenOutputFilter> logger, AzureADProxyConfig configuration)
         {
             _logger = logger;
             _configuration = configuration;
@@ -94,10 +95,13 @@ namespace AzureADAuthProxy.Filters
 
             try
             {
-                _logger.LogInformation("Attempting to override the access token with MSI...");
-                var token = await GetOverrideAccessToken(_configuration.BackendFhirUrl!, _configuration.TenantId!);
-                tokenResponse["access_token"] = token.Token;
-                _logger.LogInformation("Access token overridden with {Token}", tokenResponse["access_token"]);
+                if (!context.IsFatal && context.StatusCode == (HttpStatusCode)200 && tokenResponse.ContainsKey("access_token"))
+                {
+                    _logger.LogInformation("Attempting to override the access token with MSI...");
+                    var token = await GetOverrideAccessToken(_configuration.BackendFhirUrl!, _configuration.TenantId!);
+                    tokenResponse["access_token"] = token.Token;
+                    _logger.LogInformation("Access token overridden with {Token}", tokenResponse["access_token"]);
+                }
             }
             catch (Exception ex)
             {

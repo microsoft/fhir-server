@@ -10,6 +10,7 @@
     <ExcludeGeneratedDebugSymbol>False</ExcludeGeneratedDebugSymbol>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Azure.Security.KeyVault.Secrets" />
     <PackageReference Include="HttpMultipartParser" />
     <PackageReference Include="Microsoft.ApplicationInsights.SnapshotCollector" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker" />

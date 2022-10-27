@@ -3,12 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using AzureADAuthProxy.Configuration;
-
 namespace AzureADAuthProxy.Services
 {
     public interface IClientConfigService
     {
-        Task<BackendClientConfiguration> FetchBackendClientConfiguration(SMARTProxyConfig config, string clientId);
+        Task<BackendClientConfiguration> FetchBackendClientConfiguration(string clientId);
     }
 }

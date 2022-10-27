@@ -50,18 +50,20 @@ module apimService 'apiManagement/service.bicep' = {
 module apimBackends 'apiManagement/backends.bicep' = {
   name: '${apiManagementServiceName}-backends'
   params: {
-    apiManagementServiceName: apimService.name
+    apiManagementServiceName: apiManagementServiceName
     fhirBaseUrl: fhirBaseUrl
     smartAuthFunctionBaseUrl: smartAuthFunctionBaseUrl
     backendStorageUrl: exportStorageAccountUrl
   }
+
+  dependsOn: [ apimService ]
 }
 
 @description('Configuration for SMART on FHIR APIs')
 module apimSmartApi 'apiManagement/smartApi.bicep' = {
   name: '${apiManagementServiceName}-api-smart'
   params: {
-    apiManagementServiceName: apimService.name
+    apiManagementServiceName: apiManagementServiceName
     fhirBaseUrl: fhirBaseUrl
     apimServiceLoggerId: apimService.outputs.serviceLoggerId
   }
@@ -73,17 +75,21 @@ module apimSmartApi 'apiManagement/smartApi.bicep' = {
 module apimNamedValues 'apiManagement/namedValues.bicep' = {
   name: '${apiManagementServiceName}-named-values'
   params: {
-    apiManagementServiceName: apimService.name
+    apiManagementServiceName: apiManagementServiceName
     tenantId: subscription().tenantId
   }
+
+  dependsOn: [ apimService ]
 }
 
 @description('API Management Policy Fragments')
 module apimFragments 'apiManagement/fragments.bicep' = {
   name: '${apiManagementServiceName}-fragments'
   params: {
-    apiManagementServiceName: apimService.name
+    apiManagementServiceName: apiManagementServiceName
   }
+
+  dependsOn: [ apimService ]
 }
 
-output apimSmartUrl string = 'https://${apimService.name}.azure-api.net/smart'
+output apimSmartUrl string = 'https://${apiManagementServiceName}.azure-api.net/smart'

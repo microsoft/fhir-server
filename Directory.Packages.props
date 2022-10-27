@@ -11,6 +11,7 @@
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
     <PackageVersion Include="Azure.Identity" Version="1.7.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.14.0" />
+    <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.4.0" />
     <PackageVersion Include="coverlet.collector" Version="3.1.2" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.2.2" />

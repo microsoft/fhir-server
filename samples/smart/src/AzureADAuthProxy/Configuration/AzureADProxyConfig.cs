@@ -7,7 +7,7 @@ using System.Configuration;
 
 namespace AzureADAuthProxy.Configuration
 {
-    public class SMARTProxyConfig
+    public class AzureADProxyConfig
     {
 #pragma warning disable CA1056 // Needs to be string to parse from config easily.
         public string? SmartFhirEndpoint { get; set; }
@@ -22,6 +22,8 @@ namespace AzureADAuthProxy.Configuration
         public string? TenantId { get; set; }
 
         public string? Audience { get; set; }
+
+        public string? BackendServiceKeyVaultStore { get; set; }
 
         public string? TestBackendClientId { get; set; }
 

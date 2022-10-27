@@ -17,10 +17,10 @@ namespace AzureADAuthProxy.Filters
     public sealed class AuthorizeInputFilter : IInputFilter
     {
         private readonly ILogger _logger;
-        private readonly SMARTProxyConfig _configuration;
+        private readonly AzureADProxyConfig _configuration;
         private readonly string _id;
 
-        public AuthorizeInputFilter(ILogger<AuthorizeInputFilter> logger, SMARTProxyConfig configuration)
+        public AuthorizeInputFilter(ILogger<AuthorizeInputFilter> logger, AzureADProxyConfig configuration)
         {
             _logger = logger;
             _configuration = configuration;

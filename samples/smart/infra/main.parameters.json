@@ -11,17 +11,11 @@
         "principalId": {
             "value": "${AZURE_PRINCIPAL_ID}"
         },
-        "smartAudience": {
-            "value": ""
+        "apimPublisherName": {
+            "value": "Your Name"
         },
-        "testBackendClientId": {
-            "value": ""
-        },
-        "testBackendClientSecret": {
-            "value": ""
-        },
-        "testBackendClientJwks": {
-            "value": ""
+        "apimPublisherEmail": {
+            "value": "your@myourdomain.com"
         }
     }
 }

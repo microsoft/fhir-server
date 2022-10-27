@@ -21,7 +21,7 @@ namespace AzureADAuthProxy
     {
         internal static async Task Main(string[] args)
         {
-            SMARTProxyConfig config = new SMARTProxyConfig();
+            AzureADProxyConfig config = new AzureADProxyConfig();
             using IHost host = new HostBuilder()
                 .ConfigureAppConfiguration((context, configuration) =>
                 {
@@ -53,9 +53,8 @@ namespace AzureADAuthProxy
                         services.UseTelemetry(config.AppInsightsInstrumentationKey);
                     }
 
-                    services.AddSingleton<SMARTProxyConfig>(config);
-                    services.Add(new ServiceDescriptor(typeof(IAsymmetricAuthorizationService), typeof(AsymmetricAuthorizationService), ServiceLifetime.Scoped));
-                    services.Add(new ServiceDescriptor(typeof(IClientConfigService), typeof(StaticEnvironmentClientConfiguratinService), ServiceLifetime.Scoped));
+                    services.AddScoped<IAsymmetricAuthorizationService, AsymmetricAuthorizationService>();
+                    services.AddScoped<IClientConfigService, KeyVaultClientConfiguratinService>();
                     services.AddHttpClient();
 
                     services.UseAzureFunctionPipeline();
@@ -63,25 +62,18 @@ namespace AzureADAuthProxy
                     services.UseCustomHeaders();
                     services.AddCustomHeader("Origin", "http://localhost", CustomHeaderType.RequestStatic);
 
-                    services.AddInputFilter<SMARTProxyConfig>(typeof(AuthorizeInputFilter), options =>
-                    {
-                        options = config;
-                    });
+                    services.AddSingleton<AzureADProxyConfig>(config);
 
-                    services.AddInputFilter<SMARTProxyConfig>(typeof(TokenInputFilter), options =>
-                    {
-                        options = config;
-                    });
+                    services.AddInputFilter(typeof(AuthorizeInputFilter));
+                    services.AddInputFilter(typeof(TokenInputFilter));
+                    services.AddOutputFilter(typeof(TokenOutputFilter));
 
                     services.AddBinding<AzureActiveDirectoryBindingOptions>(typeof(AzureActiveDirectoryBinding), options =>
                     {
                         options.AzureActiveDirectoryEndpoint = "https://login.microsoftonline.com";
                     });
 
-                    services.AddOutputFilter<SMARTProxyConfig>(typeof(TokenOutputFilter), options =>
-                    {
-                        options = config;
-                    });
+                    services.AddOutputFilter(typeof(TokenOutputFilter));
                 })
                 .Build();
 

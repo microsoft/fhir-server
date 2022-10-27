@@ -19,11 +19,11 @@ namespace AzureADAuthProxy.Filters
     public sealed class TokenInputFilter : IInputFilter
     {
         private readonly ILogger _logger;
-        private readonly SMARTProxyConfig _configuration;
+        private readonly AzureADProxyConfig _configuration;
         private readonly string _id;
         private readonly IAsymmetricAuthorizationService _asymmetricAuthorizationService;
 
-        public TokenInputFilter(ILogger<TokenInputFilter> logger, SMARTProxyConfig configuration, IAsymmetricAuthorizationService asymmetricAuthorizationService)
+        public TokenInputFilter(ILogger<TokenInputFilter> logger, AzureADProxyConfig configuration, IAsymmetricAuthorizationService asymmetricAuthorizationService)
         {
             _logger = logger;
             _configuration = configuration;
@@ -129,6 +129,14 @@ namespace AzureADAuthProxy.Filters
                 context.ContentString = new PipelineError("JWT assestion invalid.", $"Error occured while processing you JWT assertion {ex.GetType().ToString().Split('.').Last()}", DateTime.Now, _id).ToContentString();
                 context.StatusCode = HttpStatusCode.BadRequest;
                 _logger.LogError(ex, "JWT Assertion Invalid. {TokenContext}. {Content}.", castTokenContext.ToLogString(), context.ContentString);
+                return context;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                context.IsFatal = true;
+                context.ContentString = new PipelineError("Access denied.", "You do not have access to this API.", DateTime.Now, _id).ToContentString();
+                context.StatusCode = HttpStatusCode.Unauthorized;
+                _logger.LogError(ex, "Client is not authorized.");
                 return context;
             }
             catch (ConfigurationErrorsException ex)

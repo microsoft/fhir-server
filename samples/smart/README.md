@@ -2,6 +2,42 @@
 
 This sample demonstrates how Azure Health Data Services can be used to pass the Inferno test for ONC (g)(10) compliance, using Azure Active Directory as the identity provider. While the FHIR Server is the core of this sample, some custom code and routing is required to fully meet the requirements. This sample is therefore *not* using only the FHIR Server but other Azure Services to pass the Inferno tests.
 
+## Quickstart
+
+### 1. Pre-requisites
+- Make sure you have the prerequisites applications (see below).
+  - Azure CLI: Please install this via [the instructions here](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+  - Azure Developer CLI: Please install this via [the instructions here](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd?tabs=baremetal%2Cwindows)
+- .NET SDK installed (the version specified in [global.json](../../global.json).)
+- Access to an Azure Subscription where you can create resources and add role assignments.
+- Elevated access in Azure Active Directory to create Application Registrations and grant Admin Consent.
+
+### 2. Deploy the Azure Resources
+- Open `main.pramaters.json` inside of the `infra` folder and fill out the following parameters:
+  - `apimPublisherName`: Sample owner name.
+  - `apimPublisherEmail`: Sample owner email address.
+- Open a terminal to this directory (`samples/smart`).
+- Run the `azd up` command from this directory. Enter 
+  - Environment Name: Prefix for the resource group that will be created to hold all Azure resources ([see more details](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/faq#what-is-an-environment-name)). You can always create a new environment with `azd env new`.
+  - Azure Location: The Azure location where your resources will be deployed.
+  - Azure Subscription: The Azure location where your resources will be deployed.
+- *NOTE:* This will take about an hour to deploy, mainly for Azure API Management. You can continue with Azure Active Directory setup below.
+
+### 3. Setup Azure Active Directory
+
+#### Confidential Client Application
+
+- Create a new application in Azure Active Directory. Make sure to select `Web` as the platform and add the redirect URL for Inferno (`https://inferno.healthit.gov/suites/custom/smart/redirect`).
+- In API Permissions for this new application, add the below:
+
+![](./docs/client-confidental-app-scopes.png)
+
+- Generate a secret for this application. Save this and the client id for later testing.
+
+#### Backend Service Client Application
+
+#### Public Client Application
+
 ## Components 
 
 The following components are deployed with this sample. For more details of how the pieces work together, check out [the technical guide](./docs/technical-guide.md).
@@ -31,16 +67,6 @@ This sample is still under active development.
 - Connecting sample to FHIR Server (finishing scope work first)
 - Limited Patient
 - Documentation for loading US Core
-
-## Prerequisites
-
-- Azure CLI
-  - Please install this via [the instructions here](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
-- Azure Developer CLI
-  -  Please install this via [the instructions here](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd?tabs=baremetal%2Cwindows).
-- Azure Active Directory Configuration
-  - One Application Registration representing the FHIR Service with the scopes as defined [here in the manifest](./docs/oauth2-permissions.json).
-  - Application Registrations for each of the 
 
 ## Deploying to a new environment
 

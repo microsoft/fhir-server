@@ -1,9 +1,8 @@
 {
   "profiles": {
-    "SMARTProxy": {
+    "AzureADAuthProxy": {
       "commandName": "Project",
-      "commandLineArgs": "--port 7081",
-      "launchBrowser": false
+      "commandLineArgs": "--port 7081"
     }
   }
 }

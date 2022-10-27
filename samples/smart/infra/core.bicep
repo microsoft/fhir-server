@@ -19,11 +19,21 @@ param fhirServiceName string
 @description('AAD Audience of app with SMART scopes')
 param smartAudience string
 
-param testBackendClientId string
-@secure()
-param testBackendClientSecret string
-param testBackendClientJwks string
+@description('Name of the owner of the API Management resource')
+param apimPublisherName string
 
+@description('Email of the owner of the API Management resource')
+param apimPublisherEmail string
+
+@description('Client ID for single principal based JWKS backend auth')
+param testBackendClientId string
+
+@secure()
+@description('Client Secret for single principal based JWKS backend auth')
+param testBackendClientSecret string
+
+@description('JWKS URL for single principal based JWKS backend auth')
+param testBackendClientJwks string
 
 @description('Name of the Log Analytics workspace to deploy or use. Leave blank to skip deployment')
 param logAnalyticsName string = '${prefixName}-la'
@@ -154,8 +164,8 @@ module apim './apiManagement.bicep'= {
   name: 'apiManagementDeploy'
   params: {
     apiManagementServiceName: apimName
-    publisherEmail: 'mikael.weaver@microsoft.com'
-    publisherName: 'Mikael Weaver'
+    publisherEmail: apimPublisherEmail
+    publisherName: apimPublisherName
     location: location
     fhirBaseUrl: 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
     smartAuthFunctionBaseUrl: 'https://${function.outputs.hostName}/api'

@@ -14,7 +14,7 @@ namespace AzureADAuthProxy.UnitTests.Filters
 {
     public class AuthorizeInputFilterTests
     {
-        private static SMARTProxyConfig config = new SMARTProxyConfig()
+        private static AzureADProxyConfig config = new AzureADProxyConfig()
         {
             TenantId = "xxxx-xxxx-xxxx-xxxx",
             Audience = "12345678-90ab-cdef-1234-567890abcdef",

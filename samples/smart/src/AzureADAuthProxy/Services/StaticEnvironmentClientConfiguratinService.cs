@@ -5,19 +5,32 @@
 
 using System.Configuration;
 using AzureADAuthProxy.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace AzureADAuthProxy.Services
 {
     public class StaticEnvironmentClientConfiguratinService : IClientConfigService
     {
-        public Task<BackendClientConfiguration> FetchBackendClientConfiguration(SMARTProxyConfig config, string clientId)
+        private readonly AzureADProxyConfig _config;
+
+        public StaticEnvironmentClientConfiguratinService(AzureADProxyConfig config)
         {
-            if (string.IsNullOrEmpty(config.TestBackendClientId) || string.IsNullOrEmpty(config.TestBackendClientSecret) || string.IsNullOrEmpty(config.TestBackendClientJwks))
+            _config = config;
+        }
+
+        public Task<BackendClientConfiguration> FetchBackendClientConfiguration(string clientId)
+        {
+            if (string.IsNullOrEmpty(_config.TestBackendClientId) || string.IsNullOrEmpty(_config.TestBackendClientSecret) || string.IsNullOrEmpty(_config.TestBackendClientJwks))
             {
                 throw new ConfigurationErrorsException("Invalid configuration for StaticEnvironmentClientConfiguratinService");
             }
 
-            var data = new BackendClientConfiguration(config.TestBackendClientId!, config.TestBackendClientSecret!, config.TestBackendClientJwks!);
+            if (clientId != _config.TestBackendClientId)
+            {
+                throw new UnauthorizedAccessException("Client id does not match static configuration.");
+            }
+
+            var data = new BackendClientConfiguration(_config.TestBackendClientId!, _config.TestBackendClientSecret!, _config.TestBackendClientJwks!);
 
             return Task.FromResult(data);
         }

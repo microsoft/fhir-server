@@ -12,12 +12,12 @@ namespace AzureADAuthProxy.Services
 {
     public class AsymmetricAuthorizationService : IAsymmetricAuthorizationService
     {
-        private SMARTProxyConfig _functionConfig;
+        private AzureADProxyConfig _functionConfig;
         private IHttpClientFactory _httpClientFactory;
         private ILogger _logger;
         private IClientConfigService _clientConfigService;
 
-        public AsymmetricAuthorizationService(SMARTProxyConfig functionConfig, IHttpClientFactory httpClientFactory, ILogger<AsymmetricAuthorizationService> logger, IClientConfigService clientConfigService)
+        public AsymmetricAuthorizationService(AzureADProxyConfig functionConfig, IHttpClientFactory httpClientFactory, ILogger<AsymmetricAuthorizationService> logger, IClientConfigService clientConfigService)
         {
             _httpClientFactory = httpClientFactory;
             _functionConfig = functionConfig;
@@ -27,7 +27,7 @@ namespace AzureADAuthProxy.Services
 
         public async Task<BackendClientConfiguration> AuthenticateBackendAsyncClient(string clientId, string clientAssertion)
         {
-            var clientConfig = await _clientConfigService.FetchBackendClientConfiguration(_functionConfig, clientId);
+            var clientConfig = await _clientConfigService.FetchBackendClientConfiguration(clientId);
 
             var jwks = await FetchJwks(clientConfig);
             ValidateToken(clientConfig, jwks, clientAssertion);
