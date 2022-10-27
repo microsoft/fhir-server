@@ -248,6 +248,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new Exception(null, new RequestRateExceededException(null)), HttpStatusCode.TooManyRequests);
         }
 
+        [Fact]
+        public void GivenADeadlockVictimException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new DeadlockVictimException(Core.Resources.DeadlockVictim), HttpStatusCode.BadRequest);
+        }
+
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
