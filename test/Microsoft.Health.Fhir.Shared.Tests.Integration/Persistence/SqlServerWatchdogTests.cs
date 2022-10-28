@@ -35,6 +35,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task Defrag()
         {
+            // populate data
+            ExecuteSql("CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id))");
+            ExecuteSql("INSERT INTO DefragTestTable SELECT TOP 50000 '' FROM syscolumns A1, syscolumns A2");
+            ExecuteSql("DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)");
+            var pagesBefore = GetPages();
+
             var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             var wd = new DefragWatchdog(
                 () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
@@ -43,12 +49,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
             await wd.Handle(new StorageInitializedNotification(), CancellationToken.None);
 
-            // populate data
-            ExecuteSql("CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id))");
-            ExecuteSql("INSERT INTO DefragTestTable SELECT TOP 50000 '' FROM syscolumns A1, syscolumns A2");
-            ExecuteSql("DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)");
-            var pagesBefore = GetPages();
-
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var task = wd.ExecuteAsync(cts.Token);
 
             var check = CheckQueue();
-            while ((!check.coordCompleted || !check.workCompleted) && !cts.IsCancellationRequested)
+            while (!(check.coordCompleted && check.workCompleted) && !cts.IsCancellationRequested)
             {
                 await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
                 check = CheckQueue();
@@ -104,6 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             conn.Open();
             using var cmd = new SqlCommand("SELECT TOP 10 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC", conn);
             cmd.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Defrag);
+            cmd.CommandTimeout = 120;
             using SqlDataReader reader = cmd.ExecuteReader();
             var coordCompleted = false;
             var workCompleted = false;
@@ -111,12 +112,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 var def = reader.GetString(0);
                 var status = reader.GetByte(1);
-                if (def == "Defrag" && status == 2)
+                if (string.Equals(def, "Defrag", StringComparison.OrdinalIgnoreCase) && status == 2)
                 {
                     coordCompleted = true;
                 }
 
-                if (def.Contains("DefragTestTable") && status == 2)
+                if (def.Contains("DefragTestTable", StringComparison.OrdinalIgnoreCase) && status == 2)
                 {
                     workCompleted = true;
                 }
