@@ -66,6 +66,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
         {
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                if (_contextAccessor.RequestContext?.AccessControlContext.CompartmentResourceType != null &&
+                    _contextAccessor.RequestContext?.AccessControlContext.CompartmentId != null)
+                {
+                    return Create(
+                        _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType,
+                        _contextAccessor.RequestContext.AccessControlContext.CompartmentId,
+                        resourceType,
+                        queryParameters,
+                        isAsyncOperation);
+                }
+            }
+
             return Create(null, null, resourceType, queryParameters, isAsyncOperation);
         }
 
