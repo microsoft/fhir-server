@@ -3,11 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Namotion.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -67,13 +70,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                             continue;
                         }
                     }
-                    catch (JsonReaderException jre)
+                    catch (JsonReaderException jsonE)
                     {
                         searchIssues.Add(
                             new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Error,
                                 OperationOutcomeConstants.IssueType.Incomplete,
-                                string.Format(Core.Resources.USCoreDeserializationError, jre.Message)));
+                                string.Format(Core.Resources.USCoreDeserializationError, jsonE.Message)));
+                        continue;
+                    }
+                    catch (XmlException xmlE)
+                    {
+                        searchIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Error,
+                                OperationOutcomeConstants.IssueType.Incomplete,
+                                string.Format(Core.Resources.USCoreDeserializationError, xmlE.Message)));
                         continue;
                     }
                 }
@@ -81,12 +93,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                 finalResults.Add(resultEntry);
             }
 
-            // Add new data type to handle outcomes.
             return new SearchResult(
                 searchResult.Results,
                 searchResult.ContinuationToken,
                 searchResult.SortOrder,
-                searchResult.UnsupportedSearchParameters);
+                searchResult.UnsupportedSearchParameters,
+                searchIssues: searchIssues);
         }
 
         private static bool IsRecordFromEligibleResourceType(string resourceTypeName, out string requiredStatusElementName) =>
@@ -99,19 +111,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 
             if (resourceWrapper.RawResource.Format == Models.FhirResourceFormat.Json)
             {
-                JObject jsonResource = JObject.Parse(resourceWrapper.RawResource.Data);
-                if (jsonResource.ContainsKey(requiredStatusElementName))
-                {
-                    return true;
-                }
-                else
+                return ContainsJsonElement(resourceWrapper, requiredStatusElementName);
+            }
+            else if (resourceWrapper.RawResource.Format == FhirResourceFormat.Xml)
+            {
+                return ContainsXmlElement(resourceWrapper, requiredStatusElementName);
+            }
+            else
+            {
+                throw new ArgumentException($"Format '{resourceWrapper.RawResource.Format}' is a not supported format");
+            }
+        }
+
+        private static bool ContainsXmlElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
+        {
+            XmlDocument doc = new XmlDocument();
+
+            using (XmlReader reader = XmlReader.Create(resourceWrapper.RawResource.Data))
+            {
+                doc.Load(reader);
+                if (!doc.Attributes.HasProperty(requiredStatusElementName))
                 {
                     return false;
                 }
+
+                string value = doc.Attributes[requiredStatusElementName].Value;
+                return !string.IsNullOrWhiteSpace(value);
+            }
+        }
+
+        private static bool ContainsJsonElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
+        {
+            JObject jsonResource = JObject.Parse(resourceWrapper.RawResource.Data);
+            if (!jsonResource.ContainsKey(requiredStatusElementName))
+            {
+                return false;
             }
 
-            // FERNFE: Should we check the same for records in XML format?
-            return true;
+            JToken value = jsonResource[requiredStatusElementName];
+            return value.HasValues;
         }
     }
 }
