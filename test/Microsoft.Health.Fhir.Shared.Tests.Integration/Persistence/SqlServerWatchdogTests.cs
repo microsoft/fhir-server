@@ -12,7 +12,6 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -36,13 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task Defrag()
         {
-            bool finishedProcessingQueue = false;
-
-            SqlQueueClient queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
-            queueClient
-                .When(x => x.CompleteJobAsync(Arg.Any<JobInfo>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()))
-                .Do(x => finishedProcessingQueue = true);
-
+            var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             var wd = new DefragWatchdog(
                 () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
                 _fixture.SchemaInformation,
@@ -57,14 +50,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var pagesBefore = GetPages();
 
             using var cts = new CancellationTokenSource();
-            cts.CancelAfter(TimeSpan.FromMinutes(5));
+            cts.CancelAfter(TimeSpan.FromMinutes(10));
 
             await wd.Initialize(cts.Token);
-            Task task = wd.ExecuteAsync(cts.Token);
+            var task = wd.ExecuteAsync(cts.Token);
 
-            while (finishedProcessingQueue == false && cts.IsCancellationRequested == false)
+            var check = CheckQueue();
+            while ((!check.coordCompleted || !check.workCompleted) && !cts.IsCancellationRequested)
             {
-                await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(10)));
+                await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
+                check = CheckQueue();
             }
 
             try
@@ -77,10 +72,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // expected
             }
 
-            // check exec
-            (bool coordExists, bool workExists) result = CheckQueue();
-            Assert.True(result.coordExists, "Coordinator item exists");
-            Assert.True(result.workExists, "Work item exists");
+            // make sure that exit from while was on queue check
+            Assert.True(check.coordCompleted, "Coordinator item exists");
+            Assert.True(check.workCompleted, "Work item exists");
 
             var pagesAfter = GetPages();
             Assert.True(pagesAfter * 9 < pagesBefore, $"{pagesAfter} * 9 < {pagesBefore}");
@@ -91,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
             using var cmd = new SqlCommand(sql, conn);
-            cmd.CommandTimeout = 60;
+            cmd.CommandTimeout = 120;
             cmd.ExecuteNonQuery();
         }
 
@@ -104,30 +98,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return (long)res;
         }
 
-        private (bool coordExists, bool workExists) CheckQueue()
+        private (bool coordCompleted, bool workCompleted) CheckQueue()
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand("SELECT TOP 10 Definition FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC", conn);
+            using var cmd = new SqlCommand("SELECT TOP 10 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC", conn);
             cmd.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Defrag);
             using SqlDataReader reader = cmd.ExecuteReader();
-            var coordExists = false;
-            var workExists = false;
+            var coordCompleted = false;
+            var workCompleted = false;
             while (reader.Read())
             {
                 var def = reader.GetString(0);
-                if (def == "Defrag")
+                var status = reader.GetByte(1);
+                if (def == "Defrag" && status == 2)
                 {
-                    coordExists = true;
+                    coordCompleted = true;
                 }
 
-                if (def.Contains("DefragTestTable"))
+                if (def.Contains("DefragTestTable") && status == 2)
                 {
-                    workExists = true;
+                    workCompleted = true;
                 }
             }
 
-            return (coordExists, workExists);
+            return (coordCompleted, workCompleted);
         }
     }
 }
