@@ -59,10 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        internal void ChangeDelay(TimeSpan newTimerDelay)
-        {
-            _timerDelay = newTimerDelay;
-        }
+        public static bool IsInitialized { get; private set; }
 
         public async Task Initialize(CancellationToken cancellationToken)
         {
@@ -76,6 +73,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await InitParamsAsync();
 
             _timerDelay = TimeSpan.FromSeconds(_periodSec);
+
+            IsInitialized = true;
         }
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)

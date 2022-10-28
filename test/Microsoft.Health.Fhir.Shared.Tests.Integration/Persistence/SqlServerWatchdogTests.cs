@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ExecuteSql("INSERT INTO DefragTestTable SELECT TOP 50000 '' FROM syscolumns A1, syscolumns A2");
             ExecuteSql("DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)");
             var pagesBefore = GetPages();
+            var current = GetDateTime();
 
             var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             var wd = new DefragWatchdog(
@@ -55,11 +56,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await wd.Initialize(cts.Token);
             var task = wd.ExecuteAsync(cts.Token);
 
-            var check = CheckQueue();
+            var check = CheckQueue(current);
             while (!(check.coordCompleted && check.workCompleted) && !cts.IsCancellationRequested)
             {
                 await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
-                check = CheckQueue();
+                check = CheckQueue(current);
             }
 
             try
@@ -98,12 +99,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return (long)res;
         }
 
-        private (bool coordCompleted, bool workCompleted) CheckQueue()
+        private DateTime GetDateTime()
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand("SELECT TOP 10 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC", conn);
+            using var cmd = new SqlCommand("SELECT getUTCdate()", conn);
+            var res = cmd.ExecuteScalar();
+            return (DateTime)res;
+        }
+
+        private (bool coordCompleted, bool workCompleted) CheckQueue(DateTime current)
+        {
+            using var conn = new SqlConnection(_fixture.TestConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("SELECT TOP 10 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType AND StartDate >= @Current ORDER BY JobId DESC", conn);
             cmd.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Defrag);
+            cmd.Parameters.AddWithValue("@Current", current);
             cmd.CommandTimeout = 120;
             using SqlDataReader reader = cmd.ExecuteReader();
             var coordCompleted = false;
