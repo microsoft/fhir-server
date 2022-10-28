@@ -8,3 +8,8 @@ services:
     project: src/AzureADAuthProxy
     language: csharp
     host: function
+  AuthorizeWebApp:
+    project: src/Authorize-WebApp
+    dist: build
+    language: js
+    host: staticwebapp

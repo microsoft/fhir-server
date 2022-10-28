@@ -145,7 +145,7 @@ module function './azureFunction.bicep'= {
 
 @description('Setup identity connection between FHIR and the function app')
 module functionFhirIdentity './identity.bicep'= {
-  name: 'fhirIdentity-function'
+  name: 'fhirIdentity-function-contributor'
   params: {
     fhirId: fhir.outputs.fhirId
     principalId: function.outputs.functionAppPrincipalId
@@ -155,7 +155,7 @@ module functionFhirIdentity './identity.bicep'= {
 
 @description('Setup identity connection between FHIR and the given contributors')
 module fhirContributorIdentities './identity.bicep' =  [for principalId in  fhirContributorPrincipals: {
-  name: 'fhirIdentity-${principalId}'
+  name: 'fhirIdentity-${principalId}-fhirContributor'
   params: {
     fhirId: fhir.outputs.fhirId
     principalId: principalId
@@ -166,12 +166,12 @@ module fhirContributorIdentities './identity.bicep' =  [for principalId in  fhir
 
 @description('Setup identity connection between FHIR and the given SMART users')
 module fhirSMARTIdentities './identity.bicep' =  [for principalId in  fhirSMARTPrincipals: {
-  name: 'fhirIdentity-${principalId}'
+  name: 'fhirIdentity-${principalId}-fhirSmart'
   params: {
     fhirId: fhir.outputs.fhirId
     principalId: principalId
     principalType: 'User'
-    roleType: 'fhirContributor'
+    roleType: 'fhirSmart'
   }
 }]
 
@@ -202,6 +202,17 @@ module keyVault './keyVault.bicep' = {
     tenantId: tenantId
     writerObjectIds: keyVaultWriterPrincipals
     readerObjectIds: [ function.outputs.functionAppPrincipalId ]
+  }
+}
+
+var authorizeStaticWebAppName = '${prefixName}-backkv'
+@description('Static web app for authorize UI')
+module authorizeSwa './staticWebApp.bicep' = {
+  name: 'staticWebAppDeploy'
+  params: {
+    staticWebAppName: authorizeStaticWebAppName
+    location: location
+    appTags: appTags
   }
 }
 
