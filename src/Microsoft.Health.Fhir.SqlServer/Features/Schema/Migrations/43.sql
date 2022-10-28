@@ -1073,6 +1073,16 @@ CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
     ON dbo.UriSearchParam(ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+CREATE TABLE dbo.Watchdogs (
+    Watchdog          VARCHAR (100) NOT NULL,
+    LeaseHolder       VARCHAR (100) CONSTRAINT DF_Watchdogs_LeaseHolder DEFAULT '' NOT NULL,
+    LeaseEndDate      DATETIME      CONSTRAINT DF_Watchdogs_LeaseEndDate DEFAULT 0 NOT NULL,
+    RemainingLeaseSec AS            datediff(second, getUTCdate(), LeaseEndDate),
+    LeaseRequestor    VARCHAR (100) CONSTRAINT DF_Watchdogs_LeaseRequestor DEFAULT '' NOT NULL,
+    LeaseRequestDate  DATETIME      CONSTRAINT DF_Watchdogs_LeaseRequestDate DEFAULT 0 NOT NULL,
+    LastExecutionDate DATETIME      NULL CONSTRAINT PKC_Watchdogs_Watchdog PRIMARY KEY CLUSTERED (Watchdog)
+);
+
 COMMIT
 GO
 CREATE PROCEDURE dbo.AcquireExportJobs
@@ -1159,6 +1169,195 @@ IF (@limit > 0)
                   AND job.JobVersion = availableJob.JobVersion;
     END
 COMMIT TRANSACTION;
+
+GO
+CREATE PROCEDURE dbo.AcquireWatchdogLease
+@Watchdog VARCHAR (100), @Worker VARCHAR (100), @LeasePeriodSec INT, @AllowRebalancing BIT, @ForceAcquire BIT=0, @WorkerIsRunning BIT=0, @LeaseEndDate DATETIME OUTPUT, @IsAcquired BIT OUTPUT, @CurrentLeaseHolder VARCHAR (100)=NULL OUTPUT, @LastExecutionDate DATETIME=NULL OUTPUT
+AS
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+DECLARE @SP AS VARCHAR (100) = 'AcquireWatchdogLease', @Mode AS VARCHAR (100), @msg AS VARCHAR (1000), @MyLeasesNumber AS INT, @OtherValidRequestsOrLeasesNumber AS INT, @MyValidRequestsOrLeasesNumber AS INT, @DesiredLeasesNumber AS INT, @NotLeasedWatchdogNumber AS INT, @WatchdogNumber AS INT, @Now AS DATETIME, @MyLastChangeTime AS DATETIME, @PreviousLeaseHolder AS VARCHAR (100), @Rows AS INT = 0, @NumberOfWorkers AS INT, @st AS DATETIME = getUTCdate(), @RowsInt AS INT, @Pattern AS VARCHAR (100);
+BEGIN TRY
+    SET @Mode = 'R=' + isnull(@Watchdog, 'NULL') + ' W=' + isnull(@Worker, 'NULL') + ' F=' + isnull(CONVERT (VARCHAR, @ForceAcquire), 'NULL') + ' LP=' + isnull(CONVERT (VARCHAR, @LeasePeriodSec), 'NULL');
+    SET @CurrentLeaseHolder = '';
+    SET @IsAcquired = 0;
+    SET @Now = getUTCdate();
+    SET @LeaseEndDate = @Now;
+    SET @Pattern = NULLIF ((SELECT Char
+                            FROM   dbo.Parameters
+                            WHERE  Id = 'WatchdogLeaseHolderIncludePatternFor' + @Watchdog), '');
+    IF @Pattern IS NULL
+        SET @Pattern = NULLIF ((SELECT Char
+                                FROM   dbo.Parameters
+                                WHERE  Id = 'WatchdogLeaseHolderIncludePattern'), '');
+    IF @Pattern IS NOT NULL
+       AND @Worker NOT LIKE @Pattern
+        BEGIN
+            SET @msg = 'Worker does not match include pattern=' + @Pattern;
+            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows, @Text = @msg;
+            SET @CurrentLeaseHolder = isnull((SELECT LeaseHolder
+                                              FROM   dbo.Watchdogs
+                                              WHERE  Watchdog = @Watchdog), '');
+            RETURN;
+        END
+    SET @Pattern = NULLIF ((SELECT Char
+                            FROM   dbo.Parameters
+                            WHERE  Id = 'WatchdogLeaseHolderExcludePatternFor' + @Watchdog), '');
+    IF @Pattern IS NULL
+        SET @Pattern = NULLIF ((SELECT Char
+                                FROM   dbo.Parameters
+                                WHERE  Id = 'WatchdogLeaseHolderExcludePattern'), '');
+    IF @Pattern IS NOT NULL
+       AND @Worker LIKE @Pattern
+        BEGIN
+            SET @msg = 'Worker matches exclude pattern=' + @Pattern;
+            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows, @Text = @msg;
+            SET @CurrentLeaseHolder = isnull((SELECT LeaseHolder
+                                              FROM   dbo.Watchdogs
+                                              WHERE  Watchdog = @Watchdog), '');
+            RETURN;
+        END
+    DECLARE @Watchdogs TABLE (
+        Watchdog VARCHAR (100) PRIMARY KEY);
+    INSERT INTO @Watchdogs
+    SELECT Watchdog
+    FROM   dbo.Watchdogs WITH (NOLOCK)
+    WHERE  RemainingLeaseSec * (-1) > 10 * @LeasePeriodSec
+           OR @ForceAcquire = 1
+              AND Watchdog = @Watchdog
+              AND LeaseHolder <> @Worker;
+    IF @@rowcount > 0
+        BEGIN
+            DELETE dbo.Watchdogs
+            WHERE  Watchdog IN (SELECT Watchdog
+                                FROM   @Watchdogs);
+            SET @Rows += @@rowcount;
+            IF @Rows > 0
+                BEGIN
+                    SET @msg = '';
+                    SELECT @msg = CONVERT (VARCHAR (1000), @msg + CASE WHEN @msg = '' THEN '' ELSE ',' END + Watchdog)
+                    FROM   @Watchdogs;
+                    SET @msg = CONVERT (VARCHAR (1000), 'Remove old/forced leases:' + @msg);
+                    EXECUTE dbo.LogEvent @Process = 'AcquireWatchdogLease', @Status = 'Info', @Mode = @Mode, @Target = 'WatchdogLeases', @Action = 'Delete', @Rows = @Rows, @Text = @msg;
+                END
+        END
+    SET @NumberOfWorkers = 1 + (SELECT count(*)
+                                FROM   (SELECT LeaseHolder
+                                        FROM   dbo.Watchdogs WITH (NOLOCK)
+                                        WHERE  LeaseHolder <> @Worker
+                                        UNION
+                                        SELECT LeaseRequestor
+                                        FROM   dbo.Watchdogs WITH (NOLOCK)
+                                        WHERE  LeaseRequestor <> @Worker
+                                               AND LeaseRequestor <> '') AS A);
+    SET @Mode = CONVERT (VARCHAR (100), @Mode + ' N=' + CONVERT (VARCHAR (10), @NumberOfWorkers));
+    IF NOT EXISTS (SELECT *
+                   FROM   dbo.Watchdogs WITH (NOLOCK)
+                   WHERE  Watchdog = @Watchdog)
+        INSERT INTO dbo.Watchdogs (Watchdog, LeaseEndDate, LeaseRequestTime)
+        SELECT @Watchdog,
+               dateadd(day, -10, @Now),
+               dateadd(day, -10, @Now)
+        WHERE  NOT EXISTS (SELECT *
+                           FROM   dbo.Watchdogs WITH (TABLOCKX)
+                           WHERE  Watchdog = @Watchdog);
+    SET @LeaseEndDate = dateadd(second, @LeasePeriodSec, @Now);
+    SET @WatchdogNumber = (SELECT count(*)
+                           FROM   dbo.Watchdogs WITH (NOLOCK));
+    SET @NotLeasedWatchdogNumber = (SELECT count(*)
+                                    FROM   dbo.Watchdogs WITH (NOLOCK)
+                                    WHERE  LeaseHolder = ''
+                                           OR LeaseEndDate < @Now);
+    SET @MyLeasesNumber = (SELECT count(*)
+                           FROM   dbo.Watchdogs WITH (NOLOCK)
+                           WHERE  LeaseHolder = @Worker
+                                  AND LeaseEndDate > @Now);
+    SET @OtherValidRequestsOrLeasesNumber = (SELECT count(*)
+                                             FROM   dbo.Watchdogs WITH (NOLOCK)
+                                             WHERE  LeaseHolder <> @Worker
+                                                    AND LeaseEndDate > @Now
+                                                    OR LeaseRequestor <> @Worker
+                                                       AND datediff(second, LeaseRequestTime, @Now) < @LeasePeriodSec);
+    SET @MyValidRequestsOrLeasesNumber = (SELECT count(*)
+                                          FROM   dbo.Watchdogs WITH (NOLOCK)
+                                          WHERE  LeaseHolder = @Worker
+                                                 AND LeaseEndDate > @Now
+                                                 OR LeaseRequestor = @Worker
+                                                    AND datediff(second, LeaseRequestTime, @Now) < @LeasePeriodSec);
+    SET @DesiredLeasesNumber = ceiling(1.0 * @WatchdogNumber / @NumberOfWorkers);
+    IF @DesiredLeasesNumber = 0
+        SET @DesiredLeasesNumber = 1;
+    IF @DesiredLeasesNumber = 1
+       AND @OtherValidRequestsOrLeasesNumber = 1
+       AND @WatchdogNumber = 1
+        SET @DesiredLeasesNumber = 0;
+    IF @MyValidRequestsOrLeasesNumber = floor(1.0 * @WatchdogNumber / @NumberOfWorkers)
+       AND @OtherValidRequestsOrLeasesNumber + @MyValidRequestsOrLeasesNumber = @WatchdogNumber
+        SET @DesiredLeasesNumber = @DesiredLeasesNumber - 1;
+    UPDATE dbo.Watchdogs
+    SET    LeaseHolder          = @Worker,
+           LeaseEndDate         = @LeaseEndDate,
+           LeaseRequestor       = '',
+           @PreviousLeaseHolder = LeaseHolder,
+           LastExecutionDate    = CASE WHEN @LastExecutionDate > LastExecutionDate THEN @LastExecutionDate ELSE LastExecutionDate END,
+           @LastExecutionDate   = CASE WHEN @LastExecutionDate > LastExecutionDate THEN @LastExecutionDate ELSE LastExecutionDate END
+    WHERE  Watchdog = @Watchdog
+           AND (@WorkerIsRunning = 1
+                OR NOT (LeaseRequestor <> @Worker
+                        AND datediff(second, LeaseRequestTime, @Now) < @LeasePeriodSec))
+           AND (LeaseHolder = @Worker
+                AND LeaseEndDate > @Now
+                OR LeaseEndDate < @Now
+                   AND (@DesiredLeasesNumber > @MyLeasesNumber
+                        OR @OtherValidRequestsOrLeasesNumber < @WatchdogNumber));
+    IF @@rowcount > 0
+        BEGIN
+            SET @IsAcquired = 1;
+            SET @msg = 'Lease holder changed from [' + isnull(@PreviousLeaseHolder, '') + '] to [' + @Worker + ']';
+            IF @PreviousLeaseHolder <> @Worker
+                EXECUTE dbo.LogEvent @Process = 'AcquireWatchdogLease', @Status = 'Info', @Mode = @Mode, @Text = @msg;
+        END
+    ELSE
+        IF @AllowRebalancing = 1
+            BEGIN
+                SET @CurrentLeaseHolder = (SELECT LeaseHolder
+                                           FROM   dbo.Watchdogs
+                                           WHERE  Watchdog = @Watchdog);
+                UPDATE dbo.Watchdogs
+                SET    LeaseRequestTime = @Now
+                WHERE  Watchdog = @Watchdog
+                       AND LeaseRequestor = @Worker
+                       AND datediff(second, LeaseRequestTime, @Now) < @LeasePeriodSec;
+                IF @DesiredLeasesNumber > @MyValidRequestsOrLeasesNumber
+                    BEGIN
+                        UPDATE A
+                        SET    LeaseRequestor   = @Worker,
+                               LeaseRequestTime = @Now
+                        FROM   dbo.Watchdogs AS A
+                        WHERE  Watchdog = @Watchdog
+                               AND NOT (LeaseRequestor <> @Worker
+                                        AND datediff(second, LeaseRequestTime, @Now) < @LeasePeriodSec)
+                               AND @NotLeasedWatchdogNumber = 0
+                               AND (SELECT count(*)
+                                    FROM   dbo.Watchdogs AS B
+                                    WHERE  B.LeaseHolder = A.LeaseHolder
+                                           AND datediff(second, B.LeaseEndDate, @Now) < @LeasePeriodSec) > @DesiredLeasesNumber;
+                        SET @RowsInt = @@rowcount;
+                        SET @msg = '@DesiredLeasesNumber=[' + CONVERT (VARCHAR (10), @DesiredLeasesNumber) + '] > @MyValidRequestsOrLeasesNumber=[' + CONVERT (VARCHAR (10), @MyValidRequestsOrLeasesNumber) + ']';
+                        EXECUTE dbo.LogEvent @Process = 'AcquireWatchdogLease', @Status = 'Info', @Mode = @Mode, @Rows = @RowsInt, @Text = @msg;
+                    END
+            END
+    SET @Mode = CONVERT (VARCHAR (100), @Mode + ' A=' + CONVERT (VARCHAR (1), @IsAcquired));
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
+END TRY
+BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK;
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = 'AcquireWatchdogLease', @Status = 'Error', @Mode = @Mode;
+    THROW;
+END CATCH
 
 GO
 CREATE OR ALTER PROCEDURE dbo.AddPartitionOnResourceChanges
