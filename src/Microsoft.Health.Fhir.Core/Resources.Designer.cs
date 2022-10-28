@@ -449,6 +449,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The fhirUser claim must be a URI with an ending format of &lt;resourceType&gt;/&lt;resourceId&gt;..
+        /// </summary>
+        internal static string FhirUserClaimInvalidFormat {
+            get {
+                return ResourceManager.GetString("FhirUserClaimInvalidFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id..
+        /// </summary>
+        internal static string FhirUserClaimMustHaveResourceTypeAndId {
+            get {
+                return ResourceManager.GetString("FhirUserClaimMustHaveResourceTypeAndId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
         internal static string Forbidden {

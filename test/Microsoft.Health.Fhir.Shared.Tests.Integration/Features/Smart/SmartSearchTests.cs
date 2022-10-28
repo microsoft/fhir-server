@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
             query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
 
-            var scopeRestriction = new ScopeRestriction("*", Core.Features.Security.DataActions.Read, "patient");
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
 
@@ -270,7 +270,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var query = new List<Tuple<string, string>>();
             query.Add(new Tuple<string, string>("_has:Observation:subject:code", "4548-4"));
 
-            var scopeRestriction = new ScopeRestriction("*", Core.Features.Security.DataActions.Read, "patient");
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
 
             ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
 
