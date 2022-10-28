@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 }
                 else
                 {
-                    if (baseType.ToString() == KnownResourceTypes.Resource)
+                    if (string.Equals(baseType.ToString(), KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase))
                     {
                         foreach (string resource in ModelInfoProvider.GetResourceTypeNames())
                         {
