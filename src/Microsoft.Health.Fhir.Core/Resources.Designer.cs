@@ -124,6 +124,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type..
+        /// </summary>
+        internal static string ChainedResourceTypesNotAllowedDueToScope {
+            get {
+                return ResourceManager.GetString("ChainedResourceTypesNotAllowedDueToScope", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
         /// </summary>
         internal static string ChangesToSearchParametersNotAllowedWhileReindexing {
@@ -690,7 +699,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("InvalidSecurityConfigurationBaseEndpoint", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
@@ -877,6 +886,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string OpenIdConfiguration {
             get {
                 return ResourceManager.GetString("OpenIdConfiguration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support..
+        /// </summary>
+        internal static string OperationCanceled {
+            get {
+                return ResourceManager.GetString("OperationCanceled", resourceCulture);
             }
         }
         
@@ -1084,6 +1102,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ResourceTooLarge {
             get {
                 return ResourceManager.GetString("ResourceTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type {0} is not allowed. Additional clinical scopes should be requested to allow searching using this type..
+        /// </summary>
+        internal static string ResourceTypeNotAllowedRestrictedByClinicalScopes {
+            get {
+                return ResourceManager.GetString("ResourceTypeNotAllowedRestrictedByClinicalScopes", resourceCulture);
             }
         }
         
@@ -1347,7 +1374,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("SecurityConfigurationAuthorizationNotEnabled", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to FHIR Server for Azure.
         /// </summary>

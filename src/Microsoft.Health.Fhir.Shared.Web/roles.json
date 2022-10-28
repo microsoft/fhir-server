@@ -67,6 +67,16 @@
             "scopes": [
                 "/"
             ]
+        },
+        {
+            "name": "smartUser",
+            "dataActions": [
+                "*"
+            ],
+            "notDataActions": [],
+            "scopes": [
+                "/"
+            ]
         }
     ]
 }

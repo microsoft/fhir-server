@@ -1,0 +1,359 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.Test.Utilities;
+using NSubstitute;
+using Xunit;
+using Task = System.Threading.Tasks.Task;
+
+namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
+{
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.SmartOnFhir)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+
+    public class SmartSearchTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
+    {
+        private readonly FhirStorageTestsFixture _fixture;
+        private readonly IFhirStorageTestHelper _testHelper;
+        private IFhirOperationDataStore _fhirOperationDataStore;
+        private IScoped<IFhirDataStore> _scopedDataStore;
+        private IFhirStorageTestHelper _fhirStorageTestHelper;
+        private SearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private ITypedElementToSearchValueConverterManager _typedElementToSearchValueConverterManager;
+        private ISearchIndexer _searchIndexer;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+        private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
+        private SearchParameterStatusManager _searchParameterStatusManager;
+
+        private IScoped<ISearchService> _searchService;
+
+        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
+
+        public SmartSearchTests(FhirStorageTestsFixture fixture)
+        {
+            _fixture = fixture;
+            _testHelper = _fixture.TestHelper;
+        }
+
+        public async Task InitializeAsync()
+        {
+            if (ModelInfoProvider.Instance.Version == FhirSpecification.R4 ||
+                ModelInfoProvider.Instance.Version == FhirSpecification.R4B)
+            {
+                _dataStoreSearchParameterValidator.ValidateSearchParameter(default, out Arg.Any<string>()).ReturnsForAnyArgs(x =>
+                {
+                    x[1] = null;
+                    return true;
+                });
+
+                _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+
+                _contextAccessor = _fixture.FhirRequestContextAccessor;
+
+                _fhirOperationDataStore = _fixture.OperationDataStore;
+                _fhirStorageTestHelper = _fixture.TestHelper;
+                _scopedDataStore = _fixture.DataStore.CreateMockScope();
+
+                _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
+                _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
+
+                _typedElementToSearchValueConverterManager = await CreateFhirTypedElementToSearchValueConverterManagerAsync();
+
+                _searchIndexer = new TypedElementSearchIndexer(
+                    _supportedSearchParameterDefinitionManager,
+                    _typedElementToSearchValueConverterManager,
+                    Substitute.For<IReferenceToElementResolver>(),
+                    ModelInfoProvider.Instance,
+                    NullLogger<TypedElementSearchIndexer>.Instance);
+
+                ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
+                    new RawResourceFactory(new FhirJsonSerializer()),
+                    new FhirRequestContextAccessor(),
+                    _searchIndexer,
+                    _searchParameterDefinitionManager,
+                    Deserializers.ResourceDeserializer);
+
+                _searchParameterStatusManager = _fixture.SearchParameterStatusManager;
+
+                _searchService = _fixture.SearchService.CreateMockScope();
+
+                _contextAccessor = _fixture.FhirRequestContextAccessor;
+
+                var smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientA");
+                foreach (var entry in smartBundle.Entry)
+                {
+                    await PutResource(entry.Resource);
+                }
+            }
+        }
+
+        public Task DisposeAsync()
+        {
+            return Task.CompletedTask;
+        }
+
+        [SkippableFact]
+        public async Task GivenScopesWithReadForAllResources_WhenRevIncludeObservations_PatientAndObservationReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // try to query both the Patient resource and the Observation resource using revinclude
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+            query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
+
+            var scopeRestriction = new ScopeRestriction("*", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            // assert that only the patient is returned
+            Assert.Collection<SearchResultEntry>(
+                results.Results,
+                e => Assert.Equal("Patient", e.Resource.ResourceTypeName),
+                e2 => Assert.Equal("Observation", e2.Resource.ResourceTypeName),
+                e3 => Assert.Equal("Observation", e3.Resource.ResourceTypeName));
+        }
+
+        [SkippableFact]
+        public async Task GivenScopesWithReadForPatient_WhenRevIncludeObservations_OnlyPatientResourcesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // try to query both the Patient resource and the Observation resource using revinclude
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+            query.Add(new Tuple<string, string>("_revinclude", "Observation:subject"));
+
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            // assert that only the patient is returned
+            Assert.DoesNotContain(results.Results, x => x.Resource.ResourceTypeName == "Observation");
+            Assert.Contains(results.Results, x => x.Resource.ResourceTypeName == "Patient");
+        }
+
+        [SkippableFact]
+        public async Task GivenScopesWithReadForObservation_WhenChainedSearchWithPatientName_ThrowsInvalidSearchException()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Query the Observation resources where they refer to Patients with the name "SMARTGivenName1"
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("subject:Patient.name", "SMARTGivenName1"));
+
+            var scopeRestriction = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+
+            await Assert.ThrowsAsync<InvalidSearchOperationException>(() =>
+                _searchService.Value.SearchAsync("Observation", query, CancellationToken.None));
+        }
+
+        [SkippableFact]
+        public async Task GivenScopesWithReadForObservationAndPatient_WhenChainedSearchWithPatientName_ThenObservationResourceReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Query the Observation resources where they refer to Patients with the name "SMARTGivenName1"
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("subject:Patient.name", "SMARTGivenName1"));
+
+            var scopeRestriction = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Read, "patient");
+            var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction, scopeRestriction2 });
+
+            var result = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            Assert.Collection(
+                result.Results,
+                r => Assert.Equal("smart-observation-A1", r.Resource.ResourceId),
+                r2 => Assert.Equal("smart-observation-A2", r2.Resource.ResourceId));
+        }
+
+        [SkippableFact]
+        public async Task GivenScopesWithReadForPatient_WhenRevChainedSearchWithObservationCode_ThrowsInvalidSearchException()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Query Patient resources where there are Observations referring to the Patient, which have the code "4548-4"
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_has:Observation:subject:code", "4548-4"));
+
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+
+            await Assert.ThrowsAsync<InvalidSearchOperationException>(
+                () => _searchService.Value.SearchAsync("Patient", query, CancellationToken.None));
+        }
+
+        [SkippableFact]
+        public async Task GivenScopesWithReadForPatient_WhenRevChainedSearchWithObservationPatientCode_ThrowsInvalidSearchException()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Query Patient resources where there are Observations referring to the Patient, which have the code "4548-4"
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_has:Observation:patient:code", "4548-4"));
+
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+
+            await Assert.ThrowsAsync<InvalidSearchOperationException>(() =>
+                _searchService.Value.SearchAsync("Patient", query, CancellationToken.None));
+        }
+
+        [SkippableFact]
+        public async Task GivenScopesWithReadForAllResources_WhenRevChainedSearchWithObservationCode_PatientResourcesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Query Patient resources where there are Observations referring to the Patient, which have the code "4548-4"
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_has:Observation:subject:code", "4548-4"));
+
+            var scopeRestriction = new ScopeRestriction("*", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            // no results returned
+            Assert.Collection(
+                results.Results,
+                r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
+        }
+
+        [SkippableFact]
+        public async Task GivenScopesWithReadForPatient_WhenObservationRequested_NoResultsReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            Assert.Empty(results.Results);
+        }
+
+        private async Task<UpsertOutcome> PutResource(Resource resource)
+        {
+            ResourceElement resourceElement = resource.ToResourceElement();
+
+            var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
+            wrapper.SearchParameterHash = "hash";
+
+            return await _scopedDataStore.Value.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
+        }
+
+        private static async Task<FhirTypedElementToSearchValueConverterManager> CreateFhirTypedElementToSearchValueConverterManagerAsync()
+        {
+            var types = typeof(ITypedElementToSearchValueConverter)
+                .Assembly
+                .GetTypes()
+                .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
+
+            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor());
+            var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
+            await codeSystemResolver.StartAsync(CancellationToken.None);
+
+            var fhirElementToSearchValueConverters = new List<ITypedElementToSearchValueConverter>();
+
+            foreach (Type type in types)
+            {
+                // Filter out the extension converter because it will be added to the converter dictionary in the converter manager's constructor
+                if (type.Name != nameof(FhirTypedElementToSearchValueConverterManager.ExtensionConverter))
+                {
+                    var x = (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(type, referenceSearchValueParser, codeSystemResolver);
+                    fhirElementToSearchValueConverters.Add(x);
+                }
+            }
+
+            return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
+        }
+
+        private void ConfigureFhirRequestContext(RequestContextAccessor<IFhirRequestContext> contextAccessor, ICollection<ScopeRestriction> scopes)
+        {
+            var accessControlContext = new AccessControlContext()
+            {
+                ApplyFineGrainedAccessControl = true,
+            };
+
+            foreach (var scope in scopes)
+            {
+                accessControlContext.AllowedResourceActions.Add(scope);
+            }
+
+            contextAccessor.RequestContext.AccessControlContext.Returns(accessControlContext);
+        }
+    }
+}

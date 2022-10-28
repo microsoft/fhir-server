@@ -30,7 +30,7 @@ parameters:
   default: ''
 - name: reindexEnabled
   type: boolean
-  default: false
+  default: true
 
 jobs:
 - job: provisionEnvironment

@@ -51,7 +51,8 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             var fhirTypedElementToSearchValueConverterManager = new FhirTypedElementToSearchValueConverterManager(fhirTypedElementConverters);
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(referenceSearchValueParser);
-            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
+            var contextAccessor = new FhirRequestContextAccessor();
+            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser, contextAccessor);
 
             // var searchOptionsFactory = new SearchOptionsFactory();
             var referenceToElementResolver = new LightweightReferenceToElementResolver(referenceSearchValueParser, modelInfoProvider);
