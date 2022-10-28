@@ -53,8 +53,8 @@ $success: #7952b3;
 // @import "~bootstrap/scss/forms";
 @import "~bootstrap/scss/buttons";
 @import "~bootstrap/scss/transitions";
-@import "~bootstrap/scss/dropdown";
-// @import "~bootstrap/scss/button-group";
+// @import "~bootstrap/scss/dropdown";
+@import "~bootstrap/scss/button-group";
 // @import "~bootstrap/scss/nav";
 // @import "~bootstrap/scss/navbar"; // Requires nav
 // @import "~bootstrap/scss/card";
@@ -64,15 +64,15 @@ $success: #7952b3;
 // @import "~bootstrap/scss/badge";
 // @import "~bootstrap/scss/alert";
 // @import "~bootstrap/scss/progress";
-// @import "~bootstrap/scss/list-group";
-@import "~bootstrap/scss/close";
+@import "~bootstrap/scss/list-group";
+// @import "~bootstrap/scss/close";
 // @import "~bootstrap/scss/toasts";
-@import "~bootstrap/scss/modal"; // Requires transitions
+// @import "~bootstrap/scss/modal"; // Requires transitions
 // @import "~bootstrap/scss/tooltip";
-@import "~bootstrap/scss/popover";
+// @import "~bootstrap/scss/popover";
 // @import "~bootstrap/scss/carousel";
 // @import "~bootstrap/scss/spinners";
-@import "~bootstrap/scss/offcanvas"; // Requires transitions
+// @import "~bootstrap/scss/offcanvas"; // Requires transitions
 // @import "~bootstrap/scss/placeholders";
 
 // Helpers
@@ -90,4 +90,8 @@ $success: #7952b3;
 
 body {
   padding: 1.5rem;
+}
+
+#scopesContainer {
+  max-width: 400px;
 }

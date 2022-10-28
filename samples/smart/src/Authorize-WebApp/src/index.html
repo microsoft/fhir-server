@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SMART Authorize User Imput WebApp</title>
+    <title>SMART Authorize User Input WebApp</title>
     <link rel="stylesheet" href="scss/styles.scss">
     <script type="module" src="./js/main.js"></script>
   </head>
@@ -17,8 +17,11 @@
 
       <h1>SMART Scope Selector</h1>
       <div class="col-lg-8 px-0">
-        <p class="fs-4">The application is requesting the below data. Review the request and grant access accordingly.</p>
+        <p class="fs-4 mb-2">The application is requesting the below data. Review the request and grant access accordingly.</p>
+        <div class="list-group" id="scopesContainer"></div>
       </div>
+
+      <button id="authorizeButton" type="button" class="btn btn-info mt-3">Authorize</button>
 
       <hr class="mt-5 mb-4">
 

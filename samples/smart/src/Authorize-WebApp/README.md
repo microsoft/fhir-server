@@ -1,16 +1,13 @@
-# Bootstrap w/ Vite
+# Simple SMART Scope Selector Web App
 
-Include [Bootstrap](https://getbootstrap.com)'s source Sass and individual JavaScript plugins with [Vite](https://vitejs.dev/).
+Simple webapp showing how scope selection can we worked into the auth flow.
 
-## Edit in browser
-
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/twbs/examples/tree/main/vite?file=index.html)
+Created with [Bootstrap](https://getbootstrap.com)'s source Sass and individual JavaScript plugins with [Vite](https://vitejs.dev/) for a simple and quick developer experience.
 
 ## How to use
 
 ```sh
-git clone https://github.com/twbs/examples.git
-cd examples/vite/
 npm install
 npm start
+npm build
 ```
