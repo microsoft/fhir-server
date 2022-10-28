@@ -9,8 +9,6 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Hl7.Fhir.Specification.Navigation;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -50,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
         [Theory]
         [MemberData(nameof(GetTestScopes))]
-        public async Task GivenSMARTScope_WhenInvoked_ThenScopeParsedandAddedtoContext(string scopes, ICollection<ScopeRestriction> expectedScopeRestrictions)
+        public async Task GivenSmartScope_WhenInvoked_ThenScopeParsedandAddedtoContext(string scopes, ICollection<ScopeRestriction> expectedScopeRestrictions)
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
@@ -84,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         [Theory]
         [InlineData("smartUser", true)]
         [InlineData("globalAdmin", false)]
-        public async Task GivenSmartUserRole_WhenInvoked_ThenApplyFineGrainedAccessControlIsSet(string role, bool expectedApplyFineGrainedAccessControl)
+        public async Task GivenSmartDataAction_WhenInvoked_ThenApplyFineGrainedAccessControlIsSet(string role, bool expectedApplyFineGrainedAccessControl)
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
@@ -115,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Fact]
-        public async Task GivenSmartUserRole_WhenFhirUserNotProvided_ThenBadRequestExceptionThrown()
+        public async Task GivenSmartDataAction_WhenFhirUserNotProvided_ThenBadRequestExceptionThrown()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
@@ -128,6 +126,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirConfiguration = new FhirServerConfiguration();
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
             authorizationConfiguration.Enabled = true;
+            authorizationConfiguration.ErrorOnMissingFhirUserClaim = true;
             await LoadRoles(authorizationConfiguration);
 
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
@@ -144,7 +143,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Fact]
-        public async Task GivenAdminUserRole_WhenScopesProvided_ThenScopeRestrictionsNotApplied()
+        public async Task GivenAllDataActionExceptSmart_WhenScopesProvided_ThenScopeRestrictionsNotApplied()
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 

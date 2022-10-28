@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
     public class SmartClinicalScopesMiddleware
     {
         private readonly RequestDelegate _next;
+        private const string AllDataActions = "all";
 
         // Regex based on SMART on FHIR clinical scopes v1.0, http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
         private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all)", RegexOptions.Compiled);
@@ -69,11 +70,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     }
                     catch (UriFormatException)
                     {
-                        throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
+                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                        {
+                            throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
+                        }
                     }
                     catch (ArgumentNullException)
                     {
-                        throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
+                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                        {
+                            throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
+                        }
                     }
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
@@ -98,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     permittedDataActions |= DataActions.Write;
                                     break;
                                 case "*":
-                                case KnownResourceTypes.All:
+                                case AllDataActions:
                                     permittedDataActions |= DataActions.Read | DataActions.Write;
                                     break;
                             }

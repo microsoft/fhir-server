@@ -21,8 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public string FhirUserClaim { get; set; } = "fhirUser";
 
-        public string SmartUserRole { get; set; } = "smartUser";
-
-        public string AllResourcesInScope { get; set; } = "all";
+        public bool ErrorOnMissingFhirUserClaim { get; set; } = false;
     }
 }

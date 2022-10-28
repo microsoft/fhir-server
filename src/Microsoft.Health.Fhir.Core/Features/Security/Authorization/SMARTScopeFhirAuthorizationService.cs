@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             DataActions permittedDataActions = 0;
             foreach (ScopeRestriction scopeRestriction in allowedResourceActions)
             {
-                // resousourceRequested is null when the base route is queried, i.e. all resources
+                // resourceRequested is null when the base route is queried, i.e. all resources
                 if (scopeRestriction.Resource == KnownResourceTypes.All || scopeRestriction.Resource == resourceRequested || resourceRequested == null)
                 {
                     permittedDataActions |= scopeRestriction.AllowedDataAction;
