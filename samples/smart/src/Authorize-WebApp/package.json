@@ -1,12 +1,18 @@
 {
-  "name": "starter",
-  "description": "Include Bootstrap CSS and JS via the jsDelivr CDN.",
+  "name": "vite",
+  "description": "Include Bootstrap's source Sass and individual JavaScript plugins with Vite.",
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "serve --listen 3000"
+    "start": "vite",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "sass": "^1.54.8",
+    "vite": "^3.0.9"
   },
   "dependencies": {
-    "serve": "^14.0.1"
+    "@popperjs/core": "^2.11.6",
+    "bootstrap": "^5.2.0"
   }
 }
