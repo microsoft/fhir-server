@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     /// <summary>
     /// determines access based on the SMART scope.
     /// </summary>
-    public static class SMARTScopeFhirAuthorizationService
+    public static class SmartScopeFhirAuthorizationService
     {
         public static DataActions CheckSMARTScopeAccess(this RequestContextAccessor<IFhirRequestContext> requestContextAccessor, DataActions dataActions)
         {
