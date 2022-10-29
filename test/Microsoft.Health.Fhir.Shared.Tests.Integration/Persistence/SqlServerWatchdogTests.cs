@@ -42,8 +42,9 @@ CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRI
 INSERT INTO DefragTestTable (Data) SELECT TOP 50000 '' FROM syscolumns A1, syscolumns A2
 DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)
 COMMIT TRANSACTION
+EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
                 ");
-            var pagesBefore = GetSize();
+            var sizeBefore = GetSize();
             var current = GetDateTime();
 
             var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
@@ -60,23 +61,22 @@ COMMIT TRANSACTION
             await wd.Initialize(cts.Token);
             var task = wd.ExecuteAsync(cts.Token);
 
-            var check = CheckQueue(current);
-            while (!(check.coordCompleted && check.workCompleted) && !cts.IsCancellationRequested)
+            var completed = CheckQueue(current);
+            while (!completed && !cts.IsCancellationRequested)
             {
                 await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
-                check = CheckQueue(current);
+                completed = CheckQueue(current);
             }
 
             // make sure that exit from while was on queue check
-            Assert.True(check.coordCompleted, "Coordinator item exists");
-            Assert.True(check.workCompleted, "Work item exists");
+            Assert.True(completed, "Work completed");
 
             var eventText = CheckEventLog(current);
             Assert.True(eventText.Contains("before=0.02", StringComparison.OrdinalIgnoreCase), $"%before=0.02% in {eventText}");
             Assert.True(eventText.Contains("after=0.002", StringComparison.OrdinalIgnoreCase), $"%after=0.002% in {eventText}");
 
-            var pagesAfter = GetSize();
-            Assert.True(pagesAfter * 9 < pagesBefore, $"{pagesAfter} * 9 < {pagesBefore}");
+            var sizeAfter = GetSize();
+            Assert.True(sizeAfter * 9 < sizeBefore, $"{sizeAfter} * 9 < {sizeBefore}");
 
             try
             {
@@ -136,7 +136,7 @@ SELECT TOP 1 EventText
             return (DateTime)res;
         }
 
-        private (bool coordCompleted, bool workCompleted) CheckQueue(DateTime current)
+        private bool CheckQueue(DateTime current)
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
@@ -146,7 +146,8 @@ SELECT TOP 1 EventText
             cmd.CommandTimeout = 120;
             using SqlDataReader reader = cmd.ExecuteReader();
             var coordCompleted = false;
-            var workCompleted = false;
+            var coordArchived = false;
+            var workArchived = false;
             while (reader.Read())
             {
                 var def = reader.GetString(0);
@@ -156,13 +157,18 @@ SELECT TOP 1 EventText
                     coordCompleted = true;
                 }
 
-                if (def.Contains("DefragTestTable", StringComparison.OrdinalIgnoreCase) && status == 2)
+                if (string.Equals(def, "Defrag", StringComparison.OrdinalIgnoreCase) && status == 5)
                 {
-                    workCompleted = true;
+                    coordArchived = true;
+                }
+
+                if (def.Contains("DefragTestTable", StringComparison.OrdinalIgnoreCase) && status == 5)
+                {
+                    workArchived = true;
                 }
             }
 
-            return (coordCompleted, workCompleted);
+            return coordCompleted && coordArchived && workArchived;
         }
     }
 }
