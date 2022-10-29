@@ -123,6 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                             try
                             {
                                 var newDefragItems = await InitDefragAsync(job.groupId, cancellationSource);
+                                _logger.LogInformation("{NewDefragItems} new defrag items found for Group: {GroupId}.", newDefragItems, job.groupId);
                                 if (job.activeDefragItemsExist || newDefragItems > 0)
                                 {
                                     await ChangeDatabaseSettings(false, cancellationSource);

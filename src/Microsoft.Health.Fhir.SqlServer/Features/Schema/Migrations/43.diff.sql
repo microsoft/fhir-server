@@ -57,7 +57,7 @@ END CATCH
 GO
 --DROP PROCEDURE dbo.InitDefrag
 GO
-CREATE PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint, @DefragItems int = NULL OUT
+CREATE OR ALTER PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint, @DefragItems int = NULL OUT
 WITH EXECUTE AS SELF
 AS
 set nocount on
