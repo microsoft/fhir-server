@@ -41,7 +41,8 @@ BEGIN TRANSACTION
 CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id))
 INSERT INTO DefragTestTable (Data) SELECT TOP 50000 '' FROM syscolumns A1, syscolumns A2
 DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)
-COMMIT TRANSACTION");
+COMMIT TRANSACTION
+                ");
             var pagesBefore = GetSize();
             var current = GetDateTime();
 
