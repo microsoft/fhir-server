@@ -2981,7 +2981,7 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.InitDefrag
-@QueueType TINYINT, @GroupId BIGINT
+@QueueType TINYINT, @GroupId BIGINT, @DefragItems INT=NULL OUTPUT
 WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
@@ -3044,8 +3044,8 @@ BEGIN TRY
     SELECT   Def + ';' + CONVERT (VARCHAR, FragGB)
     FROM     @Definitions
     ORDER BY FragGB DESC;
-    SET @Rows = @@rowcount;
-    IF @Rows > 0
+    SET @DefragItems = @@rowcount;
+    IF @DefragItems > 0
         EXECUTE dbo.EnqueueJobs @QueueType = @QueueType, @Definitions = @DefinitionsSorted, @GroupId = @GroupId, @ForceOneActiveJobGroup = 1;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st;
 END TRY

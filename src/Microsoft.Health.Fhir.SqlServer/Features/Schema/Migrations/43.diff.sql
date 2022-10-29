@@ -57,7 +57,7 @@ END CATCH
 GO
 --DROP PROCEDURE dbo.InitDefrag
 GO
-CREATE OR ALTER PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint
+CREATE PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint, @DefragItems int = NULL OUT
 WITH EXECUTE AS SELF
 AS
 set nocount on
@@ -103,7 +103,7 @@ BEGIN TRY
         FROM (SELECT object_id, index_id, partition_number, FragGB = A.avg_fragmentation_in_percent*A.page_count*8.0/1024/1024/100
                 FROM sys.dm_db_index_physical_stats(db_id(), @ObjectId, NULL, NULL, 'LIMITED') A
                 WHERE index_id > 0
-                AND avg_fragmentation_in_percent >= @MinFragPct AND A.page_count > 500
+                  AND avg_fragmentation_in_percent >= @MinFragPct AND A.page_count > 500
              ) A
              JOIN sys.indexes I ON I.object_id = A.object_id AND I.index_id = A.index_id
     SET @Rows = @@rowcount
@@ -114,9 +114,9 @@ BEGIN TRY
   END
 
   INSERT INTO @DefinitionsSorted SELECT Def+';'+convert(varchar,FragGB) FROM @Definitions ORDER BY FragGB DESC
-  SET @Rows = @@rowcount
+  SET @DefragItems = @@rowcount
 
-  IF @Rows > 0
+  IF @DefragItems > 0
     EXECUTE dbo.EnqueueJobs @QueueType = @QueueType, @Definitions = @DefinitionsSorted, @GroupId = @GroupId, @ForceOneActiveJobGroup = 1
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st

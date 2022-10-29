@@ -71,10 +71,6 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             // make sure that exit from while was on queue check
             Assert.True(completed, "Work completed");
 
-            var eventText = CheckEventLog(current);
-            Assert.True(eventText.Contains("before=0.02", StringComparison.OrdinalIgnoreCase), $"%before=0.02% in {eventText}");
-            Assert.True(eventText.Contains("after=0.002", StringComparison.OrdinalIgnoreCase), $"%after=0.002% in {eventText}");
-
             var sizeAfter = GetSize();
             Assert.True(sizeAfter * 9 < sizeBefore, $"{sizeAfter} * 9 < {sizeBefore}");
 
@@ -87,26 +83,6 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             {
                 // expected
             }
-        }
-
-        private string CheckEventLog(DateTime current)
-        {
-            using var conn = new SqlConnection(_fixture.TestConnectionString);
-            conn.Open();
-            using var cmd = new SqlCommand(
-                @"
-SELECT TOP 1 EventText 
-  FROM dbo.EventLog 
-  WHERE EventDate >= @Current
-    AND Process = 'Defrag' 
-    AND Status = 'End' 
-    AND Mode LIKE 'DefragTestTable.%'
-  ORDER BY EventDate DESC, EventId DESC",
-                conn);
-            cmd.CommandTimeout = 120;
-            cmd.Parameters.AddWithValue("@Current", current);
-            var res = cmd.ExecuteScalar();
-            return (string)res;
         }
 
         private void ExecuteSql(string sql)

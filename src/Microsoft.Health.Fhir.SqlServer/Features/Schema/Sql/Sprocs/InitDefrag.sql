@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.InitDefrag
 GO
-CREATE PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint
+CREATE PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint, @DefragItems int = NULL OUT
 WITH EXECUTE AS SELF
 AS
 set nocount on
@@ -57,9 +57,9 @@ BEGIN TRY
   END
 
   INSERT INTO @DefinitionsSorted SELECT Def+';'+convert(varchar,FragGB) FROM @Definitions ORDER BY FragGB DESC
-  SET @Rows = @@rowcount
+  SET @DefragItems = @@rowcount
 
-  IF @Rows > 0
+  IF @DefragItems > 0
     EXECUTE dbo.EnqueueJobs @QueueType = @QueueType, @Definitions = @DefinitionsSorted, @GroupId = @GroupId, @ForceOneActiveJobGroup = 1
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
