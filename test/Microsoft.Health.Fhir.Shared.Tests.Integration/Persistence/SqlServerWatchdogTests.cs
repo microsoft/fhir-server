@@ -36,10 +36,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task Defrag()
         {
             // populate data
-            ExecuteSql("CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id))");
-            ExecuteSql("INSERT INTO DefragTestTable SELECT TOP 50000 '' FROM syscolumns A1, syscolumns A2");
-            ExecuteSql("DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)");
-            var pagesBefore = GetPages();
+            ExecuteSql(@"
+BEGIN TRANSACTION
+CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id))
+INSERT INTO DefragTestTable (Data) SELECT TOP 50000 '' FROM syscolumns A1, syscolumns A2
+DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)
+COMMIT TRANSACTION");
+            var pagesBefore = GetSize();
             var current = GetDateTime();
 
             var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
@@ -63,6 +66,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 check = CheckQueue(current);
             }
 
+            // make sure that exit from while was on queue check
+            Assert.True(check.coordCompleted, "Coordinator item exists");
+            Assert.True(check.workCompleted, "Work item exists");
+
+            var eventText = CheckEventLog(current);
+            Assert.True(eventText.Contains("before=0.02", StringComparison.OrdinalIgnoreCase), $"%before=0.02% in {eventText}");
+            Assert.True(eventText.Contains("after=0.002", StringComparison.OrdinalIgnoreCase), $"%after=0.002% in {eventText}");
+
+            var pagesAfter = GetSize();
+            Assert.True(pagesAfter * 9 < pagesBefore, $"{pagesAfter} * 9 < {pagesBefore}");
+
             try
             {
                 cts.Cancel();
@@ -72,13 +86,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 // expected
             }
+        }
 
-            // make sure that exit from while was on queue check
-            Assert.True(check.coordCompleted, "Coordinator item exists");
-            Assert.True(check.workCompleted, "Work item exists");
-
-            var pagesAfter = GetPages();
-            Assert.True(pagesAfter * 9 < pagesBefore, $"{pagesAfter} * 9 < {pagesBefore}");
+        private string CheckEventLog(DateTime current)
+        {
+            using var conn = new SqlConnection(_fixture.TestConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand(
+                @"
+SELECT TOP 1 EventText 
+  FROM dbo.EventLog 
+  WHERE EventDate >= @Current
+    AND Process = 'Defrag' 
+    AND Status = 'End' 
+    AND Mode LIKE 'DefragTestTable.%'
+  ORDER BY EventDate DESC, EventId DESC",
+                conn);
+            cmd.CommandTimeout = 120;
+            cmd.Parameters.AddWithValue("@Current", current);
+            var res = cmd.ExecuteScalar();
+            return (string)res;
         }
 
         private void ExecuteSql(string sql)
@@ -90,13 +117,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             cmd.ExecuteNonQuery();
         }
 
-        private long GetPages()
+        private double GetSize()
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand("SELECT sum(used_page_count) FROM sys.dm_db_partition_stats WHERE object_id = object_id('DefragTestTable')", conn);
+            using var cmd = new SqlCommand("SELECT convert(float,sum(used_page_count)*8.0/1024/1024) FROM sys.dm_db_partition_stats WHERE object_id = object_id('DefragTestTable')", conn);
             var res = cmd.ExecuteScalar();
-            return (long)res;
+            return (double)res;
         }
 
         private DateTime GetDateTime()
