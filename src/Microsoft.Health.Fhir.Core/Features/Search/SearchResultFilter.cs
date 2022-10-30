@@ -14,22 +14,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public sealed class SearchResultFilter : ISearchResultFilter
     {
-        private readonly bool _isUSCoreEnabled;
+        private readonly bool _isUSCoreMissingDataEnabled;
         private readonly bool _isSmartUserRequest;
 
         public SearchResultFilter(IOptions<ImplementationGuidesConfiguration> implementationGuides, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
-            _isUSCoreEnabled = implementationGuides?.Value?.USCore?.MissingData ?? false;
+            _isUSCoreMissingDataEnabled = implementationGuides?.Value?.USCore?.MissingData ?? false;
             _isSmartUserRequest = fhirRequestContextAccessor?.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl ?? false;
         }
 
-        private SearchResultFilter(bool isUSCoreEnabled, bool isSmartUserRequest)
+        private SearchResultFilter(bool isUSCoreMissindDataEnabled, bool isSmartUserRequest)
         {
-            _isUSCoreEnabled = isUSCoreEnabled;
+            _isUSCoreMissingDataEnabled = isUSCoreMissindDataEnabled;
             _isSmartUserRequest = isSmartUserRequest;
         }
 
-        public static SearchResultFilter Default => new SearchResultFilter(isUSCoreEnabled: false, isSmartUserRequest: false);
+        public static SearchResultFilter Default => new SearchResultFilter(isUSCoreMissindDataEnabled: false, isSmartUserRequest: false);
 
         public SearchResult Filter(SearchResult searchResult)
         {
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Set of filter criteria to be applied on top of a SearchResult.
             IFilterCriteria[] filterCriterias =
             {
-                new MissingDataFilterCriteria(isCriteriaEnabled: _isUSCoreEnabled, isSmartRequest: _isSmartUserRequest),
+                new MissingDataFilterCriteria(isCriteriaEnabled: _isUSCoreMissingDataEnabled, isSmartRequest: _isSmartUserRequest),
             };
 
             foreach (IFilterCriteria filterCriteria in filterCriterias)

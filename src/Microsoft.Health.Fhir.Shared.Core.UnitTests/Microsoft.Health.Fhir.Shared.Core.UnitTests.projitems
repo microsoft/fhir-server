@@ -36,6 +36,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToTokenSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToUriSearchValueConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResultFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
@@ -116,5 +117,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchMoveTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchReplaceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchTypeTests.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-JsonCompliantSamples.json" />
   </ItemGroup>
 </Project>

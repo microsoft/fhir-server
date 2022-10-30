@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
             }
 
             return new SearchResult(
-                searchResult.Results,
+                results: finalResults,
                 searchResult.ContinuationToken,
                 searchResult.SortOrder,
                 searchResult.UnsupportedSearchParameters,
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
             }
 
             JToken value = jsonResource[requiredStatusElementName];
-            return value.HasValues;
+            return value != null;
         }
     }
 }
