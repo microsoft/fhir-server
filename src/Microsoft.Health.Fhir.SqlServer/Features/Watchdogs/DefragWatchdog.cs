@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         continue;
                     }
 
-                    _logger.LogInformation("DefragWatchdog found JobId: {JobId}, executing.", job.jobId);
+                    _logger.LogInformation("DefragWatchdog found JobId: {JobId}, {ActiveDefragItems} active defrag items, executing.", job.jobId, job.activeDefragItems);
 
                     await ExecWithHeartbeatAsync(
                         async cancellationSource =>
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                             {
                                 var newDefragItems = await InitDefragAsync(job.groupId, cancellationSource);
                                 _logger.LogInformation("{NewDefragItems} new defrag items found for Group: {GroupId}.", newDefragItems, job.groupId);
-                                if (job.activeDefragItemsExist || newDefragItems > 0)
+                                if (job.activeDefragItems > 0 || newDefragItems > 0)
                                 {
                                     await ChangeDatabaseSettings(false, cancellationSource);
 
@@ -297,9 +297,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return VLatest.InitDefrag.GetOutputs(cmd);
         }
 
-        private async Task<(long groupId, long jobId, long version, bool activeDefragItemsExist)> GetCoordinatorJob(CancellationToken cancellationToken)
+        private async Task<(long groupId, long jobId, long version, int activeDefragItems)> GetCoordinatorJob(CancellationToken cancellationToken)
         {
-            var activeDefragItemsExist = false;
+            var activeDefragItems = 0;
             using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
             var queueClient = scopedQueueClient.Value;
             await queueClient.ArchiveJobsAsync(QueueType, cancellationToken);
@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 var active = await GetActiveCoordinatorJobAsync(cancellationToken);
                 id = (active.groupId, active.jobId, active.version);
-                activeDefragItemsExist = active.defragItemsExist;
+                activeDefragItems = active.activeDefragItems;
             }
 
             if (id.jobId != -1)
@@ -335,7 +335,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 id = (job.groupId, job.jobId, job.version);
             }
 
-            return (id.groupId, id.jobId, id.version, activeDefragItemsExist);
+            return (id.groupId, id.jobId, id.version, activeDefragItems);
         }
 
         private async Task<(long groupId, long jobId, long version, string definition)> DequeueJobAsync(long? jobId = null, CancellationToken cancellationToken = default)
@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return (-1, -1, -1, string.Empty);
         }
 
-        private async Task<(long groupId, long jobId, long version, bool defragItemsExist)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
+        private async Task<(long groupId, long jobId, long version, int activeDefragItems)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
         {
             using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
             using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
@@ -363,7 +363,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             cmd.Parameters.AddWithValue("@QueueType", QueueType);
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
-            var defragItemsExist = false;
+            var activeDefragItems = 0;
             await using SqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
@@ -373,11 +373,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 }
                 else
                 {
-                    defragItemsExist = true;
+                    activeDefragItems++;
                 }
             }
 
-            return (id.groupId, id.jobId, id.version, defragItemsExist);
+            return (id.groupId, id.jobId, id.version, activeDefragItems);
         }
 
         private async Task<double> GetNumberParameterById(string id, CancellationToken cancellationToken)
