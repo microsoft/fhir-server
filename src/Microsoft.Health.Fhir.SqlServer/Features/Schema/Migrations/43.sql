@@ -523,7 +523,7 @@ CREATE TABLE dbo.Parameters (
     Char        VARCHAR (4000)  NULL,
     Binary      VARBINARY (MAX) NULL,
     UpdatedDate DATETIME        NULL,
-    UpdatedBy   NVARCHAR (255)  NULL CONSTRAINT PKC_Parameters_Id PRIMARY KEY CLUSTERED (Id)
+    UpdatedBy   NVARCHAR (255)  NULL CONSTRAINT PKC_Parameters_Id PRIMARY KEY CLUSTERED (Id) WITH (IGNORE_DUP_KEY = ON)
 );
 
 

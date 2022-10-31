@@ -1,4 +1,8 @@
-﻿--DROP PROCEDURE dbo.ArchiveJobs
+﻿IF object_id('dbo.PKC_Parameters_Id') IS NOT NULL ALTER TABLE dbo.Parameters DROP CONSTRAINT PKC_Parameters_Id
+GO
+ALTER TABLE dbo.Parameters ADD CONSTRAINT PKC_Parameters_Id PRIMARY KEY CLUSTERED (Id) WITH (IGNORE_DUP_KEY = ON)
+GO
+--DROP PROCEDURE dbo.ArchiveJobs
 GO
 CREATE OR ALTER PROCEDURE dbo.ArchiveJobs @QueueType tinyint
 AS

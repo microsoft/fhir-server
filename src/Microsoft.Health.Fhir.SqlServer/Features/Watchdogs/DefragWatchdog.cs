@@ -28,12 +28,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     public sealed class DefragWatchdog : INotificationHandler<StorageInitializedNotification>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
-        internal const string PeriodSecId = "Defrag.PeriodSec";
-        internal const string IsEnabledId = "Defrag.IsEnabled";
-        internal const string HeartbeatTimeoutSecId = "Defrag.HeartbeatTimeoutSec";
-        internal const string HeartbeatPeriodSecId = "Defrag.HeartbeatPeriodSec";
-        internal const string ThreadsId = "Defrag.Threads";
-
         private int _threads;
         private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
@@ -59,7 +53,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public static bool IsInitialized { get; private set; }
+        internal DefragWatchdog()
+        {
+            // this is used to get param names for testing
+        }
+
+        internal string Name => GetType().Name;
+
+        internal string IsEnabledId => $"{Name}.IsEnabled";
+
+        internal string PeriodSecId => $"{Name}.PeriodSec";
+
+        internal string HeartbeatPeriodSecId => $"{Name}.HeartbeatPeriodSec";
+
+        internal string HeartbeatTimeoutSecId => $"{Name}.HeartbeatTimeoutSec";
+
+        internal string ThreadsId => $"{Name}.Threads";
 
         public async Task Initialize(CancellationToken cancellationToken)
         {
@@ -73,8 +82,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await InitParamsAsync();
 
             _timerDelay = TimeSpan.FromSeconds(_periodSec);
-
-            IsInitialized = true;
         }
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -138,6 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                                     await ChangeDatabaseSettings(true, cancellationSource);
 
                                     _logger.LogInformation("All {ParallelTasks} tasks complete for Group: {GroupId}.", tasks.Count, job.groupId);
+                                    _logger.LogInformation("Group={GroupId} Job={JobId}: All ParallelTasks={ParallelTasks} tasks completed.", job.groupId, job.jobId, tasks.Count);
                                 }
                                 else
                                 {
@@ -439,19 +447,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             // Offset for other instances running init
             await Task.Delay(RandomDelay(), CancellationToken.None);
 
-            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory
-                .Value
-                .ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
+            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
             using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
 
             cmd.CommandText = @"
-INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
-INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
-INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 24*3600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodSecId)
-INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
-INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
-INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%' AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = name)
+INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0
+INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 24*3600
+INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60
+INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600
+INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%'
             ";
 
             cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
