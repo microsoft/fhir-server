@@ -35,6 +35,10 @@ spec:
           env:
             - name: ASPNETCORE_FORWARDEDHEADERS_ENABLED
               value: "true"
+            {{- if .Values.convertData.enabled }}
+            - name: FhirServer__Operations__ConvertData_Enabled
+              value: "true"
+            {{- end }}
             {{- if .Values.export.enabled }}
             - name: FhirServer__Operations__Export__Enabled
               value: "true"
