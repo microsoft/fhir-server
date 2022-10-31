@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await _defragWatchdog.Initialize(stoppingToken);
-            await _defragWatchdog.ExecuteAsync(stoppingToken);
+            await _defragWatchdog.InitializeAsync(stoppingToken);
+            await _defragWatchdog.ExecutePeriodicLoopAsync(stoppingToken);
         }
     }
 }

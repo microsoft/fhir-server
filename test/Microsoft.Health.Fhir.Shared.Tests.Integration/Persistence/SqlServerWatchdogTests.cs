@@ -58,8 +58,8 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            await wd.Initialize(cts.Token);
-            var task = wd.ExecuteAsync(cts.Token);
+            await wd.InitializeAsync(cts.Token);
+            var task = wd.ExecutePeriodicLoopAsync(cts.Token);
 
             var completed = CheckQueue(current);
             while (!completed && !cts.IsCancellationRequested)
