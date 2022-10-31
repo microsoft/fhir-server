@@ -12,9 +12,11 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Smart
 {
@@ -24,9 +26,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
     public class SmartClinicalScopesMiddleware
     {
         private readonly RequestDelegate _next;
+        private const string AllDataActions = "all";
 
         // Regex based on SMART on FHIR clinical scopes v1.0, http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
-        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|.)(?<resource>\*|([a-zA-Z]*))\.(?<accessLevel>read|write|\*)", RegexOptions.Compiled);
+        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all)", RegexOptions.Compiled);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next)
         {
@@ -35,7 +38,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfigurationOptions)
+        public async Task Invoke(
+            HttpContext context,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            IOptions<SecurityConfiguration> securityConfigurationOptions,
+            IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(securityConfigurationOptions, nameof(securityConfigurationOptions));
@@ -49,8 +56,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 var principal = fhirRequestContext.Principal;
                 var roles = principal.FindAll(authorizationConfiguration.RolesClaim).Select(r => r.Value);
 
-                // Only read and apply SMART clinical scopes if the SmartUserRole is present
-                if (roles.Contains(authorizationConfiguration.SmartUserRole))
+                var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
+
+                // Only read and apply SMART clinical scopes if the user has the Smart Data action
+                if (dataActions.HasFlag(DataActions.Smart))
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 
@@ -61,11 +70,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     }
                     catch (UriFormatException)
                     {
-                        throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
+                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                        {
+                            throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
+                        }
                     }
                     catch (ArgumentNullException)
                     {
-                        throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
+                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                        {
+                            throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
+                        }
                     }
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
@@ -90,6 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     permittedDataActions |= DataActions.Write;
                                     break;
                                 case "*":
+                                case AllDataActions:
                                     permittedDataActions |= DataActions.Read | DataActions.Write;
                                     break;
                             }
@@ -97,6 +113,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             if (!string.IsNullOrEmpty(resource)
                                 && !string.IsNullOrEmpty(id))
                             {
+                                if (resource.Equals("*", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    resource = KnownResourceTypes.All;
+                                }
+
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
                             }
                         }

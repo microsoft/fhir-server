@@ -12,7 +12,7 @@
     <PackageVersion Include="AngleSharp" Version="0.17.1" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
     <PackageVersion Include="Azure.Identity" Version="1.7.0" />
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.14.0" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.14.1" />
     <PackageVersion Include="coverlet.collector" Version="3.1.2" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.2.2" />
@@ -101,6 +101,7 @@
     <PackageVersion Include="Xunit.SkippableFact" Version="1.4.13" />
     <PackageVersion Include="xunit" Version="2.4.2" />
     <PackageVersion Include="xunit.assert" Version="2.4.2" />
+    <PackageVersion Include="System.Drawing.Common" Version="6.0.0" />
   </ItemGroup>
 
 </Project>

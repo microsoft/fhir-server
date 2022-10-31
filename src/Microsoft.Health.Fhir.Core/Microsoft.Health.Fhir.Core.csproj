@@ -59,6 +59,10 @@
     <PackageReference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Transitive Dependency of Microsoft.Health.SqlServer. Fixing version to mitigate CVE -->
+    <PackageReference Include="System.Drawing.Common" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
   </ItemGroup>

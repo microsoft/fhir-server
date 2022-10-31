@@ -66,6 +66,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
         {
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                if (_contextAccessor.RequestContext?.AccessControlContext.CompartmentResourceType != null &&
+                    _contextAccessor.RequestContext?.AccessControlContext.CompartmentId != null)
+                {
+                    return Create(
+                        _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType,
+                        _contextAccessor.RequestContext.AccessControlContext.CompartmentId,
+                        resourceType,
+                        queryParameters,
+                        isAsyncOperation);
+                }
+            }
+
             return Create(null, null, resourceType, queryParameters, isAsyncOperation);
         }
 
@@ -451,7 +465,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
                     {
                         var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
-                        if (!allowedResourceTypesByScope.Contains("*") && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                        if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
                         {
                             _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
                             return null;
@@ -482,7 +496,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
                 {
-                    if (restriction.Resource == "*")
+                    if (restriction.Resource == KnownResourceTypes.All)
                     {
                         allowAllResourceTypes = true;
                         break;

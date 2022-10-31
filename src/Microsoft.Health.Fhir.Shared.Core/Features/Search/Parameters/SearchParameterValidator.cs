@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         private const string HttpPostName = "POST";
         private const string HttpPutName = "PUT";
@@ -35,15 +37,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         public SearchParameterValidator(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IAuthorizationService<DataActions> authorizationService,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _authorizationService = authorizationService;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _modelInfoProvider = modelInfoProvider;
         }
 
         public async Task ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
@@ -141,13 +146,47 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                             nameof(searchParam.Code),
                             string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType.ToString())));
                 }
-                else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
+                else
                 {
-                    // The search parameter's code value conflicts with an existing one
-                    validationFailures.Add(
+                    if (string.Equals(baseType.ToString(), KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase))
+                    {
+                        foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
+                        {
+                            if (_searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, out _))
+                            {
+                                validationFailures.Add(
+                                    new ValidationFailure(
+                                    nameof(searchParam.Code),
+                                    string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, resource)));
+                                break;
+                            }
+                        }
+                    }
+                    else if (baseType.ToString() == KnownResourceTypes.DomainResource)
+                    {
+                        foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
+                        {
+                            Type type = _modelInfoProvider.GetTypeForFhirType(resource);
+                            string fhirBaseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
+
+                            if (fhirBaseType == KnownResourceTypes.DomainResource && _searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, out _))
+                            {
+                                validationFailures.Add(
+                                    new ValidationFailure(
+                                    nameof(searchParam.Code),
+                                    string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, resource)));
+                                break;
+                            }
+                        }
+                    }
+                    else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
+                    {
+                        // The search parameter's code value conflicts with an existing one
+                        validationFailures.Add(
                         new ValidationFailure(
                             nameof(searchParam.Code),
                             string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
+                    }
                 }
             }
         }

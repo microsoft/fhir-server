@@ -41,6 +41,16 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/Observation.read fhirUser fhir-api user/Encounter.*
 
+### Get the smartUser bearer token, for testing scopes
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.read
+
 ### Get all Patient
 GET https://{{hostname}}/Patient
 Authorization: Bearer {{bearer.response.body.access_token}}
@@ -71,7 +81,7 @@ GET https://{{hostname}}/?_type=Patient
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Reverse chained search
-GET https://{{hostname}}/Patient?_has:Observation:patient:code=4548-4&_count=1000
+GET https://{{hostname}}/Patient?_has:Observation:patient:code=4548-4
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Get all resources
