@@ -214,6 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sortRewriter = new SortRewriter(searchParamTableExpressionQueryGeneratorFactory);
             var partitionEliminationRewriter = new PartitionEliminationRewriter(sqlServerFhirModel, SchemaInformation, () => searchableSearchParameterDefinitionManager);
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
+            compartmentDefinitionManager.StartAsync(CancellationToken.None).Wait();
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
             _searchService = new SqlServerSearchService(

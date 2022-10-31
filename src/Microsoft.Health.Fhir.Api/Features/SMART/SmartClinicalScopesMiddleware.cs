@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     try
                     {
                         fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
+                        FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
                     }
                     catch (UriFormatException)
                     {
