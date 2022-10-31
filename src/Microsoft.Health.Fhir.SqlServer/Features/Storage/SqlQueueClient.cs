@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return dequeuedJobs;
         }
 
-        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
         {
             try
             {
