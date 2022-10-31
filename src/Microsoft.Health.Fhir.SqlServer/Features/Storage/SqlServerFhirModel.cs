@@ -231,17 +231,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
 
-IF object_id('dbo.Parameters') IS NOT NULL -- still need exists check for earlier versions than 43
-BEGIN
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodSecId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinFragPct')
-  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB')
-END
-
                         INSERT INTO dbo.ResourceType (Name)
                         SELECT value FROM string_split(@resourceTypes, ',')
                         EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX);
@@ -278,13 +267,6 @@ END
 
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
-
-                var defragWatchdog = new Watchdogs.DefragWatchdog();
-                sqlCommandWrapper.Parameters.AddWithValue("@IsEnabledId", defragWatchdog.IsEnabledId);
-                sqlCommandWrapper.Parameters.AddWithValue("@ThreadsId", defragWatchdog.ThreadsId);
-                sqlCommandWrapper.Parameters.AddWithValue("@PeriodSecId", defragWatchdog.PeriodSecId);
-                sqlCommandWrapper.Parameters.AddWithValue("@HeartbeatPeriodSecId", defragWatchdog.HeartbeatPeriodSecId);
-                sqlCommandWrapper.Parameters.AddWithValue("@HeartbeatTimeoutSecId", defragWatchdog.HeartbeatTimeoutSecId);
 
                 string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url }));
                 string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
