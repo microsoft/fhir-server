@@ -367,15 +367,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A SqlTransaction was deadlocked on lock resources with another process and this process has been chosen as the deadlock victim. Rerun the transaction..
-        /// </summary>
-        internal static string DeadlockVictim {
-            get {
-                return ResourceManager.GetString("DeadlockVictim", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {
@@ -1399,6 +1390,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SqlQueryProcessorRanOutOfInternalResourcesException {
             get {
                 return ResourceManager.GetString("SqlQueryProcessorRanOutOfInternalResourcesException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There was resource contention with another process in the datastore. Please retry this transaction..
+        /// </summary>
+        internal static string TransactionDeadlock {
+            get {
+                return ResourceManager.GetString("TransactionDeadlock", resourceCulture);
             }
         }
         

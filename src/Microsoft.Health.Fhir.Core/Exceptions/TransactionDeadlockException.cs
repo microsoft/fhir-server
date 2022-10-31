@@ -8,9 +8,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public class DeadlockVictimException : FhirException
+    public class TransactionDeadlockException : FhirException
     {
-        public DeadlockVictimException(string message)
+        public TransactionDeadlockException(string message)
             : base(message)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");

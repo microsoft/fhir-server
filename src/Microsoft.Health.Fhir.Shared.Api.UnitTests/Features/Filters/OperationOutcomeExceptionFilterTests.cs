@@ -249,9 +249,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenADeadlockVictimException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        public void GivenATransactionDeadlockException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            ValidateOperationOutcome(new DeadlockVictimException(Core.Resources.DeadlockVictim), HttpStatusCode.BadRequest);
+            ValidateOperationOutcome(new TransactionDeadlockException(Core.Resources.TransactionDeadlock), HttpStatusCode.BadRequest);
         }
 
         [Fact]

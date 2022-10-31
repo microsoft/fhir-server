@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (sqlException.Number == DeadlockVictim)
                 {
-                    throw new DeadlockVictimException(Core.Resources.DeadlockVictim);
+                    throw new TransactionDeadlockException(Core.Resources.TransactionDeadlock);
                 }
                 else
                 {
