@@ -9,7 +9,7 @@ namespace Microsoft.Health.JobManagement
     {
         public const int DefaultPollingFrequencyInSeconds = 10;
 
-        public const short DefaultMaxRunningJobCount = 1;
+        public const short DefaultMaxRunningJobCount = 2;
 
         public const short DefaultMaxRetryCount = 3;
 
