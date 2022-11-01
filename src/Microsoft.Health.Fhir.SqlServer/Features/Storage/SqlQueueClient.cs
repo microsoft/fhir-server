@@ -343,5 +343,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             VLatest.ArchiveJobs.PopulateCommand(cmd, queueType);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
+
+        public async Task ExecuteWithHeartbeatAsync(byte queueType, long jobId, long version, Func<CancellationToken, Task> action, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(action, nameof(action));
+
+            using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            using var timer = new PeriodicTimer(heartbeatPeriod);
+
+            CancellationToken timerToken = tokenSource.Token;
+
+            Task heartBeatTask = HeartbeatLoopAsync(queueType, jobId, version, timer, timerToken);
+            Task<Task> actionTask = action.Invoke(timerToken).ContinueWith(
+                _ =>
+                {
+                    tokenSource.Cancel();
+                    return Task.CompletedTask;
+                },
+                TaskScheduler.Current);
+
+            try
+            {
+                await Task.WhenAll(actionTask, heartBeatTask);
+            }
+            catch (OperationCanceledException) when (tokenSource.IsCancellationRequested)
+            {
+                // ending heartbeat loop
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExecWithHeartbeatAsync failed.");
+                throw;
+            }
+
+            if (!actionTask.IsCompleted)
+            {
+                await actionTask;
+            }
+        }
+
+        private async Task HeartbeatLoopAsync(byte queueType, long jobId, long version, PeriodicTimer timer, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(timer, nameof(timer));
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await timer.WaitForNextTickAsync(cancellationToken);
+                await UpdateJobHeartbeatAsync(queueType, jobId, version, cancellationToken);
+            }
+        }
+
+        private async Task UpdateJobHeartbeatAsync(byte queueType, long jobId, long version, CancellationToken cancellationToken)
+        {
+            var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version };
+            await KeepAliveJobAsync(jobInfo, cancellationToken);
+        }
     }
 }

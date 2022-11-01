@@ -80,7 +80,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             _logger.LogInformation("Group={GroupId} Job={JobId}: ActiveDefragItems={ActiveDefragItems}, executing...", job.groupId, job.jobId, job.activeDefragItems);
 
-            await ExecWithHeartbeatAsync(
+            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
+            await scopedQueueClient.Value.ExecuteWithHeartbeatAsync(
+                QueueType,
+                job.jobId,
+                job.version,
                 async cancellationSource =>
                 {
                     try
@@ -113,8 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         throw;
                     }
                 },
-                job.jobId,
-                job.version,
+                TimeSpan.FromSeconds(_heartbeatPeriodSec),
                 cancellationToken);
 
             await CompleteJobAsync(job.jobId, job.version, false, cancellationToken);
@@ -144,14 +147,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     return;
                 }
 
-                await ExecWithHeartbeatAsync(
+                using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
+                await scopedQueueClient.Value.ExecuteWithHeartbeatAsync(
+                    QueueType,
+                    jobId,
+                    job.version,
                     async cancellationSource =>
                     {
                         var split = job.definition.Split(";");
                         await DefragAsync(split[0], split[1], int.Parse(split[2]), byte.Parse(split[3]) == 1, cancellationSource);
                     },
-                    jobId,
-                    job.version,
+                    TimeSpan.FromSeconds(_heartbeatPeriodSec),
                     cancellationToken);
 
                 await CompleteJobAsync(jobId, job.version, false, cancellationToken);
@@ -182,62 +188,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await scopedQueueClient.Value.CompleteJobAsync(jobInfo, false, cancellationToken);
 
             _logger.LogInformation("Completed JobId: {JobId}, Version: {Version}, Failed: {Failed}", jobId, version, failed);
-        }
-
-        private async Task ExecWithHeartbeatAsync(Func<CancellationToken, Task> action, long jobId, long version, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(action, nameof(action));
-
-            using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_heartbeatPeriodSec));
-
-            CancellationToken timerToken = tokenSource.Token;
-
-            Task heartBeatTask = HeartbeatLoopAsync(jobId, version, timer, timerToken);
-            Task<Task> actionTask = action.Invoke(timerToken).ContinueWith(
-                _ =>
-                {
-                    tokenSource.Cancel();
-                    return Task.CompletedTask;
-                },
-                TaskScheduler.Current);
-
-            try
-            {
-                await Task.WhenAll(actionTask, heartBeatTask);
-            }
-            catch (OperationCanceledException) when (tokenSource.IsCancellationRequested)
-            {
-                // ending heartbeat loop
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "ExecWithHeartbeatAsync failed.");
-                throw;
-            }
-
-            if (!actionTask.IsCompleted)
-            {
-                await actionTask;
-            }
-        }
-
-        private async Task HeartbeatLoopAsync(long jobId, long version, PeriodicTimer timer, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(timer, nameof(timer));
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                await timer.WaitForNextTickAsync(cancellationToken);
-                await UpdateJobHeartbeatAsync(jobId, version, cancellationToken);
-            }
-        }
-
-        private async Task UpdateJobHeartbeatAsync(long jobId, long version, CancellationToken cancellationToken)
-        {
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-            var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version };
-            await scopedQueueClient.Value.KeepAliveJobAsync(jobInfo, cancellationToken);
         }
 
         private async Task<int?> InitDefragAsync(long groupId, CancellationToken cancellationToken)
