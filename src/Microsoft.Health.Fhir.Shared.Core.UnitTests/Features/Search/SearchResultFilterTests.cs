@@ -3,147 +3,105 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Reflection;
-using Hl7.Fhir.Serialization;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json.Linq;
-using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
+namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class SearchResultFilterTests
     {
-        // JSON Data samples extracted from:
-        // - https://www.hl7.org/fhir/allergyintolerance-example.json.html
-        // - https://www.hl7.org/fhir/condition-example.json.html
-        // - https://www.hl7.org/fhir/DocumentReference-example.json.html
-        // - https://www.hl7.org/fhir/Immunization-example.json.html
-        // - https://www.hl7.org/fhir/goal-example.json.html
-
-        private const string JsonCompliantDataSamplesFileName = "USCoreMissinData-JsonCompliantSamples";
-
-        private static readonly ParserSettings _parserSettings = new ParserSettings() { AcceptUnknownMembers = true, PermissiveParsing = true };
-        private static readonly FhirJsonParser _jsonParser = new FhirJsonParser(_parserSettings);
-        private static readonly FhirXmlParser _xmlParser = new FhirXmlParser(_parserSettings);
-
         [Theory]
-        [InlineData(true, true)]
-        [InlineData(false, true)]
-        [InlineData(true, false)]
-        [InlineData(false, false)]
-        public void WhenFilteringResults_IfNoMissingStatusElements_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest)
+        [InlineData(true, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
+        [InlineData(false, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
+        [InlineData(true, false, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
+        [InlineData(false, false, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
+        public void WhenFilteringResults_IfNoMissingStatusElements_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest, string fileName)
         {
-            ISearchResultFilter searchResultFilter = GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+            // This test evaluates if records with all required status elements are returned "as it's" under all combinations of configuration.
 
-            string rawDataElements = GetSamplesFromFile(JsonCompliantDataSamplesFileName);
-            JArray dataElementsArray = JArray.Parse(rawDataElements);
+            SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-            List<SearchResultEntry> resultEntries = new List<SearchResultEntry>();
-            foreach (JToken dataElement in dataElementsArray.Children())
-            {
-                string rawResourceAsJson = dataElement.ToString();
-                resultEntries.Add(CreateSearchResultEntry(rawResourceAsJson));
-            }
-
-            SearchResult searchResult = new SearchResult(
-                resultEntries,
-                continuationToken: null,
-                sortOrder: null,
-                unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());
-
+            ISearchResultFilter searchResultFilter = USCoreTestHelper.GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
             SearchResult filteredSearchResult = searchResultFilter.Filter(searchResult);
 
             Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
-            Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
-            Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
             Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
             Assert.Empty(filteredSearchResult.SearchIssues);
+
+            Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
+            Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
         }
 
-        private static SearchResultEntry CreateSearchResultEntry(string rawResourceAsJson)
+        [Theory]
+        [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        public void WhenFilteringResults_IfMissingStatusElementsAndUSCoreIsDisable_ThenShowDataAsIs(bool isSmartUserRequest, string fileName)
         {
-            var parsedElement = _jsonParser.Parse(rawResourceAsJson);
-            ResourceElement resourceElement = parsedElement.ToResourceElement();
+            // This test evaluates if records missing required status elements return the data as "it's" if US Core is disabled.
 
-            RawResource rawResource = new RawResource(
-                rawResourceAsJson,
-                FhirResourceFormat.Json,
-                isMetaSet: false);
+            const bool isUSCoreMissingDataEnabled = false;
 
-            return new SearchResultEntry(
-                new ResourceWrapper(
-                    resourceElement,
-                    rawResource,
-                    null,
-                    false,
-                    null,
-                    null,
-                    null));
+            SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
+
+            ISearchResultFilter searchResultFilter = USCoreTestHelper.GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+            SearchResult filteredSearchResult = searchResultFilter.Filter(searchResult);
+
+            Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
+            Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
+            Assert.Empty(filteredSearchResult.SearchIssues);
+
+            Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
+            Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
         }
 
-        private static ISearchResultFilter GetSearchResultFilter(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest)
+        [Theory]
+        [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        public void WhenFilteringResults_IfMissingStatusElementsAndNotSmartUser_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, string fileName)
         {
-            if (!isUSCoreMissingDataEnabled && !isSmartUserRequest)
-            {
-                return SearchResultFilter.Default;
-            }
+            // This test evaluates if records missing required status elements return the data as "it's" if the request comes from a non-SMART user.
 
-            // Setting up Implementation Guides Configuration with "US Core Missing Data" enabled or disabled.
-            var implementationGuidesConfiguration = new ImplementationGuidesConfiguration()
-            {
-                USCore = new USCoreConfiguration()
-                {
-                    MissingData = isUSCoreMissingDataEnabled,
-                },
-            };
-            IOptions<ImplementationGuidesConfiguration> implementationGuidesConfig = Substitute.For<IOptions<ImplementationGuidesConfiguration>>();
-            implementationGuidesConfig.Value.Returns(implementationGuidesConfiguration);
+            const bool isSmartUserRequest = false;
 
-            // Simulating a FHIR Request Context with or without SMART user.
-            IFhirRequestContext fhirRequestContext = new FhirRequestContext("foo", "bar", "baz", "foo", requestHeaders: null, responseHeaders: new Dictionary<string, StringValues>());
-            fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = isSmartUserRequest;
-            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor = new FhirRequestContextAccessor()
-            {
-                RequestContext = fhirRequestContext,
-            };
+            SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-            return new SearchResultFilter(implementationGuidesConfig, fhirRequestContextAccessor);
+            ISearchResultFilter searchResultFilter = USCoreTestHelper.GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+            SearchResult filteredSearchResult = searchResultFilter.Filter(searchResult);
+
+            Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
+            Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
+            Assert.Empty(filteredSearchResult.SearchIssues);
+
+            Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
+            Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
         }
 
-        private static string GetSamplesFromFile(string fileName)
+        [Theory]
+        [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        public void WhenFilteringResults_IfMissingStatusElements_ThenReturnOperationOutcomeWith404(string fileName)
         {
-            string resourceName = $"Microsoft.Health.Fhir.Core.UnitTests.TestFiles.{fileName}.json";
+            const bool isUSCoreMissingDataEnabled = true;
+            const bool isSmartUserRequest = true;
 
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
-            {
-                if (stream == null)
-                {
-                    throw new InvalidOperationException($"Resource not found: '{resourceName}'.");
-                }
+            SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-                using (var reader = new StreamReader(stream))
-                {
-                    return reader.ReadToEnd();
-                }
-            }
+            ISearchResultFilter searchResultFilter = USCoreTestHelper.GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+            SearchResult filteredSearchResult = searchResultFilter.Filter(searchResult);
+
+            Assert.NotEqual(searchResult.Results.Count(), filteredSearchResult.Results.Count());
+            Assert.Empty(filteredSearchResult.Results); // This JSON file should only contain non-compliant samples.
+            Assert.Equal(searchResult.Results.Count(), filteredSearchResult.SearchIssues.Count());
+            Assert.NotEqual(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
+            Assert.NotEmpty(filteredSearchResult.SearchIssues);
+
+            Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
+            Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
         }
     }
 }

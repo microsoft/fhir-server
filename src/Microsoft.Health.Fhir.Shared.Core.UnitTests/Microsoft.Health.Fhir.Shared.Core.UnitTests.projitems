@@ -36,8 +36,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToTokenSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToUriSearchValueConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Filters\MissingDataFilterCriteriaTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResultFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />
@@ -119,6 +121,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchTypeTests.cs" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-JsonNonCompliantSamples.json" />
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-JsonCompliantSamples.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlCompliantSamples.xml" />
   </ItemGroup>
 </Project>

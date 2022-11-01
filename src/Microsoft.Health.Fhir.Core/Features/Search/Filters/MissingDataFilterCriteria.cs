@@ -149,7 +149,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
             }
 
             JToken value = jsonResource[requiredStatusElementName];
-            return value != null;
+
+            if (value == null)
+            {
+                return false;
+            }
+            else if (value is JObject jValueObject)
+            {
+                return jValueObject.Count > 0 && !string.IsNullOrEmpty(jValueObject.ToString());
+            }
+            else
+            {
+                return !string.IsNullOrEmpty(value.Value<string>());
+            }
         }
     }
 }

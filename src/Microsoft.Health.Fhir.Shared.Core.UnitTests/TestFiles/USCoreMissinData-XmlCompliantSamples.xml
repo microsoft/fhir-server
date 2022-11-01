@@ -1,0 +1,889 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <AllergyIntolerance xmlns="http://hl7.org/fhir">
+    <id value="example"/>
+
+    <!--    an identifier used for this allergic propensity (adverse reaction risk)    -->
+    <text>
+      <status value="generated"/>
+      <div xmlns="http://www.w3.org/1999/xhtml">
+        <p>
+          <b> Generated Narrative</b>
+        </p>
+        <div style="display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px
+       solid #8da1b4; border-radius: 5px; line-height: 60%">
+          <p style="margin-bottom: 0px">Resource &quot;example&quot; </p>
+        </div>
+        <p>
+          <b> identifier</b> : id: 49476534
+        </p>
+        <p>
+          <b> clinicalStatus</b> : Active <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="codesystem-allergyintolerance-clinical.html">AllergyIntolerance Clinical Status Codes</a> #active)
+          </span>
+        </p>
+        <p>
+          <b> verificationStatus</b> : Confirmed <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="codesystem-allergyintolerance-verification.html">AllergyIntolerance Verification Status Codes</a> #confirmed)
+          </span>
+        </p>
+        <p>
+          <b> type</b> : allergy
+        </p>
+        <p>
+          <b> category</b> : food
+        </p>
+        <p>
+          <b> criticality</b> : high
+        </p>
+        <p>
+          <b> code</b> : Cashew nuts <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="https://browser.ihtsdotools.org/">SNOMED CT</a> #227493005)
+          </span>
+        </p>
+        <p>
+          <b> patient</b> : <a href="patient-example.html">Patient/example</a>  &quot;Peter CHALMERS&quot;
+        </p>
+        <p>
+          <b> onset</b> : 2004
+        </p>
+        <p>
+          <b> recordedDate</b> : 2014-10-09T14:58:00+11:00
+        </p>
+        <p>
+          <b> recorder</b> : <a href="practitioner-example.html">Practitioner/example</a>  &quot;Adam CAREFUL&quot;
+        </p>
+        <p>
+          <b> asserter</b> : <a href="patient-example.html">Patient/example</a>  &quot;Peter CHALMERS&quot;
+        </p>
+        <p>
+          <b> lastOccurrence</b> : 2012-06
+        </p>
+        <p>
+          <b> note</b> : The criticality is high becasue of the observed anaphylactic reaction when challenged
+          with cashew extract.
+        </p>
+        <blockquote>
+          <p>
+            <b> reaction</b>
+          </p>
+          <p>
+            <b> substance</b> : cashew nut allergenic extract Injectable Product <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+              (<a href="http://terminology.hl7.org/3.1.0/CodeSystem-v3-rxNorm.html">RxNorm</a> #1160593)
+            </span>
+          </p>
+          <p>
+            <b> manifestation</b> : Anaphylactic reaction <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+              (<a href="https://browser.ihtsdotools.org/">SNOMED CT</a> #39579001)
+            </span>
+          </p>
+          <p>
+            <b> description</b> : Challenge Protocol. Severe reaction to subcutaneous cashew extract. Epinephrine administered
+          </p>
+          <p>
+            <b> onset</b> : 2012-06-12
+          </p>
+          <p>
+            <b> severity</b> : severe
+          </p>
+          <p>
+            <b> exposureRoute</b> : Subcutaneous route <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+              (<a href="https://browser.ihtsdotools.org/">SNOMED CT</a> #34206005)
+            </span>
+          </p>
+        </blockquote>
+        <blockquote>
+          <p>
+            <b> reaction</b>
+          </p>
+          <p>
+            <b> manifestation</b> : Urticaria <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+              (<a href="https://browser.ihtsdotools.org/">SNOMED CT</a> #64305001)
+            </span>
+          </p>
+          <p>
+            <b> onset</b> : 2004
+          </p>
+          <p>
+            <b> severity</b> : moderate
+          </p>
+          <p>
+            <b> note</b> : The patient reports that the onset of urticaria was within 15 minutes of eating cashews.
+          </p>
+        </blockquote>
+      </div>
+    </text>
+    <identifier>
+      <system value="http://acme.com/ids/patients/risks"/>
+      <value value="49476534"/>
+    </identifier>
+
+    <!--    this individual has had several reactions    -->
+    <clinicalStatus>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical"/>
+        <code value="active"/>
+        <display value="Active"/>
+      </coding>
+    </clinicalStatus>
+
+    <verificationStatus>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/allergyintolerance-verification"/>
+        <code value="confirmed"/>
+        <display value="Confirmed"/>
+      </coding>
+    </verificationStatus>
+
+    <!--    note: it's often unknown whether an allergy is mediated by an immune response, and
+   not as significant as once thought    -->
+    <type value="allergy"/>
+
+    <!--    this categorization is implied by "cashew nut" and therefore basically 
+    redundant, but many systems collect this field anyway, since it's either 
+    useful when the substance is not coded, or it's quicker to sort/filter on
+    than using terminology based reasoning    -->
+
+
+    <category value="food"/>
+
+    <!--    there is no question that the allergy is real and serious    -->
+    <criticality value="high"/>
+
+    <!--    Allergy or intolerance code (substance, product, condition or negated/excluded statement)
+   or text. A few times, 
+    there's a full description of a complex substance/product - in these caes, use the
+    extension [url] to refer to a Substance resource.    -->
+    <code>
+      <coding>
+        <system value="http://snomed.info/sct"/>
+        <code value="227493005"/>
+        <display value="Cashew nuts"/>
+      </coding>
+    </code>
+
+    <!--    the patient that actually has the risk of adverse reaction    -->
+    <patient>
+      <reference value="Patient/example"/>
+    </patient>
+
+    <!--    when the allergy was first noted (in this case the same as reaction.onset of the first
+   occurrence)    -->
+    <onsetDateTime value="2004"/>
+
+    <!--    the date that this entry was recorded    -->
+    <recordedDate value="2014-10-09T14:58:00+11:00"/>
+
+    <!--    who made the record / last updated it    -->
+    <recorder>
+      <reference value="Practitioner/example"/>
+    </recorder>
+
+    <!--    the patient is the reporter in this case    -->
+    <asserter>
+      <reference value="Patient/example"/>
+    </asserter>
+
+    <!--    last happened June 2012. Typically, systems either track lastOccurrence,
+     or a list of events.    -->
+    <lastOccurrence value="2012-06"/>
+
+    <!--    an additional note about the allergy propensity by the recorder    -->
+    <note>
+      <text value="The criticality is high becasue of the observed anaphylactic reaction when challenged
+     with cashew extract."/>
+    </note>
+
+    <!--    past events. There's no claim that this is all the events, and 
+     that should not be assumed    -->
+    <reaction>
+      <!--    
+      It's possible to list specific things to which the patient responded,
+      e.g. chocolate (that happened to contain cashew nuts). This event has
+      such a specific substance. Note that systems should ensure that what
+      goes in here does not conflict with the substance above, and systems
+      processing the data can be sure that what is here does not contravene
+      the substance above
+       -->
+      <substance>
+        <coding>
+          <system value="http://www.nlm.nih.gov/research/umls/rxnorm"/>
+          <code value="1160593"/>
+          <display value="cashew nut allergenic extract Injectable Product"/>
+        </coding>
+      </substance>
+      <manifestation>
+        <coding>
+          <system value="http://snomed.info/sct"/>
+          <code value="39579001"/>
+          <display value="Anaphylactic reaction"/>
+        </coding>
+      </manifestation>
+      <description value="Challenge Protocol. Severe reaction to subcutaneous cashew extract. Epinephrine administered"/>
+      <onset value="2012-06-12"/>
+      <severity value="severe"/>
+      <exposureRoute>
+        <coding>
+          <system value="http://snomed.info/sct"/>
+          <code value="34206005"/>
+          <display value="Subcutaneous route"/>
+        </coding>
+      </exposureRoute>
+    </reaction>
+
+    <!--    this was the first occurrence    -->
+    <reaction>
+      <manifestation>
+        <coding>
+          <system value="http://snomed.info/sct"/>
+          <code value="64305001"/>
+          <display value="Urticaria"/>
+        </coding>
+      </manifestation>
+      <onset value="2004"/>
+      <severity value="moderate"/>
+      <!--    an additional note about the reaction by the recorder    -->
+      <note>
+        <text value="The patient reports that the onset of urticaria was within 15 minutes of eating cashews."/>
+      </note>
+    </reaction>
+
+  </AllergyIntolerance>
+
+  <Condition xmlns="http://hl7.org/fhir">
+    <id value="example"/>
+    <text>
+      <status value="generated"/>
+      <div xmlns="http://www.w3.org/1999/xhtml">Severe burn of left ear (Date: 24-May 2012)</div>
+    </text>
+    <clinicalStatus>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/condition-clinical"/>
+        <code value="active"/>
+      </coding>
+    </clinicalStatus>
+
+    <verificationStatus>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/condition-ver-status"/>
+        <code value="confirmed"/>
+      </coding>
+    </verificationStatus>
+    <category>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/condition-category"/>
+        <code value="encounter-diagnosis"/>
+        <display value="Encounter Diagnosis"/>
+      </coding>
+      <!--   and also a SNOMED CT coding   -->
+      <coding>
+        <system value="http://snomed.info/sct"/>
+        <code value="439401001"/>
+        <display value="Diagnosis"/>
+      </coding>
+    </category>
+    <severity>
+      <coding>
+        <system value="http://snomed.info/sct"/>
+        <code value="24484000"/>
+        <display value="Severe"/>
+      </coding>
+    </severity>
+    <code>
+      <coding>
+        <system value="http://snomed.info/sct"/>
+        <code value="39065001"/>
+        <display value="Burn of ear"/>
+      </coding>
+      <text value="Burnt Ear"/>
+    </code>
+    <bodySite>
+      <coding>
+        <system value="http://snomed.info/sct"/>
+        <code value="49521004"/>
+        <display value="Left external ear structure"/>
+      </coding>
+      <text value="Left Ear"/>
+    </bodySite>
+    <subject>
+      <reference value="Patient/example"/>
+    </subject>
+    <onsetDateTime value="2012-05-24"/>
+  </Condition>
+
+  <DocumentReference xmlns="http://hl7.org/fhir">
+    <id value="example"/>
+    <!--    Many XDS systems do not trak any id for the author. When systems don't do this, 
+    the only option is for the author information to be contained in the Document Reference
+      -->
+    <text>
+      <status value="generated"/>
+      <div xmlns="http://www.w3.org/1999/xhtml">
+        <p>
+          <b> Generated Narrative</b>
+        </p>
+        <div style="display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px
+       solid #8da1b4; border-radius: 5px; line-height: 60%">
+          <p style="margin-bottom: 0px">Resource &quot;example&quot; </p>
+        </div>
+        <p>
+          <b> masterIdentifier</b> : id: urn:oid:1.3.6.1.4.1.21367.2005.3.7
+        </p>
+        <p>
+          <b> identifier</b> : id: urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234
+        </p>
+        <p>
+          <b> status</b> : current
+        </p>
+        <p>
+          <b> docStatus</b> : preliminary
+        </p>
+        <p>
+          <b> type</b> : Outpatient Note <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="https://loinc.org/">LOINC</a> #34108-1)
+          </span>
+        </p>
+        <p>
+          <b> category</b> : History and Physical <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki"> (classCodes#History and Physical)</span>
+        </p>
+        <p>
+          <b> subject</b> : <a href="patient-xcda.html">Patient/xcda</a>  &quot;Henry LEVIN&quot;
+        </p>
+        <p>
+          <b> date</b> : 24/12/2005 9:43:41 AM
+        </p>
+        <p>
+          <b> author</b> :
+        </p>
+        <ul>
+          <li>
+            <a href="practitioner-xcda1.html">Practitioner/xcda1</a>  &quot;Sherry DOPPLEMEYER&quot;
+          </li>
+          <li>
+            <a name="a2"> </a>
+          </li>
+        </ul>
+        <blockquote>
+          <div style="display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px
+         solid #8da1b4; border-radius: 5px; line-height: 60%">
+            <p style="margin-bottom: 0px">Resource &quot;a2&quot; </p>
+          </div>
+          <p>
+            <b> name</b> : Gerald Smitty
+          </p>
+        </blockquote>
+        <p>
+          <b> authenticator</b> : <a href="organization-f001.html">Organization/f001</a>  &quot;Burgers University Medical Center&quot;
+        </p>
+        <p>
+          <b> custodian</b> : <a href="organization-f001.html">Organization/f001</a>  &quot;Burgers University Medical Center&quot;
+        </p>
+        <h3> RelatesTos</h3>
+        <table class="grid">
+          <tr>
+            <td> -</td>
+            <td>
+              <b> Code</b>
+            </td>
+            <td>
+              <b> Target</b>
+            </td>
+          </tr>
+          <tr>
+            <td> *</td>
+            <td> appends</td>
+            <td>
+              <a href="documentreference-example.html">DocumentReference/example</a>
+            </td>
+          </tr>
+        </table>
+        <p>
+          <b> description</b> : Physical
+        </p>
+        <p>
+          <b> securityLabel</b> : very restricted <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="http://terminology.hl7.org/3.1.0/CodeSystem-v3-Confidentiality.html">Confidentiality</a> #V)
+          </span>
+        </p>
+        <blockquote>
+          <p>
+            <b> content</b>
+          </p>
+          <p>
+            <b> format</b> : History and Physical Specification (Details: urn:oid:1.3.6.1.4.1.19376.1.2.3 code urn:ihe:pcc:hand
+            p:2008 = 'urn:ihe:pcc:handp:2008', stated as 'History and Physical Specification')
+          </p>
+        </blockquote>
+        <h3> Contexts</h3>
+        <table class="grid">
+          <tr>
+            <td> -</td>
+            <td>
+              <b> Encounter</b>
+            </td>
+            <td>
+              <b> Event</b>
+            </td>
+            <td>
+              <b> Period</b>
+            </td>
+            <td>
+              <b> FacilityType</b>
+            </td>
+            <td>
+              <b> PracticeSetting</b>
+            </td>
+            <td>
+              <b> SourcePatientInfo</b>
+            </td>
+            <td>
+              <b> Related</b>
+            </td>
+          </tr>
+          <tr>
+            <td> *</td>
+            <td>
+              <a href="encounter-xcda.html">Encounter/xcda</a>
+            </td>
+            <td>
+              Arm <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki"> (eventCodes#T-D8200)</span>
+            </td>
+            <td> 2004-12-23T08:00:00+11:00 --&gt; 2004-12-23T08:01:00+11:00</td>
+            <td>
+              Outpatient <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki"> (healthcareFacilityTypeCodes#Outpatient)</span>
+            </td>
+            <td>
+              General Medicine <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki"> (practiceSettingCodes#General Medicine)</span>
+            </td>
+            <td>
+              <a href="patient-xcda.html">Patient/xcda</a>  &quot;Henry LEVIN&quot;
+            </td>
+            <td>
+              <a href="patient-xcda.html">Patient/xcda</a>  &quot;Henry LEVIN&quot;
+            </td>
+          </tr>
+        </table>
+      </div>
+    </text>
+    <contained>
+      <Practitioner>
+        <id value="a2"/>
+        <name>
+          <family value="Smitty"/>
+          <given value="Gerald"/>
+        </name>
+      </Practitioner>
+    </contained>
+    <masterIdentifier>
+      <system value="urn:ietf:rfc:3986"/>
+      <value value="urn:oid:1.3.6.1.4.1.21367.2005.3.7"/>
+    </masterIdentifier>
+    <identifier>
+      <system value="urn:ietf:rfc:3986"/>
+      <value value="urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234"/>
+    </identifier>
+    <status value="current"/>
+    <docStatus value="preliminary"/>
+
+    <type>
+      <coding>
+        <system value="http://loinc.org"/>
+        <code value="34108-1"/>
+        <display value="Outpatient Note"/>
+      </coding>
+    </type>
+    <category>
+      <coding>
+        <system value="http://ihe.net/xds/connectathon/classCodes"/>
+        <code value="History and Physical"/>
+        <display value="History and Physical"/>
+      </coding>
+    </category>
+    <subject>
+      <reference value="Patient/xcda"/>
+    </subject>
+    <date value="2005-12-24T09:43:41+11:00"/>
+    <author>
+      <reference value="Practitioner/xcda1"/>
+    </author>
+    <author>
+      <reference value="#a2"/>
+    </author>
+    <authenticator>
+      <reference value="Organization/f001"/>
+    </authenticator>
+    <custodian>
+      <reference value="Organization/f001"/>
+    </custodian>
+    <relatesTo>
+      <code value="appends"/>
+      <target>
+        <reference value="DocumentReference/example"/>
+      </target>
+    </relatesTo>
+    <description value="Physical"/>
+    <securityLabel>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/v3-Confidentiality"/>
+        <code value="V"/>
+        <display value="very restricted"/>
+      </coding>
+    </securityLabel>
+    <content>
+      <attachment>
+        <contentType value="application/hl7-v3+xml"/>
+        <language value="en-US"/>
+        <url value="http://example.org/xds/mhd/Binary/07a6483f-732b-461e-86b6-edb665c45510"/>
+        <size value="3654"/>
+        <hash value="2jmj7l5rSw0yVb/vlWAYkK/YBwk="/>
+        <title value="Physical"/>
+        <creation value="2005-12-24T09:35:00+11:00"/>
+      </attachment>
+      <format>
+        <system value="urn:oid:1.3.6.1.4.1.19376.1.2.3"/>
+        <code value="urn:ihe:pcc:handp:2008"/>
+        <display value="History and Physical Specification"/>
+      </format>
+    </content>
+    <context>
+      <encounter>
+        <reference value="Encounter/xcda"/>
+      </encounter>
+      <event>
+        <coding>
+          <system value="http://ihe.net/xds/connectathon/eventCodes"/>
+          <code value="T-D8200"/>
+          <display value="Arm"/>
+        </coding>
+      </event>
+      <period>
+        <start value="2004-12-23T08:00:00+11:00"/>
+        <end value="2004-12-23T08:01:00+11:00"/>
+      </period>
+      <facilityType>
+        <coding>
+          <system value="http://www.ihe.net/xds/connectathon/healthcareFacilityTypeCodes"/>
+          <code value="Outpatient"/>
+          <display value="Outpatient"/>
+        </coding>
+      </facilityType>
+      <practiceSetting>
+        <coding>
+          <system value="http://www.ihe.net/xds/connectathon/practiceSettingCodes"/>
+          <code value="General Medicine"/>
+          <display value="General Medicine"/>
+        </coding>
+      </practiceSetting>
+      <sourcePatientInfo>
+        <reference value="Patient/xcda"/>
+      </sourcePatientInfo>
+      <related>
+        <reference value="Patient/xcda"/>
+        <identifier>
+          <system value="urn:ietf:rfc:3986"/>
+          <value value="urn:oid:1.3.6.1.4.1.21367.2005.3.7.2345"/>
+        </identifier>
+      </related>
+    </context>
+  </DocumentReference>
+
+  <Immunization xmlns="http://hl7.org/fhir">
+    <id value="example"/>
+    <text>
+      <status value="generated"/>
+      <div xmlns="http://www.w3.org/1999/xhtml">
+        <p>
+          <b> Generated Narrative</b>
+        </p>
+        <div style="display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px
+       solid #8da1b4; border-radius: 5px; line-height: 60%">
+          <p style="margin-bottom: 0px">Resource &quot;example&quot; </p>
+        </div>
+        <p>
+          <b> identifier</b> : id: urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234
+        </p>
+        <p>
+          <b> status</b> : completed
+        </p>
+        <p>
+          <b> vaccineCode</b> : Fluvax (Influenza) <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki"> (unknown#FLUVAX)</span>
+        </p>
+        <p>
+          <b> patient</b> : <a href="patient-example.html">Patient/example</a>  &quot;Peter CHALMERS&quot;
+        </p>
+        <p>
+          <b> encounter</b> : <a href="encounter-example.html">Encounter/example</a>
+        </p>
+        <p>
+          <b> occurrence</b> : 2013-01-10
+        </p>
+        <p>
+          <b> primarySource</b> : true
+        </p>
+        <p>
+          <b> location</b> : <a href="location-1.html">Location/1</a>  &quot;South Wing, second floor&quot;
+        </p>
+        <p>
+          <b> manufacturer</b> : <a href="organization-hl7.html">Organization/hl7</a>  &quot;Health Level Seven International&quot;
+        </p>
+        <p>
+          <b> lotNumber</b> : AAJN11K
+        </p>
+        <p>
+          <b> expirationDate</b> : 2015-02-15
+        </p>
+        <p>
+          <b> site</b> : left arm <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="http://terminology.hl7.org/3.1.0/CodeSystem-v3-ActSite.html">ActSite</a> #LA)
+          </span>
+        </p>
+        <p>
+          <b> route</b> : Injection, intramuscular <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="http://terminology.hl7.org/3.1.0/CodeSystem-v3-RouteOfAdministration.html">RouteOfAdministration</a> #IM)
+          </span>
+        </p>
+        <p>
+          <b> doseQuantity</b> : 5 mg<span style="background: LightGoldenRodYellow"> (Details: UCUM code mg = 'mg')</span>
+        </p>
+        <blockquote>
+          <p>
+            <b> performer</b>
+          </p>
+          <p>
+            <b> function</b> : Ordering Provider <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+              (<a href="http://terminology.hl7.org/3.1.0/CodeSystem-v2-0443.html">providerRole</a> #OP)
+            </span>
+          </p>
+          <p>
+            <b> actor</b> : <a href="practitioner-example.html">Practitioner/example</a>  &quot;Adam CAREFUL&quot;
+          </p>
+        </blockquote>
+        <blockquote>
+          <p>
+            <b> performer</b>
+          </p>
+          <p>
+            <b> function</b> : Administering Provider <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+              (<a href="http://terminology.hl7.org/3.1.0/CodeSystem-v2-0443.html">providerRole</a> #AP)
+            </span>
+          </p>
+          <p>
+            <b> actor</b> : <a href="practitioner-example.html">Practitioner/example</a>  &quot;Adam CAREFUL&quot;
+          </p>
+        </blockquote>
+        <p>
+          <b> note</b> : Notes on adminstration of vaccine
+        </p>
+        <p>
+          <b> reasonCode</b> : Procedure to meet occupational requirement <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="https://browser.ihtsdotools.org/">SNOMED CT</a> #429060002)
+          </span>
+        </p>
+        <p>
+          <b> isSubpotent</b> : true
+        </p>
+        <h3> Educations</h3>
+        <table class="grid">
+          <tr>
+            <td> -</td>
+            <td>
+              <b> DocumentType</b>
+            </td>
+            <td>
+              <b> PublicationDate</b>
+            </td>
+            <td>
+              <b> PresentationDate</b>
+            </td>
+          </tr>
+          <tr>
+            <td> *</td>
+            <td> 253088698300010311120702</td>
+            <td> 2012-07-02</td>
+            <td> 2013-01-10</td>
+          </tr>
+        </table>
+        <p>
+          <b> programEligibility</b> : Not Eligible <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="codesystem-immunization-program-eligibility.html">Immunization Event Program Eligibility</a> #ineligible)
+          </span>
+        </p>
+        <p>
+          <b> fundingSource</b> : Private <span style="background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki">
+            (<a href="codesystem-immunization-funding-source.html">Immunization Event Funding Source</a> #private)
+          </span>
+        </p>
+      </div>
+    </text>
+    <identifier>
+      <system value="urn:ietf:rfc:3986"/>
+      <value value="urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234"/>
+    </identifier>
+    <status value="completed"/>
+    <vaccineCode>
+      <coding>
+        <system value="urn:oid:1.2.36.1.2001.1005.17"/>
+        <code value="FLUVAX"/>
+      </coding>
+      <text value="Fluvax (Influenza)"/>
+    </vaccineCode>
+    <patient>
+      <reference value="Patient/example"/>
+    </patient>
+    <encounter>
+      <reference value="Encounter/example"/>
+    </encounter>
+    <occurrenceDateTime value="2013-01-10"/>
+    <primarySource value="true"/>
+    <location>
+      <reference value="Location/1"/>
+    </location>
+    <manufacturer>
+      <reference value="Organization/hl7"/>
+    </manufacturer>
+    <lotNumber value="AAJN11K"/>
+    <expirationDate value="2015-02-15"/>
+    <site>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/v3-ActSite"/>
+        <code value="LA"/>
+        <display value="left arm"/>
+      </coding>
+    </site>
+    <route>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/v3-RouteOfAdministration"/>
+        <code value="IM"/>
+        <display value="Injection, intramuscular"/>
+      </coding>
+    </route>
+    <doseQuantity>
+      <value value="5"/>
+      <system value="http://unitsofmeasure.org"/>
+      <code value="mg"/>
+    </doseQuantity>
+    <performer>
+      <function>
+        <coding>
+          <system value="http://terminology.hl7.org/CodeSystem/v2-0443"/>
+          <code value="OP"/>
+        </coding>
+      </function>
+      <actor>
+        <reference value="Practitioner/example"/>
+      </actor>
+    </performer>
+    <performer>
+      <function>
+        <coding>
+          <system value="http://terminology.hl7.org/CodeSystem/v2-0443"/>
+          <code value="AP"/>
+        </coding>
+      </function>
+      <actor>
+        <reference value="Practitioner/example"/>
+      </actor>
+    </performer>
+    <note>
+      <text value="Notes on adminstration of vaccine"/>
+    </note>
+    <reasonCode>
+      <coding>
+        <system value="http://snomed.info/sct"/>
+        <code value="429060002"/>
+      </coding>
+    </reasonCode>
+    <isSubpotent value="true"/>
+    <education>
+      <documentType value="253088698300010311120702"/>
+      <publicationDate value="2012-07-02"/>
+      <presentationDate value="2013-01-10"/>
+    </education>
+    <programEligibility>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/immunization-program-eligibility"/>
+        <code value="ineligible"/>
+      </coding>
+    </programEligibility>
+    <fundingSource>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/immunization-funding-source"/>
+        <code value="private"/>
+      </coding>
+    </fundingSource>
+  </Immunization>
+
+  <Goal xmlns="http://hl7.org/fhir">
+    <id value="example"/>
+    <text>
+      <status value="additional"/>
+      <div xmlns="http://www.w3.org/1999/xhtml">
+        <p>  A simple care goal for a patient to lose weight due to obesity.</p>
+      </div>
+    </text>
+    <identifier>
+      <value value="123"/>
+    </identifier>
+    <lifecycleStatus value="on-hold"/>
+    <category>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/goal-category"/>
+        <code value="dietary"/>
+      </coding>
+    </category>
+    <priority>
+      <coding>
+        <system value="http://terminology.hl7.org/CodeSystem/goal-priority"/>
+        <code value="high-priority"/>
+        <display value="High Priority"/>
+      </coding>
+      <text value="high"/>
+    </priority>
+    <description>
+      <text value="Target weight is 160 to 180 lbs."/>
+    </description>
+    <subject>
+      <reference value="Patient/example"/>
+      <display value="Peter James Chalmers"/>
+    </subject>
+    <startDate value="2015-04-05"/>
+    <target>
+      <measure>
+        <coding>
+          <system value="http://loinc.org"/>
+          <code value="3141-9"/>
+          <display value="Weight Measured"/>
+        </coding>
+      </measure>
+      <detailRange>
+        <low>
+          <value value="160"/>
+          <unit value="lbs"/>
+          <system value="http://unitsofmeasure.org"/>
+          <code value="[lb_av]"/>
+        </low>
+        <high>
+          <value value="180"/>
+          <unit value="lbs"/>
+          <system value="http://unitsofmeasure.org"/>
+          <code value="[lb_av]"/>
+        </high>
+      </detailRange>
+      <dueDate value="2016-04-05"/>
+    </target>
+    <statusDate value="2016-02-14"/>
+    <statusReason value="Patient wants to defer weight loss until after honeymoon."/>
+    <expressedBy>
+      <reference value="Patient/example"/>
+      <display value="Peter James Chalmers"/>
+    </expressedBy>
+    <addresses>
+      <display value="obesity condition"/>
+    </addresses>
+    <outcomeReference>
+      <reference value="Observation/example"/>
+      <display value="Body Weight Measured"/>
+    </outcomeReference>
+  </Goal>
+
+</root>
