@@ -1,9 +1,8 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
-<root>
+﻿<root>
+
   <AllergyIntolerance xmlns="http://hl7.org/fhir">
     <id value="example"/>
 
-    <!--    an identifier used for this allergic propensity (adverse reaction risk)    -->
     <text>
       <status value="generated"/>
       <div xmlns="http://www.w3.org/1999/xhtml">
@@ -113,12 +112,12 @@
         </blockquote>
       </div>
     </text>
+    
     <identifier>
       <system value="http://acme.com/ids/patients/risks"/>
       <value value="49476534"/>
     </identifier>
 
-    <!--    this individual has had several reactions    -->
     <clinicalStatus>
       <coding>
         <system value="http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical"/>
@@ -135,25 +134,12 @@
       </coding>
     </verificationStatus>
 
-    <!--    note: it's often unknown whether an allergy is mediated by an immune response, and
-   not as significant as once thought    -->
     <type value="allergy"/>
-
-    <!--    this categorization is implied by "cashew nut" and therefore basically 
-    redundant, but many systems collect this field anyway, since it's either 
-    useful when the substance is not coded, or it's quicker to sort/filter on
-    than using terminology based reasoning    -->
-
 
     <category value="food"/>
 
-    <!--    there is no question that the allergy is real and serious    -->
     <criticality value="high"/>
 
-    <!--    Allergy or intolerance code (substance, product, condition or negated/excluded statement)
-   or text. A few times, 
-    there's a full description of a complex substance/product - in these caes, use the
-    extension [url] to refer to a Substance resource.    -->
     <code>
       <coding>
         <system value="http://snomed.info/sct"/>
@@ -162,49 +148,30 @@
       </coding>
     </code>
 
-    <!--    the patient that actually has the risk of adverse reaction    -->
     <patient>
       <reference value="Patient/example"/>
     </patient>
 
-    <!--    when the allergy was first noted (in this case the same as reaction.onset of the first
-   occurrence)    -->
     <onsetDateTime value="2004"/>
 
-    <!--    the date that this entry was recorded    -->
     <recordedDate value="2014-10-09T14:58:00+11:00"/>
 
-    <!--    who made the record / last updated it    -->
     <recorder>
       <reference value="Practitioner/example"/>
     </recorder>
 
-    <!--    the patient is the reporter in this case    -->
     <asserter>
       <reference value="Patient/example"/>
     </asserter>
 
-    <!--    last happened June 2012. Typically, systems either track lastOccurrence,
-     or a list of events.    -->
     <lastOccurrence value="2012-06"/>
 
-    <!--    an additional note about the allergy propensity by the recorder    -->
     <note>
       <text value="The criticality is high becasue of the observed anaphylactic reaction when challenged
      with cashew extract."/>
     </note>
 
-    <!--    past events. There's no claim that this is all the events, and 
-     that should not be assumed    -->
     <reaction>
-      <!--    
-      It's possible to list specific things to which the patient responded,
-      e.g. chocolate (that happened to contain cashew nuts). This event has
-      such a specific substance. Note that systems should ensure that what
-      goes in here does not conflict with the substance above, and systems
-      processing the data can be sure that what is here does not contravene
-      the substance above
-       -->
       <substance>
         <coding>
           <system value="http://www.nlm.nih.gov/research/umls/rxnorm"/>
@@ -231,7 +198,6 @@
       </exposureRoute>
     </reaction>
 
-    <!--    this was the first occurrence    -->
     <reaction>
       <manifestation>
         <coding>
@@ -242,7 +208,6 @@
       </manifestation>
       <onset value="2004"/>
       <severity value="moderate"/>
-      <!--    an additional note about the reaction by the recorder    -->
       <note>
         <text value="The patient reports that the onset of urticaria was within 15 minutes of eating cashews."/>
       </note>
@@ -256,6 +221,7 @@
       <status value="generated"/>
       <div xmlns="http://www.w3.org/1999/xhtml">Severe burn of left ear (Date: 24-May 2012)</div>
     </text>
+    
     <clinicalStatus>
       <coding>
         <system value="http://terminology.hl7.org/CodeSystem/condition-clinical"/>
@@ -269,19 +235,20 @@
         <code value="confirmed"/>
       </coding>
     </verificationStatus>
+    
     <category>
       <coding>
         <system value="http://terminology.hl7.org/CodeSystem/condition-category"/>
         <code value="encounter-diagnosis"/>
         <display value="Encounter Diagnosis"/>
       </coding>
-      <!--   and also a SNOMED CT coding   -->
       <coding>
         <system value="http://snomed.info/sct"/>
         <code value="439401001"/>
         <display value="Diagnosis"/>
       </coding>
     </category>
+    
     <severity>
       <coding>
         <system value="http://snomed.info/sct"/>
@@ -289,6 +256,7 @@
         <display value="Severe"/>
       </coding>
     </severity>
+    
     <code>
       <coding>
         <system value="http://snomed.info/sct"/>
@@ -297,6 +265,7 @@
       </coding>
       <text value="Burnt Ear"/>
     </code>
+    
     <bodySite>
       <coding>
         <system value="http://snomed.info/sct"/>
@@ -305,6 +274,7 @@
       </coding>
       <text value="Left Ear"/>
     </bodySite>
+    
     <subject>
       <reference value="Patient/example"/>
     </subject>
@@ -313,9 +283,7 @@
 
   <DocumentReference xmlns="http://hl7.org/fhir">
     <id value="example"/>
-    <!--    Many XDS systems do not trak any id for the author. When systems don't do this, 
-    the only option is for the author information to be contained in the Document Reference
-      -->
+    
     <text>
       <status value="generated"/>
       <div xmlns="http://www.w3.org/1999/xhtml">
@@ -465,6 +433,7 @@
         </table>
       </div>
     </text>
+    
     <contained>
       <Practitioner>
         <id value="a2"/>
@@ -482,7 +451,9 @@
       <system value="urn:ietf:rfc:3986"/>
       <value value="urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234"/>
     </identifier>
+    
     <status value="current"/>
+    
     <docStatus value="preliminary"/>
 
     <type>
@@ -492,6 +463,7 @@
         <display value="Outpatient Note"/>
       </coding>
     </type>
+
     <category>
       <coding>
         <system value="http://ihe.net/xds/connectathon/classCodes"/>
@@ -499,6 +471,7 @@
         <display value="History and Physical"/>
       </coding>
     </category>
+
     <subject>
       <reference value="Patient/xcda"/>
     </subject>
@@ -715,11 +688,14 @@
         </p>
       </div>
     </text>
+    
     <identifier>
       <system value="urn:ietf:rfc:3986"/>
       <value value="urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234"/>
     </identifier>
+    
     <status value="completed"/>
+    
     <vaccineCode>
       <coding>
         <system value="urn:oid:1.2.36.1.2001.1005.17"/>
@@ -727,22 +703,31 @@
       </coding>
       <text value="Fluvax (Influenza)"/>
     </vaccineCode>
+    
     <patient>
       <reference value="Patient/example"/>
     </patient>
+    
     <encounter>
       <reference value="Encounter/example"/>
     </encounter>
+    
     <occurrenceDateTime value="2013-01-10"/>
+    
     <primarySource value="true"/>
+    
     <location>
       <reference value="Location/1"/>
     </location>
+    
     <manufacturer>
       <reference value="Organization/hl7"/>
     </manufacturer>
+    
     <lotNumber value="AAJN11K"/>
+    
     <expirationDate value="2015-02-15"/>
+    
     <site>
       <coding>
         <system value="http://terminology.hl7.org/CodeSystem/v3-ActSite"/>
@@ -750,6 +735,7 @@
         <display value="left arm"/>
       </coding>
     </site>
+    
     <route>
       <coding>
         <system value="http://terminology.hl7.org/CodeSystem/v3-RouteOfAdministration"/>
@@ -814,23 +800,29 @@
   </Immunization>
 
   <Goal xmlns="http://hl7.org/fhir">
+    
     <id value="example"/>
+    
     <text>
       <status value="additional"/>
       <div xmlns="http://www.w3.org/1999/xhtml">
         <p>  A simple care goal for a patient to lose weight due to obesity.</p>
       </div>
     </text>
+    
     <identifier>
       <value value="123"/>
     </identifier>
+    
     <lifecycleStatus value="on-hold"/>
+    
     <category>
       <coding>
         <system value="http://terminology.hl7.org/CodeSystem/goal-category"/>
         <code value="dietary"/>
       </coding>
     </category>
+    
     <priority>
       <coding>
         <system value="http://terminology.hl7.org/CodeSystem/goal-priority"/>
@@ -839,14 +831,18 @@
       </coding>
       <text value="high"/>
     </priority>
+    
     <description>
       <text value="Target weight is 160 to 180 lbs."/>
     </description>
+    
     <subject>
       <reference value="Patient/example"/>
       <display value="Peter James Chalmers"/>
     </subject>
+    
     <startDate value="2015-04-05"/>
+    
     <target>
       <measure>
         <coding>

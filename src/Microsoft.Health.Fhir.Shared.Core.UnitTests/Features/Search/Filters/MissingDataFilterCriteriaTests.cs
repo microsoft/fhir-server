@@ -17,17 +17,47 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class MissingDataFilterCriteriaTests
     {
-        [Fact]
-        public void Xxx()
+        [Theory]
+        [InlineData(USCoreTestHelper.JsonCompliantDataSamplesFileName)]
+        [InlineData(USCoreTestHelper.XmlCompliantDataSamplesFileName)]
+        public void WhenApplyingFilteringCriteria_IfAllDataIsCompliant_ThenShowDataAsIs(string fileName)
         {
-            SearchResult searchResult = USCoreTestHelper.GetSearchResult(USCoreTestHelper.JsonNonCompliantDataSamplesFileName);
+            // Evaluates if US Core Missing Data compliant records are returned as expected.
 
-            IFilterCriteria searchResultFilter = new MissingDataFilterCriteria(isCriteriaEnabled: true, isSmartRequest: true);
+            const bool isCriteriaEnabled = true;
+            const bool isSmartRequest = true;
+
+            SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
+
+            IFilterCriteria searchResultFilter = new MissingDataFilterCriteria(isCriteriaEnabled, isSmartRequest);
             SearchResult filteredSearchResult = searchResultFilter.Apply(searchResult);
 
             Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
             Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
-            Assert.Empty(filteredSearchResult.SearchIssues);
+            Assert.Empty(searchResult.SearchIssues);
+
+            Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
+            Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
+        }
+
+        [Theory]
+        [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
+        public void WhenApplyingFilteringCriteria_IfNoMissingStatusElements_ThenShowDataAsIs(string fileName)
+        {
+            // Evaluates if US Core Missing Data NOT compliant records are marked as searching issues.
+
+            const bool isCriteriaEnabled = true;
+            const bool isSmartRequest = true;
+
+            SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
+
+            IFilterCriteria searchResultFilter = new MissingDataFilterCriteria(isCriteriaEnabled, isSmartRequest);
+            SearchResult filteredSearchResult = searchResultFilter.Apply(searchResult);
+
+            Assert.NotEqual(searchResult.Results.Count(), filteredSearchResult.Results.Count());
+            Assert.NotEqual(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
+            Assert.Equal(searchResult.Results.Count(), filteredSearchResult.SearchIssues.Count);
 
             Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);

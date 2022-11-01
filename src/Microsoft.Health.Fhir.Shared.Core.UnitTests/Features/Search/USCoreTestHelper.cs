@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
         public const string JsonCompliantDataSamplesFileName = "USCoreMissinData-JsonCompliantSamples.json";
         public const string JsonNonCompliantDataSamplesFileName = "USCoreMissinData-JsonNonCompliantSamples.json";
+        public const string XmlCompliantDataSamplesFileName = "USCoreMissinData-XmlCompliantSamples.xml";
+        public const string XmlNonCompliantDataSamplesFileName = "USCoreMissinData-XmlNonCompliantSamples.xml";
 
         private static readonly ParserSettings _parserSettings = new ParserSettings() { AcceptUnknownMembers = true, PermissiveParsing = true };
         private static readonly FhirJsonParser _jsonParser = new FhirJsonParser(_parserSettings);
@@ -64,25 +66,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         {
             string rawDataElements = GetSamplesFromFile(fileName);
             XmlDocument doc = new XmlDocument();
+            doc.LoadXml(rawDataElements);
 
-            using (XmlReader reader = XmlReader.Create(rawDataElements))
+            List<SearchResultEntry> resultEntries = new List<SearchResultEntry>();
+            foreach (XmlNode dataElement in doc.FirstChild.ChildNodes)
             {
-                doc.Load(reader);
-
-                List<SearchResultEntry> resultEntries = new List<SearchResultEntry>();
-                foreach (XmlNode dataElement in doc.ChildNodes)
-                {
-                    string rawResourceAsXml = dataElement.ToString();
-                    resultEntries.Add(CreateSearchResultEntryFromXml(rawResourceAsXml));
-                }
-
-                SearchResult searchResult = new SearchResult(
-                    resultEntries,
-                    continuationToken: null,
-                    sortOrder: null,
-                    unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());
-                return searchResult;
+                string rawResourceAsXml = dataElement.OuterXml;
+                resultEntries.Add(CreateSearchResultEntryFromXml(rawResourceAsXml));
             }
+
+            SearchResult searchResult = new SearchResult(
+                resultEntries,
+                continuationToken: null,
+                sortOrder: null,
+                unsupportedSearchParameters: Array.Empty<Tuple<string, string>>());
+            return searchResult;
         }
 
         private static SearchResult GetJsonSearchResult(string fileName)

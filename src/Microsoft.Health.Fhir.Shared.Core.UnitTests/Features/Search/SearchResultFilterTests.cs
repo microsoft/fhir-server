@@ -21,9 +21,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         [InlineData(false, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(true, false, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(false, false, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
+        [InlineData(true, true, USCoreTestHelper.XmlCompliantDataSamplesFileName)]
+        [InlineData(false, true, USCoreTestHelper.XmlCompliantDataSamplesFileName)]
+        [InlineData(true, false, USCoreTestHelper.XmlCompliantDataSamplesFileName)]
+        [InlineData(false, false, USCoreTestHelper.XmlCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfNoMissingStatusElements_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest, string fileName)
         {
-            // This test evaluates if records with all required status elements are returned "as it's" under all combinations of configuration.
+            // This test evaluates if records compliant with US Core Missing Data are returned "as it's" under all combinations of configuration.
 
             SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
@@ -41,9 +45,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         [Theory]
         [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        [InlineData(true, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
+        [InlineData(false, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElementsAndUSCoreIsDisable_ThenShowDataAsIs(bool isSmartUserRequest, string fileName)
         {
-            // This test evaluates if records missing required status elements return the data as "it's" if US Core is disabled.
+            // This test evaluates if records NON compliant with US Core Missing Data are returned "as it's" if US Core is disabled.
 
             const bool isUSCoreMissingDataEnabled = false;
 
@@ -63,9 +69,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         [Theory]
         [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        [InlineData(true, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
+        [InlineData(false, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElementsAndNotSmartUser_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, string fileName)
         {
-            // This test evaluates if records missing required status elements return the data as "it's" if the request comes from a non-SMART user.
+            // This test evaluates if records NON compliant with US Core Missing Data are returned "as it's" if the request comes from a non-SMART user.
 
             const bool isSmartUserRequest = false;
 
@@ -84,8 +92,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
         [Theory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElements_ThenReturnOperationOutcomeWith404(string fileName)
         {
+            // This test evaluates if records NON compliant with US Core Missing Data are returned as searching issues.
+
             const bool isUSCoreMissingDataEnabled = true;
             const bool isSmartUserRequest = true;
 

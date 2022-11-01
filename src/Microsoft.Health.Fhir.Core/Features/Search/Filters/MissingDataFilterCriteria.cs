@@ -7,10 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
+using System.Xml.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
-using Namotion.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -111,11 +111,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 
             if (resourceWrapper.RawResource.Format == Models.FhirResourceFormat.Json)
             {
-                return ContainsJsonElement(resourceWrapper, requiredStatusElementName);
+                return ContainsJsonStatusElement(resourceWrapper, requiredStatusElementName);
             }
             else if (resourceWrapper.RawResource.Format == FhirResourceFormat.Xml)
             {
-                return ContainsXmlElement(resourceWrapper, requiredStatusElementName);
+                return ContainsXmlStatusElement(resourceWrapper, requiredStatusElementName);
             }
             else
             {
@@ -123,24 +123,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
             }
         }
 
-        private static bool ContainsXmlElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
+        private static bool ContainsXmlStatusElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
         {
-            XmlDocument doc = new XmlDocument();
+            XDocument doc = XDocument.Parse(resourceWrapper.RawResource.Data);
 
-            using (XmlReader reader = XmlReader.Create(resourceWrapper.RawResource.Data))
+            IEnumerable<XElement> elementsByName = doc.Root.Elements().Where(x => string.Equals(x.Name.LocalName, requiredStatusElementName, StringComparison.OrdinalIgnoreCase));
+
+            if (!elementsByName.Any())
             {
-                doc.Load(reader);
-                if (!doc.Attributes.HasProperty(requiredStatusElementName))
-                {
-                    return false;
-                }
-
-                string value = doc.Attributes[requiredStatusElementName].Value;
-                return !string.IsNullOrWhiteSpace(value);
+                return false;
             }
+
+            // No duplicated status properties are expected.
+            XElement status = elementsByName.Single();
+
+            // The status element should have an inner structure or attributes.
+            if (!status.HasElements && !status.HasAttributes)
+            {
+                return false;
+            }
+
+            return true;
         }
 
-        private static bool ContainsJsonElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
+        private static bool ContainsJsonStatusElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
         {
             JObject jsonResource = JObject.Parse(resourceWrapper.RawResource.Data);
             if (!jsonResource.ContainsKey(requiredStatusElementName))
