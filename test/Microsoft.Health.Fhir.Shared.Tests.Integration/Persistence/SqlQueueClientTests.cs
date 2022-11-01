@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenGroupJobs_WhenCancelJobsByGroupId_ThenAllJobsShouldBeCancelled,
         GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled,
         GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled,
+        ExecuteWithHeartbeat,
     }
 
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
@@ -295,6 +296,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await sqlQueueClient.CompleteJobAsync(jobInfo1, true, CancellationToken.None);
             Assert.True((await sqlQueueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status is (JobStatus?)JobStatus.Cancelled or (JobStatus?)JobStatus.Failed));
+        }
+
+        [Fact]
+        public async Task ExecuteWithHeartbeat()
+        {
+            var queueType = (byte)TestQueueType.ExecuteWithHeartbeat;
+            var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            await client.EnqueueAsync(queueType, new string[] { "job" }, null, false, false, CancellationToken.None);
+            var job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
+            var cancel = new CancellationTokenSource();
+            cancel.CancelAfter(TimeSpan.FromSeconds(30));
+            var execTask = client.ExecuteWithHeartbeatAsync(
+                queueType,
+                job.Id,
+                job.Version,
+                async cancel => { await Task.Delay(TimeSpan.FromSeconds(10)); },
+                TimeSpan.FromSeconds(1),
+                cancel.Token);
+            var dequeueAttempts = 0;
+            var jobInt = (JobInfo)null;
+            var dequeueTask = Task.Run(
+                async () =>
+                {
+                    while (jobInt == null)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(1));
+                        jobInt = await client.DequeueAsync(queueType, "test-worker", 2, cancel.Token);
+                        if (jobInt == null)
+                        {
+                            dequeueAttempts++;
+                        }
+                    }
+                },
+                cancel.Token);
+            Task.WaitAll(execTask, dequeueTask);
+
+            Assert.Equal(job.Id, jobInt.Id);
+            Assert.True(dequeueAttempts > 10, $"{dequeueAttempts} > 10");
         }
     }
 }
