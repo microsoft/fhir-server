@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
             {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+                Assert.NotNull(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)].First());
             }
         }
 
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
             {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+                Assert.NotNull(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)].First());
             }
         }
 
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
             {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+                Assert.NotNull(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)].First());
             }
         }
 
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
             {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+                Assert.NotNull(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)].First());
             }
         }
 
@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
             {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+                Assert.NotNull(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)].First());
             }
         }
 
@@ -294,7 +294,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
             {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+                Assert.NotNull(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)].First());
             }
         }
 
@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
             {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+                Assert.NotNull(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)].First());
             }
         }
 
@@ -339,7 +339,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Only check metric for local tests
             if (_isUsingInProcTestServer)
             {
-                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+                Assert.NotNull(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)].First());
             }
         }
 

@@ -71,7 +71,8 @@
         {
             "name": "smartUser",
             "dataActions": [
-                "*"
+                "*",
+                "smart"
             ],
             "notDataActions": [],
             "scopes": [
