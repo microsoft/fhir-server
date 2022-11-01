@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Local": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7081"
+    }
+  }
+}

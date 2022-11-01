@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "AzureADAuthProxy": {
-      "commandName": "Project",
-      "commandLineArgs": "--port 7081"
-    }
-  }
-}

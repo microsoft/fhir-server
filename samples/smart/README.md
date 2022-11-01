@@ -25,7 +25,7 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
   - Azure Subscription: The Azure location where your resources will be deployed.
 - *NOTE:* This will take about an hour to deploy, mainly for Azure API Management. You can continue with Azure Active Directory setup below.
 
-### 3. Setup Azure Active Directory
+### 4. Setup Azure Active Directory
 
 #### Patient Standalone Confidential Client Application
 

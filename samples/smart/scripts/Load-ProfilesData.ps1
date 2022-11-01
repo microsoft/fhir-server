@@ -18,6 +18,9 @@ microsoft-fhir-loader --blob https://ahdssampledata.blob.core.windows.net/fhir/u
 
 # Download US Core
 cd $HOME/Downloads
+npm --registry https://packages.simplifier.net install hl7.fhir.r4.core@4.0.1 
 npm --registry https://packages.simplifier.net install hl7.fhir.us.core@3.1.1
+
 # Load us core
+microsoft-fhir-loader --package $HOME\Downloads\node_modules\hl7.fhir.r4.core\ --fhir $FHIR_URL
 microsoft-fhir-loader --package $HOME\Downloads\node_modules\hl7.fhir.us.core\ --fhir $FHIR_URL
