@@ -353,30 +353,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return (int)value;
         }
 
-        private async Task InitDefragParamsAsync()
+        private async Task InitDefragParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.
         {
-            // No CancellationToken is passed since we shouldn't cancel initialization.
-
             _logger.LogInformation("InitDefragParamsAsync starting...");
-
-            // Offset for other instances running init
-            await Task.Delay(RandomDelay(), CancellationToken.None);
 
             using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
             using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
             using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-
             cmd.CommandText = @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%'
             ";
-
             cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
             cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
             cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
-
             await cmd.ExecuteNonQueryAsync(CancellationToken.None);
 
             _threads = await GetThreadsAsync(CancellationToken.None);

@@ -105,10 +105,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected abstract Task ExecuteAsync(CancellationToken cancellationToken);
 
-        private async Task InitParamsAsync(bool isEnabled, int periodSec)
+        private async Task InitParamsAsync(bool isEnabled, int periodSec) // No CancellationToken is passed since we shouldn't cancel initialization.
         {
-            // No CancellationToken is passed since we shouldn't cancel initialization.
-
             _logger.LogInformation("InitParamsAsync starting...");
 
             // Offset for other instances running init
@@ -117,17 +115,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
             using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
             using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-
             cmd.CommandText = @"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, @IsEnabled
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, @PeriodSec
             ";
-
             cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
             cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
             cmd.Parameters.AddWithValue("@IsEnabled", isEnabled);
             cmd.Parameters.AddWithValue("@PeriodSec", periodSec);
-
             await cmd.ExecuteNonQueryAsync(CancellationToken.None);
 
             _timerDelay = TimeSpan.FromSeconds(await GetPeriodAsync(CancellationToken.None));
