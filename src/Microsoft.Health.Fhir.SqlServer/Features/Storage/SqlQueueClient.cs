@@ -370,6 +370,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 // ending heartbeat loop
             }
+            catch (SqlException e) when (tokenSource.IsCancellationRequested)
+            {
+                if (!e.Message.Contains("cancelled by user", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw;
+                }
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ExecWithHeartbeatAsync failed.");
@@ -386,10 +393,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(timer, nameof(timer));
 
+            var heartbeats = 0;
             while (!cancellationToken.IsCancellationRequested)
             {
                 await timer.WaitForNextTickAsync(cancellationToken);
                 await KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationToken);
+                _logger.LogDebug("HeartbeatLoopAsync Job={JobId} Version={Version}: logged heartbeat={Heartbeats}.", jobId, version, ++heartbeats);
             }
         }
     }

@@ -9,14 +9,17 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Xunit.Abstractions;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -46,15 +49,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlQueueClientTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
-        private SqlServerFhirStorageTestsFixture _fixture;
-        private SchemaInformation _schemaInformation;
+        private readonly SqlServerFhirStorageTestsFixture _fixture;
+        private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlQueueClient> _logger = Substitute.For<ILogger<SqlQueueClient>>();
+        private readonly ITestOutputHelper _testOutputHelper;
 
-        public SqlQueueClientTests(SqlServerFhirStorageTestsFixture fixture)
+        public SqlQueueClientTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
+            _testOutputHelper = testOutputHelper;
         }
 
         [Fact]
@@ -302,7 +307,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task ExecuteWithHeartbeat()
         {
             var queueType = (byte)TestQueueType.ExecuteWithHeartbeat;
-            var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             await client.EnqueueAsync(queueType, new string[] { "job" }, null, false, false, CancellationToken.None);
             var job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
             var cancel = new CancellationTokenSource();
@@ -333,7 +338,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Task.WaitAll(execTask, dequeueTask);
 
             Assert.Equal(job.Id, jobInt.Id);
-            Assert.True(dequeueAttempts > 10, $"{dequeueAttempts} > 10");
+            Assert.True(dequeueAttempts >= 9, $"{dequeueAttempts} >= 9");
         }
     }
 }
