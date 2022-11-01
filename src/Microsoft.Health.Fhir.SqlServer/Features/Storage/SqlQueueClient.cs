@@ -389,14 +389,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             while (!cancellationToken.IsCancellationRequested)
             {
                 await timer.WaitForNextTickAsync(cancellationToken);
-                await UpdateJobHeartbeatAsync(queueType, jobId, version, cancellationToken);
+                await KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationToken);
             }
-        }
-
-        private async Task UpdateJobHeartbeatAsync(byte queueType, long jobId, long version, CancellationToken cancellationToken)
-        {
-            var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version };
-            await KeepAliveJobAsync(jobInfo, cancellationToken);
         }
     }
 }
