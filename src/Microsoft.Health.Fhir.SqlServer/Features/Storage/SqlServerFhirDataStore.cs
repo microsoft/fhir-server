@@ -129,11 +129,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            const int deadlockVictim = 1205;
-            const int maxRetryCount = 5;
-            int retryCount = 0;
-            int baseDelay = 5;
-
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -141,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // ** We must use CreateNonRetrySqlCommand here because the retry will not reset the Stream containing the RawResource, resulting in a failure to save the data
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand())
-                await using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
+                using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
                 {
                     // Read the latest resource
                     var existingResource = await GetAsync(new ResourceKey(resource.ResourceTypeName, resource.ResourceId), cancellationToken);
@@ -276,17 +271,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         switch (e.Number)
                         {
-                            case deadlockVictim:
-                                if (retryCount >= maxRetryCount)
-                                {
-                                    throw;
-                                }
-
-                                var delayTime = TimeSpan.FromSeconds(baseDelay * Math.Pow(2, retryCount));
-                                _logger.LogError(e, $"Sql deadlock encountered - delaying for {delayTime.Duration()}");
-                                await Task.Delay(delayTime, cancellationToken);
-                                retryCount++;
-                                continue;
                             case SqlErrorCodes.Conflict:
                                 // someone else beat us to it, re-read and try comparing again - Compared resource was updated
                                 continue;
