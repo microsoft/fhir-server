@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            _logger.LogInformation("DefragWatchdog found JobId: {JobId}, {ActiveDefragItems} active defrag items, executing.", job.jobId, job.activeDefragItems);
+            _logger.LogInformation("Group={GroupId} Job={JobId}: ActiveDefragItems={ActiveDefragItems}, executing...", job.groupId, job.jobId, job.activeDefragItems);
 
             await ExecWithHeartbeatAsync(
                 async cancellationSource =>
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     try
                     {
                         var newDefragItems = await InitDefragAsync(job.groupId, cancellationSource);
-                        _logger.LogInformation("{NewDefragItems} new defrag items found for Group: {GroupId}.", newDefragItems, job.groupId);
+                        _logger.LogInformation("Group={GroupId} Job={JobId}: NewDefragItems={NewDefragItems}.", job.groupId, job.jobId, newDefragItems);
                         if (job.activeDefragItems > 0 || newDefragItems > 0)
                         {
                             await ChangeDatabaseSettingsAsync(false, cancellationSource);
@@ -100,17 +100,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                             await Task.WhenAll(tasks);
                             await ChangeDatabaseSettingsAsync(true, cancellationSource);
 
-                            _logger.LogInformation("All {ParallelTasks} tasks complete for Group: {GroupId}.", tasks.Count, job.groupId);
                             _logger.LogInformation("Group={GroupId} Job={JobId}: All ParallelTasks={ParallelTasks} tasks completed.", job.groupId, job.jobId, tasks.Count);
                         }
                         else
                         {
-                            _logger.LogInformation("No defrag items found for Group: {GroupId}.", job.groupId);
+                            _logger.LogInformation("Group={GroupId} Job={JobId}: No defrag items found.", job.groupId, job.jobId);
                         }
                     }
                     catch (Exception e)
                     {
-                        _logger.LogError(e, "Defrag failed.");
+                        _logger.LogError(e, "DefragWatchdog failed.");
                         throw;
                     }
                 },
