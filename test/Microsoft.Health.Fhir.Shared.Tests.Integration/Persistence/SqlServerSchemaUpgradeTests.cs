@@ -76,8 +76,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await testHelper1.DeleteDatabase(snapshotDatabaseName);
-                await testHelper2.DeleteDatabase(diffDatabaseName);
+                await testHelper1?.DeleteDatabase(snapshotDatabaseName);
+                await testHelper2?.DeleteDatabase(diffDatabaseName);
             }
         }
 
@@ -149,7 +149,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 initialConnectionString,
                 MasterDatabaseName,
                 sqlServerFhirModel,
-                defaultSqlConnectionBuilder);
+                defaultSqlConnectionBuilder,
+                null);
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();

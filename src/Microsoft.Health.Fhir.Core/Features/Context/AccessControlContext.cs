@@ -29,5 +29,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         /// A uri which points to a specific fhir resource in this Fhir server, and is associated with the current user
         /// </summary>
         public Uri FhirUserClaim { get; set; } = null;
+
+        /// <summary>
+        /// For a SMART on FHIR request, this is the resource type of the user's compartment.  Searches will be restricted to this compartment.
+        /// </summary>
+        public string CompartmentResourceType { get; set; } = null;
+
+        /// <summary>
+        /// For a SMART on FHIR request, this is the id of the resource which is associated with the user, and
+        /// identifies the user's compartment.  Searches will be restricted to this compartment.
+        /// </summary>
+        public string CompartmentId { get; set; } = null;
     }
 }

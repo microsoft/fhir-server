@@ -108,14 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (before != null)
             {
-                var beforeOffset = before.ToDateTimeOffset(
-                    defaultMonth: 1,
-                    defaultDaySelector: (year, month) => 1,
-                    defaultHour: 0,
-                    defaultMinute: 0,
-                    defaultSecond: 0,
-                    defaultFraction: 0.0000000m,
-                    defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
+                var beforeOffset = before.ToDateTimeOffset().ToUniversalTime();
 
                 if (beforeOffset.CompareTo(Clock.UtcNow) > 0)
                 {
@@ -217,6 +210,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
 
             return results;
+        }
+
+        public virtual Task<SearchResult> SearchByDateTimeRange(
+            string resourceType,
+            DateTime startTime,
+            DateTime endTime,
+            CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(
+            string resourceType,
+            DateTime startTime,
+            DateTime endTime,
+            int numberOfRanges,
+            CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />

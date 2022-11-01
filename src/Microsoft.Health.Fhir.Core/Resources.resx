@@ -661,6 +661,23 @@
   <data name="SqlQueryProcessorRanOutOfInternalResourcesException" xml:space="preserve">
     <value>The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry.</value>
   </data>
+  <data name="ResourceTypeNotAllowedRestrictedByClinicalScopes" xml:space="preserve">
+    <value>Resource type {0} is not allowed. Additional clinical scopes should be requested to allow searching using this type.</value>
+    <comment>{0} is a string of the name of the resource type.</comment>
+  </data>
+  <data name="ChainedResourceTypesNotAllowedDueToScope" xml:space="preserve">
+    <value>The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type.</value>
+  </data>
+  <data name="OperationCanceled" xml:space="preserve">
+    <value>The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support.</value>
+  </data>
+  <data name="FhirUserClaimMustHaveResourceTypeAndId" xml:space="preserve">
+    <value>The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id.</value>
+    <comment>{0} is a string value of given fhirUser claim.</comment>
+  </data>
+  <data name="FhirUserClaimInvalidFormat" xml:space="preserve">
+    <value>The fhirUser claim must be a URI with an ending format of &lt;resourceType&gt;/&lt;resourceId&gt;.</value>
+  </data>
   <data name="USCoreDeserializationError" xml:space="preserve">
     <value>Error deserializing record for validation: {0}</value>
     <comment>The record caused a failure while deserializing for validation.</comment>

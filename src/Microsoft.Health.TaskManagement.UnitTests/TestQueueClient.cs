@@ -79,11 +79,36 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
         }
 
+        public async Task<IReadOnlyCollection<JobInfo>> DequeueJobsAsync(byte queueType, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        {
+            var dequeuedJobs = new List<JobInfo>();
+
+            while (dequeuedJobs.Count < numberOfJobsToDequeue)
+            {
+                var jobInfo = await DequeueAsync(queueType, worker, heartbeatTimeoutSec, cancellationToken);
+
+                if (jobInfo != null)
+                {
+                    dequeuedJobs.Add(jobInfo);
+                }
+                else
+                {
+                    // No more jobs in queue
+                    break;
+                }
+            }
+
+            return dequeuedJobs;
+        }
+
         public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
         {
             DequeueFaultAction?.Invoke();
 
-            JobInfo job = jobInfos.FirstOrDefault(t => t.Status == JobStatus.Created || (t.Status == JobStatus.Running && (DateTime.Now - t.HeartbeatDateTime) > TimeSpan.FromSeconds(heartbeatTimeoutSec)));
+            JobInfo job = jobInfos.FirstOrDefault(t =>
+                t.QueueType == queueType &&
+                (t.Status == JobStatus.Created ||
+                (t.Status == JobStatus.Running && (DateTime.Now - t.HeartbeatDateTime) > TimeSpan.FromSeconds(heartbeatTimeoutSec))));
             if (job != null)
             {
                 job.Status = JobStatus.Running;
@@ -111,8 +136,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     Definition = definition,
                     Id = largestId,
                     GroupId = gId,
-                    Status = JobStatus.Created,
+                    Status = isCompleted ? JobStatus.Completed : JobStatus.Created,
                     HeartbeatDateTime = DateTime.Now,
+                    QueueType = queueType,
                 });
                 largestId++;
             }

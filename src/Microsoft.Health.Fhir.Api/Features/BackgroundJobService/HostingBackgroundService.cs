@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -46,20 +47,30 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
             try
             {
-                using (IScoped<JobHosting> jobHosting = _jobHostingFactory())
+                using IScoped<JobHosting> jobHosting = _jobHostingFactory();
+                JobHosting jobHostingValue = jobHosting.Value;
+                if (_hostingConfiguration != null)
                 {
-                    JobHosting jobHostingValue = jobHosting.Value;
-                    if (_hostingConfiguration != null)
+                    jobHostingValue.PollingFrequencyInSeconds = _hostingConfiguration.PollingFrequencyInSeconds ?? jobHostingValue.PollingFrequencyInSeconds;
+                    jobHostingValue.MaxRunningJobCount = _hostingConfiguration.MaxRunningTaskCount ?? jobHostingValue.MaxRunningJobCount;
+                    jobHostingValue.JobHeartbeatIntervalInSeconds = _hostingConfiguration.TaskHeartbeatIntervalInSeconds ?? jobHostingValue.JobHeartbeatIntervalInSeconds;
+                    jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds = _hostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds;
+                }
+
+                var jobQueues = new List<Task>();
+                using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+
+                foreach (QueueType queueType in Enum.GetValues<QueueType>())
+                {
+                    if (queueType == QueueType.Unknown)
                     {
-                        jobHostingValue.PollingFrequencyInSeconds = _hostingConfiguration.PollingFrequencyInSeconds ?? jobHostingValue.PollingFrequencyInSeconds;
-                        jobHostingValue.MaxRunningJobCount = _hostingConfiguration.MaxRunningTaskCount ?? jobHostingValue.MaxRunningJobCount;
-                        jobHostingValue.JobHeartbeatIntervalInSeconds = _hostingConfiguration.TaskHeartbeatIntervalInSeconds ?? jobHostingValue.JobHeartbeatIntervalInSeconds;
-                        jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds = _hostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds;
+                        continue;
                     }
 
-                    using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                    await jobHostingValue.StartAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource);
+                    jobQueues.Add(jobHostingValue.StartAsync((byte)queueType, Environment.MachineName, cancellationTokenSource));
                 }
+
+                await Task.WhenAll(jobQueues);
             }
             catch (Exception ex)
             {
