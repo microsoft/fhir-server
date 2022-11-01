@@ -237,6 +237,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenALoginFailedForUserException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new LoginFailedForUserException(Core.Resources.LoginFailedForUser), HttpStatusCode.Unauthorized);
+        }
+
+        [Fact]
         public void GivenAnUnrecognizedExceptionAndInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new Exception(null, new Exception()), HttpStatusCode.InternalServerError);
