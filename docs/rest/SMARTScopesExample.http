@@ -22,6 +22,11 @@ grant_type=client_credentials
 &scope=patient/Observation.read fhirUser fhir-api user/Encounter.*
 
 
+### Get all resource in a patient's compartment
+GET https://{{hostname}}/Patient/smartUserClient/*
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
 ### POST the test data
 # @name patient
 POST https://{{hostname}}
@@ -52,11 +57,11 @@ grant_type=client_credentials
 &scope=patient/Patient.read
 
 ### Get all Patient
-GET https://{{hostname}}/Patient
+GET https://{{hostname}}/Patient?_id=smart-patient-A
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Get Observation
-GET https://{{hostname}}/Observation
+GET https://{{hostname}}/Observation?_total=accurate
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Get Encounter
@@ -80,6 +85,11 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 GET https://{{hostname}}/?_type=Patient
 Authorization: Bearer {{bearer.response.body.access_token}}
 
+### Chained search
+
+GET https://{{hostname}}/Observation?subject:Patient.name=SMARTGivenName1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
 ### Reverse chained search
 GET https://{{hostname}}/Patient?_has:Observation:patient:code=4548-4
 Authorization: Bearer {{bearer.response.body.access_token}}
@@ -87,15 +97,5 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ### Get all resources
 GET https://{{hostname}}/
 Authorization: Bearer {{bearer.response.body.access_token}}
-
-### Scoped to be able to read all resources
-# @name bearer
-POST https://{{hostname}}/connect/token
-content-type: application/x-www-form-urlencoded
-
-grant_type=client_credentials
-&client_id=smartUserClient
-&client_secret=smartUserClient
-&scope=patient/*.read fhirUser fhir-api
 
 
