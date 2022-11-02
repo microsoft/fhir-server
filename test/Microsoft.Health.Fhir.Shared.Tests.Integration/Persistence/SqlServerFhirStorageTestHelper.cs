@@ -145,6 +145,8 @@ END
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
+            SqlConnection.ClearAllPools();
+
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
                 await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
