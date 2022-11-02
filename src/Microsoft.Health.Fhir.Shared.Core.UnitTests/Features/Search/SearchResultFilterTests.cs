@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class SearchResultFilterTests
     {
-        [Theory]
+        [SkippableTheory]
         [InlineData(true, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(false, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(true, false, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
@@ -31,6 +31,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         [InlineData(false, false, USCoreTestHelper.XmlCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfNoMissingStatusElements_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest, string fileName)
         {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
             // This test evaluates if records compliant with US Core Missing Data are returned "as it's" under all combinations of configuration.
 
             SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
@@ -55,13 +60,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(true, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElementsAndUSCoreIsDisable_ThenShowDataAsIs(bool isSmartUserRequest, string fileName)
         {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
             // This test evaluates if records NON compliant with US Core Missing Data are returned "as it's" if US Core is disabled.
 
             const bool isUSCoreMissingDataEnabled = false;
@@ -88,13 +98,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(true, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElementsAndNotSmartUser_ThenShowDataAsIs(bool isUSCoreMissingDataEnabled, string fileName)
         {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
             // This test evaluates if records NON compliant with US Core Missing Data are returned "as it's" if the request comes from a non-SMART user.
 
             const bool isSmartUserRequest = false;
@@ -121,11 +136,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElements_ThenReturnOperationOutcomeWith404(string fileName)
         {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
             // This test evaluates if records NON compliant with US Core Missing Data are returned as searching issues.
 
             const bool isUSCoreMissingDataEnabled = true;

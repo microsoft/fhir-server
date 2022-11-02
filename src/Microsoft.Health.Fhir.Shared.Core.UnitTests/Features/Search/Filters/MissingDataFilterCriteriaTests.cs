@@ -6,6 +6,7 @@
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -17,11 +18,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class MissingDataFilterCriteriaTests
     {
-        [Theory]
+        [SkippableTheory]
         [InlineData(USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlCompliantDataSamplesFileName)]
         public void WhenApplyingFilteringCriteria_IfAllDataIsCompliant_ThenShowDataAsIs(string fileName)
         {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
             // Evaluates if US Core Missing Data compliant records are returned as expected.
 
             const bool isCriteriaEnabled = true;
@@ -40,11 +46,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenApplyingFilteringCriteria_IfNoMissingStatusElements_ThenShowDataAsIs(string fileName)
         {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
             // Evaluates if US Core Missing Data NOT compliant records are marked as searching issues.
 
             const bool isCriteriaEnabled = true;
