@@ -681,7 +681,4 @@
   <data name="InternalServerError" xml:space="preserve">
     <value>An internal error has occurred. If this problem persists, please contact Customer Support.</value>
   </data>
-  <data name="LoginFailedForUser" xml:space="preserve">
-    <value>Unauthorized Error caused due to failed login. Request to retry with valid credentials.</value>
-  </data>
 </root>

@@ -773,15 +773,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The login failed for the user. Please update and retry..
-        /// </summary>
-        internal static string LoginFailedForUser {
-            get {
-                return ResourceManager.GetString("LoginFailedForUser", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Malformed search value &apos;{0}&apos;..
         /// </summary>
         internal static string MalformedSearchValue {

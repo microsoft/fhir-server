@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (sqlException.Number == LoginFailedForUser)
                 {
-                    throw new LoginFailedForUserException(Core.Resources.LoginFailedForUser);
+                    throw new LoginFailedForUserException(Core.Resources.InternalServerError);
                 }
                 else
                 {
