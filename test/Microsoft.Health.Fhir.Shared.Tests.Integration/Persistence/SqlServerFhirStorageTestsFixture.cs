@@ -90,11 +90,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
 
-            var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
-            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(TestConnectionString)));
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnection, sqlRetryLogicBaseProvider, config);
+            SqlConnectionBuilder = new SimpleSqlConnectionBuilder(TestConnectionString);
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), SqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
@@ -269,14 +267,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DisposeAsync()
         {
+            (SqlConnectionBuilder as IDisposable)?.Dispose();
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
-        }
-
-        protected SqlConnection GetSqlConnection(string connectionString)
-        {
-            var connectionBuilder = new SqlConnectionStringBuilder(connectionString);
-            var result = new SqlConnection(connectionBuilder.ToString());
-            return result;
         }
 
         object IServiceProvider.GetService(Type serviceType)
