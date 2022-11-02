@@ -66,7 +66,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                                 new OperationOutcomeIssue(
                                     OperationOutcomeConstants.IssueSeverity.Error,
                                     OperationOutcomeConstants.IssueType.NotFound,
-                                    string.Format(Core.Resources.USCoreMissingDataRequirement, resultEntry.Resource.ResourceId)));
+                                    string.Format(
+                                        Core.Resources.USCoreMissingDataRequirement,
+                                        resultEntry.Resource.ResourceTypeName,
+                                        resultEntry.Resource.ResourceId)));
                             continue;
                         }
                     }

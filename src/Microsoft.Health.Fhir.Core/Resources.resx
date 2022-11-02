@@ -683,7 +683,7 @@
     <comment>The record caused a failure while deserializing for validation.</comment>
   </data>
   <data name="USCoreMissingDataRequirement" xml:space="preserve">
-    <value>Status code is missing for the resource '{0}'.</value>
+    <value>Status code is missing for the resource '{0}/{1}'.</value>
     <comment>The record does not contain the expected status code following US Core requirements.</comment>
   </data>
 </root>

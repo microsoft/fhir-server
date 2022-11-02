@@ -1547,7 +1547,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Status code is missing for the resource &apos;{0}&apos;..
+        ///   Looks up a localized string similar to Status code is missing for the resource &apos;{0}/{1}&apos;..
         /// </summary>
         internal static string USCoreMissingDataRequirement {
             get {
