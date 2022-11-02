@@ -62,7 +62,7 @@ stages:
     - template: ./jobs/add-aad-test-environment.yml
 
 - stage: deployStu3
-  displayName: 'Deploy STU3 Site'
+  displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
@@ -97,9 +97,10 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true
 
 - stage: deployR4
-  displayName: 'Deploy R4 Site'
+  displayName: 'Deploy R4 CosmosDB Site'
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
@@ -134,9 +135,47 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true
+
+- stage: deployR4B
+  displayName: 'Deploy R4B CosmosDB Site'
+  dependsOn:
+  - aadTestEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4B
+      webAppName: $(DeploymentEnvironmentNameR4B)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
+- stage: deployR4BSql
+  displayName: 'Deploy R4B SQL Site'
+  dependsOn:
+  - aadTestEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4B
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR4BSql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
 
 - stage: deployR5
-  displayName: 'Deploy R5 Site'
+  displayName: 'Deploy R5 CosmosDB Site'
   dependsOn:
   - aadTestEnvironment
   - DockerBuild
@@ -171,3 +210,4 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      reindexEnabled: true

@@ -13,6 +13,11 @@ jobs:
 
 - template: docker-build-push.yml
   parameters: 
+    version: "R4B"
+    tag: ${{parameters.tag}}
+
+- template: docker-build-push.yml
+  parameters: 
     version: "Stu3"
     tag: ${{parameters.tag}}
 

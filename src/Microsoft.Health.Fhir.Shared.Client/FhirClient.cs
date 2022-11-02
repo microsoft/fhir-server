@@ -16,8 +16,6 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
@@ -27,6 +25,8 @@ namespace Microsoft.Health.Fhir.Client
         private const string IfNoneExistHeaderName = "If-None-Exist";
         private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
+        public const string ProfileValidation = "x-ms-profile-validation";
+        public const string ReindexParametersStatus = "Status";
 
         private readonly string _contentType;
 
@@ -496,13 +496,13 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<FhirResponse<Bundle>> PostBundleAsyncWithValidationHeader(Resource bundle, string profileValidation, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<Bundle>> PostBundleWithValidationHeaderAsync(Resource bundle, bool profileValidation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
             {
                 Content = CreateStringContent(bundle),
             };
-            message.Headers.Add(Core.Features.KnownHeaders.ProfileValidation, profileValidation);
+            message.Headers.Add(ProfileValidation, profileValidation.ToString());
             message.Headers.Accept.Add(_mediaType);
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
@@ -555,7 +555,7 @@ namespace Microsoft.Health.Fhir.Client
                 }
 
                 reindexJobResult = await CheckReindexAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == JobRecordProperties.Status)?.Value.ToString();
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == ReindexParametersStatus)?.Value.ToString();
                 checkReindexCount++;
             }
             while (!desiredStatus.Contains(currentStatus) && checkReindexCount < maxCount);

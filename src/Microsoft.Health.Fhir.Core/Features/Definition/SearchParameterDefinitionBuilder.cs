@@ -72,9 +72,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private static bool ShouldExcludeEntry(string resourceType, string searchParameterName, IModelInfoProvider modelInfoProvider)
         {
             return (resourceType == KnownResourceTypes.DomainResource && searchParameterName == "_text") ||
+                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_text") ||
                    (resourceType == KnownResourceTypes.Resource && searchParameterName == "_content") ||
                    (resourceType == KnownResourceTypes.Resource && searchParameterName == "_query") ||
                    (resourceType == KnownResourceTypes.Resource && searchParameterName == "_list") ||
+                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_has") ||
+                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_filter") ||
+                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_type") ||
                    ShouldExcludeEntryStu3(resourceType, searchParameterName, modelInfoProvider);
         }
 

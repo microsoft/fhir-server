@@ -12,6 +12,9 @@ jobs:
     vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
+  - template: e2e-tests-extract.yml
+    parameters:
+      version: ${{parameters.version}}
 
   - task: AzurePowerShell@4
     displayName: 'Set Variables'
@@ -73,7 +76,7 @@ jobs:
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
     env:
@@ -110,6 +113,9 @@ jobs:
     vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
+  - template: e2e-tests-extract.yml
+    parameters:
+      version: ${{parameters.version}}
   
   - task: AzurePowerShell@4
     displayName: 'Set Variables'
@@ -171,7 +177,7 @@ jobs:
     displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: 'Export ${{ parameters.version }} SQL'
     env:

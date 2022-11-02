@@ -57,14 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <param name="endDateTime">The end date time.</param>
         public DateTimeSearchValue(PartialDateTime startDateTime, PartialDateTime endDateTime)
         {
-            Start = startDateTime.ToDateTimeOffset(
-                defaultMonth: 1,
-                defaultDaySelector: (year, month) => 1,
-                defaultHour: 0,
-                defaultMinute: 0,
-                defaultSecond: 0,
-                defaultFraction: 0.0000000m,
-                defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
+            Start = startDateTime.ToDateTimeOffset().ToUniversalTime();
 
             End = endDateTime.ToDateTimeOffset(
                 defaultMonth: 12,

@@ -1,0 +1,1081 @@
+{
+    "resourceType": "Bundle",
+    "id": "1eb6b09c8316564abe35fad9b948e0d3",
+    "type": "transaction",
+    "entry": [	    
+		{
+            "resource": {
+				"resourceType": "Organization",
+				"id": "smart-organization-B1",
+				"meta": {
+					"versionId": "2",
+					"lastUpdated": "2022-09-29T19:10:27.756+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": "Updated",
+				"address": [
+					{
+						"city": "Seattle"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Organization/smart-organization-B1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Patient",
+				"id": "smart-patient-B",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.881+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": [
+					{
+						"family": "SMART Patient B"
+					}
+				],
+				"birthDate": "1974-12-25",
+				"generalPractitioner": [
+					{
+						"reference": "Practitioner/smart-practitioner-A"
+					}
+				],
+				"managingOrganization": {
+					"reference": "Organization/smart-organization-B1"
+				}
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Patient/smart-patient-B"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "RiskAssessment",
+			  "id": "smart-riskassessment-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      <p>Probability of developing breast cancer before the age indicated:</p>\n      <table>\n        <thead>\n          <tr>\n            <th>Age</th>\n            <th>Probability (%)</th>\n          </tr>\n        </thead>\n        <tbody>\n          <tr>\n            <td>current-53</td>\n            <td>0.0168</td>\n          </tr>\n          <tr>\n            <td>54-57</td>\n            <td>0.0368</td>\n          </tr>\n          <tr>\n            <td>58-62</td>\n            <td>0.0594</td>\n          </tr>\n          <tr>\n            <td>63-67</td>\n            <td>0.0838</td>\n          </tr>\n          <tr>\n            <td>68-72</td>\n            <td>0.1089</td>\n          </tr>\n          <tr>\n            <td>73-77</td>\n            <td>0.1327</td>\n          </tr>\n          <tr>\n            <td>78-82</td>\n            <td>0.1530</td>\n          </tr>\n          <tr>\n            <td>83-87</td>\n            <td>0.1663</td>\n          </tr>\n        </tbody>\n      </table>\n    </div>"
+			  },
+			  "status": "final",
+			  "method": {
+				"coding": [
+				  {
+					"code": "BRCAPRO"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "occurrenceDateTime": "2006-01-13T23:01:00Z",
+			  "prediction": [
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000168,
+				  "whenRange": {
+					"high": {
+					  "value": 53,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000368,
+				  "whenRange": {
+					"low": {
+					  "value": 54,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 57,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000594,
+				  "whenRange": {
+					"low": {
+					  "value": 58,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 62,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.000838,
+				  "whenRange": {
+					"low": {
+					  "value": 63,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 67,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.001089,
+				  "whenRange": {
+					"low": {
+					  "value": 68,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 72,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.001327,
+				  "whenRange": {
+					"low": {
+					  "value": 73,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 77,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.001530,
+				  "whenRange": {
+					"low": {
+					  "value": 78,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 82,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				},
+				{
+				  "outcome": {
+					"text": "Breast Cancer"
+				  },
+				  "probabilityDecimal": 0.001663,
+				  "whenRange": {
+					"low": {
+					  "value": 83,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					},
+					"high": {
+					  "value": 88,
+					  "unit": "years",
+					  "system": "http://unitsofmeasure.org",
+					  "code": "a"
+					}
+				  }
+				}
+			  ],
+			  "note": [
+				{
+				  "text": "High degree of certainty"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "RiskAssessment/smart-riskassessment-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Procedure",
+			  "id": "smart-procedure-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Routine Appendectomy</div>"
+			  },
+			  "status": "completed",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "80146002",
+					"display": "Appendectomy (Procedure)"
+				  }
+				],
+				"text": "Appendectomy"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "performedDateTime": "2013-04-05",
+			  "recorder": {
+				"reference": "Practitioner/smart-practitioner-A",
+				"display": "Dr Cecil Surgeon"
+			  },
+			  "asserter": {
+				"reference": "Practitioner/smart-practitioner-A",
+				"display": "Dr Cecil Surgeon"
+			  },
+			  "performer": [
+				{
+				  "actor": {
+					"reference": "Practitioner/smart-practitioner-A",
+					"display": "Dr Cecil Surgeon"
+				  }
+				}
+			  ],
+			  "reasonCode": [
+				{
+				  "text": "Generalized abdominal pain 24 hours. Localized in RIF with rebound and guarding"
+				}
+			  ],
+			  "followUp": [
+				{
+				  "text": "ROS 5 days  - 2013-04-10"
+				}
+			  ],
+			  "note": [
+				{
+				  "text": "Routine Appendectomy. Appendix was inflamed and in retro-caecal position"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Procedure/smart-procedure-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>status</b>: final</p><p><b>category</b>: Vital Signs <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-observation-category.html\">Observation Category Codes</a>#vital-signs)</span></p><p><b>code</b>: Body Weight <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#29463-7; <a href=\"https://loinc.org/\">LOINC</a>#3141-9 &quot;Body weight Measured&quot;; <a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#27113001 &quot;Body weight&quot;; clinical-codes#body-weight)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>encounter</b>: <a href=\"encounter-example.html\">Encounter/example</a></p><p><b>effective</b>: 2016-03-28</p><p><b>value</b>: 185 lbs<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code [lb_av] = 'lb_av')</span></p></div>"
+			  },
+			  "status": "final",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+					  "code": "vital-signs",
+					  "display": "Vital Signs"
+					}
+				  ]
+				}
+			  ],
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "29463-7",
+					"display": "Body Weight"
+				  },
+				  {
+					"system": "http://loinc.org",
+					"code": "3141-9",
+					"display": "Body weight Measured"
+				  },
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "27113001",
+					"display": "Body weight"
+				  },
+				  {
+					"system": "http://acme.org/devices/clinical-codes",
+					"code": "body-weight",
+					"display": "Body Weight"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "effectiveDateTime": "2016-03-28",
+			  "valueQuantity": {
+				"value": 185,
+				"unit": "lbs",
+				"system": "http://unitsofmeasure.org",
+				"code": "[lb_av]"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-B2",
+			  "meta": {
+				"profile": [
+				  "http://hl7.org/fhir/StructureDefinition/vitalsigns"
+				]
+			  },
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;bmi&quot; </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"vitalsigns.html\">Vital Signs Profile</a></p></div><p><b>status</b>: final</p><p><b>category</b>: Vital Signs <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-observation-category.html\">Observation Category Codes</a>#vital-signs)</span></p><p><b>code</b>: BMI <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#39156-5 &quot;Body mass index (BMI) [Ratio]&quot;)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>effective</b>: 1999-07-02</p><p><b>value</b>: 16.2 kg/m2<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code kg/m2 = 'kg/m2')</span></p></div>"
+			  },
+			  "status": "final",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+					  "code": "vital-signs",
+					  "display": "Vital Signs"
+					}
+				  ],
+				  "text": "Vital Signs"
+				}
+			  ],
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "39156-5",
+					"display": "Body mass index (BMI) [Ratio]"
+				  }
+				],
+				"text": "BMI"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "effectiveDateTime": "1999-07-02",
+			  "valueQuantity": {
+				"value": 16.2,
+				"unit": "kg/m2",
+				"system": "http://unitsofmeasure.org",
+				"code": "kg/m2"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-B2"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "MolecularSequence",
+			  "id": "smart-molecularsequence-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>type</b>: dna</p><p><b>coordinateSystem</b>: 0</p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><h3>ReferenceSeqs</h3><table class=\"grid\"><tr><td>-</td><td><b>ReferenceSeqId</b></td><td><b>Strand</b></td><td><b>WindowStart</b></td><td><b>WindowEnd</b></td></tr><tr><td>*</td><td>NC_000009.11 <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (nuccore#NC_000009.11)</span></td><td>watson</td><td>22125500</td><td>22125510</td></tr></table><h3>Variants</h3><table class=\"grid\"><tr><td>-</td><td><b>Start</b></td><td><b>End</b></td><td><b>ObservedAllele</b></td><td><b>ReferenceAllele</b></td></tr><tr><td>*</td><td>22125503</td><td>22125504</td><td>C</td><td>G</td></tr></table><h3>Repositories</h3><table class=\"grid\"><tr><td>-</td><td><b>Type</b></td><td><b>Url</b></td><td><b>Name</b></td><td><b>VariantsetId</b></td></tr><tr><td>*</td><td>openapi</td><td><a href=\"http://grch37.rest.ensembl.org/ga4gh/variants/3:rs1333049?content-type=application/json\">http://grch37.rest.ensembl.org/ga4gh/variants/3:rs1333049?content-type=application/json</a></td><td>GA4GH API</td><td>3:rs1333049</td></tr></table></div>"
+			  },
+			  "type": "dna",
+			  "coordinateSystem": 0,
+			  "patient": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "referenceSeq": {
+				"referenceSeqId": {
+				  "coding": [
+					{
+					  "system": "http://www.ncbi.nlm.nih.gov/nuccore",
+					  "code": "NC_000009.11"
+					}
+				  ]
+				},
+				"strand": "watson",
+				"windowStart": 22125500,
+				"windowEnd": 22125510
+			  },
+			  "variant": [
+				{
+				  "start": 22125503,
+				  "end": 22125504,
+				  "observedAllele": "C",
+				  "referenceAllele": "G"
+				}
+			  ],
+			  "repository": [
+				{
+				  "type": "openapi",
+				  "url": "http://grch37.rest.ensembl.org/ga4gh/variants/3:rs1333049?content-type=application/json",
+				  "name": "GA4GH API",
+				  "variantsetId": "3:rs1333049"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "MolecularSequence/smart-molecularsequence-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Media",
+			  "id": "smart-media-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>status</b>: completed</p><p><b>type</b>: Image <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-media-type.html\">Digital Media Type</a>#image)</span></p><p><b>modality</b>: Diagram <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-media-modality.html\">Media SubType</a>#diagram)</span></p><p><b>subject</b>: <a href=\"patient-xcda.html\">Patient/xcda</a> &quot;Henry LEVIN&quot;</p><p><b>created</b>: 2017-12-17</p><p><b>issued</b>: 18/12/2017 1:56:18 AM</p><p><b>operator</b>: <a href=\"practitioner-xcda-author.html\">Practitioner/xcda-author</a> &quot;Harold HIPPOCRATES&quot;</p><p><b>device</b>: <span>: Acme Camera</span></p><p><b>height</b>: 145</p><p><b>width</b>: 126</p><p><b>frames</b>: 1</p></div>"
+			  },
+			  "status": "completed",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/media-type",
+					"code": "image",
+					"display": "Image"
+				  }
+				]
+			  },
+			  "modality": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/media-modality",
+					"code": "diagram"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "createdDateTime": "2017-12-17",
+			  "issued": "2017-12-17T14:56:18Z",
+			  "operator": {
+				"reference": "Practitioner/smart-practitioner-A"
+			  },
+			  "device": {
+				"display": "Acme Camera"
+			  },
+			  "height": 145,
+			  "width": 126,
+			  "frames": 1,
+			  "content": {
+				"id": "a1",
+				"contentType": "image/gif",
+				"data": "R0lGODlhfgCRAPcAAAAAAIAAAACAAICAAAAAgIAA    gACAgICAgMDAwP8AAAD/AP//AAAA//8A/wD/////    /wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    AAAAAAAAAAAAAAAAAAAAAAAAMwAAZgAAmQAAzAAA    /wAzAAAzMwAzZgAzmQAzzAAz/wBmAABmMwBmZgBm    mQBmzABm/wCZAACZMwCZZgCZmQCZzACZ/wDMAADM    MwDMZgDMmQDMzADM/wD/AAD/MwD/ZgD/mQD/zAD/    /zMAADMAMzMAZjMAmTMAzDMA/zMzADMzMzMzZjMz    mTMzzDMz/zNmADNmMzNmZjNmmTNmzDNm/zOZADOZ    MzOZZjOZmTOZzDOZ/zPMADPMMzPMZjPMmTPMzDPM    /zP/ADP/MzP/ZjP/mTP/zDP//2YAAGYAM2YAZmYA    mWYAzGYA/2YzAGYzM2YzZmYzmWYzzGYz/2ZmAGZm    M2ZmZmZmmWZmzGZm/2aZAGaZM2aZZmaZmWaZzGaZ    /2bMAGbMM2bMZmbMmWbMzGbM/2b/AGb/M2b/Zmb/    mWb/zGb//5kAAJkAM5kAZpkAmZkAzJkA/5kzAJkz    M5kzZpkzmZkzzJkz/5lmAJlmM5lmZplmmZlmzJlm    /5mZAJmZM5mZZpmZmZmZzJmZ/5nMAJnMM5nMZpnM    mZnMzJnM/5n/AJn/M5n/Zpn/mZn/zJn//8wAAMwA    M8wAZswAmcwAzMwA/8wzAMwzM8wzZswzmcwzzMwz    /8xmAMxmM8xmZsxmmcxmzMxm/8yZAMyZM8yZZsyZ    mcyZzMyZ/8zMAMzMM8zMZszMmczMzMzM/8z/AMz/    M8z/Zsz/mcz/zMz///8AAP8AM/8AZv8Amf8AzP8A    //8zAP8zM/8zZv8zmf8zzP8z//9mAP9mM/9mZv9m    mf9mzP9m//+ZAP+ZM/+ZZv+Zmf+ZzP+Z///MAP/M    M//MZv/Mmf/MzP/M////AP//M///Zv//mf//zP//    /yH5BAEAABAALAAAAAB+AJEAQAj/AP8JHEiwoMGD    CBMqXMiwocOHECNKnEixosWLGFHAckaN2jRnsKZh    HEmy5EMU0+L5EseNG654KEzKnGkShbN4uFq2xOWR    ps+fE5nEy6Wz5a+XQJMqTeisGdGiLuNRi7m0qlJn    06iF7LhxKoqvX2FpnRYSq1eBX62qRYhCKzWzZDeK    3bqR7NSsb99uddZ2r1ZnINuanbrWp82tb8ly/Bjy    a1aOKOu+5ZgXZFa7sARzBMl5a9rCJDl29ejxMuDK    eb3mJYsSa93GIOW61QgWbEjQGStbrru7o2K3dkXj    BUz242WUbj0u9vj1b2KquCn27Rq7I1+9nBkn7gyS    K/HBnFd3/y8bUizf6CM76s0qduxp0pvN23UrOnF7    zB7nWiaMXuZhvGJNoxhjpr3G3WMfJfdbgtD1p1Rb    xgkHX3uUbeYbdli5dp6DHHbo4YcghijiiCSWeJJG    rJloIkoqPeXLNA2q+GFHm+yUSzzxiCQjiG3hVFQu    N+74IQry4JSTTjfCImSHyE1TyS9I+iJPZkv21ySE    +bE31VTjhZfZfhm2V+VJXLH3WH70MfZVeKfF9Z1i    nv3mXldjEiTYmX9tpVhkXrW1JpfX6bVdnosh19xG    INVpk3JydafYZjC6RhqMNlHa11u0aQbjl/mVJaB1    McrY16eSSeYle2AmqGp5wIl1KVxj+f8WIDV1/iOY    Vote5lt4eZUn6WsI+kZgp6iVxV+tAs064aqUebdr    aW55GqZ2AiIWKrIHQahfo3bBeaZ5zq1q17XYMoQl    eQt+Jxt56jXrarnwxivvvPTWa++9TJYlGrn4+kdN    PJv4kksz92zY709ExqPJkbncw+/BI9mEDy4Mx+MM    xD/9+xQ3m+RIK8Yz2STPkS11s8nFIMvEhDw1FoVL    xynLdI9KR+bUMMoxR+yML1BxIyWMOY+0kTxQuizV    w0E3hOJjBTe9UYO1fZZ0Qlga59hYvgLX3W7GWo20    vLWV5uqjlHZUaVcDbukuZVTe29poqNYnZ2ZzrdbV    0hRmdZh9dX3/raKv5MknG19YVojmVPIJmtlwhBpX    bq4V6trd1VhV6t5jfM6XWWVzaRmZ3yO+3WaAi3XG    FZfP2vRnYogLp+tec4Ee4qLZ3dfV3XXpHanZMHJV    d6WsucprXJiOyaZ+iaH60aJ1JxirRoCF5Wdmfnql    J9uUVdma1m7CvTe74mHWLSyNgft6nmaDNSZy5o1m    HvPWadW+aN9luVxglpnVeXF6Kxr/88MhX3wcJZsB    uS81uDpc+5KDM0VBr3SlAQx1LBSSy1AHT2iSS1u2    E6DYwUtbGTQOacj3mPGg6TeSEZBrWAUnyMzrbVk6    XVyKsxgCwW0/62GMhVKErw12S1D5S0185RQnn8XQ    xYUx45NyNOe87gCRPubZj+xeaB+smIl+yllirCho    xKmhxExoK1Cv0BSftAVmamhMoxrXyMY2uvGNcIyj    HOeoxkXBh44OOZdn8Ggu+DiPjwtJ2CZyUomCTRGO    KJFHLljiEnkc8o0Sy0U3WpILoAGSLf9qmc86ckmE    /MtHOfEFVjp5EGfc40jieAlgSFmQL27sF/GQx8dY    iRaP8EwnL9ERLW1lS5L5whfxyMcubaWworVEHIX0    xzBRcI9NMBJJ9xgmMTW5E19QQ5m0tAlOjOkzeeiS    lcwcJFSAeSxSomRjuDT/2y6ncQ9fkMwozMkmVhRW    lFTGk5T5sAlgaCawjjWjnJcEYoYWRJU/CUdqbQSX    bNYEGRQZjj630qAXO7MmRJ3pOq65DOOiBaqghaVy    a4sUcrKYn+ugay+PXFJzgiOesGWISx3sFfRoaEHC    qY9ePmzUpCoTnN5JyobF8lx9zJJSEZlqWNK6D0ar    taDWsY4zOV2NVj5olq2VVIvCQ1GsjKURBSnnbCJk    FbzihxdSqYc1MAyhZZBDPwZ1sKygKiqTHsOqPGFO    L8JrX7cgxBmiYk2LagKo9uQ3LKv2zjGcMlbsVLUv    I2YRUf+Z5fq2GqzRqO04Z2POlyo4m7KGB3oXsmSd    /2Llps7Mh6mVK84FtQW9qllnccLJkFythBgUyo2F    AlzTgMIyqECVDkZltSgSB6unZ8Vwc9jZHKUIJ8Ll    8YkvkmLUa3koJPaFdoGeK2Ln9KI6S4GFVMsDV31e    M1vQqPZT+uMpcJYY2/V89y9+0tuoKuqp8mhvfKnx    7NNI95fiCIpx1Nmchrj1VbaWtzAOdSLr6MLX+5VH    Px+BVIVQdLuXKk8v2pMg69wzFodez0x/Fa+37tQ4    CcbnwAge6Icbg9Ww6gpAALLrXer20mKhuDDGoWlg    /Aveq8InizQsjwq7GkQEEVVRsWHQYYIYQ+cFK00G    4o1webxWZEEIsVAEznmH6N1Y4eiUNJaLaRex9UVf    wWlSJCRhr+AiZElZsYZoi5xg12eqp3buNEJm3LRQ    BcTeSZUx8/pLdk53w9p6CYKE/p+J83NjJuUPeemq    71bbqrjTkTEvjfaQDyFFnXbJr1lshqIKnaja4uHr    tWEa4beqRZpJpXcvy3kaxhxD6U/NqaQ0xCr6jJhp    FUlYPVl01HrsI8JYPSdpoCXhEG2YUVzrqT2mzpkS    KVRAG955u3SJdhITZ766KosyNjQOnZAt6F3d7oQJ    +inaJNPrHUXt3fCOt7ylSe962/ve+M63vvkYEAA7",
+				"creation": "2009-09-03"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Media/smart-media-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType" : "Device",
+			  "id" : "smart-device-B1",
+			  "text" : {
+				"status" : "generated",
+				"div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 345675</p></div>"
+			  },
+			  "identifier" : [{
+				"system" : "http://goodcare.org/devices/id",
+				"value" : "345675"
+			  }]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "DeviceRequest",
+			  "id": "smart-devicerequest-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>status</b>: completed</p><p><b>intent</b>: original-order</p><p><b>code</b>: <a href=\"device-example.html\">Device/example</a></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p></div>"
+			  },
+			  "status": "completed",
+			  "intent": "original-order",
+			  "codeReference": {
+				"reference": "Device/smart-device-B1"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "DeviceRequest/smart-devicerequest-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "Communication",
+			  "id": "smart-communication-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Patient has very high serum potassium</div>"
+			  },
+			  "identifier": [
+				{
+				  "type": {
+					"text": "Paging System"
+				  },
+				  "system": "urn:oid:1.3.4.5.6.7",
+				  "value": "2345678901"
+				}
+			  ],
+			  "instantiatesUri": [
+				"http://example.org/hyperkalemia"
+			  ],
+			  "partOf": [
+				{
+				  "display": "Serum Potassium Observation"
+				}
+			  ],
+			  "status": "completed",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://acme.org/messagetypes",
+					  "code": "Alert"
+					}
+				  ],
+				  "text": "Alert"
+				}
+			  ],
+			  "medium": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationMode",
+					  "code": "WRITTEN",
+					  "display": "written"
+					}
+				  ],
+				  "text": "written"
+				}
+			  ],
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "sent": "2014-12-12T18:01:10-08:00",
+			  "received": "2014-12-12T18:01:11-08:00",
+			  "recipient": [
+				{
+				  "reference": "Practitioner/smart-practitioner-A"
+				}
+			  ],
+			  "sender": {
+				"reference": "Device/smart-device-B1"
+			  },
+			  "payload": [
+				{
+				  "contentString": "Patient 1 has a very high serum potassium value (7.2 mmol/L on 2014-Dec-12 at 5:55 pm)"
+				},
+				{
+				  "contentReference": {
+					"display": "Serum Potassium Observation"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Communication/smart-communication-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "Coverage",
+			  "id": "smart-coverage-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of a Self Pay Agreement.</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://hospitalx.com/selfpayagreement",
+				  "value": "SP12345678"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/coverage-selfpay",
+					"code": "pay",
+					"display": "PAY"
+				  }
+				]
+			  },
+			  "subscriber": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "beneficiary": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "relationship": {
+				"coding": [
+				  {
+					"code": "self"
+				  }
+				]
+			  },
+			  "period": {
+				"end": "2012-03-17"
+			  },
+			  "payor": [
+				{
+				  "reference": "Patient/smart-patient-B"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Coverage/smart-coverage-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Account",
+			  "id": "smart-account-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">HACC Funded Billing for Peter James Chalmers</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "urn:oid:0.1.2.3.4.5.6.7",
+				  "value": "654321"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+					"code": "PBILLACCT",
+					"display": "patient billing account"
+				  }
+				],
+				"text": "patient"
+			  },
+			  "name": "HACC Funded Billing for Peter James Chalmers",
+			  "subject": [
+				{
+				  "reference": "Patient/smart-patient-B",
+				  "display": "Smart patient"
+				}
+			  ],
+			  "servicePeriod": {
+				"start": "2016-01-01",
+				"end": "2016-06-30"
+			  },
+			  "coverage": [
+				{
+				  "coverage": {
+					"reference": "Coverage/smart-coverage-B1"
+				  },
+				  "priority": 1
+				}
+			  ],
+			  "owner": {
+				"reference": "Organization/smart-organization-B1"
+			  },
+			  "description": "Hospital charges"
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Account/smart-account-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "Condition",
+			  "id": "smart-condition-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Severe burn of left ear (Date: 24-May 2012)</div>"
+			  },
+			  "clinicalStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+					"code": "active"
+				  }
+				]
+			  },
+			  "verificationStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+					"code": "confirmed"
+				  }
+				]
+			  },
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+					  "code": "encounter-diagnosis",
+					  "display": "Encounter Diagnosis"
+					},
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "439401001",
+					  "display": "Diagnosis"
+					}
+				  ]
+				}
+			  ],
+			  "severity": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "24484000",
+					"display": "Severe"
+				  }
+				]
+			  },
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "39065001",
+					"display": "Burn of ear"
+				  }
+				],
+				"text": "Burnt Ear"
+			  },
+			  "bodySite": [
+				{
+				  "coding": [
+					{
+					  "system": "http://snomed.info/sct",
+					  "code": "49521004",
+					  "display": "Left external ear structure"
+					}
+				  ],
+				  "text": "Left Ear"
+				}
+			  ],
+			  "subject": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "onsetDateTime": "2012-05-24"
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Condition/smart-condition-B1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "AllergyIntolerance",
+			  "id": "smart-allergyintolerance-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example&quot; </p></div><p><b>identifier</b>: id: 49476534</p><p><b>clinicalStatus</b>: Active <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-allergyintolerance-clinical.html\">AllergyIntolerance Clinical Status Codes</a>#active)</span></p><p><b>verificationStatus</b>: Confirmed <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-allergyintolerance-verification.html\">AllergyIntolerance Verification Status Codes</a>#confirmed)</span></p><p><b>type</b>: allergy</p><p><b>category</b>: food</p><p><b>criticality</b>: high</p><p><b>code</b>: Cashew nuts <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#227493005)</span></p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>onset</b>: 2004</p><p><b>recordedDate</b>: 2014-10-09T14:58:00+11:00</p><p><b>recorder</b>: <a href=\"practitioner-example.html\">Practitioner/example</a> &quot;Adam CAREFUL&quot;</p><p><b>asserter</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>lastOccurrence</b>: 2012-06</p><p><b>note</b>: The criticality is high becasue of the observed anaphylactic reaction when challenged with cashew extract.</p><blockquote><p><b>reaction</b></p><p><b>substance</b>: cashew nut allergenic extract Injectable Product <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-rxNorm.html\">RxNorm</a>#1160593)</span></p><p><b>manifestation</b>: Anaphylactic reaction <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#39579001)</span></p><p><b>description</b>: Challenge Protocol. Severe reaction to subcutaneous cashew extract. Epinephrine administered</p><p><b>onset</b>: 2012-06-12</p><p><b>severity</b>: severe</p><p><b>exposureRoute</b>: Subcutaneous route <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#34206005)</span></p></blockquote><blockquote><p><b>reaction</b></p><p><b>manifestation</b>: Urticaria <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#64305001)</span></p><p><b>onset</b>: 2004</p><p><b>severity</b>: moderate</p><p><b>note</b>: The patient reports that the onset of urticaria was within 15 minutes of eating cashews.</p></blockquote></div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://acme.com/ids/patients/risks",
+				  "value": "49476534"
+				}
+			  ],
+			  "clinicalStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+					"code": "active",
+					"display": "Active"
+				  }
+				]
+			  },
+			  "verificationStatus": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+					"code": "confirmed",
+					"display": "Confirmed"
+				  }
+				]
+			  },
+			  "type": "allergy",
+			  "category": [
+				"food"
+			  ],
+			  "criticality": "high",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "227493005",
+					"display": "Cashew nuts"
+				  }
+				]
+			  },
+			  "patient": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "onsetDateTime": "2004",
+			  "recordedDate": "2014-10-09T14:58:00+11:00",
+			  "recorder": {
+				"reference": "Practitioner/smart-practitioner-A"
+			  },
+			  "asserter": {
+				"reference": "Patient/smart-patient-B"
+			  },
+			  "lastOccurrence": "2012-06",
+			  "note": [
+				{
+				  "text": "The criticality is high becasue of the observed anaphylactic reaction when challenged with cashew extract."
+				}
+			  ],
+			  "reaction": [
+				{
+				  "substance": {
+					"coding": [
+					  {
+						"system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+						"code": "1160593",
+						"display": "cashew nut allergenic extract Injectable Product"
+					  }
+					]
+				  },
+				  "manifestation": [
+					{
+					  "coding": [
+						{
+						  "system": "http://snomed.info/sct",
+						  "code": "39579001",
+						  "display": "Anaphylactic reaction"
+						}
+					  ]
+					}
+				  ],
+				  "description": "Challenge Protocol. Severe reaction to subcutaneous cashew extract. Epinephrine administered",
+				  "onset": "2012-06-12",
+				  "severity": "severe",
+				  "exposureRoute": {
+					"coding": [
+					  {
+						"system": "http://snomed.info/sct",
+						"code": "34206005",
+						"display": "Subcutaneous route"
+					  }
+					]
+				  }
+				},
+				{
+				  "manifestation": [
+					{
+					  "coding": [
+						{
+						  "system": "http://snomed.info/sct",
+						  "code": "64305001",
+						  "display": "Urticaria"
+						}
+					  ]
+					}
+				  ],
+				  "onset": "2004",
+				  "severity": "moderate",
+				  "note": [
+					{
+					  "text": "The patient reports that the onset of urticaria was within 15 minutes of eating cashews."
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "AllergyIntolerance/smart-allergyintolerance-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "FamilyMemberHistory",
+			  "id": "smart-familymemberhistory-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Father died of a heart attack aged 74</div>"
+			  },
+			  "identifier": [
+				{
+				  "value": "12345"
+				}
+			  ],
+			  "instantiatesUri": [
+				"http://example.org/family-member-history-questionnaire"
+			  ],
+			  "status": "completed",
+			  "patient": {
+				"reference": "Patient/smart-patient-B",
+				"display": "SMART Patient"
+			  },
+			  "date": "2011-03-18",
+			  "relationship": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-RoleCode",
+					"code": "FTH",
+					"display": "father"
+				  }
+				]
+			  },
+			  "sex": {
+				"coding": [
+				  {
+					"system": "http://hl7.org/fhir/administrative-gender",
+					"code": "male",
+					"display": "Male"
+				  }
+				]
+			  },
+			  "condition": [
+				{
+				  "code": {
+					"coding": [
+					  {
+						"system": "http://snomed.info/sct",
+						"code": "315619001",
+						"display": "Myocardial Infarction"
+					  }
+					],
+					"text": "Heart Attack"
+				  },
+				  "contributedToDeath": true,
+				  "onsetAge": {
+					"value": 74,
+					"unit": "yr",
+					"system": "http://unitsofmeasure.org",
+					"code": "a"
+				  },
+				  "note": [
+					{
+					  "text": "Was fishing at the time. At least he went doing someting he loved."
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "FamilyMemberHistory/smart-familymemberhistory-B1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Flag",
+			  "id": "smart-flag-B1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Large Dog warning for Peter Patient</div>"
+			  },
+			  "identifier": [
+				{
+				  "value": "12345"
+				}
+			  ],
+			  "status": "inactive",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/flag-category",
+					  "code": "safety",
+					  "display": "Safety"
+					}
+				  ],
+				  "text": "Safety"
+				}
+			  ],
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://example.org/local",
+					"code": "bigdog",
+					"display": "Big dog"
+				  }
+				],
+				"text": "Patient has a big dog at his home. Always always wear a suit of armor or take other active counter-measures"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-B",
+				"display": "Peter Patient"
+			  },
+			  "period": {
+				"start": "2015-01-17",
+				"end": "2016-12-01"
+			  },
+			  "author": {
+				"reference": "Practitioner/smart-practitioner-A",
+				"display": "Nancy Nurse"
+			  }
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Flag/smart-flag-B1"
+            }
+        }
+	]
+}	

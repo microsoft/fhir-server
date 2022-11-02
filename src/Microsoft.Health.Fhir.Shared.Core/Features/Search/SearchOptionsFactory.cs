@@ -66,6 +66,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
         {
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                if (_contextAccessor.RequestContext?.AccessControlContext.CompartmentResourceType != null &&
+                    _contextAccessor.RequestContext?.AccessControlContext.CompartmentId != null)
+                {
+                    return Create(
+                        _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType,
+                        _contextAccessor.RequestContext.AccessControlContext.CompartmentId,
+                        resourceType,
+                        queryParameters,
+                        isAsyncOperation);
+                }
+            }
+
             return Create(null, null, resourceType, queryParameters, isAsyncOperation);
         }
 
@@ -260,6 +274,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
+            CheckFineGrainedAccessControl(searchExpressions);
+
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
             searchExpressions.AddRange(searchParams.Parameters.Select(
@@ -281,8 +297,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
             // when applied on a circular reference
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false));
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true));
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false).Where(e => e != null));
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true).Where(e => e != null));
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -446,6 +462,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
                     }
 
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                    {
+                        var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                        if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                        {
+                            _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
+                            return null;
+                        }
+                    }
+
                     return expression;
                 });
             }
@@ -456,6 +482,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (totalType == TotalType.Estimate)
                 {
                     throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, totalType, SupportedTotalTypes));
+                }
+            }
+        }
+
+        private void CheckFineGrainedAccessControl(List<Expression> searchExpressions)
+        {
+            // check resource type restrictions from SMART clinical scopes
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                bool allowAllResourceTypes = false;
+                var clinicalScopeResources = new List<ResourceType>();
+
+                foreach (ScopeRestriction restriction in _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions)
+                {
+                    if (restriction.Resource == KnownResourceTypes.All)
+                    {
+                        allowAllResourceTypes = true;
+                        break;
+                    }
+
+                    if (!Enum.TryParse<ResourceType>(restriction.Resource, out var clinicalScopeResourceType))
+                    {
+                        throw new ResourceNotSupportedException(restriction.Resource);
+                    }
+
+                    clinicalScopeResources.Add(clinicalScopeResourceType);
+                }
+
+                if (!allowAllResourceTypes)
+                {
+                    if (clinicalScopeResources.Any())
+                    {
+                        searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, clinicalScopeResources)));
+                    }
+                    else // block all queries
+                    {
+                        searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "none", false)));
+                    }
                 }
             }
         }

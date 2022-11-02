@@ -1,0 +1,23 @@
+# Examples of FHIR searches from our documentation: https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir/search-samples
+# The documentation contains detailed descriptions of what each search is doing.
+
+@hostname = localhost:44348
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Setup test data
+# @name batch
+POST https://{{hostname}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/SmartCompartmentResources.json
+
