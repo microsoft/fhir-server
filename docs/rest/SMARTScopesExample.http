@@ -56,6 +56,16 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/Patient.read
 
+### Get the smartUser bearer token, for testing scopes
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/all.read
+
 ### Get all Patient
 GET https://{{hostname}}/Patient?_id=smart-patient-A
 Authorization: Bearer {{bearer.response.body.access_token}}

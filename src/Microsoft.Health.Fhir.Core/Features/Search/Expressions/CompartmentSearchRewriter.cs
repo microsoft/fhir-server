@@ -116,6 +116,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     {
                         compartmentSearchExpressionsGrouped.Add(
                             Expression.SearchParameter(idSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentId, false)));
+
+                        // We want to add in the "universal" resources, which are resources that are not compartment specific
+                        var universalResourceTypes = new List<string>()
+                        {
+                            KnownResourceTypes.Location,
+                            KnownResourceTypes.Organization,
+                            KnownResourceTypes.Practitioner,
+                            KnownResourceTypes.Medication,
+                        };
+
+                        var inExpression = Expression.In(FieldName.TokenCode, null, universalResourceTypes);
+
+                        SearchParameterExpression universalResourceTypesExpression = Expression.SearchParameter(
+                            resourceTypeSearchParameter,
+                            inExpression);
+
+                        compartmentSearchExpressionsGrouped.Add(universalResourceTypesExpression);
                     }
 
                     if (compartmentSearchExpressionsGrouped.Count > 1)

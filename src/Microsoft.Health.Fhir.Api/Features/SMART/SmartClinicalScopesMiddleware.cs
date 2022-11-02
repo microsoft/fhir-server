@@ -61,26 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 
-                    var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
-                    try
-                    {
-                        fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
-                        FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
-                    }
-                    catch (UriFormatException)
-                    {
-                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
-                        {
-                            throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
-                        }
-                    }
-                    catch (ArgumentNullException)
-                    {
-                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
-                        {
-                            throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
-                        }
-                    }
+                    bool skipFhirUserClaimForSystemScope = false;
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
@@ -118,6 +99,35 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 }
 
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+
+                                if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    skipFhirUserClaimForSystemScope = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!skipFhirUserClaimForSystemScope)
+                    {
+                        var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
+                        try
+                        {
+                            fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
+                            FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
+                        }
+                        catch (UriFormatException)
+                        {
+                            if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                            {
+                                throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
+                            }
+                        }
+                        catch (ArgumentNullException)
+                        {
+                            if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                            {
+                                throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
                             }
                         }
                     }
