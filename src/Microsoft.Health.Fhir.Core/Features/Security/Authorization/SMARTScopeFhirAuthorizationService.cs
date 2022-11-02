@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     /// <summary>
     /// determines access based on the SMART scope.
     /// </summary>
-    public static class SMARTScopeFhirAuthorizationService
+    public static class SmartScopeFhirAuthorizationService
     {
         public static DataActions CheckSMARTScopeAccess(this RequestContextAccessor<IFhirRequestContext> requestContextAccessor, DataActions dataActions)
         {
@@ -23,7 +23,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             foreach (ScopeRestriction scopeRestriction in allowedResourceActions)
             {
                 // resourceRequested is null when the base route is queried, i.e. all resources
-                if (scopeRestriction.Resource == KnownResourceTypes.All || scopeRestriction.Resource == resourceRequested || resourceRequested == null)
+                // or resourceRequested is * when querying all resources in a compartment
+                if (scopeRestriction.Resource == KnownResourceTypes.All ||
+                    scopeRestriction.Resource == resourceRequested ||
+                    resourceRequested == null ||
+                    resourceRequested == "*")
                 {
                     permittedDataActions |= scopeRestriction.AllowedDataAction;
                     if (permittedDataActions == dataActions)
