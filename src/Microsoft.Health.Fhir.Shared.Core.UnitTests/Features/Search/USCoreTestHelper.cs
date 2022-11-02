@@ -9,9 +9,16 @@ using System.IO;
 using System.Reflection;
 using System.Xml;
 using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -60,6 +67,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                 default:
                     throw new InvalidOperationException($"Invalid extension '{extension}'.");
             }
+        }
+
+        public static IBundleFactory GetBundleFactory(bool isSmartUserRequest)
+        {
+            RequestContextAccessor<IFhirRequestContext> requestAccessor = GetRequestContext(isSmartUserRequest);
+            UrlResolver urlResolver = CreateUrlResolver(requestAccessor);
+            IBundleFactory bundleFactory = new BundleFactory(urlResolver, requestAccessor, NullLogger<BundleFactory>.Instance);
+
+            return bundleFactory;
         }
 
         private static SearchResult GetXmlSearchResult(string fileName)
@@ -164,12 +180,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             implementationGuidesConfig.Value.Returns(implementationGuidesConfiguration);
 
             // Simulating a FHIR Request Context with or without SMART user.
-            IFhirRequestContext fhirRequestContext = new FhirRequestContext("foo", "bar", "baz", "foo", requestHeaders: null, responseHeaders: new Dictionary<string, StringValues>());
-            fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = isSmartUserRequest;
-            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor = new FhirRequestContextAccessor()
-            {
-                RequestContext = fhirRequestContext,
-            };
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor = GetRequestContext(isSmartUserRequest);
 
             return new SearchResultFilter(implementationGuidesConfig, fhirRequestContextAccessor);
         }
@@ -190,6 +201,54 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                     return reader.ReadToEnd();
                 }
             }
+        }
+
+        private static RequestContextAccessor<IFhirRequestContext> GetRequestContext(bool isSmartUserRequest)
+        {
+            IFhirRequestContext fhirRequestContext = new FhirRequestContext("foo", "bar", "baz", "foo", requestHeaders: null, responseHeaders: new Dictionary<string, StringValues>());
+            fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = isSmartUserRequest;
+            fhirRequestContext.RouteName = "rush";
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor = new FhirRequestContextAccessor()
+            {
+                RequestContext = fhirRequestContext,
+            };
+
+            return fhirRequestContextAccessor;
+        }
+
+        private static UrlResolver CreateUrlResolver(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        {
+            IUrlHelperFactory urlHelperFactory = Substitute.For<IUrlHelperFactory>();
+            IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+            IActionContextAccessor actionContextAccessor = Substitute.For<IActionContextAccessor>();
+            IBundleHttpContextAccessor bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
+            IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
+
+            var httpContext = new DefaultHttpContext();
+            var actionContext = new ActionContext();
+
+            const string scheme = "scheme";
+            const string host = "test";
+
+            httpContextAccessor.HttpContext.Returns(httpContext);
+
+            httpContext.Request.Scheme = scheme;
+            httpContext.Request.Host = new HostString(host);
+
+            actionContextAccessor.ActionContext.Returns(actionContext);
+
+            urlHelper.RouteUrl(Arg.Do<UrlRouteContext>(_ => { }));
+            urlHelperFactory.GetUrlHelper(actionContext).Returns(urlHelper);
+            urlHelper.RouteUrl(Arg.Any<UrlRouteContext>()).Returns($"{scheme}://{host}");
+
+            bundleHttpContextAccessor.HttpContext.Returns((HttpContext)null);
+
+            return new UrlResolver(
+                fhirRequestContextAccessor,
+                urlHelperFactory,
+                httpContextAccessor,
+                actionContextAccessor,
+                bundleHttpContextAccessor);
         }
     }
 }

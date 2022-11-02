@@ -1538,7 +1538,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error deserializing record for validation: {0}.
+        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}&apos; for validation: {1}.
         /// </summary>
         internal static string USCoreDeserializationError {
             get {
@@ -1547,7 +1547,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Status code is missing..
+        ///   Looks up a localized string similar to Status code is missing for the resource &apos;{0}&apos;..
         /// </summary>
         internal static string USCoreMissingDataRequirement {
             get {

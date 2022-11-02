@@ -174,9 +174,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 });
             }
 
-            if (result.SearchIssues.Any())
+            if (result != null && result.SearchIssues.Any())
             {
-                // FERNFE - Should I create one operation outcome for each record not matching? Or should I continue doing similar to the BundleIssues?
                 var operationOutcome = new OperationOutcome
                 {
                     Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,

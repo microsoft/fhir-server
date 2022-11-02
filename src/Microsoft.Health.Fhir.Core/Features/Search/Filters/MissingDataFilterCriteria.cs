@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                                 new OperationOutcomeIssue(
                                     OperationOutcomeConstants.IssueSeverity.Error,
                                     OperationOutcomeConstants.IssueType.NotFound,
-                                    Core.Resources.USCoreMissingDataRequirement));
+                                    string.Format(Core.Resources.USCoreMissingDataRequirement, resultEntry.Resource.ResourceId)));
                             continue;
                         }
                     }
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                             new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Error,
                                 OperationOutcomeConstants.IssueType.Incomplete,
-                                string.Format(Core.Resources.USCoreDeserializationError, jsonE.Message)));
+                                string.Format(Core.Resources.USCoreDeserializationError, resultEntry.Resource.ResourceId, jsonE.Message)));
                         continue;
                     }
                     catch (XmlException xmlE)
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                             new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Error,
                                 OperationOutcomeConstants.IssueType.Incomplete,
-                                string.Format(Core.Resources.USCoreDeserializationError, xmlE.Message)));
+                                string.Format(Core.Resources.USCoreDeserializationError, resultEntry.Resource.ResourceId, xmlE.Message)));
                         continue;
                     }
                 }

@@ -3,8 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Linq;
+using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -40,6 +44,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
+
+            // This part of the test evaluates if the bundle created from the filtered search result has the expected number of entries.
+
+            IBundleFactory bundleFactory = USCoreTestHelper.GetBundleFactory(isSmartUserRequest);
+            ResourceElement resourceElement = bundleFactory.CreateSearchBundle(filteredSearchResult);
+            IReadOnlyList<Bundle.EntryComponent> entries = resourceElement.ToPoco<Bundle>().Entry;
+
+            Assert.NotNull(entries);
+            Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
         [Theory]
@@ -60,10 +73,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
             Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
-            Assert.Empty(filteredSearchResult.SearchIssues);
+            Assert.Empty(filteredSearchResult.SearchIssues); // As the test has US Core disabled, no search issues should be raised.
 
             Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
+
+            // This part of the test evaluates if the bundle created from the filtered search result has the expected number of entries.
+
+            IBundleFactory bundleFactory = USCoreTestHelper.GetBundleFactory(isSmartUserRequest);
+            ResourceElement resourceElement = bundleFactory.CreateSearchBundle(filteredSearchResult);
+            IReadOnlyList<Bundle.EntryComponent> entries = resourceElement.ToPoco<Bundle>().Entry;
+
+            Assert.NotNull(entries);
+            Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
         [Theory]
@@ -84,10 +106,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
             Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
-            Assert.Empty(filteredSearchResult.SearchIssues);
+            Assert.Empty(filteredSearchResult.SearchIssues); // As the test has no SMART user request, no search issues should be raised.
 
             Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
+
+            // This part of the test evaluates if the bundle created from the filtered search result has the expected number of entries.
+
+            IBundleFactory bundleFactory = USCoreTestHelper.GetBundleFactory(isSmartUserRequest);
+            ResourceElement resourceElement = bundleFactory.CreateSearchBundle(filteredSearchResult);
+            IReadOnlyList<Bundle.EntryComponent> entries = resourceElement.ToPoco<Bundle>().Entry;
+
+            Assert.NotNull(entries);
+            Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
         [Theory]
@@ -113,6 +144,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             Assert.Equal(searchResult.ContinuationToken, filteredSearchResult.ContinuationToken);
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
+
+            // This part of the test evaluates if the bundle created from the filtered search result has the expected number of entries.
+
+            IBundleFactory bundleFactory = USCoreTestHelper.GetBundleFactory(isSmartUserRequest);
+            ResourceElement resourceElement = bundleFactory.CreateSearchBundle(filteredSearchResult);
+            IReadOnlyList<Bundle.EntryComponent> entries = resourceElement.ToPoco<Bundle>().Entry;
+
+            Assert.NotNull(entries);
+            Assert.True(entries.Count == 1, $"A single operation outcome is expected when there are searching issues. Currently there are {entries.Count} operation outcomes.");
         }
     }
 }

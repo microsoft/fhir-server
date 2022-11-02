@@ -679,11 +679,11 @@
     <value>The fhirUser claim must be a URI with an ending format of &lt;resourceType&gt;/&lt;resourceId&gt;.</value>
   </data>
   <data name="USCoreDeserializationError" xml:space="preserve">
-    <value>Error deserializing record for validation: {0}</value>
+    <value>Error deserializing resource '{0}' for validation: {1}</value>
     <comment>The record caused a failure while deserializing for validation.</comment>
   </data>
   <data name="USCoreMissingDataRequirement" xml:space="preserve">
-    <value>Status code is missing.</value>
+    <value>Status code is missing for the resource '{0}'.</value>
     <comment>The record does not contain the expected status code following US Core requirements.</comment>
   </data>
 </root>
