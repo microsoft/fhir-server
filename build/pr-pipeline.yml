@@ -27,6 +27,17 @@ stages:
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
 
+- stage: UpdateRandom
+  displayName: 'Determine Random String'
+  dependsOn: []
+  jobs:
+  - job: Password
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/update-sqlAdminPassword.yml
+
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   dependsOn:
@@ -120,6 +131,18 @@ stages:
     steps:
     - template: ./jobs/add-aad-test-environment.yml
 
+- stage: deploySqlServer
+  displayName: 'Deploy SQLServer'
+  dependsOn:
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
@@ -143,6 +166,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -156,6 +180,8 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: deployR4
@@ -181,6 +207,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -194,6 +221,8 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: deployR4B
@@ -219,6 +248,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -232,6 +262,8 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: deployR5
@@ -257,6 +289,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -270,6 +303,8 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: testStu3
