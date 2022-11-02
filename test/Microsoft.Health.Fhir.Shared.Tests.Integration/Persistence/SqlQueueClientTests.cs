@@ -12,7 +12,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -312,14 +311,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
             var cancel = new CancellationTokenSource();
             cancel.CancelAfter(TimeSpan.FromSeconds(30));
+            var execDate = DateTime.UtcNow;
+            var dequeueDate = DateTime.UtcNow;
             var execTask = client.ExecuteWithHeartbeatAsync(
                 queueType,
                 job.Id,
                 job.Version,
-                async cancel => { await Task.Delay(TimeSpan.FromSeconds(10)); },
+                async cancel =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(10));
+                    execDate = DateTime.UtcNow;
+                },
                 TimeSpan.FromSeconds(1),
                 cancel.Token);
-            var dequeueAttempts = 0;
             var jobInt = (JobInfo)null;
             var dequeueTask = Task.Run(
                 async () =>
@@ -328,17 +332,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     {
                         await Task.Delay(TimeSpan.FromSeconds(1));
                         jobInt = await client.DequeueAsync(queueType, "test-worker", 2, cancel.Token);
-                        if (jobInt == null)
-                        {
-                            dequeueAttempts++;
-                        }
                     }
+
+                    dequeueDate = DateTime.UtcNow;
                 },
                 cancel.Token);
             Task.WaitAll(execTask, dequeueTask);
 
             Assert.Equal(job.Id, jobInt.Id);
-            Assert.True(dequeueAttempts >= 9, $"{dequeueAttempts} >= 9");
+            Assert.True(dequeueDate >= execDate, $"{dequeueDate} >= {execDate}");
         }
     }
 }
