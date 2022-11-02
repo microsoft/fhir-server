@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -54,7 +53,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             {
                 var fhirRequestContext = fhirRequestContextAccessor.RequestContext;
                 var principal = fhirRequestContext.Principal;
-                var roles = principal.FindAll(authorizationConfiguration.RolesClaim).Select(r => r.Value);
 
                 var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
 
@@ -67,6 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     try
                     {
                         fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
+                        FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
                     }
                     catch (UriFormatException)
                     {
