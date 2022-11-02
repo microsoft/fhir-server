@@ -1,6 +1,6 @@
 {
     "resourceType": "DiagnosticReport",
-    "id": "cbc",
+    "id": "DiagnosticReport-example-lab",
     "meta": {
       "extension": [
         {
@@ -28,6 +28,14 @@
             "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
             "code": "LAB",
             "display": "Laboratory"
+          },
+          {
+            "system": "http://snomed.info/sct",
+            "code": "LP29708-2"
+          },
+          {
+            "system": "http://snomed.info/sct",
+            "code": "LP7839-6"
           }
         ]
       }
@@ -49,8 +57,14 @@
     "issued": "2005-07-06T11:45:33+11:00",
     "performer": [
       {
-        "reference": "Organization/acme-lab",
-        "display": "Acme Laboratory, Inc"
+        "reference": "Organization/example",
+        "display": "Example Organization"
+      }
+    ],
+    "encounter": [
+      {
+        "reference": "Organization/example",
+        "display": "Example Organization"
       }
     ],
     "result": [

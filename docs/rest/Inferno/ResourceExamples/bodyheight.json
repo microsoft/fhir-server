@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "height",
+    "id": "example-height",
     "meta": {
       "extension": [
         {

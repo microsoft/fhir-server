@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "weight",
+    "id": "example-weight",
     "meta": {
       "extension": [
         {

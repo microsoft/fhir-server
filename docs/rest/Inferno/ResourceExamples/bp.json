@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "blood-pressure",
+    "id": "example-blood-pressure",
     "meta": {
       "extension": [
         {

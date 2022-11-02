@@ -1,6 +1,6 @@
 {
     "resourceType": "Immunization",
-    "id": "imm-1",
+    "id": "example",
     "meta": {
       "extension": [
         {
@@ -21,6 +21,15 @@
       "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"imm-1\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-us-core-immunization.html\">US Core Immunization Profile</a></p></div><p><b>status</b>: completed</p><p><b>vaccineCode</b>: influenza, high-dose, quadrivalent <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-CVX.html\">PH_VaccinesAdministeredCVX_CDC_NIP</a>#197; <a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-ndc.html\">National drug codes</a>#49281012165 \"FLUZONE High-Dose Quadrivalent Northern Hemisphere, 10 SYRINGE, GLASS in 1 PACKAGE (49281-121-65)  &gt; .7 mL in 1 SYRINGE, GLASS (49281-121-88)  (package)\")</span></p><p><b>patient</b>: <a href=\"Patient-example.html\">Patient/example: Amy Shaw</a> \" SHAW\"</p><p><b>occurrence</b>: 2020-11-19 12:46:57-0800</p><p><b>primarySource</b>: false</p></div>"
     },
     "status": "completed",
+    "statusReason": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActReason",
+          "code": "MEDPREC"
+        }
+      ],
+      "text": "medical precaution"
+    },
     "vaccineCode": {
       "coding": [
         {

@@ -1,7 +1,6 @@
 {
-<<<<<<< Updated upstream
   "resourceType" : "Observation",
-  "id" : "some-day-smoker",
+  "id" : "example-smoke",
   "meta" : {
     "profile" : [
       "http://hl7.org/fhir/us/core/StructureDefinition/us-core-smokingstatus"
@@ -49,64 +48,3 @@
     "text" : "Current some day smoker"
   }
 }
-=======
-    "resourceType": "Observation",
-    "id": "some-day-smoker",
-    "meta": {
-      "extension": [
-        {
-          "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
-          "valueString": "Some Day Smoker Example"
-        },
-        {
-          "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
-          "valueMarkdown": "This is a some day smoker example for the *US Core Smokingstatus Profile*."
-        }
-      ],
-      "profile": [
-        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-smokingstatus"
-      ]
-    },
-    "text": {
-      "status": "generated",
-      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"some-day-smoker\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-us-core-smokingstatus.html\">US Core Smoking Status Observation Profile</a></p></div><p><b>status</b>: final</p><p><b>category</b>: Social History <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-observation-category.html\">Observation Category Codes</a>#social-history)</span></p><p><b>code</b>: Tobacco smoking status <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#72166-2)</span></p><p><b>subject</b>: <a href=\"Patient-example.html\">Patient/example: Amy Shaw</a> \" SHAW\"</p><p><b>effective</b>: 2016-03-18 05:27:04+0000</p><p><b>value</b>: Current some day smoker <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#428041000124106)</span></p></div>"
-    },
-    "status": "final",
-    "category": [
-      {
-        "coding": [
-          {
-            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
-            "code": "social-history",
-            "display": "Social History"
-          }
-        ],
-        "text": "Social History"
-      }
-    ],
-    "code": {
-      "coding": [
-        {
-          "system": "http://loinc.org",
-          "code": "72166-2",
-          "display": "Tobacco smoking status"
-        }
-      ],
-      "text": "Tobacco smoking status"
-    },
-    "subject": {
-      "reference": "Patient/example",
-      "display": "Amy Shaw"
-    },
-    "effectiveDateTime": "2016-03-18T05:27:04Z",
-    "valueCodeableConcept": {
-      "coding": [
-        {
-          "system": "http://snomed.info/sct",
-          "code": "428041000124106"
-        }
-      ],
-      "text": "Current some day smoker"
-    }
-  }
->>>>>>> Stashed changes

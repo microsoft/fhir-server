@@ -1,6 +1,6 @@
 {
     "resourceType": "Goal",
-    "id": "goal-1",
+    "id": "example",
     "meta": {
       "extension": [
         {

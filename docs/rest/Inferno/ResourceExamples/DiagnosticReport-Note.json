@@ -1,6 +1,6 @@
 {
   "resourceType" : "DiagnosticReport",
-  "id" : "chest-xray-report",
+  "id" : "DiagnosticReport-example-note",
   "meta" : {
     "profile" : [
       "http://hl7.org/fhir/us/core/StructureDefinition/us-core-diagnosticreport-note"
@@ -33,6 +33,19 @@
     ],
     "text" : "Portable XR Chest Views"
   },
+  "issued": "2008-06-18T09:23:00+10:00",
+  "performer": [
+    {
+      "reference": "Practitioner/example",
+      "display": "Dr Henry Seven"
+    }
+  ],
+  "encounter": [
+    {
+      "reference": "Practitioner/example",
+      "display": "Dr Henry Seven"
+    }
+  ],
   "subject" : {
     "reference" : "Patient/example"
   },

@@ -1,6 +1,6 @@
 {
     "resourceType": "Procedure",
-    "id": "defib-implant",
+    "id": "example",
     "meta": {
       "extension": [
         {

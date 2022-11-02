@@ -1,6 +1,6 @@
 {
   "resourceType" : "DocumentReference",
-  "id" : "episode-summary",
+  "id" : "example",
   "meta" : {
     "profile" : [
       "http://hl7.org/fhir/us/core/StructureDefinition/us-core-documentreference"
@@ -16,6 +16,10 @@
       "value" : "urn:oid:2.16.840.1.113883.19.5.99999.1"
     }
   ],
+  "custodian" : {
+    "reference" : "Organization/example",
+    "display" : "Example Organization"
+  },
   "status" : "current",
   "type" : {
     "coding" : [
@@ -23,6 +27,26 @@
         "system" : "http://loinc.org",
         "code" : "34133-9",
         "display" : "Summary of episode note"
+      },
+      {
+        "system" : "http://loinc.org",
+        "code" : "11488-4"
+      },
+      {
+        "system" : "http://loinc.org",
+        "code" : "18842-5"
+      },
+      {
+        "system" : "http://loinc.org",
+        "code" : "34117-2"
+      },
+      {
+        "system" : "http://loinc.org",
+        "code" : "28570-0"
+      },
+      {
+        "system" : "http://loinc.org",
+        "code" : "11506-3"
       }
     ],
     "text" : "CCD Document"
@@ -66,6 +90,10 @@
     }
   ],
   "context" : {
+    "encounter" : {
+      "reference" : "Encounter/example",
+      "display" : "Example Encounter"
+    },
     "period" : {
       "start" : "2004-12-23T08:00:00+11:00",
       "end" : "2004-12-23T08:01:00+11:00"

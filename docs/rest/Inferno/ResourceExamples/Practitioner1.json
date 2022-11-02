@@ -1,6 +1,6 @@
 {
     "resourceType": "Practitioner",
-    "id": "example",
+    "id": "practitioner-1",
     "meta": {
       "extension": [
         {

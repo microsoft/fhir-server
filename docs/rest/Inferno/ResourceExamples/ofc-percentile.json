@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "ofc-percentile",
+    "id": "example-ofc-percentile",
     "meta": {
       "extension": [
         {
@@ -44,7 +44,7 @@
       "text": "Head Occipital-frontal circumference Percentile"
     },
     "subject": {
-      "reference": "Patient/infant-example",
+      "reference": "Patient/example",
       "display": "Infant Example"
     },
     "effectiveDateTime": "2020-07-01",

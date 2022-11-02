@@ -1,8 +1,8 @@
 # This file includes US Core resource examples to load for the Inferno US Core v3.1.1 Test
 ### REST Client
-@fhirurl= https://apurva-export.azurehealthcareapis.com
-@clientid= daa5eebf-37ba-4731-b667-821578cef349
-@clientsecret=
+@fhirurl=  https://smartonfhir-test1.fhir.azurehealthcareapis.com
+@clientid= b9c9d8e9-8cb7-43ee-91bd-f133f99e9f2c
+@clientsecret= xxx
 @tenantid= 72f988bf-86f1-41af-91ab-2d7cd011db47
 @contentType = application/json
 
@@ -25,35 +25,24 @@ grant_type=client_credentials
 ### Capture access token from getToken request
 @token={{getAADToken.response.body.access_token}}
 
+### Setup test data
+POST {{fhirurl}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+< ./ResourceExamples/PatientA.json
+
+### My test
+GET {{fhirurl}}/Observation
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+
 ### Load US Core Profiles
-
-### US Core Provenance
-POST {{fhirurl}}/StructureDefinition
+### US Core Patient
+DELETE {{fhirurl}}/Organization/OrganizationAcmeLab
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
-
-< ./ResourceExamples/Provenance.json
-
-### US Core Procedure
-POST {{fhirurl}}/Procedure
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./ResourceExamples/Procedure.json
-
-### US Core Practitioner
-POST {{fhirurl}}/Practitioner
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./ResourceExamples/Practitioner.json
-
-### US Core Organzation
-POST {{fhirurl}}/Organization
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./ResourceExamples/Organization.json
 
 ### US Core Patient
 PUT {{fhirurl}}/Patient/example
@@ -62,169 +51,234 @@ content-type: {{contentType}}
 
 < ./ResourceExamples/Patient.json
 
+### US Core Patient Provenance
+PUT {{fhirurl}}/Provenance/example
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/PatientProvenance.json
+
 ### US Core AllergyIntolerance
-POST {{fhirurl}}/AllergyIntolerance
+PUT {{fhirurl}}/AllergyIntolerance/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/AllergyIntolerance.json
 
+
+PUT {{fhirurl}}/Provenance/inferno-provenance-A
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/AllergyIntoleranceProvenance.json
+
+
+### US Core Procedure
+PUT {{fhirurl}}/Procedure/example
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Procedure.json
+
+### US Core Practitioner
+PUT {{fhirurl}}/Practitioner/example
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Practitioner.json
+
+### US Core Practitioner
+PUT {{fhirurl}}/Practitioner/practitioner-1
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Practitioner1.json
+
+### US Core Organzation
+PUT {{fhirurl}}/Organization/example
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Organization.json
+
+### US Core Organzation
+PUT {{fhirurl}}/Organization/acme-lab
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/OrganizationAcmeLab.json
+
+
 ### US Core CarePlan
-POST {{fhirurl}}/CarePlan
+PUT {{fhirurl}}/CarePlan/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/CarePlan.json
 
 ### US Core CareTeam
-POST {{fhirurl}}/CareTeam
+PUT {{fhirurl}}/CareTeam/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/CareTeam.json
 
 ### US Core Condition
-POST {{fhirurl}}/Condition
+PUT {{fhirurl}}/Condition/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/Condition.json
 
 ### US Core Implantable Device
-POST {{fhirurl}}/Device
+PUT {{fhirurl}}/Device/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/Implantable-Device.json
 
 ### US Core DiagnosticReport-Lab.json
-POST {{fhirurl}}/DiagnosticReport
+PUT {{fhirurl}}/DiagnosticReport/DiagnosticReport-example-lab
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/DiagnosticReport-Lab.json
 
 ### US Core DiagnosticReport-Note.json
-POST {{fhirurl}}/DiagnosticReport
+PUT {{fhirurl}}/DiagnosticReport/DiagnosticReport-example-note
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/DiagnosticReport-Note.json
 
 ### US Core DocumentReference.json
-POST {{fhirurl}}/DocumentReference
+PUT {{fhirurl}}/DocumentReference/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/DocumentReference.json
 
+### US Core Location
+PUT {{fhirurl}}/Location/example
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/Location.json
+
 ### US Core Encounter
-POST {{fhirurl}}/Encounter
+PUT {{fhirurl}}/Encounter/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/Encounter.json
 
 ### US Core Observation Lab
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/hemoglobin
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./ResourceExamples/ObservationHemoglobin.json
+
+### US Core Observation Lab
+PUT {{fhirurl}}/Observation/example-blood-glucose
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/Observation-Lab.json
 
 ### US Core Ped BMI for Age
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-pediatric-bmi
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/pediatric-bmi-for-age.json
 
 ### US Core Ped Weight for Height
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-pediatric-wt
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/pediatric-weight-for-height.json
 
 ### US Core Pulse Ox
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-oxygen-saturation
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/pulse-oximetry.json
 
 ### US Core Smoking Status
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-smoke
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/smokingstatus.json
 
 ### US Core Blood Pressure
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-blood-pressure
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/bp.json
 
 ### US Core Body Height
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-height
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/bodyheight.json
 
 ### US Core Body Weight
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-weight
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/bodyweight.json
 
 ### US Core Heart Rate
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-heart-rate
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/heartrate.json
 
 ### US Core Resp Rate
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-respiratory-rate
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/resprate.json
 
 ### US Core Body Temp
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-temperature
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/bodytemp.json
 
 ### US Core Goal
-POST {{fhirurl}}/Goal
+PUT {{fhirurl}}/Goal/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/Goal.json
 
 ### US Core Immunization
-POST {{fhirurl}}/Immunization
+PUT {{fhirurl}}/Immunization/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/Immunization.json
 
 ### US Core MedicationRequest
-POST {{fhirurl}}/MedicationRequest
+PUT {{fhirurl}}/MedicationRequest/example
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./ResourceExamples/MedicationRequest.json
 
 ### US Core Ped Head Occipital-frontal Circum Percentile
-POST {{fhirurl}}/Observation
+PUT {{fhirurl}}/Observation/example-ofc-percentile
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 

@@ -1,6 +1,6 @@
 {
   "resourceType": "CarePlan",
-  "id": "colonoscopy",
+  "id": "example",
   "meta": {
     "extension": [
       {

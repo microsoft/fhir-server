@@ -1,6 +1,6 @@
 {
     "resourceType": "Encounter",
-    "id": "1036",
+    "id": "example",
     "meta": {
       "extension": [
         {
@@ -20,7 +20,22 @@
       "status": "generated",
       "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource \"1036\" </p><p style=\"margin-bottom: 0px\">Profile: <a href=\"StructureDefinition-us-core-encounter.html\">US Core Encounter Profile</a></p></div><p><b>status</b>: in-progress</p><p><b>class</b>: inpatient encounter (Details: http://terminology.hl7.org/CodeSystem/v3-ActCode code IMP = 'inpatient encounter', stated as 'inpatient encounter')</p><p><b>type</b>: Unknown (qualifier value) <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#261665006)</span></p><p><b>subject</b>: <a href=\"Patient-example.html\">Patient/example</a> \" SHAW\"</p><h3>Hospitalizations</h3><table class=\"grid\"><tr><td>-</td><td><b>DischargeDisposition</b></td></tr><tr><td>*</td><td>Discharged to Home <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (patient-discharge#01)</span></td></tr></table><h3>Locations</h3><table class=\"grid\"><tr><td>-</td><td><b>Location</b></td></tr><tr><td>*</td><td><a href=\"Location-hospital.html\">Location/hospital: Holy Family Hospital</a> \"Holy Family Hospital\"</td></tr></table></div>"
     },
+    "identifier": [
+      {
+        "use": "temp",
+        "value": "Encounter_Roel_20130404",
+        "system": "http://hl7.org/fhir/sid/us-ssn"
+      }
+    ],
     "status": "in-progress",
+    "statusHistory": [
+      {
+        "status": "arrived",
+        "period": {
+          "start": "2013-03-08"
+        }
+      }
+    ],
     "class": {
       "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
       "code": "IMP",
@@ -39,8 +54,40 @@
       }
     ],
     "subject": {
-      "reference": "Patient/example"
+      "reference": "Patient/example",
+      "type" : "Patient"
     },
+    "period": {
+      "start": "2013-03-11",
+      "end": "2013-03-20"
+    },
+    "participant": [
+      {
+        "individual": {
+          "reference": "Patient/example"
+        },
+        "period": {
+          "start": "2013-03-11",
+          "end": "2013-03-20"
+        },
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+                "code": "ADM",
+                "display": "admitter"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "reasonCode": [
+      {
+        "text": "The patient had fever peaks over the last couple of days. He is worried about these peaks."
+      }
+    ],
     "hospitalization": {
       "dischargeDisposition": {
         "coding": [
@@ -55,7 +102,7 @@
     "location": [
       {
         "location": {
-          "reference": "Location/hospital",
+          "reference": "Location/example",
           "display": "Holy Family Hospital"
         }
       }

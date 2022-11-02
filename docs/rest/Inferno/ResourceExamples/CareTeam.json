@@ -47,7 +47,7 @@
         }
       ],
       "member" : {
-        "reference" : "Practitioner/practitioner-2",
+        "reference" : "Practitioner/example",
         "display" : "Kathy Fielding, MD"
       }
     },

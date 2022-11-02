@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "respiratory-rate",
+    "id": "example-respiratory-rate",
     "meta": {
       "extension": [
         {

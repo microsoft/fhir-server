@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "oxygen-saturation",
+    "id": "example-oxygen-saturation",
     "meta": {
       "extension": [
         {
@@ -55,6 +55,123 @@
     "encounter": {
       "display": "GP Visit"
     },
+    "component": [
+      {
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "32406-1",
+              "display": "1 minute Apgar Color"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "249227004",
+              "display": "Apgar color score"
+            }
+          ],
+          "text": "Apgar color score"
+        },
+        "valueQuantity" : {
+          "value" : 99.0,
+          "unit" : "%O2",
+          "system" : "http://unitsofmeasure.org",
+          "code" : "%"
+        }
+      },
+      {
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "32407-9",
+              "display": "1 minute Apgar Heart Rate"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "249223000",
+              "display": "Apgar heart rate score"
+            }
+          ],
+          "text": "Apgar respiratory effort score"
+        },
+        "valueQuantity" : {
+          "value" : 99.0,
+          "unit" : "%O2",
+          "system" : "http://unitsofmeasure.org",
+          "code" : "%"
+        }
+      },
+      {
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "32409-5",
+              "display": "1 minute Apgar Reflex Irritability"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "249226008",
+              "display": "Apgar response to stimulus score"
+            }
+          ],
+          "text": "Apgar response to stimulus score"
+        },
+        "valueQuantity" : {
+          "value" : 99.0,
+          "unit" : "%O2",
+          "system" : "http://unitsofmeasure.org",
+          "code" : "%"
+        }
+      },
+      {
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "32408-7",
+              "display": "1 minute Apgar Muscle Tone"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "249225007",
+              "display": "Apgar muscle tone score"
+            }
+          ],
+          "text": "Apgar muscle tone score"
+        },
+        "valueQuantity" : {
+          "value" : 99.0,
+          "unit" : "%O2",
+          "system" : "http://unitsofmeasure.org",
+          "code" : "%"
+        }
+      },
+      {
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "32410-3",
+              "display": "1 minute Apgar Respiratory effort"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "249224006",
+              "display": "Apgar respiratory effort score"
+            }
+          ],
+          "text": "Apgar respiratory effort score"
+        },
+        "valueQuantity" : {
+          "value" : 99.0,
+          "unit" : "%O2",
+          "system" : "http://unitsofmeasure.org",
+          "code" : "%"
+        }
+      }
+    ],
     "effectiveDateTime": "1999-07-02",
     "valueQuantity": {
       "value": 99.0,

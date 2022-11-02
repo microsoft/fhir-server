@@ -1,6 +1,6 @@
 {
     "resourceType": "Device",
-    "id": "udi-2",
+    "id": "example",
     "meta": {
       "extension": [
         {
@@ -28,7 +28,9 @@
       }
     ],
     "status": "active",
+    "distinctIdentifier": "ABCDevice",
     "manufacturer": "ACME Biomedical",
+    "manufactureDate": "2021-01-01",
     "expirationDate": "2022-01-01",
     "lotNumber": "M320",
     "serialNumber": "AC221",

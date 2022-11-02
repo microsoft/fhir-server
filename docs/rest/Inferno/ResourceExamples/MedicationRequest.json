@@ -1,6 +1,6 @@
 {
     "resourceType": "MedicationRequest",
-    "id": "self-tylenol",
+    "id": "example",
     "meta": {
       "extension": [
         {
@@ -45,7 +45,7 @@
       "display": "Amy V. Shaw"
     },
     "encounter": {
-      "reference": "Encounter/example-1",
+      "reference": "Encounter/example",
       "display": "Office Visit"
     },
     "authoredOn": "2019-06-24",

@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "blood-glucose",
+    "id": "example-blood-glucose",
     "meta": {
       "extension": [
         {

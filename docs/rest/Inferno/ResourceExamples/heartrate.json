@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "heart-rate",
+    "id": "example-heart-rate",
     "meta": {
       "extension": [
         {

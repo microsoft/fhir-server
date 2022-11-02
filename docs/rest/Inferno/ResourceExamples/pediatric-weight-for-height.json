@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "pediatric-wt-example",
+    "id": "example-pediatric-wt",
     "meta": {
       "extension": [
         {
@@ -44,7 +44,7 @@
       "text": "BMI"
     },
     "subject": {
-      "reference": "Patient/infant-example",
+      "reference": "Patient/example",
       "display": "Infant Example"
     },
     "encounter": {

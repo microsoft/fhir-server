@@ -1,6 +1,6 @@
 {
     "resourceType": "Condition",
-    "id": "condition-SDOH-example",
+    "id": "example",
     "meta": {
       "extension": [
         {

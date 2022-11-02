@@ -1,6 +1,6 @@
 {
     "resourceType": "Observation",
-    "id": "temperature",
+    "id": "example-temperature",
     "meta": {
       "extension": [
         {
