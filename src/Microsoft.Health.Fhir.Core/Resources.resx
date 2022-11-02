@@ -678,6 +678,10 @@
   <data name="FhirUserClaimInvalidFormat" xml:space="preserve">
     <value>The fhirUser claim must be a URI with an ending format of &lt;resourceType&gt;/&lt;resourceId&gt;.</value>
   </data>
+  <data name="FhirUserClaimIsNotAValidResource" xml:space="preserve">
+    <value>Provided fhirUser claim {0} is not a valid resource in this fhir server.</value>
+    <comment>{0} is a url of a fhir resource.</comment>
+  </data>  
   <data name="InternalServerError" xml:space="preserve">
     <value>An internal error has occurred. If this problem persists, please contact Customer Support.</value>
   </data>

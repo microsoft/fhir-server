@@ -458,6 +458,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Provided fhirUser claim {0} is not a valid resource in this fhir server..
+        /// </summary>
+        internal static string FhirUserClaimIsNotAValidResource {
+            get {
+                return ResourceManager.GetString("FhirUserClaimIsNotAValidResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id..
         /// </summary>
         internal static string FhirUserClaimMustHaveResourceTypeAndId {
