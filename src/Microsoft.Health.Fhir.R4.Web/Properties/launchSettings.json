@@ -25,7 +25,7 @@
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4_41;Integrated Security=true;TrustServerCertificate=true",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true;TrustServerCertificate=true",
                 "DataStore": "SqlServer",
                 "TaskHosting:Enabled": "true",
                 "TaskHosting:MaxRunningTaskCount": "2",
