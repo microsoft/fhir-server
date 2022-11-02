@@ -355,21 +355,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 periodSec = 1;
             }
 
-            var heartbeat = new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(periodSec)), heartbeatPeriod);
+            Timer heartbeat = null;
             try
             {
+                heartbeat = new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(periodSec)), heartbeatPeriod);
                 await action(cancellationToken);
             }
             finally
             {
-                await heartbeat.DisposeAsync();
+                if (heartbeat != null)
+                {
+                    await heartbeat.DisposeAsync();
+                }
             }
         }
 
         private void PutJobHeartbeatFireAndForget(byte queueType, long jobId, long version, CancellationToken cancellationToken)
         {
-            var jobInfo = new JobInfo() { QueueType = queueType, Id = jobId, Version = version };
-            KeepAliveJobAsync(jobInfo, cancellationToken).Wait(cancellationToken);
+            KeepAliveJobAsync(new JobInfo() { QueueType = queueType, Id = jobId, Version = version }, cancellationToken).Wait(cancellationToken);
         }
     }
 }
