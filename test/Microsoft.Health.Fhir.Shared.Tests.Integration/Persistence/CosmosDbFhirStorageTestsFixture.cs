@@ -183,6 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, _fhirRequestContextAccessor, sortingValidator, NullLogger<SearchOptionsFactory>.Instance);
 
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
+            await compartmentDefinitionManager.StartAsync(CancellationToken.None);
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
             ICosmosDbCollectionPhysicalPartitionInfo cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbCollectionPhysicalPartitionInfo>();

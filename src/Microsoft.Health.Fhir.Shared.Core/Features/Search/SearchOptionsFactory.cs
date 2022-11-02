@@ -66,20 +66,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
         {
-            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
-            {
-                if (_contextAccessor.RequestContext?.AccessControlContext.CompartmentResourceType != null &&
-                    _contextAccessor.RequestContext?.AccessControlContext.CompartmentId != null)
-                {
-                    return Create(
-                        _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType,
-                        _contextAccessor.RequestContext.AccessControlContext.CompartmentId,
-                        resourceType,
-                        queryParameters,
-                        isAsyncOperation);
-                }
-            }
-
             return Create(null, null, resourceType, queryParameters, isAsyncOperation);
         }
 
@@ -309,11 +295,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, smartUserCompartment: false, resourceTypesString));
                 }
                 else
                 {
                     throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_contextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType))
+            {
+                var smartCompartmentType = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType;
+                var smartCompartmentId = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentId;
+
+                if (Enum.TryParse(smartCompartmentType, out CompartmentType parsedCompartmentType))
+                {
+                    if (string.IsNullOrWhiteSpace(smartCompartmentId))
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
+                    }
+
+                    searchExpressions.Add(Expression.CompartmentSearch(smartCompartmentType, smartCompartmentId, smartUserCompartment: true, resourceTypesString));
+                }
+                else
+                {
+                    throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                 }
             }
 

@@ -343,8 +343,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("SELECT ")
                 .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1");
+
+            var searchParameterExpressionPredicate = searchParamTableExpression.Predicate as SearchParameterExpression;
+
+            // handle special case where we want to Union a specific resource to the results
+            if (searchParameterExpressionPredicate != null &&
+                searchParameterExpressionPredicate.Parameter.Name == SearchParameterNames.Id)
+            {
+                StringBuilder.Append("FROM ").AppendLine(new VLatest.ResourceTable());
+            }
+            else
+            {
+                StringBuilder.Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+            }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
