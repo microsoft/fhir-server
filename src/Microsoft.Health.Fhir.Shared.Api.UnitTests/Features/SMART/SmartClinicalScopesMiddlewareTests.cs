@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             HttpContext httpContext = new DefaultHttpContext();
 
             var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
             authorizationConfiguration.Enabled = true;
             await LoadRoles(authorizationConfiguration);
@@ -80,9 +81,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
-        [InlineData("smartUser", true)]
-        [InlineData("globalAdmin", false)]
-        public async Task GivenSmartDataAction_WhenInvoked_ThenApplyFineGrainedAccessControlIsSet(string role, bool expectedApplyFineGrainedAccessControl)
+        [InlineData("smartUser", true, true)]
+        [InlineData("globalAdmin", true, false)]
+        [InlineData("smartUser", false, false)]
+        [InlineData("globalAdmin", false, false)]
+        public async Task GivenSmartDataAction_WhenInvoked_ThenApplyFineGrainedAccessControlIsSet(string role, bool securityEnabled, bool expectedApplyFineGrainedAccessControl)
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
@@ -93,6 +96,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             HttpContext httpContext = new DefaultHttpContext();
 
             var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = securityEnabled;
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
             authorizationConfiguration.Enabled = true;
             await LoadRoles(authorizationConfiguration);
@@ -124,6 +128,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             HttpContext httpContext = new DefaultHttpContext();
 
             var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
             authorizationConfiguration.Enabled = true;
             authorizationConfiguration.ErrorOnMissingFhirUserClaim = true;

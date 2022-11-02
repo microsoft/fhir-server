@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             var authorizationConfiguration = securityConfigurationOptions.Value.Authorization;
 
             if (fhirRequestContextAccessor.RequestContext.Principal != null
+                && securityConfigurationOptions.Value.Enabled
                 && authorizationConfiguration.Enabled)
             {
                 var fhirRequestContext = fhirRequestContextAccessor.RequestContext;
