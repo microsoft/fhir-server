@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             cancel.CancelAfter(TimeSpan.FromSeconds(30));
             var execDate = DateTime.UtcNow;
             var dequeueDate = DateTime.UtcNow;
-            var execTask = client.ExecuteWithHeartbeatAsync(
+            var execTask = client.ExecuteJobWithHeartbeatAsync(
                 queueType,
                 job.Id,
                 job.Version,

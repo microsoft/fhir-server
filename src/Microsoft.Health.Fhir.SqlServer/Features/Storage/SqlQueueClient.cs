@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -344,62 +345,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        public async Task ExecuteWithHeartbeatAsync(byte queueType, long jobId, long version, Func<CancellationToken, Task> action, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        public async Task ExecuteJobWithHeartbeatAsync(byte queueType, long jobId, long version, Func<CancellationToken, Task> action, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
-            using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            using var timer = new PeriodicTimer(heartbeatPeriod);
-
-            CancellationToken timerToken = tokenSource.Token;
-
-            Task heartBeatTask = HeartbeatLoopAsync(queueType, jobId, version, timer, timerToken);
-            Task<Task> actionTask = action.Invoke(timerToken).ContinueWith(
-                _ =>
-                {
-                    tokenSource.Cancel();
-                    return Task.CompletedTask;
-                },
-                TaskScheduler.Current);
-
+            var heartbeat = new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32((int)heartbeatPeriod.TotalSeconds)), heartbeatPeriod);
             try
             {
-                await Task.WhenAll(actionTask, heartBeatTask);
+                await action(cancellationToken);
             }
-            catch (OperationCanceledException) when (tokenSource.IsCancellationRequested)
+            finally
             {
-                // ending heartbeat loop
-            }
-            catch (SqlException e) when (tokenSource.IsCancellationRequested)
-            {
-                if (!e.Message.Contains("cancelled by user", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "ExecWithHeartbeatAsync failed.");
-                throw;
-            }
-
-            if (!actionTask.IsCompleted)
-            {
-                await actionTask;
+                await heartbeat.DisposeAsync();
             }
         }
 
-        private async Task HeartbeatLoopAsync(byte queueType, long jobId, long version, PeriodicTimer timer, CancellationToken cancellationToken)
+        private void PutJobHeartbeatFireAndForget(byte queueType, long jobId, long version)
         {
-            EnsureArg.IsNotNull(timer, nameof(timer));
-
-            var heartbeats = 0;
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                await timer.WaitForNextTickAsync(cancellationToken);
-                await KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationToken);
-                _logger.LogDebug("HeartbeatLoopAsync Job={JobId} Version={Version}: logged heartbeat={Heartbeats}.", jobId, version, ++heartbeats);
-            }
+            var jobInfo = new JobInfo() { QueueType = queueType, Id = jobId, Version = version };
+            KeepAliveJobAsync(jobInfo, CancellationToken.None).Wait();
         }
     }
 }
