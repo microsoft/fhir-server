@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
 {
     public class ReferenceSearchParam : PrimaryKey
     {
-        public ReferenceSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input)
+        public ReferenceSearchParam(TransactionId transactionId, ShardletId shardletId, short sequence, DataRow input, string resourceId = null)
         {
             ResourceTypeId = (short)input["ResourceTypeId"];
             TransactionId = transactionId;
@@ -37,9 +37,10 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             }
 
             IsHistory = false;
+            ResourceId = resourceId;
         }
 
-        public ReferenceSearchParam(SqlDataReader reader, bool isSharded, string suffix = null)
+        public ReferenceSearchParam(SqlDataReader reader, bool isSharded, string suffix = null, IDictionary<(ShardletId shardletId, short sequence), string> resourceIdMap = null)
         {
             if (isSharded)
             {
@@ -53,6 +54,10 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 ReferenceResourceId = suffix == null ? reader.GetString(7) : $"{reader.GetString(7)}{suffix}";
                 ReferenceResourceVersion = reader.IsDBNull(8) ? null : reader.GetInt32(8);
                 IsHistory = reader.GetBoolean(9);
+                if (resourceIdMap != null)
+                {
+                    ResourceId = resourceIdMap[(ShardletId, Sequence)];
+                }
             }
             else
             {
@@ -79,6 +84,8 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         public int? ReferenceResourceVersion { get; }
 
         public bool IsHistory { get; }
+
+        public string ResourceId { get; }
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]

@@ -176,16 +176,17 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         {
             var sw = Stopwatch.StartNew();
             var resources = GetData(_ => new Resource(_, true), resourceTypeId, transactionId);
-            var referenceSearchParams = GetData(_ => new ReferenceSearchParam(_, true), resourceTypeId, transactionId);
-            var tokenSearchParams = GetData(_ => new TokenSearchParam(_, true), resourceTypeId, transactionId);
-            var compartmentAssignments = GetData(_ => new CompartmentAssignment(_, true), resourceTypeId, transactionId);
-            var tokenTexts = GetData(_ => new TokenText(_, true), resourceTypeId, transactionId);
-            var dateTimeSearchParams = GetData(_ => new DateTimeSearchParam(_, true), resourceTypeId, transactionId);
-            var tokenQuantityCompositeSearchParams = GetData(_ => new TokenQuantityCompositeSearchParam(_, true), resourceTypeId, transactionId);
-            var quantitySearchParams = GetData(_ => new QuantitySearchParam(_, true), resourceTypeId, transactionId);
-            var stringSearchParams = GetData(_ => new StringSearchParam(_, true), resourceTypeId, transactionId);
-            var tokenTokenCompositeSearchParams = GetData(_ => new TokenTokenCompositeSearchParam(_, true), resourceTypeId, transactionId);
-            var tokenStringCompositeSearchParams = GetData(_ => new TokenStringCompositeSearchParam(_, true), resourceTypeId, transactionId);
+            var resourceIdMap = resources.ToDictionary(_ => (_.ShardletId, _.Sequence), _ => _.ResourceId);
+            var referenceSearchParams = GetData(_ => new ReferenceSearchParam(_, true, null, resourceIdMap), resourceTypeId, transactionId);
+            var tokenSearchParams = GetData(_ => new TokenSearchParam(_, true, resourceIdMap), resourceTypeId, transactionId);
+            var compartmentAssignments = GetData(_ => new CompartmentAssignment(_, true, null, resourceIdMap), resourceTypeId, transactionId);
+            var tokenTexts = GetData(_ => new TokenText(_, true, resourceIdMap), resourceTypeId, transactionId);
+            var dateTimeSearchParams = GetData(_ => new DateTimeSearchParam(_, true, resourceIdMap), resourceTypeId, transactionId);
+            var tokenQuantityCompositeSearchParams = GetData(_ => new TokenQuantityCompositeSearchParam(_, true, resourceIdMap), resourceTypeId, transactionId);
+            var quantitySearchParams = GetData(_ => new QuantitySearchParam(_, true, resourceIdMap), resourceTypeId, transactionId);
+            var stringSearchParams = GetData(_ => new StringSearchParam(_, true, resourceIdMap), resourceTypeId, transactionId);
+            var tokenTokenCompositeSearchParams = GetData(_ => new TokenTokenCompositeSearchParam(_, true, resourceIdMap), resourceTypeId, transactionId);
+            var tokenStringCompositeSearchParams = GetData(_ => new TokenStringCompositeSearchParam(_, true, resourceIdMap), resourceTypeId, transactionId);
             var rows = 0;
 
             if (_writesEnabled)

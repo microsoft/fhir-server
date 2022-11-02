@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             IsHistory = false;
         }
 
-        public QuantitySearchParam(SqlDataReader reader, bool isSharded)
+        public QuantitySearchParam(SqlDataReader reader, bool isSharded, IDictionary<(ShardletId shardletId, short sequence), string> resourceIdMap = null)
         {
             if (isSharded)
             {
@@ -60,6 +60,10 @@ namespace Microsoft.Health.Fhir.Store.Sharding
                 LowValue = reader.GetDecimal(8);
                 HighValue = reader.GetDecimal(9);
                 IsHistory = reader.GetBoolean(10);
+                if (resourceIdMap != null)
+                {
+                    ResourceId = resourceIdMap[(ShardletId, Sequence)];
+                }
             }
             else
             {
@@ -88,6 +92,8 @@ namespace Microsoft.Health.Fhir.Store.Sharding
         public decimal HighValue { get; }
 
         public bool IsHistory { get; }
+
+        public string ResourceId { get; }
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Readability")]
