@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class MissingDataFilterCriteriaTests
     {
-        [Theory]
+        [SkippableTheory]
         [InlineData(USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlCompliantDataSamplesFileName)]
         public void WhenApplyingFilteringCriteria_IfAllDataIsCompliant_ThenShowDataAsIs(string fileName)
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenApplyingFilteringCriteria_IfNoMissingStatusElements_ThenShowDataAsIs(string fileName)
