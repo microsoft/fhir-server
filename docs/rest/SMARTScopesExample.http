@@ -21,9 +21,36 @@ grant_type=client_credentials
 &client_secret=globalAdminServicePrincipal
 &scope=patient/Observation.read fhirUser fhir-api user/Encounter.*
 
+### GET
+https://localhost:44348/_operations/export/a6abdbf4-f5a6-4feb-a795-7c76cabcca69
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Export smart patient compartment
+GET https://{{hostname}}/Group/smart-group-1/$export
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+Accept: application/fhir+json
+Prefer: respond-async
+
+### Get the smartUser bearer token, for testing scopes
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/*.*
+
+
+### Get groups
+GET https://{{hostname}}/Group
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Get all resource in a patient's compartment
-GET https://{{hostname}}/Patient/smartUserClient/*
+GET https://{{hostname}}/Location
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
