@@ -2419,16 +2419,6 @@
 				  "unit": "%O2",
 				  "system": "http://unitsofmeasure.org",
 				  "code": "%"
-				},
-				"dataAbsentReason":{
-					"coding":[
-						{
-							"system":"http://terminology.hl7.org/CodeSystem/data-absent-reason",
-							"code":"unknown",
-							"display":"Unknown"
-						}
-					],
-					"text":"Unknown"
 				}
 			},
 			"request": {
