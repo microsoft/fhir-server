@@ -349,13 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
-            var periodSec = (int)heartbeatPeriod.TotalSeconds;
-            if (periodSec == 0)
-            {
-                periodSec = 1;
-            }
-
-            using (var heartbeat = new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(periodSec)), heartbeatPeriod))
+            using (var heartbeat = new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 await action(cancellationToken);
             }
