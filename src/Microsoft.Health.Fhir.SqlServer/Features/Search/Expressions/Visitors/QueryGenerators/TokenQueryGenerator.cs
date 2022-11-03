@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (context.SchemaInformation.Current >= SchemaVersionConstants.TokenOverflow)
                     {
                         // Temporary fix, once all of the databases are reindexed truncation128 should be removed.
-                        bool truncation128 = expression.Value.Length >= 128;
+                        bool truncation128 = expression.Value.Length > 128;
                         if (truncation128)
                         {
                             context.StringBuilder.Append("((");
