@@ -50,10 +50,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case FieldName.TokenCode:
                     if (context.SchemaInformation.Current >= SchemaVersionConstants.TokenOverflow)
                     {
+                        // Temporary fix, once all of the databases are reindexed truncation128 should be removed.
                         bool truncation128 = expression.Value.Length >= 128;
                         if (truncation128)
                         {
-                            context.StringBuilder.Append(" (");
+                            context.StringBuilder.Append("(");
                         }
 
                         if (expression.Value.Length < VLatest.TokenSearchParam.Code.Metadata.MaxLength)
@@ -85,9 +86,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                         if (truncation128)
                         {
-                            context.StringBuilder.Append(" ) OR (");
+                            context.StringBuilder.Append(") OR (");
                             VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
-                            context.StringBuilder.Append(" )");
+                            context.StringBuilder.Append(")");
                         }
                     }
                     else
