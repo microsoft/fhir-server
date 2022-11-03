@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     break;
                                 case "*":
                                 case AllDataActions:
-                                    permittedDataActions |= DataActions.Read | DataActions.Write;
+                                    permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
                                     break;
                             }
 
