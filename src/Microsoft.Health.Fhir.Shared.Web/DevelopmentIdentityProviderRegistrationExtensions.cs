@@ -21,6 +21,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.SqlServer.Management.Smo;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -100,20 +101,17 @@ namespace Microsoft.Health.Fhir.Web
                                     ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
 
                                     // scopes that client has access to
-                                    AllowedScopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient, "fhirUser"}.Concat(smartScopes.Select(s => s.Name)).ToList(),
+                                    AllowedScopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient, "fhirUser" }.Concat(smartScopes.Select(s => s.Name)).ToList(),
 
                                     // app roles that the client app may have
                                     Claims = applicationConfiguration.Roles.Select(
                                         r => new ClientClaim(authorizationConfiguration.RolesClaim, r))
-                                            .Concat(new[]
-                                                    {
-                                                        new ClientClaim("appid", applicationConfiguration.Id),
-                                                        new ClientClaim("fhirUser", "https://localhost:44348/Patient/" + applicationConfiguration.Id),
-                                                    })
+                                            .Concat(CreateFhirUserClaims(applicationConfiguration.Id))
                                             .ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
-                                }));
+                                }))
+                ;
             }
 
             return services;
@@ -186,6 +184,30 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             return scopes;
+        }
+
+        private static IEnumerable<ClientClaim> CreateFhirUserClaims(string userId)
+        {
+            string userType = null;
+
+            if (userId.Contains("patient", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "Patient";
+            }
+            else if (userId.Contains("practitioner", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "Practitioner";
+            }
+            else if (userId.Contains("system", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "System";
+            }
+
+            return new ClientClaim[]
+            {
+                new ClientClaim("appid", userId),
+                new ClientClaim("fhirUser", $"https://localhost:44348/{userType}/" + userId),
+            };
         }
 
         private class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource

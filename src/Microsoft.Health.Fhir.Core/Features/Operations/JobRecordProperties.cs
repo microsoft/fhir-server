@@ -136,5 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TypeId = "typeId";
 
         public const string Parallel = "parallel";
+
+        public const string Smart = "smart";
     }
 }
