@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class MissingDataFilterCriteriaTests
     {
-        [SkippableTheory]
+        [Theory]
         [InlineData(USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlCompliantDataSamplesFileName)]
         public void WhenApplyingFilteringCriteria_IfAllDataIsCompliant_ThenShowDataAsIs(string fileName)
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
 
             SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-            IFilterCriteria searchResultFilter = new MissingDataFilterCriteria(isCriteriaEnabled, isSmartRequest);
+            IFilterCriteria searchResultFilter = USCoreTestHelper.GetMissingDataFilterCriteria(isCriteriaEnabled, isSmartRequest);
             SearchResult filteredSearchResult = searchResultFilter.Apply(searchResult);
 
             Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
             Assert.Equal(searchResult.SortOrder, filteredSearchResult.SortOrder);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenApplyingFilteringCriteria_IfNoMissingStatusElements_ThenShowDataAsIs(string fileName)
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search.Filters
 
             SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-            IFilterCriteria searchResultFilter = new MissingDataFilterCriteria(isCriteriaEnabled, isSmartRequest);
+            IFilterCriteria searchResultFilter = USCoreTestHelper.GetMissingDataFilterCriteria(isCriteriaEnabled, isSmartRequest);
             SearchResult filteredSearchResult = searchResultFilter.Apply(searchResult);
 
             Assert.NotEqual(searchResult.Results.Count(), filteredSearchResult.Results.Count());

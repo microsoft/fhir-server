@@ -9,6 +9,10 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 using EnsureThat;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -35,11 +39,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 
         private readonly bool _isSmartRequest;
 
-        public MissingDataFilterCriteria(bool isCriteriaEnabled, bool isSmartRequest)
+        public MissingDataFilterCriteria(IOptions<ImplementationGuidesConfiguration> implementationGuides, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        {
+            _isCriteriaEnabled = implementationGuides?.Value?.USCore?.MissingData ?? false;
+            _isSmartRequest = fhirRequestContextAccessor?.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl ?? false;
+        }
+
+        private MissingDataFilterCriteria(bool isCriteriaEnabled, bool isSmartRequest)
         {
             _isCriteriaEnabled = isCriteriaEnabled;
             _isSmartRequest = isSmartRequest;
         }
+
+        public static MissingDataFilterCriteria Default => new MissingDataFilterCriteria(isCriteriaEnabled: false, isSmartRequest: false);
 
         public SearchResult Apply(SearchResult searchResult)
         {

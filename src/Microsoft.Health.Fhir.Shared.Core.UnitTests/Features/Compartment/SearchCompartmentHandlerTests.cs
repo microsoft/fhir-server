@@ -9,6 +9,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
                 _searchService,
                 _bundleFactory,
                 DisabledFhirAuthorizationService.Instance,
-                SearchResultFilter.Default);
+                new SearchResultFilter(MissingDataFilterCriteria.Default));
         }
 
         [Fact]

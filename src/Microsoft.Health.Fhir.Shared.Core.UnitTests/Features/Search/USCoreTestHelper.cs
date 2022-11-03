@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
@@ -163,9 +164,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
         public static ISearchResultFilter GetSearchResultFilter(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest)
         {
+            return new SearchResultFilter(GetMissingDataFilterCriteria(isUSCoreMissingDataEnabled, isSmartUserRequest));
+        }
+
+        public static MissingDataFilterCriteria GetMissingDataFilterCriteria(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest)
+        {
             if (!isUSCoreMissingDataEnabled && !isSmartUserRequest)
             {
-                return SearchResultFilter.Default;
+                return MissingDataFilterCriteria.Default;
             }
 
             // Setting up Implementation Guides Configuration with "US Core Missing Data" enabled or disabled.
@@ -176,13 +182,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                     MissingData = isUSCoreMissingDataEnabled,
                 },
             };
+
             IOptions<ImplementationGuidesConfiguration> implementationGuidesConfig = Substitute.For<IOptions<ImplementationGuidesConfiguration>>();
             implementationGuidesConfig.Value.Returns(implementationGuidesConfiguration);
 
             // Simulating a FHIR Request Context with or without SMART user.
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor = GetRequestContext(isSmartUserRequest);
 
-            return new SearchResultFilter(implementationGuidesConfig, fhirRequestContextAccessor);
+            return new MissingDataFilterCriteria(implementationGuidesConfig, fhirRequestContextAccessor);
         }
 
         private static string GetSamplesFromFile(string fileName)

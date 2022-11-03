@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.SmartOnFhir)]
     public sealed class SearchResultFilterTests
     {
-        [SkippableTheory]
+        [Theory]
         [InlineData(true, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(false, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
         [InlineData(true, false, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(true, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(true, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(false, USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(true, USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
             Assert.True(entries.Count == filteredSearchResult.Results.Count(), $"This test expects one entry for each record. Currently there are {entries.Count} operation outcomes for {filteredSearchResult.SearchIssues.Count} results.");
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
         [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
         public void WhenFilteringResults_IfMissingStatusElements_ThenReturnOperationOutcomeWith404(string fileName)
