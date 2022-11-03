@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         bool truncation128 = expression.Value.Length >= 128;
                         if (truncation128)
                         {
-                            context.StringBuilder.Append("(");
+                            context.StringBuilder.Append("((");
                         }
 
                         if (expression.Value.Length < VLatest.TokenSearchParam.Code.Metadata.MaxLength)
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             context.StringBuilder.Append(") OR (");
                             VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
-                            context.StringBuilder.Append(")");
+                            context.StringBuilder.Append("))");
                         }
                     }
                     else
