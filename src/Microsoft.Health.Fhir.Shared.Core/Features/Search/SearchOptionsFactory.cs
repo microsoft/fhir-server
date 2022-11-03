@@ -295,7 +295,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, smartUserCompartment: false, resourceTypesString));
+                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
                 }
                 else
                 {
@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(smartCompartmentType, smartCompartmentId, smartUserCompartment: true, resourceTypesString));
+                    searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId));
                 }
                 else
                 {

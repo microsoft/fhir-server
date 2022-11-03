@@ -292,12 +292,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="compartmentType">The compartment type.</param>
         /// <param name="compartmentId">The compartment id.</param>
-        /// <param name="smartUserCompartment">True is this compartment expression is being added due to smart restrictions</param>
         /// <param name="filteredResourceTypes">Resource types to filter on</param>
         /// <returns>A <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.</returns>
-        public static CompartmentSearchExpression CompartmentSearch(string compartmentType, string compartmentId, bool smartUserCompartment = false, params string[] filteredResourceTypes)
+        public static CompartmentSearchExpression CompartmentSearch(string compartmentType, string compartmentId, params string[] filteredResourceTypes)
         {
-            return new CompartmentSearchExpression(compartmentType, compartmentId, smartUserCompartment, filteredResourceTypes);
+            return new CompartmentSearchExpression(compartmentType, compartmentId, filteredResourceTypes);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="SmartCompartmentSearchExpression"/> that filters all results by the smart user's compartment.
+        /// </summary>
+        /// <param name="compartmentType">The compartment type.</param>
+        /// <param name="compartmentId">The compartment id.</param>
+        /// <returns>A <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.</returns>
+        public static SmartCompartmentSearchExpression SmartCompartmentSearch(string compartmentType, string compartmentId)
+        {
+            return new SmartCompartmentSearchExpression(compartmentType, compartmentId);
         }
 
         public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);

@@ -349,7 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // handle special case where we want to Union a specific resource to the results
             if (searchParameterExpressionPredicate != null &&
-                searchParameterExpressionPredicate.Parameter.Name == SearchParameterNames.Id)
+                searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
             {
                 StringBuilder.Append("FROM ").AppendLine(new VLatest.ResourceTable());
             }

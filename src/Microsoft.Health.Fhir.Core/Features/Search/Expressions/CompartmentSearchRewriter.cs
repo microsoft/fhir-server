@@ -28,8 +28,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override Expression VisitCompartment(CompartmentSearchExpression expression, object context)
         {
+            var compartmentSearchExpressionsGrouped = BuildCompartmentSearchExpressionsGroup(expression);
+
+            Expression compartmentExpression = null;
+
+            if (compartmentSearchExpressionsGrouped.Count > 1)
+            {
+                compartmentExpression = Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
+            }
+            else if (compartmentSearchExpressionsGrouped.Count == 1)
+            {
+                compartmentExpression = compartmentSearchExpressionsGrouped[0];
+            }
+
+            return compartmentExpression;
+        }
+
+        internal List<Expression> BuildCompartmentSearchExpressionsGroup(CompartmentSearchExpression expression)
+        {
             SearchParameterInfo resourceTypeSearchParameter = _searchParameterDefinitionManager.Value.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
-            SearchParameterInfo idSearchParameter = _searchParameterDefinitionManager.Value.GetSearchParameter(expression.CompartmentType, SearchParameterNames.Id);
 
             var compartmentType = expression.CompartmentType;
             var compartmentId = expression.CompartmentId;
@@ -86,10 +103,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     }
                 }
 
+                var compartmentSearchExpressionsGrouped = new List<Expression>();
+
                 if (compartmentSearchExpressions.Any())
                 {
-                    var compartmentSearchExpressionsGrouped = new List<Expression>();
-
                     foreach (var grouping in compartmentSearchExpressions)
                     {
                         // When we're searching more than 1 compartment resource type (i.e. Patient/abc/*) the search parameters need to list the applicable resource types
@@ -108,51 +125,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                             compartmentSearchExpressionsGrouped.Add(grouping.Value.Expression);
                         }
                     }
-
-                    Expression compartmentExpression = null;
-
-                    // add in the resource which is the resource that identifies this compartment
-                    if (expression.SmartUserCompartment)
-                    {
-                        compartmentSearchExpressionsGrouped.Add(
-                            Expression.SearchParameter(idSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentId, false)));
-
-                        // We want to add in the "universal" resources, which are resources that are not compartment specific
-                        var universalResourceTypes = new List<string>()
-                        {
-                            KnownResourceTypes.Location,
-                            KnownResourceTypes.Organization,
-                            KnownResourceTypes.Practitioner,
-                            KnownResourceTypes.Medication,
-                        };
-
-                        var inExpression = Expression.In(FieldName.TokenCode, null, universalResourceTypes);
-
-                        SearchParameterExpression universalResourceTypesExpression = Expression.SearchParameter(
-                            resourceTypeSearchParameter,
-                            inExpression);
-
-                        compartmentSearchExpressionsGrouped.Add(universalResourceTypesExpression);
-                    }
-
-                    if (compartmentSearchExpressionsGrouped.Count > 1)
-                    {
-                        compartmentExpression = Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
-                    }
-                    else if (compartmentSearchExpressions.Count == 1)
-                    {
-                        compartmentExpression = compartmentSearchExpressionsGrouped[0];
-                    }
-
-                    return compartmentExpression;
                 }
+                else
+                {
+                    compartmentSearchExpressionsGrouped.Add(expression);
+                }
+
+                return compartmentSearchExpressionsGrouped;
             }
             else
             {
                 throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
             }
-
-            return expression;
         }
     }
 }

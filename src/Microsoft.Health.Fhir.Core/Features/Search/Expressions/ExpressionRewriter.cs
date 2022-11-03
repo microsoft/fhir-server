@@ -93,6 +93,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
+        public virtual Expression VisitSmartCompartment(SmartCompartmentSearchExpression expression, TContext context)
+        {
+            return expression;
+        }
+
         public virtual Expression VisitInclude(IncludeExpression expression, TContext context)
         {
             return expression;
