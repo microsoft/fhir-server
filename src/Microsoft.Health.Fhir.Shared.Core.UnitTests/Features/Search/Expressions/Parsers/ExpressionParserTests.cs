@@ -37,8 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             _expressionParser = new ExpressionParser(
                 () => _searchParameterDefinitionManager,
-                _searchParameterExpressionParser,
-                _contextAccessor);
+                _searchParameterExpressionParser);
         }
 
         [Fact]
