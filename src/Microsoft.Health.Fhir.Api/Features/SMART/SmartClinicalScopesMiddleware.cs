@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -26,14 +27,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
     {
         private readonly RequestDelegate _next;
         private const string AllDataActions = "all";
+        private readonly ILogger<SmartClinicalScopesMiddleware> _logger;
 
         // Regex based on SMART on FHIR clinical scopes v1.0, http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
         private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all)", RegexOptions.Compiled);
 
-        public SmartClinicalScopesMiddleware(RequestDelegate next)
+        public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
             EnsureArg.IsNotNull(next, nameof(next));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _logger = logger;
             _next = next;
         }
 
@@ -56,6 +60,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 var principal = fhirRequestContext.Principal;
 
                 var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
+
+                _logger.LogTrace("Smart Data Action is present {Smart}", dataActions.HasFlag(DataActions.Smart));
 
                 // Only read and apply SMART clinical scopes if the user has the Smart Data action
                 if (dataActions.HasFlag(DataActions.Smart))
@@ -101,6 +107,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
 
+                                _logger.LogTrace("Resource and permitted data actions {Resource} {PermittedDataActions} ", resource, permittedDataActions);
+
                                 if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                                 {
                                     includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
@@ -108,6 +116,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                             }
                         }
                     }
+
+                    _logger.LogTrace("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
 
                     if (includeFhirUserClaim)
                     {
