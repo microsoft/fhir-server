@@ -1556,6 +1556,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}&apos; for validation: {1}.
+        /// </summary>
+        internal static string USCoreDeserializationError {
+            get {
+                return ResourceManager.GetString("USCoreDeserializationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Status code is missing for the resource &apos;{0}/{1}&apos;..
+        /// </summary>
+        internal static string USCoreMissingDataRequirement {
+            get {
+                return ResourceManager.GetString("USCoreMissingDataRequirement", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to User requested cancellation of operation..
         /// </summary>
         internal static string UserRequestedCancellation {

@@ -20,16 +20,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ISearchService _searchService;
         private readonly IBundleFactory _bundleFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IDataResourceFilter _dataResourceFilter;
 
-        public SearchResourceHistoryHandler(ISearchService searchService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService)
+        public SearchResourceHistoryHandler(ISearchService searchService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService, IDataResourceFilter dataResourceFilter)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(dataResourceFilter, nameof(dataResourceFilter));
 
             _searchService = searchService;
             _bundleFactory = bundleFactory;
             _authorizationService = authorizationService;
+            _dataResourceFilter = dataResourceFilter;
         }
 
         public async Task<SearchResourceHistoryResponse> Handle(SearchResourceHistoryRequest request, CancellationToken cancellationToken)
@@ -51,6 +54,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 request.ContinuationToken,
                 request.Sort,
                 cancellationToken);
+
+            searchResult = _dataResourceFilter.Filter(searchResult: searchResult);
 
             ResourceElement bundle = _bundleFactory.CreateHistoryBundle(searchResult);
 
