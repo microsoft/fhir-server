@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -39,11 +40,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
     {
         private readonly SmartClinicalScopesMiddleware _smartClinicalScopesMiddleware;
         private IAuthorizationService<DataActions> _authorizationService;
+        private ILogger<SmartClinicalScopesMiddleware> _logger = Substitute.For<ILogger<SmartClinicalScopesMiddleware>>();
 
         public SmartClinicalScopesMiddlewareTests()
         {
             _smartClinicalScopesMiddleware = new SmartClinicalScopesMiddleware(
-                httpContext => Task.CompletedTask);
+                httpContext => Task.CompletedTask, _logger);
         }
 
         [Theory]
