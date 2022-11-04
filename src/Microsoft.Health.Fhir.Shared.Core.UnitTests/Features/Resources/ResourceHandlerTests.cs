@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ISearchService _searchService;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ResourceDeserializer _deserializer;
+        private readonly DataResourceFilter _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
         private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
         private IAuthorizationService<DataActions> _authorizationService;
 
@@ -106,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _dataResourceFilter, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();

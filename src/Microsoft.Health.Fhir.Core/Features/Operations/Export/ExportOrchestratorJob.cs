@@ -222,7 +222,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         record.StorageAccountContainerName,
                         record.Parallel,
                         record.SchemaVersion,
-                        (int)JobType.ExportProcessing);
+                        (int)JobType.ExportProcessing,
+                        record.SmartRequest);
         }
     }
 }

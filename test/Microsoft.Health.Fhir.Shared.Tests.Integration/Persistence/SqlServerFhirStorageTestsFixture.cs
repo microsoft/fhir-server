@@ -219,6 +219,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             compartmentDefinitionManager.StartAsync(CancellationToken.None).Wait();
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
+            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -229,6 +230,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sortRewriter,
                 partitionEliminationRewriter,
                 compartmentSearchRewriter,
+                smartCompartmentSearchRewriter,
                 SqlConnectionWrapperFactory,
                 SchemaInformation,
                 _fhirRequestContextAccessor,

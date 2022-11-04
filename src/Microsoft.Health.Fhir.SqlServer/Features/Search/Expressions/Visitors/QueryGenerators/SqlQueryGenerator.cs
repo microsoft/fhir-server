@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
         private bool _unionVisited = false;
+        private bool _unionOnResourceTable = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
         public SqlQueryGenerator(
@@ -349,8 +350,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // handle special case where we want to Union a specific resource to the results
             if (searchParameterExpressionPredicate != null &&
-                searchParameterExpressionPredicate.Parameter.Name == SearchParameterNames.Id)
+                searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
             {
+                _unionOnResourceTable = true;
                 StringBuilder.Append("FROM ").AppendLine(new VLatest.ResourceTable());
             }
             else
@@ -406,10 +408,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else if (searchParamTableExpression.ChainLevel == 1 && _unionVisited)
             {
+                var tableName = searchParamTableExpression.QueryGenerator.Table;
+                if (_unionOnResourceTable)
+                {
+                    tableName = new VLatest.ResourceTable();
+                }
+
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).AppendLine(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
-                    .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
+                    .Append("FROM ").AppendLine(tableName)
                     .Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())

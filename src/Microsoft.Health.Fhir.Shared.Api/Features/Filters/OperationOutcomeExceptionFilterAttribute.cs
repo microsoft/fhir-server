@@ -118,6 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case RequestTooCostlyException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
+                    case TransactionDeadlockException _:
                     case ResourceConflictException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Conflict;
                         break;

@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
             var authorizationConfiguration = securityConfigurationOptions.Value.Authorization;
 
             if (fhirRequestContextAccessor.RequestContext.Principal != null
+                && securityConfigurationOptions.Value.Enabled
                 && authorizationConfiguration.Enabled)
             {
                 var fhirRequestContext = fhirRequestContextAccessor.RequestContext;
@@ -61,26 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 
-                    var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
-                    try
-                    {
-                        fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
-                        FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
-                    }
-                    catch (UriFormatException)
-                    {
-                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
-                        {
-                            throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
-                        }
-                    }
-                    catch (ArgumentNullException)
-                    {
-                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
-                        {
-                            throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
-                        }
-                    }
+                    bool includeFhirUserClaim = true;
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
@@ -105,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     break;
                                 case "*":
                                 case AllDataActions:
-                                    permittedDataActions |= DataActions.Read | DataActions.Write;
+                                    permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
                                     break;
                             }
 
@@ -118,6 +100,35 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 }
 
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+
+                                if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
+                                }
+                            }
+                        }
+                    }
+
+                    if (includeFhirUserClaim)
+                    {
+                        var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
+                        try
+                        {
+                            fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
+                            FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
+                        }
+                        catch (UriFormatException)
+                        {
+                            if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                            {
+                                throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
+                            }
+                        }
+                        catch (ArgumentNullException)
+                        {
+                            if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                            {
+                                throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
                             }
                         }
                     }
