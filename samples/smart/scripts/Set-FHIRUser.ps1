@@ -44,7 +44,7 @@ Connect-MgGraph -TenantId $TenantId -ContextScope Process -Scopes $scopes
 
 $params = @{
 	OnPremisesExtensionAttributes = @{
-		$AttributeName = $FHIRId
+		$AttributeName = "$FHIRId"
 	}
 }
 

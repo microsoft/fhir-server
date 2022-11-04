@@ -25,6 +25,6 @@ New-AzureADPolicy -Definition @('{
     "ClaimsMappingPolicy":
         {
             "Version":1,"IncludeBasicClaimSet":"true", 
-            "ClaimsSchema": [{"Source":"user","ID": $ExtensionAttributeName ,"SamlClaimType":"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/fhirUser","JwtClaimType":"fhirUser"}]
+            "ClaimsSchema": [{"Source":"user","ID": "$ExtensionAttributeName" ,"SamlClaimType":"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/fhirUser","JwtClaimType":"fhirUser"}]
         }
 }') -DisplayName "FHIRUserClaim" -Type "ClaimsMappingPolicy"
