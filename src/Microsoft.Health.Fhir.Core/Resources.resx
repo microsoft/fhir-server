@@ -671,6 +671,9 @@
   <data name="OperationCanceled" xml:space="preserve">
     <value>The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support.</value>
   </data>
+  <data name="TransactionDeadlock" xml:space="preserve">
+    <value>There was resource contention with another process in the datastore. Please retry this transaction.</value>
+  </data>
   <data name="FhirUserClaimMustHaveResourceTypeAndId" xml:space="preserve">
     <value>The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id.</value>
     <comment>{0} is a string value of given fhirUser claim.</comment>

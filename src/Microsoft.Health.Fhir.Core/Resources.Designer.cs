@@ -1439,6 +1439,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There was resource contention with another process in the datastore. Please retry this transaction..
+        /// </summary>
+        internal static string TransactionDeadlock {
+            get {
+                return ResourceManager.GetString("TransactionDeadlock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Include result was truncated.
         /// </summary>
         internal static string TruncatedIncludeMessage {
