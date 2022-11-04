@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
                 _searchService,
                 _bundleFactory,
                 DisabledFhirAuthorizationService.Instance,
-                new SearchResultFilter(MissingDataFilterCriteria.Default));
+                new DataResourceFilter(MissingDataFilterCriteria.Default));
         }
 
         [Fact]

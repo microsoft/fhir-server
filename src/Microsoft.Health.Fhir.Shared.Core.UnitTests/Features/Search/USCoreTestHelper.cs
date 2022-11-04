@@ -162,9 +162,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                     null));
         }
 
-        public static ISearchResultFilter GetSearchResultFilter(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest)
+        public static IDataResourceFilter GetDataResourceFilter(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest)
         {
-            return new SearchResultFilter(GetMissingDataFilterCriteria(isUSCoreMissingDataEnabled, isSmartUserRequest));
+            return new DataResourceFilter(GetMissingDataFilterCriteria(isUSCoreMissingDataEnabled, isSmartUserRequest));
         }
 
         public static MissingDataFilterCriteria GetMissingDataFilterCriteria(bool isUSCoreMissingDataEnabled, bool isSmartUserRequest)

@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.SmartOnFhir)]
-    public sealed class SearchResultFilterTests
+    public sealed class DataResourceFilterTests
     {
         [SkippableTheory]
         [InlineData(true, true, USCoreTestHelper.JsonCompliantDataSamplesFileName)]
@@ -40,8 +40,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-            ISearchResultFilter searchResultFilter = USCoreTestHelper.GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
-            SearchResult filteredSearchResult = searchResultFilter.Filter(searchResult);
+            IDataResourceFilter dataResourceFilter = USCoreTestHelper.GetDataResourceFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+            SearchResult filteredSearchResult = dataResourceFilter.Filter(searchResult);
 
             Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
             Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-            ISearchResultFilter searchResultFilter = USCoreTestHelper.GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
-            SearchResult filteredSearchResult = searchResultFilter.Filter(searchResult);
+            IDataResourceFilter dataResourceFilter = USCoreTestHelper.GetDataResourceFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+            SearchResult filteredSearchResult = dataResourceFilter.Filter(searchResult);
 
             Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
             Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
@@ -116,8 +116,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-            ISearchResultFilter searchResultFilter = USCoreTestHelper.GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
-            SearchResult filteredSearchResult = searchResultFilter.Filter(searchResult);
+            IDataResourceFilter dataResourceFilter = USCoreTestHelper.GetDataResourceFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+            SearchResult filteredSearchResult = dataResourceFilter.Filter(searchResult);
 
             Assert.Equal(searchResult.Results.Count(), filteredSearchResult.Results.Count());
             Assert.Equal(searchResult.SearchIssues.Count, filteredSearchResult.SearchIssues.Count);
@@ -153,8 +153,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
 
-            ISearchResultFilter searchResultFilter = USCoreTestHelper.GetSearchResultFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
-            SearchResult filteredSearchResult = searchResultFilter.Filter(searchResult);
+            IDataResourceFilter dataResourceFilter = USCoreTestHelper.GetDataResourceFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+            SearchResult filteredSearchResult = dataResourceFilter.Filter(searchResult);
 
             Assert.NotEqual(searchResult.Results.Count(), filteredSearchResult.Results.Count());
             Assert.Empty(filteredSearchResult.Results); // This JSON file should only contain non-compliant samples.
@@ -173,6 +173,34 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
 
             Assert.NotNull(entries);
             Assert.True(entries.Count == 1, $"A single operation outcome is expected when there are searching issues. Currently there are {entries.Count} operation outcomes.");
+        }
+
+        [SkippableTheory]
+        [InlineData(USCoreTestHelper.JsonNonCompliantDataSamplesFileName)]
+        [InlineData(USCoreTestHelper.XmlNonCompliantDataSamplesFileName)]
+        public void WhenFilteringResourceWrappers_IfMissingStatusElements_ThenReturnOperationOutcomeWith404(string fileName)
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // This test evaluates if records NON compliant with US Core Missing Data are returned as searching issues.
+
+            const bool isUSCoreMissingDataEnabled = true;
+            const bool isSmartUserRequest = true;
+
+            SearchResult searchResult = USCoreTestHelper.GetSearchResult(fileName);
+
+            IDataResourceFilter dataResourceFilter = USCoreTestHelper.GetDataResourceFilter(isUSCoreMissingDataEnabled, isSmartUserRequest);
+
+            foreach (SearchResultEntry resultEntry in searchResult.Results)
+            {
+                FilterCriteriaOutcome outcome = dataResourceFilter.Match(resultEntry.Resource);
+
+                Assert.False(outcome.Match);
+                Assert.NotNull(outcome.OutcomeIssue);
+            }
         }
     }
 }

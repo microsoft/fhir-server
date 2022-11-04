@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ISearchService _searchService;
         private readonly IBundleFactory _bundleFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly ISearchResultFilter _searchResultFilter;
+        private readonly IDataResourceFilter _dataResourceFilter;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchResourceHandler"/> class.
@@ -31,18 +31,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="searchService">The search service to execute the search operation.</param>
         /// <param name="bundleFactory">The bundle factory.</param>
         /// <param name="authorizationService">The authorization service.</param>
-        /// <param name="searchResultFilter">The search result filter.</param>
-        public SearchResourceHandler(ISearchService searchService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService, ISearchResultFilter searchResultFilter)
+        /// <param name="dataResourceFilter">The search result filter.</param>
+        public SearchResourceHandler(ISearchService searchService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService, IDataResourceFilter dataResourceFilter)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(searchResultFilter, nameof(searchResultFilter));
+            EnsureArg.IsNotNull(dataResourceFilter, nameof(dataResourceFilter));
 
             _searchService = searchService;
             _bundleFactory = bundleFactory;
             _authorizationService = authorizationService;
-            _searchResultFilter = searchResultFilter;
+            _dataResourceFilter = dataResourceFilter;
         }
 
         /// <inheritdoc />
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             SearchResult searchResult = await _searchService.SearchAsync(request.ResourceType, request.Queries, cancellationToken);
-            searchResult = _searchResultFilter.Filter(searchResult: searchResult);
+            searchResult = _dataResourceFilter.Filter(searchResult: searchResult);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 

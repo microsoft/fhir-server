@@ -67,53 +67,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 
             foreach (SearchResultEntry resultEntry in searchResult.Results)
             {
-                if (IsRecordFromEligibleResourceType(resultEntry.Resource.ResourceTypeName, out string requiredStatusElementName))
-                {
-                    try
-                    {
-                        if (!ContainStatusElement(resultEntry.Resource, requiredStatusElementName))
-                        {
-                            // Resource does not contain the required status code.
-                            searchIssues.Add(
-                                new OperationOutcomeIssue(
-                                    OperationOutcomeConstants.IssueSeverity.Error,
-                                    OperationOutcomeConstants.IssueType.NotFound,
-                                    string.Format(
-                                        Core.Resources.USCoreMissingDataRequirement,
-                                        resultEntry.Resource.ResourceTypeName,
-                                        resultEntry.Resource.ResourceId)));
-                            continue;
-                        }
-                    }
-                    catch (JsonReaderException jsonE)
-                    {
-                        searchIssues.Add(
-                            new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Error,
-                                OperationOutcomeConstants.IssueType.Incomplete,
-                                string.Format(
-                                    Core.Resources.USCoreDeserializationError,
-                                    resultEntry.Resource.ResourceTypeName,
-                                    resultEntry.Resource.ResourceId,
-                                    jsonE.Message)));
-                        continue;
-                    }
-                    catch (XmlException xmlE)
-                    {
-                        searchIssues.Add(
-                            new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Error,
-                                OperationOutcomeConstants.IssueType.Incomplete,
-                                string.Format(
-                                    Core.Resources.USCoreDeserializationError,
-                                    resultEntry.Resource.ResourceTypeName,
-                                    resultEntry.Resource.ResourceId,
-                                    xmlE.Message)));
-                        continue;
-                    }
-                }
+                FilterCriteriaOutcome filteringOutcome = Match(resultEntry.Resource);
 
-                finalResults.Add(resultEntry);
+                if (filteringOutcome.Match)
+                {
+                    // Resource matches the criteria.
+                    finalResults.Add(resultEntry);
+                }
+                else
+                {
+                    searchIssues.Add(filteringOutcome.OutcomeIssue);
+                }
             }
 
             return new SearchResult(
@@ -122,6 +86,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                 searchResult.SortOrder,
                 searchResult.UnsupportedSearchParameters,
                 searchIssues: searchIssues);
+        }
+
+        public FilterCriteriaOutcome Match(ResourceWrapper resourceWrapper)
+        {
+            if (!_isCriteriaEnabled || !_isSmartRequest)
+            {
+                return FilterCriteriaOutcome.MatchingOutcome;
+            }
+
+            EnsureArg.IsNotNull(resourceWrapper);
+
+            if (IsRecordFromEligibleResourceType(resourceWrapper.ResourceTypeName, out string requiredStatusElementName))
+            {
+                try
+                {
+                    if (!ContainStatusElement(resourceWrapper, requiredStatusElementName))
+                    {
+                        // Resource does not contain the required status code.
+                        return new FilterCriteriaOutcome(
+                            match: false,
+                            outcomeIssue: new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Error,
+                                OperationOutcomeConstants.IssueType.NotFound,
+                                string.Format(
+                                    Core.Resources.USCoreMissingDataRequirement,
+                                    resourceWrapper.ResourceTypeName,
+                                    resourceWrapper.ResourceId)));
+                    }
+                }
+                catch (JsonReaderException jsonE)
+                {
+                    throw new FilterCriteriaException(
+                        string.Format(Core.Resources.USCoreDeserializationError, resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, jsonE.Message),
+                        jsonE);
+                }
+                catch (XmlException xmlE)
+                {
+                    throw new FilterCriteriaException(
+                        string.Format(Core.Resources.USCoreDeserializationError, resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, xmlE.Message),
+                        xmlE);
+                }
+            }
+
+            return FilterCriteriaOutcome.MatchingOutcome;
         }
 
         private static bool IsRecordFromEligibleResourceType(string resourceTypeName, out string requiredStatusElementName) =>

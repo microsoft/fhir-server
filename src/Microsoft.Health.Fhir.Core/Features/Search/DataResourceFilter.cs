@@ -5,15 +5,19 @@
 
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public sealed class SearchResultFilter : ISearchResultFilter
+    /// <summary>
+    /// Orchestrates filtering criteria and apply filters and checks on top of data resources.
+    /// </summary>
+    public sealed class DataResourceFilter : IDataResourceFilter
     {
         private readonly IReadOnlyList<IFilterCriteria> _filterCriterias;
 
-        public SearchResultFilter(MissingDataFilterCriteria missingDataFilterCriteria)
+        public DataResourceFilter(MissingDataFilterCriteria missingDataFilterCriteria)
         {
             EnsureArg.IsNotNull(missingDataFilterCriteria);
 
@@ -34,6 +38,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return searchResult;
+        }
+
+        public FilterCriteriaOutcome Match(ResourceWrapper resourceWrapper)
+        {
+            EnsureArg.IsNotNull(resourceWrapper);
+
+            foreach (IFilterCriteria filterCriteria in _filterCriterias)
+            {
+                FilterCriteriaOutcome outcome = filterCriteria.Match(resourceWrapper);
+
+                if (!outcome.Match)
+                {
+                    // Return the first outcome not maching with a filtering criteria.
+                    return outcome;
+                }
+            }
+
+            return FilterCriteriaOutcome.MatchingOutcome;
         }
     }
 }

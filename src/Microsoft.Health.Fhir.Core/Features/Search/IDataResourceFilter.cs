@@ -5,14 +5,11 @@
 
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
+namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    /// <summary>
-    /// Common interface for data filter criteria.
-    /// </summary>
-    internal interface IFilterCriteria
+    public interface IDataResourceFilter
     {
-        SearchResult Apply(SearchResult searchResult);
+        SearchResult Filter(SearchResult searchResult);
 
         FilterCriteriaOutcome Match(ResourceWrapper resourceWrapper);
     }
