@@ -30,7 +30,7 @@ POST {{fhirurl}}
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
-< ./USCoreCompliantPatientA.json
+< ./V3.1.1_USCoreCompliantResources.json
 
 ### Get
 GET {{fhirurl}}/Observation
