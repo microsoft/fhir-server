@@ -489,11 +489,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
                     }
 
-                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true && expression.TargetResourceType != null)
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
                     {
-                        if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                        if (expression.TargetResourceType != null && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
                         {
                             _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
+                            return null;
+                        }
+
+                        if (!expression.Produces.Any())
+                        {
                             return null;
                         }
                     }

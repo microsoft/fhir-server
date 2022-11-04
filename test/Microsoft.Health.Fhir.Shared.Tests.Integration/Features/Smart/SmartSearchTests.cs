@@ -247,8 +247,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             query.Add(new Tuple<string, string>("_include", "Observation:subject"));
 
             var scopeRestriction = new ScopeRestriction(KnownResourceTypes.Observation, Core.Features.Security.DataActions.Read, "patient");
+            var scopeRestriction2 = new ScopeRestriction(KnownResourceTypes.Medication, Core.Features.Security.DataActions.Read, "patient");
 
-            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction, scopeRestriction2 });
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 

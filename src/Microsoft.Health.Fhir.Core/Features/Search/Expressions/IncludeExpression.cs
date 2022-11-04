@@ -18,7 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     {
         private IReadOnlyCollection<string> _requires;
         private IReadOnlyCollection<string> _produces;
-        private IEnumerable<string> _allowedResourceTypesByScope;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IncludeExpression"/> class.
@@ -67,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 ? SourceResourceType == TargetResourceType
                 : ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Contains(sourceResourceType);
 
-            _allowedResourceTypesByScope = allowedResourceTypesByScope;
+            AllowedResourceTypesByScope = allowedResourceTypesByScope;
         }
 
         /// <summary>
@@ -125,6 +124,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Gets if the expression has a circular reference (source type = target type).
         /// </summary>
         public bool CircularReference { get; }
+
+        public IEnumerable<string> AllowedResourceTypesByScope { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
@@ -193,10 +194,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 }
             }
 
-            if (_allowedResourceTypesByScope != null &&
-                !_allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+            if (AllowedResourceTypesByScope != null &&
+                !AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
             {
-                producedResources = producedResources.Intersect(_allowedResourceTypesByScope).ToList();
+                producedResources = producedResources.Intersect(AllowedResourceTypesByScope).ToList();
             }
 
             return producedResources;
