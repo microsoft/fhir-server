@@ -458,6 +458,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Provided fhirUser claim {0} is not a valid resource in this fhir server..
+        /// </summary>
+        internal static string FhirUserClaimIsNotAValidResource {
+            get {
+                return ResourceManager.GetString("FhirUserClaimIsNotAValidResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id..
         /// </summary>
         internal static string FhirUserClaimMustHaveResourceTypeAndId {
@@ -1430,6 +1439,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There was resource contention with another process in the datastore. Please retry this transaction..
+        /// </summary>
+        internal static string TransactionDeadlock {
+            get {
+                return ResourceManager.GetString("TransactionDeadlock", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Include result was truncated.
         /// </summary>
         internal static string TruncatedIncludeMessage {
@@ -1534,6 +1552,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UpdateRequestsRequireId {
             get {
                 return ResourceManager.GetString("UpdateRequestsRequireId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}&apos; for validation: {1}.
+        /// </summary>
+        internal static string USCoreDeserializationError {
+            get {
+                return ResourceManager.GetString("USCoreDeserializationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Status code is missing for the resource &apos;{0}/{1}&apos;..
+        /// </summary>
+        internal static string USCoreMissingDataRequirement {
+            get {
+                return ResourceManager.GetString("USCoreMissingDataRequirement", resourceCulture);
             }
         }
         

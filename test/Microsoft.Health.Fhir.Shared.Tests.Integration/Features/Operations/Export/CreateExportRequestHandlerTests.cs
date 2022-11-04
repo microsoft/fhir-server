@@ -9,9 +9,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -63,7 +65,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
-            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, DisabledFhirAuthorizationService.Instance, optionsExportConfig);
+            var contextAccess = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, DisabledFhirAuthorizationService.Instance, optionsExportConfig, contextAccess);
         }
 
         public static IEnumerable<object[]> ExportUriForSameJobs

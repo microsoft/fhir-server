@@ -66,25 +66,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
         {
-            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
-            {
-                if (_contextAccessor.RequestContext?.AccessControlContext.CompartmentResourceType != null &&
-                    _contextAccessor.RequestContext?.AccessControlContext.CompartmentId != null)
-                {
-                    return Create(
-                        _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType,
-                        _contextAccessor.RequestContext.AccessControlContext.CompartmentId,
-                        resourceType,
-                        queryParameters,
-                        isAsyncOperation);
-                }
-            }
-
             return Create(null, null, resourceType, queryParameters, isAsyncOperation);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
-        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
+        public SearchOptions Create(
+            string compartmentType,
+            string compartmentId,
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            bool isAsyncOperation = false,
+            bool useSmartCompartmentDefinition = false)
         {
             var searchOptions = new SearchOptions();
 
@@ -309,11 +301,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    if (useSmartCompartmentDefinition)
+                    {
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    }
+                    else
+                    {
+                        searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    }
                 }
                 else
                 {
                     throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_contextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType))
+            {
+                var smartCompartmentType = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType;
+                var smartCompartmentId = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentId;
+
+                if (Enum.TryParse(smartCompartmentType, out CompartmentType parsedCompartmentType))
+                {
+                    if (string.IsNullOrWhiteSpace(smartCompartmentId))
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
+                    }
+
+                    searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
+                }
+                else
+                {
+                    throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                 }
             }
 

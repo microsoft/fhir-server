@@ -174,6 +174,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 });
             }
 
+            if (result != null && result.SearchIssues.Any())
+            {
+                var operationOutcome = new OperationOutcome
+                {
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
+                    Issue = new List<OperationOutcome.IssueComponent>(result.SearchIssues.Select(x => x.ToPoco())),
+                };
+
+                bundle.Entry.Add(new Bundle.EntryComponent
+                {
+                    Resource = operationOutcome,
+                    Search = new Bundle.SearchComponent
+                    {
+                        Mode = Bundle.SearchEntryMode.Outcome,
+                    },
+                });
+            }
+
             IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(selectionFunction);
 
             bundle.Entry.AddRange(entries);

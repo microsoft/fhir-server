@@ -40,7 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string storageAccountContainerName = null,
             int parallel = 0,
             int schemaVersion = 2,
-            int typeId = (int)JobType.ExportOrchestrator)
+            int typeId = (int)JobType.ExportOrchestrator,
+            bool smartRequest = false)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -76,6 +77,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
             QueuedTime = Clock.UtcNow;
             Till = till ?? new PartialDateTime(Clock.UtcNow);
+
+            SmartRequest = smartRequest;
 
             if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {
@@ -176,6 +179,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Parallel)]
         public int Parallel { get; private set; }
+
+        [JsonProperty(JobRecordProperties.SmartRequest)]
+        public bool SmartRequest { get; private set; }
 
         internal ExportJobRecord Clone()
         {

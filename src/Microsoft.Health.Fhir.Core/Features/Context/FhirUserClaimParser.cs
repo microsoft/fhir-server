@@ -23,8 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             // The URI is of the form <base URL>/<resource type>/<resource id>.
             // The resource type must be one of Patient, Practitioner.  In the future it may be extended to include RelatedPerson.
 
-            if (accessControlContext.FhirUserClaim == null ||
-                accessControlContext.FhirUserClaim.Segments.Length < 2)
+            if (accessControlContext.FhirUserClaim == null)
             {
                 if (errorOnInvalidFhirUserClaim)
                 {
@@ -36,8 +35,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
                 }
             }
 
-            string fhirUserId = accessControlContext.FhirUserClaim.Segments.Last().TrimEnd('/');
-            string fhirUserResourceType = accessControlContext.FhirUserClaim.Segments[accessControlContext.FhirUserClaim.Segments.Length - 2].TrimEnd('/');
+            var fhirUserClaimUri = accessControlContext.FhirUserClaim;
+            if (!accessControlContext.FhirUserClaim.IsAbsoluteUri)
+            {
+                // convert to absolute Uri so that the Uri parsing methods will function
+                fhirUserClaimUri = new Uri(new Uri("http://fhirBase"), accessControlContext.FhirUserClaim);
+            }
+
+            if (fhirUserClaimUri.Segments.Length < 2)
+            {
+                if (errorOnInvalidFhirUserClaim)
+                {
+                    throw new BadRequestException(Core.Resources.FhirUserClaimInvalidFormat);
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            string fhirUserId = fhirUserClaimUri.Segments.Last().TrimEnd('/');
+            string fhirUserResourceType = fhirUserClaimUri.Segments[fhirUserClaimUri.Segments.Length - 2].TrimEnd('/');
 
             if (fhirUserResourceType != KnownResourceTypes.Patient &&
                 fhirUserResourceType != KnownResourceTypes.Practitioner)

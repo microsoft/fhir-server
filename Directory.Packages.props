@@ -3,7 +3,7 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <AspNetPackageVersion>6.0.10</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>6.1.130</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.1.142</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
   </PropertyGroup>
@@ -13,7 +13,7 @@
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
     <PackageVersion Include="Azure.Identity" Version="1.7.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.14.1" />
-    <PackageVersion Include="coverlet.collector" Version="3.1.2" />
+    <PackageVersion Include="coverlet.collector" Version="3.2.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.2.2" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
@@ -39,7 +39,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.31.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.31.1" />
     <PackageVersion Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
@@ -74,8 +74,8 @@
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
-    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="160.6296.0" />
-    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.47027.0" />
+    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.6319.0-preview" />
+    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.8.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.14" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageVersion Include="NSubstitute" Version="4.4.0" />

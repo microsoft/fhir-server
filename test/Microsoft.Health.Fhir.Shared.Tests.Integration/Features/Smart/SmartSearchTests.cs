@@ -114,6 +114,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 {
                     await PutResource(entry.Resource);
                 }
+
+                smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientB");
+                foreach (var entry in smartBundle.Entry)
+                {
+                    await PutResource(entry.Resource);
+                }
+
+                smartBundle = Samples.GetJsonSample<Bundle>("SmartPatientC");
+                foreach (var entry in smartBundle.Entry)
+                {
+                    await PutResource(entry.Resource);
+                }
+
+                smartBundle = Samples.GetJsonSample<Bundle>("SmartCommon");
+                foreach (var entry in smartBundle.Entry)
+                {
+                    await PutResource(entry.Resource);
+                }
+
+                await PutResource(Samples.GetJsonSample<Medication>("Medication"));
+                await PutResource(Samples.GetJsonSample<Organization>("Organization"));
+                await PutResource(Samples.GetJsonSample<Location>("Location-example-hq"));
             }
         }
 
@@ -276,7 +298,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
 
-            // no results returned
             Assert.Collection(
                 results.Results,
                 r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
@@ -299,6 +320,148 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
 
             Assert.Empty(results.Results);
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPatient_WhenPatientInOtherCompartmentRequested_NoResultsReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-B"));
+
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            Assert.Empty(results.Results);
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPatient_WhenPatientInSameCompartmentRequested_ResourceIsReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            Assert.Collection(
+                results.Results,
+                r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPractitioner_WhenPatientInSameCompartmentRequested_ResourceIsReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-A"));
+
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "user");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Practitioner";
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            Assert.Collection(
+                results.Results,
+                r => Assert.True(r.Resource.ResourceId == "smart-patient-A"));
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPractitioner_WhenPatientInOtherCompartmentRequested_NoResourceIsReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_id", "smart-patient-C"));
+
+            var scopeRestriction = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Read, "user");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Practitioner";
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            Assert.Empty(results.Results);
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPatient_WhenAllResourcesRequested_UniversalResourcesAlsoReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
+            Assert.Equal(25, results.Results.Count());
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimSystem_WhenAllResourcesRequested_ThenAllResourcesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "system");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = null;
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = null;
+
+            var results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
+            Assert.Equal(70, results.Results.Count());
         }
 
         private async Task<UpsertOutcome> PutResource(Resource resource)
@@ -341,7 +504,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
         }
 
-        private void ConfigureFhirRequestContext(RequestContextAccessor<IFhirRequestContext> contextAccessor, ICollection<ScopeRestriction> scopes)
+        private void ConfigureFhirRequestContext(
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            ICollection<ScopeRestriction> scopes)
         {
             var accessControlContext = new AccessControlContext()
             {
