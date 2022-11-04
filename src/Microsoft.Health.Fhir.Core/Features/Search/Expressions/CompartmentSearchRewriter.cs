@@ -29,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override Expression VisitCompartment(CompartmentSearchExpression expression, object context)
         {
             SearchParameterInfo resourceTypeSearchParameter = _searchParameterDefinitionManager.Value.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
+            SearchParameterInfo idSearchParameter = _searchParameterDefinitionManager.Value.GetSearchParameter(expression.CompartmentType, SearchParameterNames.Id);
+
             var compartmentType = expression.CompartmentType;
             var compartmentId = expression.CompartmentId;
 
@@ -107,16 +109,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                         }
                     }
 
+                    Expression compartmentExpression = null;
+
+                    // add in the resource which is the resource that identifies this compartment
+                    if (expression.SmartUserCompartment)
+                    {
+                        compartmentSearchExpressionsGrouped.Add(
+                            Expression.SearchParameter(idSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, compartmentId, false)));
+                    }
+
                     if (compartmentSearchExpressionsGrouped.Count > 1)
                     {
-                        return Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
+                        compartmentExpression = Expression.Union(UnionOperator.All, compartmentSearchExpressionsGrouped);
                     }
                     else if (compartmentSearchExpressions.Count == 1)
                     {
-                        return compartmentSearchExpressionsGrouped[0];
+                        compartmentExpression = compartmentSearchExpressionsGrouped[0];
                     }
 
-                    return expression;
+                    return compartmentExpression;
                 }
             }
             else

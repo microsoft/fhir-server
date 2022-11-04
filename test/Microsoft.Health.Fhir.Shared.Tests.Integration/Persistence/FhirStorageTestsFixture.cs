@@ -110,6 +110,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public SearchParameterStatusManager SearchParameterStatusManager => _fixture.GetRequiredService<SearchParameterStatusManager>();
 
+        public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
+
         public void Dispose()
         {
             (_fixture as IDisposable)?.Dispose();
@@ -162,9 +164,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null, searchParamHash);
                 });
 
-            var fhirRequestContextAccessor = _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
-            UrlResolver urlResolver = CreateUrlResolver(fhirRequestContextAccessor);
-            var bundleFactory = new BundleFactory(urlResolver, fhirRequestContextAccessor, NullLogger<BundleFactory>.Instance);
+            UrlResolver urlResolver = CreateUrlResolver(FhirRequestContextAccessor);
+            var bundleFactory = new BundleFactory(urlResolver, FhirRequestContextAccessor, NullLogger<BundleFactory>.Instance);
 
             var collection = new ServiceCollection();
 

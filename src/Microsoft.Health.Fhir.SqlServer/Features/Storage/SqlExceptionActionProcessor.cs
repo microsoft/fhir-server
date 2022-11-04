@@ -17,6 +17,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     public class SqlExceptionActionProcessor<TRequest, TException> : IRequestExceptionAction<TRequest, TException>
         where TException : Exception
     {
+        // TODO: add to SqlErrorCodes and also remove from SqlServerFhirDataStore.cs when completed
+        private const short DeadlockVictim = 1205;
+
         public Task Execute(TRequest request, TException exception, CancellationToken cancellationToken)
         {
             if (exception is SqlException sqlException)
@@ -32,6 +35,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 else if (sqlException.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
                 {
                     throw new SqlQueryPlanException(Core.Resources.SqlQueryProcessorRanOutOfInternalResourcesException);
+                }
+                else if (sqlException.Number == DeadlockVictim)
+                {
+                    throw new TransactionDeadlockException(Core.Resources.TransactionDeadlock);
                 }
                 else
                 {

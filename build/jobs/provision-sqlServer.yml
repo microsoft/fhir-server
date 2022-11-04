@@ -1,0 +1,43 @@
+
+parameters:
+- name: resourceGroup
+  type: string
+- name: sqlServerName
+  type: string
+- name: schemaAutomaticUpdatesEnabled
+  type: string
+  default: 'auto'
+- name: sqlServerAdminPassword
+  type: string
+  default: ''
+
+jobs:
+- job: provisionEnvironment
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: 'resolute-oss-tenant-info'
+
+  - task: AzurePowerShell@4
+    displayName: 'Azure PowerShell script: InlineScript'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        Add-Type -AssemblyName System.Web
+     
+        $templateParameters = @{
+            sqlAdminPassword = "${{parameters.sqlServerAdminPassword}}"
+            sqlServerName = "${{parameters.sqlServerName}}"
+            sqlSchemaAutomaticUpdatesEnabled = "${{parameters.schemaAutomaticUpdatesEnabled}}"
+        }
+
+        Write-Host "Provisioning Sql server"
+        Write-Host "${{ parameters.resourceGroup }}"
+        New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose
