@@ -132,6 +132,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 {
                     await PutResource(entry.Resource);
                 }
+
+                await PutResource(Samples.GetJsonSample<Medication>("Medication"));
+                await PutResource(Samples.GetJsonSample<Organization>("Organization"));
+                await PutResource(Samples.GetJsonSample<Location>("Location-example-hq"));
             }
         }
 
@@ -410,6 +414,56 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Empty(results.Results);
         }
 
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPatient_WhenAllResourcesRequested_UniversalResourcesAlsoReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
+            Assert.Equal(25, results.Results.Count());
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimSystem_WhenAllResourcesRequested_ThenAllResourcesReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "system");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = null;
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = null;
+
+            var results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
+            Assert.Equal(70, results.Results.Count());
+        }
+
         private async Task<UpsertOutcome> PutResource(Resource resource)
         {
             ResourceElement resourceElement = resource.ToResourceElement();
@@ -450,7 +504,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
         }
 
-        private void ConfigureFhirRequestContext(RequestContextAccessor<IFhirRequestContext> contextAccessor, ICollection<ScopeRestriction> scopes)
+        private void ConfigureFhirRequestContext(
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            ICollection<ScopeRestriction> scopes)
         {
             var accessControlContext = new AccessControlContext()
             {
