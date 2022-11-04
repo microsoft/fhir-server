@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             bool wildCard,
             bool reversed,
             bool iterate,
-            IEnumerable<string> allowedResourceTypesByScope)
+            IEnumerable<string> allowedResourceTypesByScope = null)
         {
             EnsureArg.HasItems(resourceTypes, nameof(resourceTypes));
 
