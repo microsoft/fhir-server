@@ -93,7 +93,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                     else
                     {
-                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
+                        if (expression.Value.Length > 128)
+                        {
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
+                        }
+                        else
+                        {
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
+                        }
                     }
 
                     break;
