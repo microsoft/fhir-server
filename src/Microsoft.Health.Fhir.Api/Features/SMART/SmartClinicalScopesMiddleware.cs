@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 
-                    bool skipFhirUserClaimForSystemScope = false;
+                    bool includeFhirUserClaim = true;
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
@@ -102,13 +102,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                                 if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                                 {
-                                    skipFhirUserClaimForSystemScope = true;
+                                    includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
                                 }
                             }
                         }
                     }
 
-                    if (!skipFhirUserClaimForSystemScope)
+                    if (includeFhirUserClaim)
                     {
                         var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
                         try

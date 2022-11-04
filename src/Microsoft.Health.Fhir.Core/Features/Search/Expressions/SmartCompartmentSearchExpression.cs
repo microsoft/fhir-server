@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="compartmentType">The Resource type of the smart user.</param>
         /// <param name="compartmentId">The Resource id of the smart user.</param>
-        /// /// <param name="filteredResourceTypes">Resource types to filter</param>
+        /// <param name="filteredResourceTypes">Resource types to filter</param>
         public SmartCompartmentSearchExpression(string compartmentType, string compartmentId, params string[] filteredResourceTypes)
             : base(compartmentType, compartmentId, filteredResourceTypes)
         {

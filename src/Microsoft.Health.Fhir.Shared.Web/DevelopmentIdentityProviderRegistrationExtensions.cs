@@ -21,7 +21,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.SqlServer.Management.Smo;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -51,6 +50,8 @@ namespace Microsoft.Health.Fhir.Web
 
             if (developmentIdentityProviderConfiguration.Enabled)
             {
+                var host = configuration["ASPNETCORE_URLS"];
+
                 services.AddIdentityServer()
                     .AddDeveloperSigningCredential()
                     .AddInMemoryApiScopes(new[]
@@ -77,7 +78,7 @@ namespace Microsoft.Health.Fhir.Web
                     .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select((user) =>
                         {
                             var userClaims = user.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).ToList();
-                            userClaims.Add(new Claim("fhirUser", "https://localhost:44348/Patient/" + user.Id));
+                            userClaims.Add(new Claim("fhirUser", host + "Patient/" + user.Id));
                             return new TestUser
                             {
                                 Username = user.Id,
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Web
                                     // app roles that the client app may have
                                     Claims = applicationConfiguration.Roles.Select(
                                         r => new ClientClaim(authorizationConfiguration.RolesClaim, r))
-                                            .Concat(CreateFhirUserClaims(applicationConfiguration.Id))
+                                            .Concat(CreateFhirUserClaims(applicationConfiguration.Id, host))
                                             .ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
@@ -186,7 +187,7 @@ namespace Microsoft.Health.Fhir.Web
             return scopes;
         }
 
-        private static IEnumerable<ClientClaim> CreateFhirUserClaims(string userId)
+        private static IEnumerable<ClientClaim> CreateFhirUserClaims(string userId, string host)
         {
             string userType = null;
 
@@ -206,7 +207,7 @@ namespace Microsoft.Health.Fhir.Web
             return new ClientClaim[]
             {
                 new ClientClaim("appid", userId),
-                new ClientClaim("fhirUser", $"https://localhost:44348/{userType}/" + userId),
+                new ClientClaim("fhirUser", $"{host}{userType}/" + userId),
             };
         }
 

@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
-    /// Rewrites CompartmentSearchExpression to use main search index.
+    /// Builds on the CompartmentSearchRewriter to add additional resources for Smart access
     /// </summary>
     public class SmartCompartmentSearchRewriter : ExpressionRewriterWithInitialContext<object>
     {
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             expressionList.Add(Expression.SearchParameter(resourceTypeSearchParameter, inExpression));
 
-            // new we union all those results together
+            // union all those results together
             return Expression.Union(UnionOperator.All, expressionList);
         }
     }

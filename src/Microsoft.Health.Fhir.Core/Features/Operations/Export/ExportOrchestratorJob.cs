@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         record.Parallel,
                         record.SchemaVersion,
                         (int)JobType.ExportProcessing,
-                        record.Smart);
+                        record.SmartRequest);
         }
     }
 }

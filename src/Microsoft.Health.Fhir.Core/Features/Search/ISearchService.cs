@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
-        /// <param name="useSmartCompartmentDefinition">Indicates wether to use the expanded SMART on FHIR definition of a compartment</param>
+        /// <param name="useSmartCompartmentDefinition">Indicates wether to use the expanded SMART on FHIR definition of a compartment.</param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
         Task<SearchResult> SearchCompartmentAsync(
             string compartmentType,
