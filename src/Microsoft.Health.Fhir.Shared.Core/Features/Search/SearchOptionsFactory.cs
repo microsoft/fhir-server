@@ -449,7 +449,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         includeResourceTypeList = new[] { includeResourceType };
                     }
 
-                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate);
+                    IEnumerable<string> allowedResourceTypesByScope = null;
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                    {
+                        allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                    }
+
+                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
 
                     // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
                     if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
@@ -483,9 +489,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
                     }
 
-                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true && expression.TargetResourceType != null)
                     {
-                        var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
                         if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
                         {
                             _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);

@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     {
         private IReadOnlyCollection<string> _requires;
         private IReadOnlyCollection<string> _produces;
+        private IEnumerable<string> _allowedResourceTypesByScope;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IncludeExpression"/> class.
@@ -30,7 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="wildCard">If this is a wildcard reference include (include all referenced resources).</param>
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
         /// <param name="iterate"> If :iterate (:recurse) modifer was applied.</param>
-        public IncludeExpression(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
+        /// <param name="allowedResourceTypesByScope">Allows resource types when clinical scopes are being used.</param>
+        public IncludeExpression(
+            string[] resourceTypes,
+            SearchParameterInfo referenceSearchParameter,
+            string sourceResourceType,
+            string targetResourceType,
+            IEnumerable<string> referencedTypes,
+            bool wildCard,
+            bool reversed,
+            bool iterate,
+            IEnumerable<string> allowedResourceTypesByScope)
         {
             EnsureArg.HasItems(resourceTypes, nameof(resourceTypes));
 
@@ -55,6 +66,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             CircularReference = TargetResourceType != null
                 ? SourceResourceType == TargetResourceType
                 : ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Contains(sourceResourceType);
+
+            _allowedResourceTypesByScope = allowedResourceTypesByScope;
         }
 
         /// <summary>
@@ -158,28 +171,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         private IReadOnlyCollection<string> GetProducedResources()
         {
+            var producedResources = new List<string>();
+
             if (Reversed)
             {
-                return new List<string> { SourceResourceType };
+                producedResources.Add(SourceResourceType);
             }
             else
             {
                 if (TargetResourceType != null)
                 {
-                    return new List<string> { TargetResourceType };
+                    producedResources.Add(TargetResourceType);
                 }
                 else if (ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Any())
                 {
-                    return ReferenceSearchParameter.TargetResourceTypes;
+                    producedResources = new List<string>(ReferenceSearchParameter.TargetResourceTypes);
                 }
                 else if (WildCard)
                 {
-                    return ReferencedTypes;
+                    producedResources = new List<string>(ReferencedTypes);
                 }
-
-                // impossible case
-                return new List<string>();
             }
+
+            if (_allowedResourceTypesByScope != null &&
+                !_allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+            {
+                producedResources = producedResources.Intersect(_allowedResourceTypesByScope).ToList();
+            }
+
+            return producedResources;
         }
 
         public override void AddValueInsensitiveHashCode(ref HashCode hashCode)

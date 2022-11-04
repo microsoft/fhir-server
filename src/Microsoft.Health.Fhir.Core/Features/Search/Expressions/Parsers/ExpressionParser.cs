@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceTypes, key.AsSpan(), value);
         }
 
-        public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate)
+        public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate, IEnumerable<string> allowedResourceTypesByScope)
         {
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
@@ -84,6 +84,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (resourceTypes.Length == 1 && resourceTypes[0].Equals(KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
+            }
+
+            if (allowedResourceTypesByScope != null && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+            {
+                resourceTypes = resourceTypes.Intersect(allowedResourceTypesByScope).ToArray();
             }
 
             SearchParameterInfo refSearchParameter;
@@ -128,7 +133,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
             }
 
-            return new IncludeExpression(resourceTypes, refSearchParameter, originalType.ToString(), targetType, referencedTypes, wildCard, isReversed, iterate);
+            if (allowedResourceTypesByScope != null && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && referencedTypes != null)
+            {
+                referencedTypes = referencedTypes.Intersect(allowedResourceTypesByScope).ToList();
+            }
+
+            return new IncludeExpression(resourceTypes, refSearchParameter, originalType.ToString(), targetType, referencedTypes, wildCard, isReversed, iterate, allowedResourceTypesByScope);
         }
 
         private Expression ParseImpl(string[] resourceTypes, ReadOnlySpan<char> key, string value)
