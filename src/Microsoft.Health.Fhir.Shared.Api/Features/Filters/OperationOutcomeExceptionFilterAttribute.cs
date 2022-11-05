@@ -183,6 +183,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case RequestTimeoutException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.RequestTimeout;
                         break;
+                    case LoginFailedForUserException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Unauthorized;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;
