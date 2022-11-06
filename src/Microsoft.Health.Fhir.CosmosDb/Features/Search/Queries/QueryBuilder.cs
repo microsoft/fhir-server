@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -248,6 +249,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                                 .Append(" = '")
                                 .Append(includeExpression.TargetResourceType)
                                 .Append('\'');
+                        }
+                        else if (includeExpression.AllowedResourceTypesByScope != null &&
+                            !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                        {
+                            var typesList = string.Join(",", includeExpression.Produces.Select(t => "'" + t + "'"));
+                            _queryBuilder
+                                .Append(" AND p.")
+                                .Append(SearchValueConstants.ReferenceResourceTypeName)
+                                .Append(" IN (")
+                                .Append(typesList)
+                                .Append(')');
                         }
 
                         _queryBuilder.Append(')');
