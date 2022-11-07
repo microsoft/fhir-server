@@ -52,6 +52,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
             var authorizationConfiguration = securityConfigurationOptions.Value.Authorization;
 
+            _logger.LogInformation("Principal exists {Principal}", fhirRequestContextAccessor.RequestContext.Principal != null);
+            _logger.LogInformation("securityConfigurationOptions Value Enabled {SecutiryConfigurationOption}", securityConfigurationOptions.Value.Enabled);
+            _logger.LogInformation("Authorization configuration enabled {AuthorizationConfiguration} ", authorizationConfiguration.Enabled);
+
             if (fhirRequestContextAccessor.RequestContext.Principal != null
                 && securityConfigurationOptions.Value.Enabled
                 && authorizationConfiguration.Enabled)
@@ -61,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                 var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
 
-                _logger.LogTrace("Smart Data Action is present {Smart}", dataActions.HasFlag(DataActions.Smart));
+                _logger.LogInformation("Smart Data Action is present {Smart}", dataActions.HasFlag(DataActions.Smart));
 
                 // Only read and apply SMART clinical scopes if the user has the Smart Data action
                 if (dataActions.HasFlag(DataActions.Smart))
@@ -107,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
 
-                                _logger.LogTrace("Resource and permitted data actions {Resource} {PermittedDataActions} ", resource, permittedDataActions);
+                                _logger.LogInformation("Resource and permitted data actions {Resource} {PermittedDataActions} ", resource, permittedDataActions);
 
                                 if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                                 {
@@ -117,7 +121,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         }
                     }
 
-                    _logger.LogTrace("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
+                    _logger.LogInformation("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
 
                     if (includeFhirUserClaim)
                     {
