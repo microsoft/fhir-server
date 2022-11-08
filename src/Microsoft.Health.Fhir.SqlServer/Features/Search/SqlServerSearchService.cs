@@ -296,7 +296,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                if (clonedSearchOptions.QueryHints != null)
+                var consistentExport = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportReadConsistency;
+                if (consistentExport)
                 {
                     PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommandWrapper);
                 }
@@ -447,7 +448,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     await reader.NextResultAsync(cancellationToken);
 
                     ContinuationToken continuationToken =
-                        moreResults && clonedSearchOptions.QueryHints == null // with query hints all results are returned in one shot
+                        moreResults && consistentExport // with query hints all results are returned on single page
                             ? new ContinuationToken(
                                 clonedSearchOptions.Sort.Select(s =>
                                     s.searchParameterInfo.Name switch
@@ -489,18 +490,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommandWrapper cmd)
         {
-            var startId = options.QueryHints.First(_ => _.param == KnownQueryParameterNames.StartSurrogateId).value;
-            var endId = options.QueryHints.First(_ => _.param == KnownQueryParameterNames.EndSurrogateId).value;
-            var globalStartId = options.QueryHints.First(_ => _.param == KnownQueryParameterNames.GlobalStartSurrogateId).value;
-            var globalEndId = options.QueryHints.First(_ => _.param == KnownQueryParameterNames.GlobalEndSurrogateId).value;
-            var type = options.QueryHints.First(_ => _.param == KnownQueryParameterNames.Type).value;
-            cmd.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
-            cmd.CommandType = CommandType.StoredProcedure;
-            cmd.Parameters.AddWithValue("@ResourceTypeId", _model.GetResourceTypeId(type));
-            cmd.Parameters.AddWithValue("@StartId", long.Parse(startId));
-            cmd.Parameters.AddWithValue("@EndId", long.Parse(endId));
-            cmd.Parameters.AddWithValue("@GlobalStartId", long.Parse(globalStartId));
-            cmd.Parameters.AddWithValue("@GlobalEndId", long.Parse(globalEndId));
+            var hints = options.QueryHints;
+            var type = _model.GetResourceTypeId(hints.First(_ => _.Param == KnownQueryParameterNames.Type).Value);
+            var startId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            var endId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
+            var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
+            VLatest.GetResourcesByTypeAndSurrogateIdRange.PopulateCommand(cmd, type, startId, endId, globalStartId, globalEndId);
         }
 
         public override async Task<SearchResult> SearchByDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
@@ -591,12 +587,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        public override async Task<IReadOnlyList<(long start, long end, long globalStart, long globalEnd)>> GetSurrogateIdRanges(string resourceType, DateTime startTime, DateTime endTime, int numberOfRanges, CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<(long Start, long End, long GlobalStart, long GlobalEnd)>> GetSurrogateIdRanges(string resourceType, DateTime startTime, DateTime endTime, int numberOfRanges, CancellationToken cancellationToken)
         {
             var globalStartId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
             var globalEndId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
             var ranges = await GetSurrogateIdRanges(resourceType, globalStartId, globalEndId, numberOfRanges, cancellationToken);
-            return ranges.Select(_ => (_.start, _.end, globalStartId, globalEndId)).ToList();
+            return ranges.Select(_ => (_.Start, _.End, globalStartId, globalEndId)).ToList();
         }
 
         public override async Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, int numberOfRanges, CancellationToken cancellationToken)
@@ -609,14 +605,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             foreach (var result in surrogateIdResults)
             {
                 dateTimeResults.Add(new Tuple<DateTime, DateTime>(
-                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.start),
-                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.end)));
+                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Start),
+                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.End)));
             }
 
             return dateTimeResults;
         }
 
-        public async Task<IReadOnlyList<(long start, long end)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int numberOfRanges, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<(long Start, long End)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int numberOfRanges, CancellationToken cancellationToken)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             try

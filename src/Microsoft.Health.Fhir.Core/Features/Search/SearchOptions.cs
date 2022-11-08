@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
 
-        public IReadOnlyList<(string param, string value)> QueryHints { get; set; }
+        public IReadOnlyList<(string Param, string Value)> QueryHints { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

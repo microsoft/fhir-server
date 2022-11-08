@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         var sequence = 0;
                         foreach (var range in ranges)
                         {
-                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.start.ToString(), endSurrogateId: range.end.ToString(), globalStartSurrogateId: range.globalStart.ToString(), globalEndSurrogateId: range.globalEnd.ToString());
+                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.Start.ToString(), endSurrogateId: range.End.ToString(), globalStartSurrogateId: range.GlobalStart.ToString(), globalEndSurrogateId: range.GlobalEnd.ToString());
                             definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
                             sequence++;
                         }
