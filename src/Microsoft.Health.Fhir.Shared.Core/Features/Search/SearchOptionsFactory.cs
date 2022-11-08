@@ -80,6 +80,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             var searchOptions = new SearchOptions();
 
+            if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.GlobalEndSurrogateId && _.Item2 != null))
+            {
+                var queryHint = new List<(string param, string value)>();
+                foreach (var par in queryParameters.Where(_ => _.Item1 == KnownQueryParameterNames.Type || _.Item1 == KnownQueryParameterNames.GlobalEndSurrogateId || _.Item1 == KnownQueryParameterNames.EndSurrogateId || _.Item1 == KnownQueryParameterNames.GlobalStartSurrogateId || _.Item1 == KnownQueryParameterNames.StartSurrogateId))
+                {
+                    queryHint.Add((par.Item1, par.Item2));
+                }
+
+                searchOptions.QueryHints = queryHint;
+            }
+
             string continuationToken = null;
 
             var searchParams = new SearchParams();

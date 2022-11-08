@@ -232,6 +232,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
+        public virtual Task<IReadOnlyList<(long start, long end, long globalStart, long globalEnd)>> GetSurrogateIdRanges(
+            string resourceType,
+            DateTime startTime,
+            DateTime endTime,
+            int numberOfRanges,
+            CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,

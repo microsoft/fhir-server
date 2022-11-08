@@ -104,11 +104,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     foreach (var type in resourceTypes)
                     {
-                        var ranges = await _searchService.GetDateTimeRange(type, since.DateTime, till.DateTime, numberOfParallelJobs, cancellationToken);
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, since.DateTime, till.DateTime, numberOfParallelJobs, cancellationToken);
                         var sequence = 0;
                         foreach (var range in ranges)
                         {
-                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, since: new PartialDateTime(new DateTimeOffset(range.Item1)), till: new PartialDateTime(new DateTimeOffset(range.Item2)));
+                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.start.ToString(), endSurrogateId: range.end.ToString(), globalStartSurrogateId: range.globalStart.ToString(), globalEndSurrogateId: range.globalEnd.ToString());
                             definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
                             sequence++;
                         }
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, int sequence = -1, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, int sequence = -1, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
             return new ExportJobRecord(
                         record.RequestUri,
@@ -211,6 +211,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         record.RequestorClaims,
                         since == null ? record.Since : since,
                         till == null ? record.Till : till,
+                        startSurrogateId,
+                        endSurrogateId,
+                        globalStartSurrogateId,
+                        globalEndSurrogateId,
                         record.GroupId,
                         record.StorageAccountConnectionHash,
                         record.StorageAccountUri,

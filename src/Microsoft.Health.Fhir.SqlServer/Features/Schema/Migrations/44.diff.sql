@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
 GO
-CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalStartId bigint = NULL, @GlobalEndId bigint = NULL
+CREATE OR ALTER PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalStartId bigint = NULL, @GlobalEndId bigint = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
