@@ -39,12 +39,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SqlServerFhirModel _sqlServerFhirModel;
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
+        private readonly TestQueueClient _queueClient;
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
             string masterDatabaseName,
             SqlServerFhirModel sqlServerFhirModel,
-            ISqlConnectionBuilder sqlConnectionBuilder)
+            ISqlConnectionBuilder sqlConnectionBuilder,
+            TestQueueClient queueClient)
         {
             EnsureArg.IsNotNull(sqlServerFhirModel, nameof(sqlServerFhirModel));
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
@@ -53,6 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _initialConnectionString = initialConnectionString;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _queueClient = queueClient;
 
             _dbSetupRetryPolicy = Policy
                 .Handle<Exception>()
@@ -156,25 +159,16 @@ END
             });
         }
 
-        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
+        public Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand("DELETE FROM dbo.JobQueue WHERE QueueType = @QueueType", connection);
-            command.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Export);
-            await command.Connection.OpenAsync(cancellationToken);
-            await command.ExecuteNonQueryAsync(cancellationToken);
-            await connection.CloseAsync();
+            _queueClient.JobInfos.Clear();
+            return Task.CompletedTask;
         }
 
-        public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        public Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand("DELETE FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @id", connection);
-            command.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Export);
-            command.Parameters.AddWithValue("@id", id);
-            await command.Connection.OpenAsync(cancellationToken);
-            await command.ExecuteNonQueryAsync(cancellationToken);
-            await connection.CloseAsync();
+            _queueClient.JobInfos.RemoveAll((info) => info.Id == long.Parse(id));
+            return Task.CompletedTask;
         }
 
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)

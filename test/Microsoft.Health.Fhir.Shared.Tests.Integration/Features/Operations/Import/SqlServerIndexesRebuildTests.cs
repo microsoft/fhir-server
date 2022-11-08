@@ -191,7 +191,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 initialConnectionString,
                 MasterDatabaseName,
                 sqlServerFhirModel,
-                defaultSqlConnectionBuilder);
+                defaultSqlConnectionBuilder,
+                null);
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
