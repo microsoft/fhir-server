@@ -29,7 +29,8 @@ param(
 	[string]$UserObjectId,
 
 	[Parameter(Mandatory=$true, HelpMessage="The FHIR Id of the Patient")]
-	[string]$FHIRId
+	[string]$FHIRId,
+	
 	[Parameter(Mandatory=$true, HelpMessage="The name of the extension attribute to set")]
 	[string]$AttributeName
 )

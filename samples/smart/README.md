@@ -25,7 +25,7 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
   - Azure Subscription: The Azure location where your resources will be deployed.
 - *NOTE:* This will take about an hour to deploy, mainly for Azure API Management. You can continue with Azure Active Directory setup below.
 
-### 4. Setup Azure Active Directory
+### 3. Setup Azure Active Directory
 
 #### Patient Standalone Confidential Client Application
 
@@ -106,26 +106,25 @@ You must have rights to administer claims policy in your Azure Active Directory 
 - Create the custom claim fhirUser for the OAuth id_token by using the onPremisesExtensionAttribute to store the mapping. This example will use onPremisesExtensionAttribute extensionAttribute1 to store the FHIR resource Id of the user. Run the `Set-AADClaimsPolicy.ps1` script in the [scripts](./scripts) folder.
 
 ```powershell
-Set-AADClaimsPolicy.ps1 -TenantId K2S0-xxxx-xxxx-xxxx -ExtensionAttributeName extensionAttribute1
+.\Set-AADClaimsPolicy.ps1 -TenantId xxxxxxxx-xxxx-xxxx-xxxx -ExtensionAttributeName extensionAttribute1
 ```
-- Get the `ObjectId` of the ServicePrincipal of your Azure App Registration you created in Section 3 above.
-
 - In the PowerShell terminal run `Get-AzureADPolicy -All:$true1` to verify that the new claims policy was  created. Copy the Id of the newly created claims policy.
 
 ```powershell
 Get-AzADServicePrincipal -DisplayName [Name-of-your-app-registration]
 ```
+- Get the `ObjectId` of the enterprise application of your Azure App Registration you created in Section 3 above.
 
 - Associate your Custom Claim with an Azure App Registration using the App Registration Principal Id and Claims Policy Object Id.
 
 ```powershell
-Add-AzureADServicePrincipalPolicy -Id [Service Principal Id] -RefObjectId [Claims Policy ObjectId]
+Add-AzureADServicePrincipalPolicy -Id [Enterprise Application Object Id] -RefObjectId [Claims Policy ObjectId]
 ```
 
 - Run `Set-FHIRUser.ps1` in the [scripts](./scripts) folder. This script will assign a FHIR patient to an Azure AD User custom claim.
 
 ```powershell
-Set-FHIRUser -TenantId [TenantId] -UserObjectId [Azure AD User Object Id] -FHIRId [FHIR Patient Id] -AttributeName [Azure AD extension name]
+.\Set-FHIRUser.ps1 -TenantId [TenantId] -UserObjectId [Azure AD User Object Id] -FHIRId [FHIR Patient Id] -AttributeName [Azure AD extension name]
 ```
 
 #### Backend Service Client Application
