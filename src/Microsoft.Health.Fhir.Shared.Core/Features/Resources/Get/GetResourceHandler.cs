@@ -4,13 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -22,6 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
     public class GetResourceHandler : BaseResourceHandler, IRequestHandler<GetResourceRequest, GetResourceResponse>
     {
         private readonly IDataResourceFilter _dataResourceFilter;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly ISearchService _searchService;
 
         public GetResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -29,10 +35,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
             IDataResourceFilter dataResourceFilter,
-            IAuthorizationService<DataActions> authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            ISearchService searchService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             _dataResourceFilter = EnsureArg.IsNotNull(dataResourceFilter, nameof(dataResourceFilter));
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
         }
 
         public async Task<GetResourceResponse> Handle(GetResourceRequest request, CancellationToken cancellationToken)
@@ -46,7 +56,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 
             var key = request.ResourceKey;
 
-            ResourceWrapper currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
+            ResourceWrapper currentDoc = null;
+
+            // if this is a smart request we need to ensure that this resource is within the resources allowed to the user
+            // convert the request into a search request
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                var query = new List<Tuple<string, string>>();
+                query.Add(new Tuple<string, string>(KnownQueryParameterNames.Id, key.Id));
+
+                var results = await _searchService.SearchAsync(key.ResourceType, query, cancellationToken);
+
+                if (results.Results.Any())
+                {
+                    currentDoc = results.Results?.FirstOrDefault().Resource;
+                }
+            }
+            else
+            {
+                currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
+            }
 
             if (currentDoc == null)
             {

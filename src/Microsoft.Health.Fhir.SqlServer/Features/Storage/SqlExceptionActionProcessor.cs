@@ -17,8 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     public class SqlExceptionActionProcessor<TRequest, TException> : IRequestExceptionAction<TRequest, TException>
         where TException : Exception
     {
-        // TODO: add to SqlErrorCodes and also remove from SqlServerFhirDataStore.cs when completed
-        private const short DeadlockVictim = 1205;
+        private const int LoginFailedForUser = 18456;
 
         public Task Execute(TRequest request, TException exception, CancellationToken cancellationToken)
         {
@@ -36,13 +35,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new SqlQueryPlanException(Core.Resources.SqlQueryProcessorRanOutOfInternalResourcesException);
                 }
-                else if (sqlException.Number == DeadlockVictim)
+                else if (sqlException.Number == LoginFailedForUser)
                 {
-                    throw new TransactionDeadlockException(Core.Resources.TransactionDeadlock);
+                    throw new LoginFailedForUserException(Core.Resources.InternalServerError);
                 }
                 else
                 {
-                    throw new ResourceSqlException($"SqlException number: {sqlException.Number}; Exception: {sqlException.Message}");
+                    throw new ResourceSqlException(Core.Resources.InternalServerError);
                 }
             }
             else if (exception is SqlTruncateException sqlTruncateException)
