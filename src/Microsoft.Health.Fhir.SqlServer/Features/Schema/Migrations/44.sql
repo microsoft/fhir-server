@@ -2806,7 +2806,17 @@ BEGIN TRY
                            AND ResourceSurrogateId BETWEEN @StartId AND @EndId) AS A CROSS APPLY (SELECT ResourceSurrogateId
                                                                                                   FROM   @ResourceIds AS B
                                                                                                   WHERE  B.ResourceId = A.ResourceId) AS C;
-            SELECT isnull(C.RawResource, A.RawResource)
+            SELECT @ResourceTypeId,
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.ResourceId ELSE A.ResourceId END,
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.Version ELSE A.Version END,
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.IsDeleted ELSE A.IsDeleted END,
+                   isnull(C.ResourceSurrogateId, A.ResourceSurrogateId),
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.RequestMethod ELSE A.RequestMethod END,
+                   CONVERT (BIT, 1) AS IsMatch,
+                   CONVERT (BIT, 0) AS IsPartial,
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.IsRawResourceMetaSet ELSE A.IsRawResourceMetaSet END,
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.SearchParamHash ELSE A.SearchParamHash END,
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.RawResource ELSE A.RawResource END
             FROM   dbo.Resource AS A
                    LEFT OUTER JOIN
                    @SurrogateIdMap AS B
