@@ -1,6 +1,6 @@
 <Project>
-  
-   <!-- Shared dependencies versions.-->
+
+  <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <AspNetPackageVersion>6.0.10</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>6.1.142</HealthcareSharedPackageVersion>

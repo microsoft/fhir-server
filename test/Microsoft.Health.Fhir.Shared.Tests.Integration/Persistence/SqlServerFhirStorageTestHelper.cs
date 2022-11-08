@@ -16,6 +16,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -53,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _sqlConnectionBuilder = sqlConnectionBuilder;
 
             _dbSetupRetryPolicy = Policy
-                .Handle<SqlException>()
+                .Handle<Exception>()
                 .WaitAndRetryAsync(
                     retryCount: 7,
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
@@ -93,8 +95,40 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await connection.CloseAsync();
             });
 
-            await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            {
+                await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
+            });
+            await InitWatchdogsParameters();
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
+        }
+
+        public async Task InitWatchdogsParameters()
+        {
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            using var cmd = new SqlCommand(
+                @"
+IF object_id('dbo.Parameters') IS NOT NULL -- still need exists check for earlier versions than 43
+BEGIN
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinFragPct')
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB')
+END
+                ",
+                conn);
+            await conn.OpenAsync(CancellationToken.None);
+            var defragWatchdog = new DefragWatchdog();
+            cmd.Parameters.AddWithValue("@IsEnabledId", defragWatchdog.IsEnabledId);
+            cmd.Parameters.AddWithValue("@ThreadsId", defragWatchdog.ThreadsId);
+            cmd.Parameters.AddWithValue("@PeriodSecId", defragWatchdog.PeriodSecId);
+            cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", defragWatchdog.HeartbeatPeriodSecId);
+            cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", defragWatchdog.HeartbeatTimeoutSecId);
+            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await conn.CloseAsync();
         }
 
         public async Task ExecuteSqlCmd(string sql)
