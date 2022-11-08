@@ -12,6 +12,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -55,13 +56,16 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 
-            services.Add<SearchParameterDefinitionManager>()
+            services
+                .RemoveServiceTypeExact<SearchParameterDefinitionManager, INotificationHandler<SearchParametersUpdatedNotification>>()
+                .RemoveServiceTypeExact<SearchParameterDefinitionManager, INotificationHandler<StorageInitializedNotification>>()
+                .Add<SearchParameterDefinitionManager>()
                 .Singleton()
                 .AsSelf()
                 .AsService<ISearchParameterDefinitionManager>()
                 .AsService<IHostedService>()
-                .ReplaceService<INotificationHandler<SearchParametersUpdatedNotification>>()
-                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
+                .AsService<INotificationHandler<SearchParametersUpdatedNotification>>()
+                .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             services.Add<SearchableSearchParameterDefinitionManager>()
                 .Singleton()
@@ -79,10 +83,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<ISearchParameterStatusDataStore>()
                 .AsDelegate<FilebasedSearchParameterStatusDataStore.Resolver>();
 
-            services.Add<SearchParameterStatusManager>()
+            services
+                .RemoveServiceTypeExact<SearchParameterStatusManager, INotificationHandler<SearchParameterDefinitionManagerInitialized>>()
+                .Add<SearchParameterStatusManager>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<INotificationHandler<SearchParameterDefinitionManagerInitialized>>();
+                .AsService<INotificationHandler<SearchParameterDefinitionManagerInitialized>>();
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()
