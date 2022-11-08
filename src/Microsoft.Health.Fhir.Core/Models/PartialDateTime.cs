@@ -270,18 +270,6 @@ namespace Microsoft.Health.Fhir.Core.Models
             return (decimal)parsedDateTimeOffset.Subtract(offsetWithoutFraction).Ticks / TimeSpan.TicksPerSecond;
         }
 
-        public DateTimeOffset ToDateTimeOffset()
-        {
-            return ToDateTimeOffset(
-                defaultMonth: 1,
-                defaultDaySelector: (year, month) => 1,
-                defaultHour: 0,
-                defaultMinute: 0,
-                defaultSecond: 0,
-                defaultFraction: 0.0000000m,
-                defaultUtcOffset: TimeSpan.Zero);
-        }
-
         /// <summary>
         /// Converts the value of the current <see cref="PartialDateTime"/> object to a <see cref="DateTimeOffset"/> value.
         /// </summary>

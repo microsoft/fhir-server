@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
@@ -16,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// <summary>
     /// Class to hold metadata for an individual export request.
     /// </summary>
-    public class ExportJobRecord : JobRecord, IJobData
+    public class ExportJobRecord : JobRecord
     {
         public ExportJobRecord(
             Uri requestUri,
@@ -28,7 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint rollingFileSizeInMB,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
-            PartialDateTime till = null,
             string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
@@ -38,9 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint maximumNumberOfResourcesPerQuery = 100,
             uint numberOfPagesPerCommit = 10,
             string storageAccountContainerName = null,
-            int parallel = 0,
             int schemaVersion = 2,
-            int typeId = (int)JobType.ExportOrchestrator,
             bool smartRequest = false)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
@@ -63,8 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
             RollingFileSizeInMB = rollingFileSizeInMB;
             RestartCount = 0;
-            TypeId = typeId;
-            Parallel = parallel;
 
             AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
@@ -76,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
-            Till = till ?? new PartialDateTime(Clock.UtcNow);
+            Till = new PartialDateTime(Clock.UtcNow);
 
             SmartRequest = smartRequest;
 
@@ -94,9 +88,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         protected ExportJobRecord()
         {
         }
-
-        [JsonProperty(JobRecordProperties.TypeId)]
-        public int TypeId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.RequestUri)]
         public Uri RequestUri { get; internal set; }
@@ -176,9 +167,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.RestartCount)]
         public uint RestartCount { get; set; }
-
-        [JsonProperty(JobRecordProperties.Parallel)]
-        public int Parallel { get; private set; }
 
         [JsonProperty(JobRecordProperties.SmartRequest)]
         public bool SmartRequest { get; private set; }

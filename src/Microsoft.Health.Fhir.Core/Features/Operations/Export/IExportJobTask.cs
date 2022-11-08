@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -13,11 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public interface IExportJobTask
     {
-        Func<ExportJobRecord, WeakETag, CancellationToken, Task<ExportJobOutcome>> UpdateExportJob
-        {
-            get; set;
-        }
-
         /// <summary>
         /// Executes the export job task.
         /// </summary>

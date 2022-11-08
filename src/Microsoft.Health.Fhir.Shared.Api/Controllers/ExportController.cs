@@ -91,12 +91,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> Export(
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.Parallel)] int parallel,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
@@ -107,12 +105,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await SendExportRequest(
                 exportType: ExportJobType.All,
                 since: since,
-                till: till,
                 filters: typeFilter,
                 resourceType: resourceType,
                 containerName: containerName,
                 formatName: formatName,
-                parallel: parallel,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -124,7 +120,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceType(
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
@@ -146,12 +141,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await SendExportRequest(
                 exportType: ExportJobType.Patient,
                 since: since,
-                till: till,
                 filters: typeFilter,
                 resourceType: resourceType,
                 containerName: containerName,
                 formatName: formatName,
-                parallel: 0,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -163,7 +156,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceTypeById(
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
@@ -186,13 +178,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await SendExportRequest(
                 exportType: ExportJobType.Group,
                 since: since,
-                till: till,
                 filters: typeFilter,
                 resourceType: resourceType,
                 groupId: idParameter,
                 containerName: containerName,
                 formatName: formatName,
-                parallel: 0,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -237,13 +227,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private async Task<IActionResult> SendExportRequest(
             ExportJobType exportType,
             PartialDateTime since,
-            PartialDateTime till,
             string filters,
             string resourceType = null,
             string groupId = null,
             string containerName = null,
             string formatName = null,
-            int parallel = 0,
             string anonymizationConfigCollectionReference = null,
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)
@@ -253,12 +241,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 exportType,
                 resourceType,
                 since,
-                till,
                 filters,
                 groupId,
                 containerName,
                 formatName,
-                parallel,
                 anonymizationConfigCollectionReference,
                 anonymizationConfigLocation,
                 anonymizationConfigFileETag,

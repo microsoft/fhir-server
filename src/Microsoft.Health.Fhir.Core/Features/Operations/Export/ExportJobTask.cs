@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -85,13 +86,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _mediator = mediator;
             _contextAccessor = contextAccessor;
             _logger = logger;
-
-            UpdateExportJob = UpdateExportJobAsync;
-        }
-
-        public Func<ExportJobRecord, WeakETag, CancellationToken, Task<ExportJobOutcome>> UpdateExportJob
-        {
-            get; set;
         }
 
         /// <inheritdoc />
@@ -298,18 +292,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
-            ExportJobOutcome updatedExportJobOutcome = await UpdateExportJob(_exportJobRecord, _weakETag, cancellationToken);
-            _exportJobRecord = updatedExportJobOutcome.JobRecord;
-            _weakETag = updatedExportJobOutcome.ETag;
-
-            _contextAccessor.RequestContext.BundleIssues.Clear();
-        }
-
-        private async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken)
-        {
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
-                return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, cancellationToken);
+                ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
+
+                _exportJobRecord = updatedExportJobOutcome.JobRecord;
+                _weakETag = updatedExportJobOutcome.ETag;
+
+                _contextAccessor.RequestContext.BundleIssues.Clear();
             }
         }
 

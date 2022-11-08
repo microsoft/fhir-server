@@ -11,14 +11,14 @@ namespace Microsoft.Health.JobManagement.UnitTests
 {
     public class TestJob : IJob
     {
-        private readonly Func<IProgress<string>, CancellationToken, Task<string>> _executeFunc;
+        private Func<IProgress<string>, CancellationToken, Task<string>> _executeFunc;
 
         public TestJob(Func<IProgress<string>, CancellationToken, Task<string>> executeFunc)
         {
             _executeFunc = executeFunc;
         }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(IProgress<string> progress, CancellationToken cancellationToken)
         {
             return await _executeFunc(progress, cancellationToken);
         }

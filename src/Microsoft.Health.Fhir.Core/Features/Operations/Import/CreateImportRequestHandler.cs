@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             ImportOrchestratorJobInputData inputData = new ImportOrchestratorJobInputData()
             {
-                TypeId = (int)JobType.ImportOrchestrator,
+                TypeId = ImportOrchestratorJob.ImportOrchestratorTypeId,
                 RequestUri = request.RequestUri,
                 BaseUri = new Uri(request.RequestUri.GetLeftPart(UriPartial.Authority)),
                 Input = request.Input,

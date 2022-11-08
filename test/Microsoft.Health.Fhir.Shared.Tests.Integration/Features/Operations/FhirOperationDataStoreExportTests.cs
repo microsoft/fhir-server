@@ -269,7 +269,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAnOldVersionOfAnExportJob_WhenUpdatingTheExportJob_ThenJobConflictExceptionShouldBeThrown()
         {
             ExportJobOutcome jobOutcome = await CreateRunningExportJob();
@@ -298,7 +297,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsARunningExportJob_WhenSimultaneousUpdateCallsOccur_ThenJobConflictExceptionShouldBeThrown()
         {
             ExportJobOutcome runningJobOutcome = await CreateRunningExportJob();
