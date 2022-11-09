@@ -133,8 +133,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     Definition = definition,
                     Id = largestId,
                     GroupId = gId,
-                    Status = JobStatus.Created,
+                    Status = isCompleted ? JobStatus.Completed : JobStatus.Created,
                     HeartbeatDateTime = DateTime.Now,
+                    QueueType = queueType,
                 });
                 largestId++;
             }
