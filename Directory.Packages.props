@@ -5,7 +5,7 @@
     <AspNetPackageVersion>6.0.10</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>6.1.145</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
-    <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
+    <RuntimePackageVersion>7.0.0</RuntimePackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
