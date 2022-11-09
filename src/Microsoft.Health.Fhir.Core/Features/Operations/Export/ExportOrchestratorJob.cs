@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 string[] definitions;
 
-                if (record.ExportType != ExportJobType.All || record.Parallel == 1 || record.Since == null)
+                if (record.ExportType != ExportJobType.All || record.Parallel == 1 || record.Since == null || record.Filters.Count > 0)
                 {
                     var processingRecord = CreateExportRecord(record);
                     definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
