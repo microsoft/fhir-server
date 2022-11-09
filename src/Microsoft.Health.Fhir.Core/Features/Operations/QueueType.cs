@@ -10,6 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Unknown = 0, // should not be used
         Export = 1,
         Import = 2,
+        Defrag = 3,
     }
 }
 #pragma warning restore CA1028 // Enum Storage should be Int32

@@ -59,9 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false)
+            bool isAsyncOperation = false,
+            bool useSmartCompartmentDefinition = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation, useSmartCompartmentDefinition);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);

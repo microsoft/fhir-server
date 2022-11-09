@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -26,14 +27,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
     {
         private readonly RequestDelegate _next;
         private const string AllDataActions = "all";
+        private readonly ILogger<SmartClinicalScopesMiddleware> _logger;
 
         // Regex based on SMART on FHIR clinical scopes v1.0, http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
         private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all)", RegexOptions.Compiled);
 
-        public SmartClinicalScopesMiddleware(RequestDelegate next)
+        public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
             EnsureArg.IsNotNull(next, nameof(next));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _logger = logger;
             _next = next;
         }
 
@@ -48,6 +52,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
             var authorizationConfiguration = securityConfigurationOptions.Value.Authorization;
 
+            _logger.LogInformation("Principal exists {Principal}", fhirRequestContextAccessor.RequestContext.Principal != null);
+            _logger.LogInformation("securityConfigurationOptions Value Enabled {SecutiryConfigurationOption}", securityConfigurationOptions.Value.Enabled);
+            _logger.LogInformation("Authorization configuration enabled {AuthorizationConfiguration} ", authorizationConfiguration.Enabled);
+
             if (fhirRequestContextAccessor.RequestContext.Principal != null
                 && securityConfigurationOptions.Value.Enabled
                 && authorizationConfiguration.Enabled)
@@ -57,31 +65,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                 var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
 
+                _logger.LogInformation("Smart Data Action is present {Smart}", dataActions.HasFlag(DataActions.Smart));
+
                 // Only read and apply SMART clinical scopes if the user has the Smart Data action
                 if (dataActions.HasFlag(DataActions.Smart))
                 {
                     fhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
 
-                    var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
-                    try
-                    {
-                        fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
-                        FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
-                    }
-                    catch (UriFormatException)
-                    {
-                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
-                        {
-                            throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
-                        }
-                    }
-                    catch (ArgumentNullException)
-                    {
-                        if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
-                        {
-                            throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
-                        }
-                    }
+                    bool includeFhirUserClaim = true;
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
@@ -106,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                     break;
                                 case "*":
                                 case AllDataActions:
-                                    permittedDataActions |= DataActions.Read | DataActions.Write;
+                                    permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
                                     break;
                             }
 
@@ -119,6 +110,39 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 }
 
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+
+                                _logger.LogInformation("Resource and permitted data actions {Resource} {PermittedDataActions} ", resource, permittedDataActions);
+
+                                if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
+                                }
+                            }
+                        }
+                    }
+
+                    _logger.LogInformation("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
+
+                    if (includeFhirUserClaim)
+                    {
+                        var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
+                        try
+                        {
+                            fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
+                            FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
+                        }
+                        catch (UriFormatException)
+                        {
+                            if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                            {
+                                throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
+                            }
+                        }
+                        catch (ArgumentNullException)
+                        {
+                            if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
+                            {
+                                throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
                             }
                         }
                     }

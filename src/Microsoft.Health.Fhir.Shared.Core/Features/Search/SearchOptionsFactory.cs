@@ -70,7 +70,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
-        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
+        public SearchOptions Create(
+            string compartmentType,
+            string compartmentId,
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            bool isAsyncOperation = false,
+            bool useSmartCompartmentDefinition = false)
         {
             var searchOptions = new SearchOptions();
 
@@ -295,7 +301,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, smartUserCompartment: false, resourceTypesString));
+                    if (useSmartCompartmentDefinition)
+                    {
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    }
+                    else
+                    {
+                        searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    }
                 }
                 else
                 {
@@ -316,7 +329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(smartCompartmentType, smartCompartmentId, smartUserCompartment: true, resourceTypesString));
+                    searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
                 }
                 else
                 {
@@ -436,7 +449,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         includeResourceTypeList = new[] { includeResourceType };
                     }
 
-                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate);
+                    IEnumerable<string> allowedResourceTypesByScope = null;
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                    {
+                        allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                    }
+
+                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
 
                     // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
                     if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
@@ -470,12 +489,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
                     }
 
-                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
                     {
-                        var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
-                        if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                        if (expression.TargetResourceType != null && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
                         {
                             _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
+                            return null;
+                        }
+
+                        if (!expression.Produces.Any())
+                        {
                             return null;
                         }
                     }
