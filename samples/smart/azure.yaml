@@ -1,15 +1,17 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 name: fhir-smart-onc-g10-solution
-metadata:
-  template: fhir-smart-onc-g10-solution@0.0.1-beta
 services:
-  SMARTProxy:
-    project: src/AzureADAuthProxy
+  auth:
+    project: src/SMARTCustomOperations.AzureAuth
     language: csharp
     host: function
-  AuthorizeWebApp:
-    project: src/Authorize-WebApp
+  export:
+    project: src/SMARTCustomOperations.Export
+    language: csharp
+    host: function
+    AuthorizeWebApp:
+    project: src/authorize-app
     dist: build
     language: js
     host: staticwebapp

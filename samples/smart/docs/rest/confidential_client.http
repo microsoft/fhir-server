@@ -4,7 +4,7 @@
 @clientId = {{$dotenv CLIENT_ID}}
 @clientSecret = {{$dotenv CLIENT_SECRET}}
 @redirectUri = {{$dotenv REDIRECT_URI}}
-@scope = launch/patient fhirUser patient/AllergyIntolerance.read patient/CarePlan.read patient/CareTeam.read patient/Condition.read patient/Device.read patient/DiagnosticReport.read patient/DocumentReference.read patient/Encounter.read patient/Goal.read patient/Immunization.read patient/MedicationRequest.read patient/Observation.read patient/Organization.read patient/Patient.read patient/Practitioner.read patient/Procedure.read patient/Provenance.read patient/PractitionerRole.read offline_access openid
+@scope = launch/patient fhirUser patient/Condition.read patient/Observation.read patient/Patient.read offline_access openid
 @codeChallenge = ECgEuvKylvpiOS9pF2pfu5NKoBErrx8fAWdneyiPT2E
 @codeVerifier = faae52a66a7ff080b275b7f4e59c2b3eec3d56d69ac036228393e16c
 @audience ={{$dotenv AUDIENCE}}

@@ -23,11 +23,15 @@ param publisherEmail string
 @description('Base URL of the FHIR Service')
 param fhirBaseUrl string
 
-@description('Base URL of the SMART Auth Function')
+@description('Base URL of the SMART Auth Custom Operation Function')
 param smartAuthFunctionBaseUrl string
 
-@description('Base URL of the export storage account')
-param exportStorageAccountUrl string
+@description('Base URL of the SMART Export Custom Operation Function')
+param exportFunctionBaseUrl string
+
+@description('Base URL of the static webapp with Authorize Context Handles')
+param contextStaticAppBaseUrl string
+
 
 @description('Instrumentation key for App Insights used with APIM')
 param appInsightsInstrumentationKey string
@@ -53,7 +57,8 @@ module apimBackends 'apiManagement/backends.bicep' = {
     apiManagementServiceName: apiManagementServiceName
     fhirBaseUrl: fhirBaseUrl
     smartAuthFunctionBaseUrl: smartAuthFunctionBaseUrl
-    backendStorageUrl: exportStorageAccountUrl
+    exportFunctionBaseUrl: exportFunctionBaseUrl
+    contextStaticAppBaseUrl: contextStaticAppBaseUrl
   }
 
   dependsOn: [ apimService ]
@@ -77,6 +82,7 @@ module apimNamedValues 'apiManagement/namedValues.bicep' = {
   params: {
     apiManagementServiceName: apiManagementServiceName
     tenantId: subscription().tenantId
+    contextStaticAppBaseUrl: contextStaticAppBaseUrl
   }
 
   dependsOn: [ apimService ]
@@ -92,4 +98,5 @@ module apimFragments 'apiManagement/fragments.bicep' = {
   dependsOn: [ apimService ]
 }
 
-output apimSmartUrl string = 'https://${apiManagementServiceName}.azure-api.net/smart'
+output apimHostName string = '${apiManagementServiceName}.azure-api.net'
+output apimSmartUrl string = 'https://${apiManagementServiceName}.azure-api.net'

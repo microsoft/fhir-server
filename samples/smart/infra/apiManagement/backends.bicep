@@ -1,7 +1,8 @@
 param apiManagementServiceName string
 param fhirBaseUrl string
 param smartAuthFunctionBaseUrl string
-param backendStorageUrl string
+param exportFunctionBaseUrl string
+param contextStaticAppBaseUrl string
 
 resource fhirBackend 'Microsoft.ApiManagement/service/backends@2021-12-01-preview' = {
   name: '${apiManagementServiceName}/fhir'
@@ -19,14 +20,23 @@ resource smartAuthFunctionBackend 'Microsoft.ApiManagement/service/backends@2021
   }
 }
 
-resource exportStorageBackend 'Microsoft.ApiManagement/service/backends@2021-12-01-preview' = {
-  name: '${apiManagementServiceName}/export-storage-account'
+resource exportFunctionBackend 'Microsoft.ApiManagement/service/backends@2021-12-01-preview' = {
+  name: '${apiManagementServiceName}/export'
   properties: {
-    url: backendStorageUrl
+    url: exportFunctionBaseUrl
+    protocol: 'http'
+  }
+}
+
+resource contextStaticAppBackend 'Microsoft.ApiManagement/service/backends@2021-12-01-preview' = {
+  name: '${apiManagementServiceName}/contextStaticApp'
+  properties: {
+    url: contextStaticAppBaseUrl
     protocol: 'http'
   }
 }
 
 output fhirBackendId string = fhirBackend.id
 output smartAuthFunctionBackendId string = smartAuthFunctionBackend.id
-output storageBackendId string = exportStorageBackend.id
+output exportFunctionBackendId string = exportFunctionBackend.id
+output contextStaticAppBaseUrlId string = contextStaticAppBackend.id

@@ -9,9 +9,7 @@ param sku object = {
 resource web 'Microsoft.Web/staticSites@2022-03-01' = {
   name: staticWebAppName
   location: location
-  tags: union(appTags, {
-    'azd-service-name': 'AuthorizeWebApp'
-  })
+  tags: appTags
   sku: sku
   properties: {
     provider: 'Custom'

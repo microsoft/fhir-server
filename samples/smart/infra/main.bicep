@@ -21,20 +21,17 @@ param apimPublisherName string
 @description('Email of the owner of the API Management resource')
 param apimPublisherEmail string
 
-/*@description('Client ID for single principal based JWKS backend auth')
-param testBackendClientId string
-
-@secure()
-@description('Client Secret for single principal based JWKS backend auth')
-param testBackendClientSecret string
-
-@description('JWKS URL for single principal based JWKS backend auth')
-param testBackendClientJwks string*/
+@description('Tags for all Azure resources in the solution')
+var appTags = {
+  AppID: 'fhir-smart-onc-g10-sample'
+  'azd-env-name': name
+}
 
 @description('Resource group to deploy sample in.')
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: '${name}-rg'
   location: location
+  tags: appTags
 }
 
 @description('Core deployment used to house the resource group scoped resources.')
@@ -52,13 +49,15 @@ module template 'core.bicep'= {
     smartAudience: smartAudience
     apimPublisherName: apimPublisherName
     apimPublisherEmail: apimPublisherEmail
-    /*testBackendClientId: testBackendClientId
-    testBackendClientSecret: testBackendClientSecret
-    testBackendClientJwks: testBackendClientJwks*/
+    appTags: appTags
   }
 }
 
 // These map to user secrets for local execution of the program
 output LOCATION string = location
-output SmartFhirEndpoint string = template.outputs.SmartFhirEndpoint
+output FhirServerUrl string = template.outputs.FhirServerUrl
+output ExportStorageAccountUrl string = template.outputs.ExportStorageAccountUrl
+output ApiManagementHostName string = template.outputs.ApiManagementHostName
+output BackendServiceKeyVaultStore string = template.outputs.BackendServiceKeyVaultStore
+output Audience string = template.outputs.Audience
 output TenantId string = template.outputs.TenantId

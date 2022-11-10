@@ -6,6 +6,8 @@ param appInsightsConnectionString string
 param location string
 param functionSettings object = {}
 param appTags object = {}
+param azdServiceName string
+param deployJwksTable bool = false
 
 @description('Azure Function required linked storage account')
 resource funcStorageAccount 'Microsoft.Storage/storageAccounts@2021-08-01' = {
@@ -50,9 +52,7 @@ resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
     }
   }
 
-  tags: union(appTags, {
-    'azd-service-name': 'SMARTProxy'
-  })
+  tags: union(appTags, {'azd-service-name': azdServiceName})
 }
 
 resource fhirProxyAppSettings 'Microsoft.Web/sites/config@2020-12-01' = {
@@ -68,12 +68,12 @@ resource fhirProxyAppSettings 'Microsoft.Web/sites/config@2020-12-01' = {
   }, functionSettings)
 }
 
-resource funcTableService 'Microsoft.Storage/storageAccounts/tableServices@2022-05-01' = {
+resource funcTableService 'Microsoft.Storage/storageAccounts/tableServices@2022-05-01' = if(deployJwksTable) {
   name: 'default'
   parent: funcStorageAccount
 }
 
-resource symbolicname 'Microsoft.Storage/storageAccounts/tableServices/tables@2022-05-01' = {
+resource symbolicname 'Microsoft.Storage/storageAccounts/tableServices/tables@2022-05-01' = if(deployJwksTable) {
   name: 'jwksBackendService'
   parent: funcTableService
 }

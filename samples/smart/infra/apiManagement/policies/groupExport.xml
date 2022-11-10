@@ -1,53 +1,13 @@
-<!--
-    IMPORTANT:
-    - Policy elements can appear only within the <inbound>, <outbound>, <backend> section elements.
-    - To apply a policy to the incoming request (before it is forwarded to the backend service), place a corresponding policy element within the <inbound> section element.
-    - To apply a policy to the outgoing response (before it is sent back to the caller), place a corresponding policy element within the <outbound> section element.
-    - To add a policy, place the cursor at the desired insertion point and select a policy from the sidebar.
-    - To remove a policy, delete the corresponding policy statement from the policy document.
-    - Position the <base> element within a section element to inherit all policies from the corresponding section element in the enclosing scope.
-    - Remove the <base> element to prevent inheriting policies from the corresponding section element in the enclosing scope.
-    - Policies are applied in the order of their appearance, from the top down.
-    - Comments within policy elements are not supported and may disappear. Place your comments between policy elements or at a higher level scope.
--->
 <policies>
     <inbound>
         <base />
-        <include-fragment fragment-id="set-oid-header-from-token" />
-        <choose>
-            <when condition="@(!string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("oid", "")))">
-                <set-query-parameter name="_container" exists-action="override">
-                    <value>@(context.Request.Headers.GetValueOrDefault("oid", ""))</value>
-                </set-query-parameter>
-            </when>
-            <otherwise>
-                <return-response>
-                    <set-status code="401" reason="Unauthorized" />
-                    <set-header name="WWW-Authenticate" exists-action="override">
-                        <value>Bearer error="invalid_token"</value>
-                    </set-header>
-                </return-response>
-            </otherwise>
-        </choose>
+        <set-backend-service id="apim-generated-policy" backend-id="export" />
     </inbound>
     <backend>
         <base />
     </backend>
     <outbound>
         <base />
-        <set-header name="content-location" exists-action="override">
-            <value>@{
-                string returnContentLocationHeader = "";
-                string responseContentLocationHeader = context.Response.Headers.GetValueOrDefault("content-location", "");
-                if (responseContentLocationHeader?.Length > 0)
-                {
-                    Uri parsed = new Uri(responseContentLocationHeader);
-                    return new Uri("https://" + context.Request.OriginalUrl.Host + context.Api.Path + parsed.LocalPath).ToString();
-                    
-                }
-                return returnContentLocationHeader;
-                }</value>
-        </set-header>
     </outbound>
     <on-error>
         <base />

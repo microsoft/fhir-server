@@ -1,0 +1,1 @@
+export const fhirAppId: string = "4f6778d8-5aef-43dc-a1ff-b073724b9495";

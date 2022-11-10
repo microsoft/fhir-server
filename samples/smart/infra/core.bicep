@@ -25,6 +25,8 @@ param apimPublisherName string
 @description('Email of the owner of the API Management resource')
 param apimPublisherEmail string
 
+param appTags object
+
 /*@description('Client ID for single principal based JWKS backend auth')
 param testBackendClientId string
 
@@ -50,16 +52,8 @@ param fhirSMARTPrincipals array = []
 @description('ID of principals to give KeyVault Writer access to')
 param keyVaultWriterPrincipals array = []
 
-@description('Any custom function app settings')
-param functionAppCustomSettings object = {}
-
 @description('Tenant ID where resources are deployed')
 var tenantId  = subscription().tenantId
-
-@description('Tags for all Azure resources in the solution')
-var appTags = {
-    AppID: 'fhir-smart-onc-g10-sample'
-  }
 
 @description('Name for the storage account needed for the Function App')
 var exportStoreName = '${prefixNameCleanShort}expsa'
@@ -94,68 +88,91 @@ module monitoring './monitoring.bicep'= {
 }
 
 @description('Name for the App Service used to host the Function App.')
-var appServiceName = '${prefixName}-appserv'
+var aadCustomOperationsAppServiceName = '${prefixName}-aad-as'
 
 @description('Name for the Function App to deploy the SDK custom operations to.')
-var functionAppName = '${prefixName}-func'
+var aadCustomOperationsFunctionAppName = '${prefixName}-aad-func'
 
 @description('Name for the storage account needed for the Function App')
-var funcStorName = '${prefixNameCleanShort}funcsa'
+var aadCustomOperationsFuncStorName = '${prefixNameCleanShort}aadfuncsa'
 
 var fhirUrl = 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
 
-var functionParams = union(
-  {
-    AZURE_BackendFhirUrl: fhirUrl
-    AZURE_SmartFhirEndpoint: 'https://${apimName}.azure-api.net/smart'
-    AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
-    AZURE_TenantId: tenantId
-    Azure_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
-  }, 
-  functionAppCustomSettings,
-  {
-    AZURE_BackendServiceKeyVaultStore: backendServiceVaultName
-  }
-)
-
-  /*length(testBackendClientId) > 0 ? {
-    AZURE_TestBackendClientId: testBackendClientId
-  } : {},
-  length(testBackendClientSecret) > 0 ? {
-    AZURE_TestBackendClientSecret: testBackendClientSecret
-  } : {},
-  length(testBackendClientJwks) > 0 ? {
-    AZURE_TestBackendClientJwks: testBackendClientJwks
-  } : {}*/
+var aadCustomOperationsFunctionParams = {
+  AZURE_FhirServerUrl: fhirUrl
+  AZURE_ApiManagementHostName: 'https://${apimName}.azure-api.net'
+  AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
+  AZURE_TenantId: tenantId
+  Azure_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
+  AZURE_BackendServiceKeyVaultStore: backendServiceVaultName
+}
 
 @description('Deploy Azure Function to run SDK custom operations')
-module function './azureFunction.bicep'= {
-  name: 'functionDeploy'
+module aadCustomOperationFunction './azureFunction.bicep'= {
+  name: 'aadCustomOperationFunction'
   params: {
-    appServiceName: appServiceName
-    functionAppName: functionAppName
-    storageAccountName: funcStorName
+    appServiceName: aadCustomOperationsAppServiceName
+    functionAppName: aadCustomOperationsFunctionAppName
+    storageAccountName: aadCustomOperationsFuncStorName
     location: location
     appInsightsInstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
-    functionSettings: functionParams
+    functionSettings: aadCustomOperationsFunctionParams
+    appTags: appTags
+    azdServiceName: 'auth'
+    deployJwksTable: true
+  }
+}
+
+@description('Name for the App Service used to host the Export Custom Operation Function App.')
+var exportCustomOperationsAppServiceName = '${prefixName}-exp-as'
+
+@description('Name for the Function App to deploy the Export Custom Operations to')
+var exportCustomOperationsFunctionAppName = '${prefixName}-exp-func'
+
+@description('Name for the storage account needed for the Function App')
+var exportCustomOperationsFuncStorName = '${prefixNameCleanShort}expfuncsa'
+
+var exportCustomOperationsFunctionParams = {
+  AZURE_FhirServerUrl: fhirUrl
+  AZURE_ExportStorageAccountUrl: 'https://${exportStoreName}.blob.${environment().suffixes.storage}'
+  AZURE_ApiManagementHostName: '${apimName}.azure-api.net'
+  AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
+  AZURE_TenantId: tenantId
+  Azure_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
+  AZURE_BackendServiceKeyVaultStore: backendServiceVaultName
+}
+
+@description('Deploy Azure Function to run export custom operations')
+module exportCustomOperationFunction './azureFunction.bicep'= {
+  name: 'exportCustomOperationFunction'
+  params: {
+    appServiceName: exportCustomOperationsAppServiceName
+    functionAppName: exportCustomOperationsFunctionAppName
+    storageAccountName: exportCustomOperationsFuncStorName
+    location: location
+    appInsightsInstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
+    appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    functionSettings: exportCustomOperationsFunctionParams
+    azdServiceName: 'export'
     appTags: appTags
   }
 }
 
+// #TODO - remove once SMART Scopes are properly working
 @description('Setup identity connection between FHIR and the function app')
 module functionFhirIdentity './identity.bicep'= {
   name: 'fhirIdentity-function-contributor'
   params: {
     fhirId: fhir.outputs.fhirId
-    principalId: function.outputs.functionAppPrincipalId
+    principalId: aadCustomOperationFunction.outputs.functionAppPrincipalId
     roleType: 'fhirContributor'
   }
 }
 
 @description('Setup identity connection between FHIR and the given contributors')
 module fhirContributorIdentities './identity.bicep' =  [for principalId in  fhirContributorPrincipals: {
-  name: 'fhirIdentity-${principalId}-fhirContributor'
+  name: 'fhirIdentity-${principalId}-fhirContrib'
   params: {
     fhirId: fhir.outputs.fhirId
     principalId: principalId
@@ -185,10 +202,11 @@ module apim './apiManagement.bicep'= {
     publisherEmail: apimPublisherEmail
     publisherName: apimPublisherName
     location: location
-    fhirBaseUrl: 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
-    smartAuthFunctionBaseUrl: 'https://${function.outputs.hostName}/api'
+    fhirBaseUrl: fhirUrl
+    smartAuthFunctionBaseUrl: 'https://${aadCustomOperationFunction.outputs.hostName}/api'
+    exportFunctionBaseUrl: 'https://${exportCustomOperationFunction.outputs.hostName}/api'
+    contextStaticAppBaseUrl: contextStaticWebApp.outputs.uri
     appInsightsInstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
-    exportStorageAccountUrl: fhir.outputs.exportStorageUrl
   }
 }
 
@@ -201,22 +219,27 @@ module keyVault './keyVault.bicep' = {
     location: location
     tenantId: tenantId
     writerObjectIds: keyVaultWriterPrincipals
-    readerObjectIds: [ function.outputs.functionAppPrincipalId ]
+    readerObjectIds: [ aadCustomOperationFunction.outputs.functionAppPrincipalId ]
   }
 }
 
-var authorizeStaticWebAppName = '${prefixName}-backkv'
+var authorizeStaticWebAppName = '${prefixName}-contextswa'
 @description('Static web app for authorize UI')
-module authorizeSwa './staticWebApp.bicep' = {
+module contextStaticWebApp './staticWebApp.bicep' = {
   name: 'staticWebAppDeploy'
   params: {
     staticWebAppName: authorizeStaticWebAppName
     location: location
-    appTags: appTags
+    appTags: union(appTags, {
+      'azd-service-name': 'context'
+    })
   }
 }
 
-output SmartFhirEndpoint string = apim.outputs.apimSmartUrl
 output FhirServiceId string = fhir.outputs.fhirId
-output FhirServiceUrl string = 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcareapis.com'
+output ApiManagementHostName string = apim.outputs.apimHostName
+output ExportStorageAccountUrl string =  'https://${exportStoreName}.blob.${environment().suffixes.storage}'
+output FhirServerUrl string = fhirUrl
 output TenantId string = tenantId
+output Audience string = length(smartAudience) > 0 ? smartAudience : fhirUrl
+output BackendServiceKeyVaultStore string = backendServiceVaultName

@@ -8,8 +8,10 @@ function authorize_click()
 {
   let urlParams = new URLSearchParams(window.location.search);
 
-  let newUrl = window.location.origin + window.location.pathname;
-  newUrl = newUrl + "?response_type=code";
+  let newUrl = urlParams.get('aud') || '';
+  newUrl = urlParams.get('aud') + '/authorize?user=true'
+
+  newUrl = newUrl + "&response_type=code";
   newUrl = newUrl + "&client_id=" + urlParams.get('client_id') || '';
   newUrl = newUrl + "&redirect_uri=" + urlParams.get('redirect_uri') || '';
 
@@ -30,8 +32,6 @@ function authorize_click()
   {
     newUrl = newUrl + "&code_challenge_method=" + code_challenge_method || '';
   }
-
-  newUrl = newUrl + "&user=true"
 
   window.location.href = newUrl
 }
