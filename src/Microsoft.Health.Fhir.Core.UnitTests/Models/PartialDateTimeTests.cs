@@ -265,28 +265,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         }
 
         [Fact]
-        public void GivenAPartialDateTimeWithNoMissingComponent_WhenToDateTimeOffsetWithoutArgumentsIsCalled_ThenCorrectDateTimeOffsetIsReturned()
-        {
-            var dateTime = PartialDateTime.Parse("2013-10-12T23:01:35.9995555+02:00");
-
-            var actualOffset = dateTime.ToDateTimeOffset();
-
-            var expectedOffset = new DateTimeOffset(
-                2013,
-                10,
-                12,
-                23,
-                01,
-                35,
-                TimeSpan.FromMinutes(120));
-
-            expectedOffset = expectedOffset.AddTicks((long)(0.9995555m * TimeSpan.TicksPerSecond));
-
-            Assert.Equal(expectedOffset, actualOffset);
-        }
-
-        [Fact]
-        public void GivenAPartialDateTimeWithNoMissingComponent_WhenToDateTimeOffsetWithArgumentsIsCalled_ThenCorrectDateTimeOffsetIsReturned()
+        public void GivenAPartialDateTimeWithNoMissingComponent_WhenToDateTimeOffsetIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
             var dateTime = PartialDateTime.Parse("2013-10-12T23:01:35.9995555+02:00");
 
@@ -314,36 +293,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         }
 
         [Fact]
-        public void GivenAPartialDateTimeWithMissingComponents_WhenToDateTimeOffsetWithoutArgumentsIsCalled_ThenCorrectDateTimeOffsetIsReturned()
-        {
-            const int expectedMonth = 1;
-            const int expectedDay = 1;
-            const int expectedHour = 0;
-            const int expectedMinute = 0;
-            const int expectedSecond = 0;
-            const decimal expectedFraction = 0.0m;
-            var expectedUtcOffset = TimeSpan.FromMinutes(0);
-
-            var dateTime = PartialDateTime.Parse("2013");
-
-            var actualOffset = dateTime.ToDateTimeOffset();
-
-            var expectedOffset = new DateTimeOffset(
-                2013,
-                expectedMonth,
-                expectedDay,
-                expectedHour,
-                expectedMinute,
-                expectedSecond,
-                expectedUtcOffset);
-
-            expectedOffset = expectedOffset.AddTicks((long)(expectedFraction * TimeSpan.TicksPerSecond));
-
-            Assert.Equal(expectedOffset, actualOffset);
-        }
-
-        [Fact]
-        public void GivenAPartialDateTimeWithMissingComponents_WhenToDateTimeOffsetWithArgumentsIsCalled_ThenCorrectDateTimeOffsetIsReturned()
+        public void GivenAPartialDateTimeWithMissingComponents_WhenToDateTimeOffsetIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
             const int expectedMonth = 2;
             const int expectedDay = 10;

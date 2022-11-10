@@ -90,18 +90,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool countOnly,
             CancellationToken cancellationToken,
             bool isAsyncOperation = false);
-
-        Task<SearchResult> SearchByDateTimeRange(
-            string resourceType,
-            DateTime startTime,
-            DateTime endTime,
-            CancellationToken cancellationToken);
-
-        Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(
-            string resourceType,
-            DateTime startTime,
-            DateTime endTime,
-            int numberOfRanges,
-            CancellationToken cancellationToken);
     }
 }

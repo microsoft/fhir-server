@@ -249,7 +249,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             // Filter results by _since.
             if (since != null)
             {
-                var sinceDateTimeOffset = since.ToDateTimeOffset();
+                var sinceDateTimeOffset = since.ToDateTimeOffset(
+                    defaultMonth: 1,
+                    defaultDaySelector: (year, month) => 1,
+                    defaultHour: 0,
+                    defaultMinute: 0,
+                    defaultSecond: 0,
+                    defaultFraction: 0.0000000m,
+                    defaultUtcOffset: TimeSpan.Zero);
                 searchResultEntries = searchResultEntries.Where(s => s.Resource.LastModified.CompareTo(sinceDateTimeOffset) >= 0).ToList();
             }
 

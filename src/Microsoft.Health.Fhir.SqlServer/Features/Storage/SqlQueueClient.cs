@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (sqlEx.State == 127)
                     {
-                        throw new JobManagement.JobConflictException(sqlEx.Message);
+                        throw new JobConflictException(sqlEx.Message);
                     }
 
                     throw;

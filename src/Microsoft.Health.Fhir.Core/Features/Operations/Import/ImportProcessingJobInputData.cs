@@ -3,11 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.JobManagement;
-
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportProcessingJobInputData : IJobData
+    public class ImportProcessingJobInputData
     {
         public int TypeId { get; set; }
 

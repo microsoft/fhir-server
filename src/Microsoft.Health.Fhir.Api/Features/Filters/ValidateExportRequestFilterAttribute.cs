@@ -39,12 +39,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 KnownQueryParameterNames.OutputFormat,
                 KnownQueryParameterNames.Since,
-                KnownQueryParameterNames.Till,
                 KnownQueryParameterNames.Type,
                 KnownQueryParameterNames.Container,
                 KnownQueryParameterNames.Format,
                 KnownQueryParameterNames.TypeFilter,
-                KnownQueryParameterNames.Parallel,
                 KnownQueryParameterNames.AnonymizationConfigurationCollectionReference,
                 KnownQueryParameterNames.AnonymizationConfigurationLocation,
                 KnownQueryParameterNames.AnonymizationConfigurationFileEtag,
