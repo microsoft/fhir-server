@@ -296,8 +296,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                var consistentExport = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportReadConsistency;
-                if (consistentExport)
+                var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
+                if (exportTimeTravel)
                 {
                     PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommandWrapper);
                 }
@@ -448,7 +448,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     await reader.NextResultAsync(cancellationToken);
 
                     ContinuationToken continuationToken =
-                        moreResults && consistentExport // with query hints all results are returned on single page
+                        moreResults && !exportTimeTravel // with query hints all results are returned on single page
                             ? new ContinuationToken(
                                 clonedSearchOptions.Sort.Select(s =>
                                     s.searchParameterInfo.Name switch
