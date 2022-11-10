@@ -20,6 +20,7 @@ using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -66,6 +67,63 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         protected Mediator Mediator { get; }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task TimeTravel()
+        {
+            await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Resource"); // remove all data
+
+            var since = DateTime.UtcNow;
+
+            // add 2 resources
+            var type = "Patient";
+            var patient = (Patient)Samples.GetJsonSample(type).ToPoco();
+            patient.Id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(patient.ToResourceElement());
+            patient.Id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(patient.ToResourceElement());
+
+            await Task.Delay(100); // avoid time -> surrogate id -> time round trip error
+            var till = DateTime.UtcNow;
+
+            var queryParameters = new List<Tuple<string, string>>();
+            var results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            Assert.Equal(2, results.Results.Count());
+
+            // add till and check that both resources are returned
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{new PartialDateTime(since)}"));
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{new PartialDateTime(till)}"));
+            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            Assert.Equal(2, results.Results.Count());
+
+            await UpdateResource(patient); // update one resource
+
+            // only one is returned because one resource became "invisible" in the time interval requested
+            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            Assert.Single(results.Results);
+
+            // add magic parameters
+            var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, since, till, 1, CancellationToken.None)).First();
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Type, type));
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, range.GlobalEnd.ToString()));
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.End.ToString()));
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, range.GlobalStart.ToString()));
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.Start.ToString()));
+
+            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            Assert.Equal(2, results.Results.Count());
+        }
+
+        private async Task UpdateResource(Patient patient)
+        {
+            var oldId = patient.Id;
+            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET IsHistory = 1 WHERE ResourceId = '{oldId}' AND Version = 1");
+            var newId = Guid.NewGuid().ToString();
+            patient.Id = newId;
+            await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
+            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 2 WHERE ResourceId = '{newId}'");
+        }
 
         [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
