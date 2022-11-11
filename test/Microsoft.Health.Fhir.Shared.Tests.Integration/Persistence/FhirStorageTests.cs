@@ -74,8 +74,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await _fixture.SqlHelper.ExecuteSqlCmd("DELETE FROM dbo.Resource"); // remove all data
 
-            var since = DateTime.UtcNow;
-
             // add resource
             var type = "Patient";
             var patient = (Patient)Samples.GetJsonSample(type).ToPoco();
@@ -85,46 +83,51 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Task.Delay(100); // avoid time -> surrogate id -> time round trip error
             var till = DateTime.UtcNow;
 
-            var queryParameters = new List<Tuple<string, string>>();
-            var results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            var results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
             Assert.Single(results.Results);
             var resource = results.Results.First().Resource;
             Assert.Equal("1", resource.Version);
 
             // add till and check that resource is returned
-            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{new PartialDateTime(since)}"));
-            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{new PartialDateTime(till)}"));
+            var queryParameters = new[] { Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{new PartialDateTime(till)}") };
             results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("1", resource.Version);
+            Assert.False(resource.IsHistory); // current
 
             await UpdateResource(patient); // update resource
 
-            // pre time travel behavior
+            // !!! pre time travel behavior
+            // same parameters
             // resource is not returned because it became "invisible" in the time interval requested
             results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
             Assert.Empty(results.Results);
 
             // add magic parameters
-            var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, since, till, 1, CancellationToken.None)).First();
-            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Type, type));
-            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, range.GlobalEnd.ToString()));
-            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.End.ToString()));
-            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, range.GlobalStart.ToString()));
-            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.Start.ToString()));
+            var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, DateTime.MinValue, till, 1, CancellationToken.None)).First();
+            queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Type, type),
+                Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, range.GlobalEnd.ToString()),
+                Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.End.ToString()),
+                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, range.GlobalStart.ToString()),
+                Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.Start.ToString()),
+            };
 
-            // time travel behavior
+            // !!! time travel behavior
             results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("1", resource.Version);
+            Assert.False(resource.IsHistory); // it is returned as current but is marked as history in the database ???
 
             // current resource
             results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("2", resource.Version);
+            Assert.False(resource.IsHistory); // current
         }
 
         private async Task UpdateResource(Patient patient)
