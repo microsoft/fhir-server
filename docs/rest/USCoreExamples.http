@@ -13,6 +13,16 @@ grant_type=client_credentials
 &client_secret=globalAdminServicePrincipal
 &scope=fhir-api
 
+### Get a SMART bearer token, if authentication is enabled 
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=fhirUser fhir-api patient/*.*
+
 ###
 # US Core - Missing Data
 # Create an explanation of benefit resource that references 
