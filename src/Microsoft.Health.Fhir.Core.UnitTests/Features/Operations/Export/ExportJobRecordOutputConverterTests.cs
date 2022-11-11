@@ -6,11 +6,15 @@
 using System.IO;
 using System.Reflection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Export)]
     public class ExportJobRecordOutputConverterTests
     {
         [Fact]

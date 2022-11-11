@@ -24,18 +24,22 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Schema)]
     public class SqlServerSchemaUpgradeTests
     {
         private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
@@ -72,8 +76,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await testHelper1.DeleteDatabase(snapshotDatabaseName);
-                await testHelper2.DeleteDatabase(diffDatabaseName);
+                await testHelper1?.DeleteDatabase(snapshotDatabaseName);
+                await testHelper2?.DeleteDatabase(diffDatabaseName);
             }
         }
 
@@ -145,7 +149,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 initialConnectionString,
                 MasterDatabaseName,
                 sqlServerFhirModel,
-                defaultSqlConnectionBuilder);
+                defaultSqlConnectionBuilder,
+                null);
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
@@ -282,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
                     //// Skipping queue objects
-                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus" };
+                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus", "GetActiveJobs", "Defrag", "DefragChangeDatabaseSettings", "InitDefrag", "ArchiveJobs" };
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
                         continue;

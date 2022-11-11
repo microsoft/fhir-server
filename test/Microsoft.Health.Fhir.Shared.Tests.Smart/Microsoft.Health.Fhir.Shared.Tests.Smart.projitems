@@ -9,6 +9,7 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.Smart</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyBadRequestTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyTestFixture.cs" />
   </ItemGroup>

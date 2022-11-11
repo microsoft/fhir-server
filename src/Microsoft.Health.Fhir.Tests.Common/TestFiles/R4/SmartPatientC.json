@@ -1,0 +1,881 @@
+{
+    "resourceType": "Bundle",
+    "id": "1eb6b09c8316564abe35fad9b948e0d3",
+    "type": "transaction",
+    "entry": [	    
+		{
+            "resource": {
+				"resourceType": "Organization",
+				"id": "smart-organization-C1",
+				"meta": {
+					"versionId": "2",
+					"lastUpdated": "2022-09-29T19:10:27.756+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": "Updated",
+				"address": [
+					{
+						"city": "Seattle3"
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Organization/smart-organization-C1"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "Patient",
+				"id": "smart-patient-C",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.888+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"name": [
+					{
+						"family": "SMART",
+						"given": [
+							"SMARTGivenName3"
+						]
+					}
+				],
+				"birthDate": "1981-07-02",
+				"generalPractitioner": [
+					{
+						"reference": "Practitioner/smart-practitioner-B"
+					}
+				],
+				"managingOrganization": {
+					"reference": "Organization/smart-organization-C1"
+				}
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/smart-patient-C"
+            }
+        },
+        {
+            "resource": {
+				"resourceType": "CareTeam",
+				"id": "smart-careteam-C1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:28.036+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"participant": [
+					{
+						"member": {
+							"reference": "Patient/smart-patient-C"
+						}
+					},
+					{
+						"member": {
+							"reference": "Organization/smart-organization-C1"
+						}
+					},
+					{
+						"member": {
+							"reference": "Practitioner/smart-practitioner-B"
+						}
+					}
+				]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "CareTeam/smart-careteam-C1"
+            }
+        },
+        {
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-C1",
+			  "text": {
+				"status": "extensions",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;example-genetics-1&quot; </p></div><p><b>Gene</b>: EGFR <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-hgnc.html\">HUGO Gene Nomenclature</a>#3236)</span></p><p><b>DNARegionName</b>: Exon 21</p><p><b>GenomicSourceClass</b>: somatic <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#LA6684-0)</span></p><p><b>status</b>: final</p><p><b>code</b>: The material on this page will be removed in a future release. This content is deprecated and SHOULD NOT be used. Implementers are instead directed to the ([Genomics Reporting Implementation Guide](http://hl7.org/fhir/uv/genomics-reporting/index.html)) for guidance. Genetic analysis master panel-- This is the parent OBR for the panel holding all of the associated observations that can be reported with a molecular genetics analysis result. <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#55233-1)</span></p><p><b>subject</b>: <a href=\"patient-example.html\">Patient/example: Molecular Lab Patient ID: HOSP-23456</a> &quot;Peter CHALMERS&quot;</p><p><b>effective</b>: 2013-04-03T15:30:10+01:00</p><p><b>performer</b>: <a href=\"practitioner-example.html\">Practitioner/example: Molecular Diagnostics Laboratory</a> &quot;Adam CAREFUL&quot;</p><p><b>value</b>: Positive <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#10828004)</span></p><p><b>device</b>: <a href=\"device-example.html\">Device/example</a></p></div>"
+			  },
+			  "extension": [
+				{
+				  "url": "http://hl7.org/fhir/StructureDefinition/observation-geneticsGene",
+				  "valueCodeableConcept": {
+					"coding": [
+					  {
+						"system": "http://www.genenames.org",
+						"code": "3236",
+						"display": "EGFR"
+					  }
+					]
+				  }
+				},
+				{
+				  "url": "http://hl7.org/fhir/StructureDefinition/observation-geneticsDNARegionName",
+				  "valueString": "Exon 21"
+				},
+				{
+				  "url": "http://hl7.org/fhir/StructureDefinition/observation-geneticsGenomicSourceClass",
+				  "valueCodeableConcept": {
+					"coding": [
+					  {
+						"system": "http://loinc.org",
+						"code": "LA6684-0",
+						"display": "somatic"
+					  }
+					]
+				  }
+				}
+			  ],
+			  "status": "final",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "55233-1",
+					"display": "The material on this page will be removed in a future release. This content is deprecated and SHOULD NOT be used. Implementers are instead directed to the ([Genomics Reporting Implementation Guide](http://hl7.org/fhir/uv/genomics-reporting/index.html)) for guidance. Genetic analysis master panel-- This is the parent OBR for the panel holding all of the associated observations that can be reported with a molecular genetics analysis result."
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C",
+				"display": "Molecular Lab Patient ID: HOSP-23456"
+			  },
+			  "effectiveDateTime": "2013-04-03T15:30:10+01:00",
+			  "performer": [
+				{
+				  "reference": "Practitioner/smart-practitioner-B",
+				  "display": "Molecular Diagnostics Laboratory"
+				}
+			  ],
+			  "valueCodeableConcept": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "10828004",
+					"display": "Positive"
+				  }
+				]
+			  }
+			},
+			"request": {
+				"method": "PUT",
+				"url": "Observation/smart-observation-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-C2",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;unsat&quot; </p></div><p><b>identifier</b>: id: 6323 (OFFICIAL)</p><p><b>status</b>: cancelled</p><p><b>code</b>: Glucose [Moles/volume] in Blood <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#15074-8)</span></p><p><b>subject</b>: <a href=\"patient-f001.html\">Patient/f001: P. van de Heuvel</a> &quot;Pieter VAN DE HEUVEL&quot;</p><p><b>effective</b>: 2013-04-02T09:30:10+01:00 --&gt; 2013-04-05T09:30:10+01:00</p><p><b>issued</b>: 04/04/2013 1:30:10 AM</p><p><b>performer</b>: <a href=\"practitioner-f005.html\">Practitioner/f005: A. Langeveld</a> &quot;Langeveld ANNE&quot;</p><p><b>dataAbsentReason</b>: Specimen unsatisfactory for evaluation <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#125154007)</span></p><p><b>note</b>: Tube broken in transit and sample leaked</p><h3>ReferenceRanges</h3><table class=\"grid\"><tr><td>-</td><td><b>Low</b></td><td><b>High</b></td></tr><tr><td>*</td><td>3.1 mmol/l<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code mmol/L = 'mmol/L')</span></td><td>6.2 mmol/l<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code mmol/L = 'mmol/L')</span></td></tr></table></div>"
+			  },
+			  "identifier": [
+				{
+				  "use": "official",
+				  "system": "http://www.bmc.nl/zorgportal/identifiers/observations",
+				  "value": "6323"
+				}
+			  ],
+			  "status": "cancelled",
+			  "code": {
+				"coding": [
+				  {
+					"system": "http://loinc.org",
+					"code": "15074-8",
+					"display": "Glucose [Moles/volume] in Blood"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C",
+				"display": "P. van de Heuvel"
+			  },
+			  "effectivePeriod": {
+				"start": "2013-04-02T09:30:10+01:00",
+				"end": "2013-04-05T09:30:10+01:00"
+			  },
+			  "issued": "2013-04-03T15:30:10+01:00",
+			  "performer": [
+				{
+				  "reference": "Practitioner/smart-practitioner-B",
+				  "display": "A. Langeveld"
+				}
+			  ],
+			  "dataAbsentReason": {
+				"coding": [
+				  {
+					"system": "http://snomed.info/sct",
+					"code": "125154007",
+					"display": "Specimen unsatisfactory for evaluation"
+				  }
+				]
+			  },
+			  "note": [
+				{
+				  "text": "Tube broken in transit and sample leaked"
+				}
+			  ],
+			  "referenceRange": [
+				{
+				  "low": {
+					"value": 3.1,
+					"unit": "mmol/l",
+					"system": "http://unitsofmeasure.org",
+					"code": "mmol/L"
+				  },
+				  "high": {
+					"value": 6.2,
+					"unit": "mmol/l",
+					"system": "http://unitsofmeasure.org",
+					"code": "mmol/L"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-C2"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Observation",
+			  "id": "smart-observation-C3",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;ekg&quot; </p></div><p><b>status</b>: final</p><p><b>category</b>: Procedure <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"codesystem-observation-category.html\">Observation Category Codes</a>#procedure)</span></p><p><b>code</b>: MDC_ECG_ELEC_POTL <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#131328)</span></p><p><b>subject</b>: <a href=\"patient-f001.html\">Patient/f001: P. van de Heuvel</a> &quot;Pieter VAN DE HEUVEL&quot;</p><p><b>effective</b>: 2015-02-19T09:30:35+01:00</p><p><b>performer</b>: <a href=\"practitioner-f005.html\">Practitioner/f005: A. Langeveld</a> &quot;Langeveld ANNE&quot;</p><p><b>device</b>: <span>: 12 lead EKG Device Metric</span></p><blockquote><p><b>component</b></p><p><b>code</b>: MDC_ECG_ELEC_POTL_I <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#131329)</span></p><p><b>value</b>: Origin: 2048, Period: 10, Factor: 1.612, Lower: -3300, Upper: 3300, Dimensions: 1, Data: 2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073</p></blockquote><blockquote><p><b>component</b></p><p><b>code</b>: MDC_ECG_ELEC_POTL_II <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#131330)</span></p><p><b>value</b>: Origin: 2048, Period: 10, Factor: 1.612, Lower: -3300, Upper: 3300, Dimensions: 1, Data: 2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073</p></blockquote><blockquote><p><b>component</b></p><p><b>code</b>: MDC_ECG_ELEC_POTL_III <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (unknown#131389)</span></p><p><b>value</b>: Origin: 2048, Period: 10, Factor: 1.612, Lower: -3300, Upper: 3300, Dimensions: 1, Data: 2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073</p></blockquote></div>"
+			  },
+			  "status": "final",
+			  "category": [
+				{
+				  "coding": [
+					{
+					  "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+					  "code": "procedure",
+					  "display": "Procedure"
+					}
+				  ]
+				}
+			  ],
+			  "code": {
+				"coding": [
+				  {
+					"system": "urn:oid:2.16.840.1.113883.6.24",
+					"code": "131328",
+					"display": "MDC_ECG_ELEC_POTL"
+				  }
+				]
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C",
+				"display": "P. van de Heuvel"
+			  },
+			  "effectiveDateTime": "2015-02-19T09:30:35+01:00",
+			  "performer": [
+				{
+				  "reference": "Practitioner/smart-practitioner-B",
+				  "display": "A. Langeveld"
+				}
+			  ],
+			  "device": {
+				"display": "12 lead EKG Device Metric"
+			  },
+			  "component": [
+				{
+				  "code": {
+					"coding": [
+					  {
+						"system": "urn:oid:2.16.840.1.113883.6.24",
+						"code": "131329",
+						"display": "MDC_ECG_ELEC_POTL_I"
+					  }
+					]
+				  },
+				  "valueSampledData": {
+					"origin": {
+					  "value": 2048
+					},
+					"period": 10,
+					"factor": 1.612,
+					"lowerLimit": -3300,
+					"upperLimit": 3300,
+					"dimensions": 1,
+					"data": "2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073"
+				  }
+				},
+				{
+				  "code": {
+					"coding": [
+					  {
+						"system": "urn:oid:2.16.840.1.113883.6.24",
+						"code": "131330",
+						"display": "MDC_ECG_ELEC_POTL_II"
+					  }
+					]
+				  },
+				  "valueSampledData": {
+					"origin": {
+					  "value": 2048
+					},
+					"period": 10,
+					"factor": 1.612,
+					"lowerLimit": -3300,
+					"upperLimit": 3300,
+					"dimensions": 1,
+					"data": "2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073"
+				  }
+				},
+				{
+				  "code": {
+					"coding": [
+					  {
+						"system": "urn:oid:2.16.840.1.113883.6.24",
+						"code": "131389",
+						"display": "MDC_ECG_ELEC_POTL_III"
+					  }
+					]
+				  },
+				  "valueSampledData": {
+					"origin": {
+					  "value": 2048
+					},
+					"period": 10,
+					"factor": 1.612,
+					"lowerLimit": -3300,
+					"upperLimit": 3300,
+					"dimensions": 1,
+					"data": "2041 2043 2037 2047 2060 2062 2051 2023 2014 2027 2034 2033 2040 2047 2047 2053 2058 2064 2059 2063 2061 2052 2053 2038 1966 1885 1884 2009 2129 2166 2137 2102 2086 2077 2067 2067 2060 2059 2062 2062 2060 2057 2045 2047 2057 2054 2042 2029 2027 2018 2007 1995 2001 2012 2024 2039 2068 2092 2111 2125 2131 2148 2137 2138 2128 2128 2115 2099 2097 2096 2101 2101 2091 2073 2076 2077 2084 2081 2088 2092 2070 2069 2074 2077 2075 2068 2064 2060 2062 2074 2075 2074 2075 2063 2058 2058 2064 2064 2070 2074 2067 2060 2062 2063 2061 2059 2048 2052 2049 2048 2051 2059 2059 2066 2077 2073"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Observation/smart-observation-C3"
+            }
+        },
+		{
+            "resource": {
+				"resourceType": "DiagnosticReport",
+				"id": "smart-diagnosticreport-C1",
+				"meta": {
+					"versionId": "1",
+					"lastUpdated": "2022-09-29T19:10:27.967+00:00",
+					"tag": [
+						{
+							"system": "testTag",
+							"code": "8d245743-e7ff-425d-b065-33e8886c60e8"
+						}
+					]
+				},
+				"status": "final",
+				"code": {
+					"coding": [
+						{
+							"system": "http://loinc.org",
+							"code": "4548-4"
+						}
+					]
+				},
+				"subject": {
+					"reference": "Patient/smart-patient-C"
+				},
+				"result": [
+					{
+						"reference": "Observation/smart-observation-C1"
+					}
+				]
+			},
+			"request": {
+				"method": "PUT",
+				"url": "DiagnosticReport/smart-diagnosticreport-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Coverage",
+			  "id": "smart-coverage-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the European Health Insurance Card</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://ehic.com/insurer/123456789/member",
+				  "value": "A123456780"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+					"code": "EHCPOL",
+					"display": "extended healthcare"
+				  }
+				]
+			  },
+			  "subscriber": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "beneficiary": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "relationship": {
+				"coding": [
+				  {
+					"code": "self"
+				  }
+				]
+			  },
+			  "period": {
+				"end": "2012-03-17"
+			  },
+			  "payor": [
+				{
+				  "identifier": {
+					"system": "http://ehic.com/insurer",
+					"value": "123456789"
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Coverage/smart-coverage-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Coverage",
+			  "id": "smart-coverage-C2",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the coverage</div>"
+			  },
+			  "identifier": [
+				{
+				  "system": "http://xyz.com/codes/identifier",
+				  "value": "AB98761"
+				}
+			  ],
+			  "status": "active",
+			  "type": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+					"code": "EHCPOL",
+					"display": "extended healthcare"
+				  }
+				]
+			  },
+			  "subscriber": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "subscriberId": "AB9876",
+			  "beneficiary": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "dependent": "1",
+			  "relationship": {
+				"coding": [
+				  {
+					"code": "self"
+				  }
+				]
+			  },
+			  "period": {
+				"start": "2011-03-17",
+				"end": "2012-03-17"
+			  },
+			  "payor": [
+				{
+				  "reference": "Organization/smart-organization-C1"
+				}
+			  ],
+			  "class": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+						"code": "group"
+					  }
+					]
+				  },
+				  "value": "WESTAIR",
+				  "name": "Western Airlines"
+				},
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+						"code": "plan"
+					  }
+					]
+				  },
+				  "value": "BG4352",
+				  "name": "Full Coverage: Medical, Dental, Pharmacy, Vision, EHC"
+				},
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+						"code": "subplan"
+					  }
+					]
+				  },
+				  "value": "D15C9",
+				  "name": "Platinum"
+				}
+			  ],
+			  "order": 2,
+			  "network": "5",
+			  "costToBeneficiary": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/coverage-copay-type",
+						"code": "gpvisit"
+					  }
+					]
+				  },
+				  "valueMoney": {
+					"value": 20.00,
+					"currency": "USD"
+				  },
+				  "exception": [
+					{
+					  "type": {
+						"coding": [
+						  {
+							"system": "http://terminology.hl7.org/CodeSystem/ex-coverage-financial-exception",
+							"code": "retired"
+						  }
+						]
+					  },
+					  "period": {
+						"start": "2018-01-01",
+						"end": "2018-12-31"
+					  }
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Coverage/smart-coverage-C2"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType" : "Device",
+			  "id" : "smart-device-C1",
+			  "text" : {
+				"status" : "generated",
+				"div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;f001&quot; </p></div><p><b>identifier</b>: id: 12345</p><p><b>status</b>: active</p></div>"
+			  },
+			  "identifier" : [{
+				"system" : "http:/goodhealthhospital/identifier/devices",
+				"value" : "12345"
+			  }],
+			  "status" : "active"
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Device/smart-device-C1"
+            }
+        },
+		{
+            "resource": {
+				  "resourceType": "BodyStructure",
+				  "id": "smart-bodystructure-C1",
+				  "text": {
+					"status": "generated",
+					"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;fetus&quot; </p></div><p><b>identifier</b>: id: 12345</p><p><b>location</b>: Fetus <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://browser.ihtsdotools.org/\">SNOMED CT</a>#83418008 &quot;Entire fetus (body structure)&quot;)</span></p><p><b>description</b>: EDD 1/1/2017 confirmation by LMP</p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p></div>"
+				  },
+				  "identifier": [
+					{
+					  "system": "http://goodhealth.org/bodystructure/identifiers",
+					  "value": "12345"
+					}
+				  ],
+				  "location": {
+					"coding": [
+					  {
+						"system": "http://snomed.info/sct",
+						"code": "83418008",
+						"display": "Entire fetus (body structure)"
+					  }
+					],
+					"text": "Fetus"
+				  },
+				  "description": "EDD 1/1/2017 confirmation by LMP",
+				  "patient": {
+					"reference": "Patient/smart-patient-C"
+				  }
+			},
+			"request": {
+				"method": "PUT",
+				"url": "BodyStructure/smart-bodystructure-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Encounter",
+			  "id": "smart-encounter-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;xcda&quot; </p></div><p><b>identifier</b>: id: 1234213.52345873 (OFFICIAL)</p><p><b>status</b>: finished</p><p><b>class</b>: ambulatory (Details: http://terminology.hl7.org/CodeSystem/v3-ActCode code AMB = 'ambulatory', stated as 'ambulatory')</p><p><b>subject</b>: <a href=\"patient-xcda.html\">Patient/xcda</a> &quot;Henry LEVIN&quot;</p><h3>Participants</h3><table class=\"grid\"><tr><td>-</td><td><b>Individual</b></td></tr><tr><td>*</td><td><a href=\"practitioner-xcda1.html\">Practitioner/xcda1</a> &quot;Sherry DOPPLEMEYER&quot;</td></tr></table><p><b>reasonCode</b>: Arm <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (eventCodes#T-D8200)</span></p></div>"
+			  },
+			  "identifier": [
+				{
+				  "use": "official",
+				  "system": "http://healthcare.example.org/identifiers/enocunter",
+				  "value": "1234213.52345873"
+				}
+			  ],
+			  "status": "finished",
+			  "class": {
+				"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+				"code": "AMB",
+				"display": "ambulatory"
+			  },
+			  "subject": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "participant": [
+				{
+				  "individual": {
+					"reference": "Practitioner/smart-practitioner-B"
+				  }
+				}
+			  ],
+			  "reasonCode": [
+				{
+				  "coding": [
+					{
+					  "system": "http://ihe.net/xds/connectathon/eventCodes",
+					  "code": "T-D8200",
+					  "display": "Arm"
+					}
+				  ]
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Encounter/smart-encounter-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Immunization",
+			  "id": "smart-immunization-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;notGiven&quot; </p></div><p><b>status</b>: not-done</p><p><b>statusReason</b>: medical precaution <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-ActReason.html\">ActReason</a>#MEDPREC)</span></p><p><b>vaccineCode</b>: DTP <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v2-0292.html\">PH_VaccinesAdministeredCVX_CDC_NIP</a>#01)</span></p><p><b>patient</b>: <a href=\"patient-example.html\">Patient/example</a> &quot;Peter CHALMERS&quot;</p><p><b>occurrence</b>: 2013-01-10</p><p><b>primarySource</b>: true</p></div>"
+			  },
+			  "status": "not-done",
+			  "statusReason": {
+				"coding": [
+				  {
+					"system": "http://terminology.hl7.org/CodeSystem/v3-ActReason",
+					"code": "MEDPREC",
+					"display": "medical precaution"
+				  }
+				]
+			  },
+			  "vaccineCode": {
+				"coding": [
+				  {
+					"system": "http://hl7.org/fhir/sid/cvx",
+					"code": "01",
+					"display": "DTP"
+				  }
+				]
+			  },
+			  "patient": {
+				"reference": "Patient/smart-patient-C"
+			  },
+			  "occurrenceDateTime": "2013-01-10",
+			  "primarySource": true
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Immunization/smart-immunization-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "MolecularSequence",
+			  "id": "smart-molecularsequence-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;graphic-example-2&quot; </p></div><p><b>type</b>: dna</p><p><b>coordinateSystem</b>: 0</p><h3>ReferenceSeqs</h3><table class=\"grid\"><tr><td>-</td><td><b>ReferenceSeqString</b></td><td><b>Strand</b></td><td><b>WindowStart</b></td><td><b>WindowEnd</b></td></tr><tr><td>*</td><td>CGCCATTG</td><td>watson</td><td>0</td><td>8</td></tr></table><p><b>pointer</b>: <a href=\"molecularsequence-graphic-example-3.html\">MolecularSequence/graphic-example-3</a></p></div>"
+			  },
+			  "type": "dna",
+			  "coordinateSystem": 0,
+			  "referenceSeq": {
+				"referenceSeqString": "CGCCATTG",
+				"strand": "watson",
+				"windowStart": 0,
+				"windowEnd": 8
+			  },
+			  "pointer": [
+				{
+				  "reference": "MolecularSequence/graphic-example-3"
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "MolecularSequence/smart-molecularsequence-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Provenance",
+			  "id": "smart-provenance-C1",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t<p>\n\t\t\t\t<b>Generated Narrative with Details</b>\n\t\t\t</p><p>\n\t\t\t\t<b>id</b>: example-biocompute-object</p><p>\n\t\t\t\t<b>target</b>: <a href=\"http://build.fhir.org/sequence-example.html\">MolecularSequence/example</a>\n\t\t\t</p><p>\n\t\t\t\t<b>period</b>: 2017-6-6 --&gt; (ongoing)</p><p>\n\t\t\t\t<b>recorded</b>: 2016-6-9 8:12:14</p><p>\n\t\t\t\t<b>reason</b>: antiviral resistance detection (Details: [not stated] code null = 'null', stated as\n         'antiviral resistance detection')</p>\n\t\t\t<h3>Agents</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Who</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>Author (Details: http://hl7.org/fhir/provenance-participant-role code author = 'Author',\n             stated as 'null')</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"http://build.fhir.org/practitioner-example.html\">Practitioner/example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t\t<h3>Entities</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Reference</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>source</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1\">Biocompute example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</div>"
+			  },
+			  "target": [
+				{
+				  "reference": "MolecularSequence/smart-molecularsequence-C1"
+				}
+			  ],
+			  "occurredPeriod": {
+				"start": "2017-06-06"
+			  },
+			  "recorded": "2016-06-09T08:12:14+10:00",
+			  "reason": [
+				{
+				  "text": "antiviral resistance detection"
+				}
+			  ],
+			  "agent": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+						"code": "AUT"
+					  }
+					]
+				  },
+				  "who": {
+					"reference": "Patient/smart-patient-C"
+				  }
+				}
+			  ],
+			  "entity": [
+				{
+				  "role": "source",
+				  "what": {
+					"identifier": {
+					  "type": {
+						"coding": [
+						  {
+							"system": "https://hive.biochemistry.gwu.edu",
+							"code": "biocompute",
+							"display": "obj.1001"
+						  }
+						]
+					  },
+					  "value": "https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1"
+					}
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Provenance/smart-provenance-C1"
+            }
+        },
+		{
+            "resource": {
+			  "resourceType": "Provenance",
+			  "id": "smart-provenance-C2",
+			  "text": {
+				"status": "generated",
+				"div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t<p>\n\t\t\t\t<b>Generated Narrative with Details</b>\n\t\t\t</p><p>\n\t\t\t\t<b>id</b>: example-biocompute-object</p><p>\n\t\t\t\t<b>target</b>: <a href=\"http://build.fhir.org/sequence-example.html\">MolecularSequence/example</a>\n\t\t\t</p><p>\n\t\t\t\t<b>period</b>: 2017-6-6 --&gt; (ongoing)</p><p>\n\t\t\t\t<b>recorded</b>: 2016-6-9 8:12:14</p><p>\n\t\t\t\t<b>reason</b>: antiviral resistance detection (Details: [not stated] code null = 'null', stated as\n         'antiviral resistance detection')</p>\n\t\t\t<h3>Agents</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Who</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>Author (Details: http://hl7.org/fhir/provenance-participant-role code author = 'Author',\n             stated as 'null')</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"http://build.fhir.org/practitioner-example.html\">Practitioner/example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t\t<h3>Entities</h3>\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Role</b>\n\t\t\t\t\t</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<b>Reference</b>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>source</td>\n\t\t\t\t\t<td>\n\t\t\t\t\t\t<a href=\"https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1\">Biocompute example</a>\n\t\t\t\t\t</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</div>"
+			  },
+			  "target": [
+				{
+				  "reference": "MolecularSequence/smart-molecularsequence-C1"
+				}
+			  ],
+			  "occurredPeriod": {
+				"start": "2017-06-06"
+			  },
+			  "recorded": "2016-06-09T08:12:14+10:00",
+			  "reason": [
+				{
+				  "text": "antiviral resistance detection"
+				}
+			  ],
+			  "agent": [
+				{
+				  "type": {
+					"coding": [
+					  {
+						"system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+						"code": "AUT"
+					  }
+					]
+				  },
+				  "who": {
+					"reference": "Practitioner/smart-practitioner-B"
+				  }
+				}
+			  ],
+			  "entity": [
+				{
+				  "role": "source",
+				  "what": {
+					"identifier": {
+					  "type": {
+						"coding": [
+						  {
+							"system": "https://hive.biochemistry.gwu.edu",
+							"code": "biocompute",
+							"display": "obj.1001"
+						  }
+						]
+					  },
+					  "value": "https://hive.biochemistry.gwu.edu/cgi-bin/prd/htscsrs/servlet.cgi?pageid=bcoexample_1"
+					}
+				  }
+				}
+			  ]
+			},
+            "request": {
+                "method": "PUT",
+                "url": "Provenance/smart-provenance-C2"
+            }
+        }
+	]
+}	

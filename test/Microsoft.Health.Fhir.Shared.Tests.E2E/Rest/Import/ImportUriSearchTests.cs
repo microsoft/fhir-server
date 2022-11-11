@@ -15,6 +15,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class ImportUriSearchTests : IClassFixture<ImportUriSearchTestFixture>

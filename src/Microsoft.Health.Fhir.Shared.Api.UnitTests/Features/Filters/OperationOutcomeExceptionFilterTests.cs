@@ -28,12 +28,16 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Web)]
     public class OperationOutcomeExceptionFilterTests
     {
         private readonly ActionExecutedContext _context;
@@ -233,6 +237,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenALoginFailedForUserException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new LoginFailedForUserException(Core.Resources.InternalServerError), HttpStatusCode.Unauthorized);
+        }
+
+        [Fact]
         public void GivenAnUnrecognizedExceptionAndInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new Exception(null, new Exception()), HttpStatusCode.InternalServerError);
@@ -242,6 +252,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestRateExceededExceptionAsAnInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new Exception(null, new RequestRateExceededException(null)), HttpStatusCode.TooManyRequests);
+        }
+
+        [Fact]
+        public void GivenATransactionDeadlockException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new TransactionDeadlockException(Core.Resources.TransactionDeadlock), HttpStatusCode.Conflict);
+        }
+
+        [Fact]
+        public void GivenAnOperationCanceledException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new System.OperationCanceledException(), HttpStatusCode.RequestTimeout);
         }
 
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)

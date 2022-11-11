@@ -34,5 +34,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         /// A weakly-typed property bag that can be used for communication between components in the context of a request.
         /// </summary>
         IDictionary<string, object> Properties { get; }
+
+        /// <summary>
+        /// Data informing the service how to apply fine grained access control
+        /// </summary>
+        AccessControlContext AccessControlContext { get; }
     }
 }

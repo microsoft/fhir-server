@@ -36,6 +36,11 @@ steps:
       archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R4.Web.zip'
       destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r4'
   - task: ExtractFiles@1
+    displayName: 'Extract R4B Web Server Binaries'
+    inputs:
+      archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R4B.Web.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r4b'
+  - task: ExtractFiles@1
     displayName: 'Extract R5 Web Server Binaries'
     inputs:
       archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R5.Web.zip'

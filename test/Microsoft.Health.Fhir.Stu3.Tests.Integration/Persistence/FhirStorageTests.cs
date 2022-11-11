@@ -6,6 +6,7 @@
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -14,6 +15,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// <summary>
     /// Persistence tests for Stu3
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         [Fact]

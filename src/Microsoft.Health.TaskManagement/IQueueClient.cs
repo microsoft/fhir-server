@@ -29,13 +29,24 @@ namespace Microsoft.Health.JobManagement
         public Task<IEnumerable<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken);
 
         /// <summary>
+        /// Dequeue multiple jobs
+        /// </summary>
+        /// <param name="queueType">Queue Type</param>
+        /// <param name="numberOfJobsToDequeue">Number of jobs to dequeue</param>
+        /// <param name="worker">Current worker name</param>
+        /// <param name="heartbeatTimeoutSec">Heartbeat timeout for retry</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        public Task<IReadOnlyCollection<JobInfo>> DequeueJobsAsync(byte queueType, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
+
+        /// <summary>
         /// Dequeue job
         /// </summary>
         /// <param name="queueType">Queue Type</param>
         /// <param name="worker">Current worker name</param>
         /// <param name="heartbeatTimeoutSec">Heartbeat timeout for retry</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
+        /// <param name="jobId">Requested job id for dequeue</param>
+        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null);
 
         /// <summary>
         /// Get job by id

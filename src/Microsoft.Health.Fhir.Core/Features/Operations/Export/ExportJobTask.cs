@@ -615,7 +615,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         resourceType: resourceType,
                         queryParametersList,
                         cancellationToken,
-                        true);
+                        true,
+                        _exportJobRecord.SmartRequest);
                 }
 
                 ProcessSearchResults(searchResult.Results, anonymizer);

@@ -228,24 +228,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
+                await InitializeIndexProperties(cancellationToken);
                 OptionalIndexesForImport = IndexesList();
                 OptionalUniqueIndexesForImport = UniqueIndexesList();
 
                 // Not disable index by default
-                if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
                     List<(string tableName, string indexName)> indexesNeedDisable = new List<(string tableName, string indexName)>();
-
-                    if (_importTaskConfiguration.DisableOptionalIndexesForImport)
-                    {
-                        indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                    }
-
-                    if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
-                    {
-                        indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
-                    }
-
+                    indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                    indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
                     foreach (var index in indexesNeedDisable)
                     {
                         using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -274,43 +266,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             try
             {
                 // Not rerebuild index by default
-                if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
-                    List<(string tableName, string indexName, bool pageCompression)> indexesNeedRebuild = new List<(string tableName, string indexName, bool pageCompression)>();
-
-                    if (_importTaskConfiguration.DisableOptionalIndexesForImport)
+                    await SwitchPartitionsOutAllTables(_importTaskConfiguration.RebuildClustered, cancellationToken);
+                    var commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(_importTaskConfiguration.RebuildClustered, cancellationToken);
+                    if (_importTaskConfiguration.RebuildClustered)
                     {
-                        indexesNeedRebuild.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
+                        commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(false, cancellationToken);
                     }
 
-                    if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
-                    {
-                        indexesNeedRebuild.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName, indexRecord.pageCompression)));
-                    }
-
-                    List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
-                    HashSet<string> runningRebuildTables = new HashSet<string>();
-
-                    // rebuild index operation on same table would be blocked, try to parallel run rebuild operation on different table.
-                    while (indexesNeedRebuild.Count > 0)
-                    {
-                        // if all remine indexes' table has some running rebuild operation, need to wait until at least one operation completed.
-                        while (indexesNeedRebuild.All(ix => runningRebuildTables.Contains(ix.tableName)) || runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
-                        {
-                            Task<(string tableName, string indexName)> completedTask = await Task.WhenAny(runningTasks.ToArray());
-                            (string tableName, string indexName) indexRebuilt = await completedTask;
-
-                            runningRebuildTables.Remove(indexRebuilt.tableName);
-                            runningTasks.Remove(completedTask);
-                        }
-
-                        (string tableName, string indexName, bool pageCompression) nextIndex = indexesNeedRebuild.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
-                        indexesNeedRebuild.Remove(nextIndex);
-                        runningRebuildTables.Add(nextIndex.tableName);
-                        runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, nextIndex.pageCompression, cancellationToken));
-                    }
-
-                    await Task.WhenAll(runningTasks.ToArray());
+                    await RunCommandForRebuildIndexes(commandsForRebuildIndexes, cancellationToken);
+                    await SwitchPartitionsInAllTables(cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -325,17 +291,129 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, bool pageCompression, CancellationToken cancellationToken)
+        private async Task InitializeIndexProperties(CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
                 sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
-                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
+                VLatest.InitializeIndexProperties.PopulateCommand(sqlCommandWrapper);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
 
-                return (tableName, indexName);
+        private async Task<IList<(string tableName, string indexName, string command)>> GetCommandsForRebuildIndexes(bool rebuildClustered, CancellationToken cancellationToken)
+        {
+            var indexes = new List<(string tableName, string indexName, string command)>();
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
+
+                VLatest.GetCommandsForRebuildIndexes.PopulateCommand(sqlCommandWrapper, rebuildClustered);
+                using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                while (await sqlDataReader.ReadAsync(cancellationToken))
+                {
+                    var tableName = sqlDataReader.GetString(0);
+                    var indexName = sqlDataReader.GetString(1);
+                    var command = sqlDataReader.GetString(2);
+                    indexes.Add((tableName, indexName, command));
+                }
+            }
+
+            return indexes;
+        }
+
+        private async Task RunCommandForRebuildIndexes(IList<(string tableName, string indexName, string command)> commands, CancellationToken cancellationToken)
+        {
+            var tasks = new Queue<Task<string>>();
+            try
+            {
+                foreach (var sqlCommand in commands)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException("Operation Cancel");
+                    }
+
+                    while (tasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                    {
+                        await tasks.First();
+                        _ = tasks.Dequeue();
+                    }
+
+                    tasks.Enqueue(ExecuteRebuildIndexSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, cancellationToken));
+                }
+
+                while (tasks.Count > 0)
+                {
+                    await tasks.First();
+                    _ = tasks.Dequeue();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to rebuild indexes");
+                if (ex.IsRetryable())
+                {
+                    throw new RetriableJobException(ex.Message, ex);
+                }
+
+                throw;
+            }
+        }
+
+        private async Task<string> ExecuteRebuildIndexSqlCommand(string tableName, string indexName, string command, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index start at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
+            try
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                {
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.InfinitySqlLongRunningOperationTimeoutInSec;
+
+                    VLatest.ExecuteCommandForRebuildIndexes.PopulateCommand(sqlCommandWrapper, tableName, indexName, command);
+                    using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
+                    {
+                        indexName = sqlDataReader.GetString(0);
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "rebuild execute failed");
+                throw;
+            }
+
+            _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index complete at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
+
+            return indexName;
+        }
+
+        private async Task SwitchPartitionsOutAllTables(bool rebuildClustered, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
+
+                VLatest.SwitchPartitionsOutAllTables.PopulateCommand(sqlCommandWrapper, rebuildClustered);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        private async Task SwitchPartitionsInAllTables(CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
+
+                VLatest.SwitchPartitionsInAllTables.PopulateCommand(sqlCommandWrapper);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 

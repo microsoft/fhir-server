@@ -177,13 +177,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<CosmosFhirOperationDataStore>.Instance);
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
-            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
+            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser, _fhirRequestContextAccessor);
             ISortingValidator sortingValidator = Substitute.For<ISortingValidator>();
             sortingValidator.ValidateSorting(Arg.Is<IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)>>(x => x[0].searchParameter.Name == KnownQueryParameterNames.LastUpdated), out Arg.Any<IReadOnlyList<string>>()).Returns(true);
             var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, _fhirRequestContextAccessor, sortingValidator, NullLogger<SearchOptionsFactory>.Instance);
 
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
+            await compartmentDefinitionManager.StartAsync(CancellationToken.None);
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
+            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
             ICosmosDbCollectionPhysicalPartitionInfo cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbCollectionPhysicalPartitionInfo>();
             cosmosDbPhysicalPartitionInfo.PhysicalPartitionCount.Returns(1);
@@ -197,6 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDbPhysicalPartitionInfo,
                 new QueryPartitionStatisticsCache(),
                 compartmentSearchRewriter,
+                smartCompartmentSearchRewriter,
                 NullLogger<FhirCosmosSearchService>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);

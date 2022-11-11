@@ -13,13 +13,17 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Export)]
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class FhirOperationDataStoreExportTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
@@ -265,6 +269,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAnOldVersionOfAnExportJob_WhenUpdatingTheExportJob_ThenJobConflictExceptionShouldBeThrown()
         {
             ExportJobOutcome jobOutcome = await CreateRunningExportJob();
@@ -293,6 +298,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereIsARunningExportJob_WhenSimultaneousUpdateCallsOccur_ThenJobConflictExceptionShouldBeThrown()
         {
             ExportJobOutcome runningJobOutcome = await CreateRunningExportJob();

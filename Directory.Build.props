@@ -23,12 +23,23 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
   </PropertyGroup>
+
+  <Choose>
+    <When Condition="$(MSBuildProjectName.Contains('UnitTest'))">
+      <ItemGroup>
+        <Content Include="$(MSBuildThisFileDirectory)/xunit.runner.json">
+          <Link>xunit.runner.json</Link>
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+      </ItemGroup>
+    </When>
+  </Choose>
  
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test'))">
       <PropertyGroup>
         <IsPackable>false</IsPackable>
-        <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)\CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
+        <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.Test.ruleset</CodeAnalysisRuleSet>
       </PropertyGroup>
       <ItemGroup>
         <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
@@ -39,7 +50,7 @@
         <AnalysisMode>AllEnabledByDefault</AnalysisMode>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <IsPackable>true</IsPackable>
-        <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
+        <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)/CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
       </PropertyGroup>
     </Otherwise>
   </Choose>
@@ -47,7 +58,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
     <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
-    <AdditionalFiles Include="$(MSBuildThisFileDirectory)\stylecop.json" Link="stylecop.json" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)/stylecop.json" Link="stylecop.json" />
   </ItemGroup>
 
 </Project>

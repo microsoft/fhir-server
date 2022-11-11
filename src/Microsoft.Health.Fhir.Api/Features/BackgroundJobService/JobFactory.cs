@@ -54,7 +54,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _importResourceLoader = importResourceLoader;
@@ -90,6 +89,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
         private IJob CreateOrchestratorTask(JobInfo taskInfo)
         {
+            EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
+
             ImportOrchestratorJobInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorJobInputData>(taskInfo.Definition);
             if (inputData.TypeId == ImportOrchestratorJob.ImportOrchestratorTypeId)
             {
@@ -115,6 +116,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
         private IJob CreateProcessingTask(JobInfo taskInfo)
         {
+            EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
+
             ImportProcessingJobInputData inputData = JsonConvert.DeserializeObject<ImportProcessingJobInputData>(taskInfo.Definition);
             if (inputData.TypeId == ImportProcessingJob.ImportProcessingJobTypeId)
             {

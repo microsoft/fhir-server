@@ -5,12 +5,16 @@
 
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
@@ -19,10 +23,13 @@ using SearchParamType = Hl7.Fhir.Model.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class ExpressionParserTests
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly ISearchParameterExpressionParser _searchParameterExpressionParser = Substitute.For<ISearchParameterExpressionParser>();
+        private RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         private readonly ExpressionParser _expressionParser;
 
@@ -30,7 +37,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             _expressionParser = new ExpressionParser(
                 () => _searchParameterDefinitionManager,
-                _searchParameterExpressionParser);
+                _searchParameterExpressionParser,
+                _contextAccessor);
         }
 
         [Fact]

@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="xunit" />
@@ -10,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
   </ItemGroup>
 
 </Project>

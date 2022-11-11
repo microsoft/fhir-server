@@ -12,6 +12,8 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CrucibleTestFixture : IClassFixture<CrucibleDataSource>
     {

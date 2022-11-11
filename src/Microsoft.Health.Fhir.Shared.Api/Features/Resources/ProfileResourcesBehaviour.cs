@@ -36,19 +36,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             _profilesResolver = profilesResolver;
         }
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
+        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
+        public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
+        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
+        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
 
-        public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<DeleteResourceResponse> next)
+        public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.ResourceKey.ResourceType, next, cancellationToken);
 
         private async Task<TResponse> GenericHandle<TResponse>(string resourceType, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)

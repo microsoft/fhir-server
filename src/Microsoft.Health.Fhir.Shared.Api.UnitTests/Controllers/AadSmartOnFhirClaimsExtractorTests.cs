@@ -9,11 +9,15 @@ using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.SmartOnFhir)]
     public class AadSmartOnFhirClaimsExtractorTests
     {
         private const string ClientIdParameterName = "client_id";

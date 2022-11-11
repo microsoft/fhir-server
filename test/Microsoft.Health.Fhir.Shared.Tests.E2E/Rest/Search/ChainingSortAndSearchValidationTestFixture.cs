@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
-        protected async Task<IReadOnlyList<HealthRecordIdentifier>> GetHealthRecordIdentifiersAsync(CancellationToken cancellationToken)
+        protected async Task<IReadOnlyList<Bundle.EntryComponent>> GetHealthEntryComponentsAsync(CancellationToken cancellationToken)
         {
             string requestBundleAsString = Samples.GetJson(BundleFileName);
             var parser = new FhirJsonParser();
@@ -39,7 +39,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Ensure all records were ingested.
             Assert.Equal(requestBundle.Entry.Count, fhirResponse.Resource.Entry.Count);
-            foreach (Bundle.EntryComponent component in fhirResponse.Resource.Entry)
+
+            return fhirResponse.Resource.Entry;
+        }
+
+        protected async Task<IReadOnlyList<HealthRecordIdentifier>> GetHealthRecordIdentifiersAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyList<Bundle.EntryComponent> entries = await GetHealthEntryComponentsAsync(cancellationToken);
+
+            List<HealthRecordIdentifier> recordIdentifiers = new List<HealthRecordIdentifier>();
+            foreach (Bundle.EntryComponent component in entries)
             {
                 Assert.NotNull(component.Response.Status);
                 HttpStatusCode httpStatusCode = (HttpStatusCode)Convert.ToInt32(component.Response.Status);

@@ -17,6 +17,12 @@ jobs:
       downloadType: 'single'
       downloadPath: '$(System.ArtifactsDirectory)'
       artifactName: 'IntegrationTests'
+  
+  - task: ExtractFiles@1
+    displayName: 'Extract Integration Test Binaries'
+    inputs:
+      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
 
   - task: UseDotNet@2
     inputs:
@@ -38,7 +44,7 @@ jobs:
     displayName: 'Run Integration Tests'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
