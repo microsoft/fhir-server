@@ -103,5 +103,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             DateTime endTime,
             int numberOfRanges,
             CancellationToken cancellationToken);
+
+        Task<IReadOnlyList<(long Start, long End, long GlobalStart, long GlobalEnd)>> GetSurrogateIdRanges(
+            string resourceType,
+            DateTime startTime,
+            DateTime endTime,
+            int numberOfRanges,
+            CancellationToken cancellationToken);
     }
 }
