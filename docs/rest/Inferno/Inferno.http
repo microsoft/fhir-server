@@ -1,9 +1,9 @@
 # This file includes US Core resource examples to load for the Inferno US Core v3.1.1 Test
 ### REST Client
-
-#For local use
-@fhirurl = https://localhost:44348
 @contentType = application/json
+
+## For local use
+@fhirurl = https://localhost:44348
 
 ### Get the bearer token, if authentication is enabled.
 # @name getAADToken
@@ -15,7 +15,7 @@ grant_type=client_credentials
 &client_secret=globalAdminServicePrincipal
 &scope=fhir-api
 
-# For test server
+## For test server
 # @fhirurl=  https://smartonfhir-test1.fhir.azurehealthcareapis.com
 # @clientid= b9c9d8e9-8cb7-43ee-91bd-f133f99e9f2c
 # @clientsecret= XXX
