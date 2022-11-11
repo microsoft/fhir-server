@@ -76,11 +76,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var since = DateTime.UtcNow;
 
-            // add 2 resources
+            // add resource
             var type = "Patient";
             var patient = (Patient)Samples.GetJsonSample(type).ToPoco();
-            patient.Id = Guid.NewGuid().ToString();
-            await Mediator.UpsertResourceAsync(patient.ToResourceElement());
             patient.Id = Guid.NewGuid().ToString();
             await Mediator.UpsertResourceAsync(patient.ToResourceElement());
 
@@ -89,19 +87,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var queryParameters = new List<Tuple<string, string>>();
             var results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
-            Assert.Equal(2, results.Results.Count());
+            Assert.Single(results.Results);
+            var resource = results.Results.First().Resource;
+            Assert.Equal("1", resource.Version);
 
-            // add till and check that both resources are returned
+            // add till and check that resource is returned
             queryParameters.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{new PartialDateTime(since)}"));
             queryParameters.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{new PartialDateTime(till)}"));
             results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
-            Assert.Equal(2, results.Results.Count());
-
-            await UpdateResource(patient); // update one resource
-
-            // only one is returned because one resource became "invisible" in the time interval requested
-            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
             Assert.Single(results.Results);
+            resource = results.Results.First().Resource;
+            Assert.Equal("1", resource.Version);
+
+            await UpdateResource(patient); // update resource
+
+            // pre time travel behavior
+            // resource is not returned because it became "invisible" in the time interval requested
+            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            Assert.Empty(results.Results);
 
             // add magic parameters
             var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, since, till, 1, CancellationToken.None)).First();
@@ -111,8 +114,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             queryParameters.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, range.GlobalStart.ToString()));
             queryParameters.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.Start.ToString()));
 
+            // time travel behavior
             results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
-            Assert.Equal(2, results.Results.Count());
+            Assert.Single(results.Results);
+            resource = results.Results.First().Resource;
+            Assert.Equal("1", resource.Version);
+
+            // current resource
+            results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
+            Assert.Single(results.Results);
+            resource = results.Results.First().Resource;
+            Assert.Equal("2", resource.Version);
         }
 
         private async Task UpdateResource(Patient patient)
