@@ -296,23 +296,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+                var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
+                if (exportTimeTravel)
+                {
+                    PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommandWrapper);
+                }
+                else
+                {
+                    var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
-                EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
+                    EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
-                var queryGenerator = new SqlQueryGenerator(
-                    stringBuilder,
-                    new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters)),
-                    _model,
-                    searchType,
-                    _schemaInformation,
-                    currentSearchParameterHash);
+                    var queryGenerator = new SqlQueryGenerator(
+                        stringBuilder,
+                        new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters)),
+                        _model,
+                        searchType,
+                        _schemaInformation,
+                        currentSearchParameterHash);
 
-                expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
+                    expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
-                SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
+                    SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
 
-                sqlCommandWrapper.CommandText = stringBuilder.ToString();
+                    sqlCommandWrapper.CommandText = stringBuilder.ToString();
+                }
 
                 LogSqlCommand(sqlCommandWrapper);
 
@@ -440,7 +448,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     await reader.NextResultAsync(cancellationToken);
 
                     ContinuationToken continuationToken =
-                        moreResults
+                        moreResults && !exportTimeTravel // with query hints all results are returned on single page
                             ? new ContinuationToken(
                                 clonedSearchOptions.Sort.Select(s =>
                                     s.searchParameterInfo.Name switch
@@ -478,6 +486,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
                 }
             }
+        }
+
+        private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommandWrapper cmd)
+        {
+            var hints = options.QueryHints;
+            var type = _model.GetResourceTypeId(hints.First(_ => _.Param == KnownQueryParameterNames.Type).Value);
+            var startId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            var endId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
+            var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
+            VLatest.GetResourcesByTypeAndSurrogateIdRange.PopulateCommand(cmd, type, startId, endId, globalStartId, globalEndId);
         }
 
         public override async Task<SearchResult> SearchByDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
@@ -568,24 +587,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        public override async Task<IReadOnlyList<(long Start, long End, long GlobalStart, long GlobalEnd)>> GetSurrogateIdRanges(string resourceType, DateTime startTime, DateTime endTime, int numberOfRanges, CancellationToken cancellationToken)
+        {
+            var globalStartId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
+            var globalEndId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
+            var ranges = await GetSurrogateIdRanges(resourceType, globalStartId, globalEndId, numberOfRanges, cancellationToken);
+            return ranges.Select(_ => (_.Start, _.End, globalStartId, globalEndId)).ToList();
+        }
+
         public override async Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, int numberOfRanges, CancellationToken cancellationToken)
         {
             long startId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
             long endId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
-            var surrogateIdResults = await GetSurrogateIdRange(resourceType, startId, endId, numberOfRanges, cancellationToken);
+            var surrogateIdResults = await GetSurrogateIdRanges(resourceType, startId, endId, numberOfRanges, cancellationToken);
             var dateTimeResults = new List<Tuple<DateTime, DateTime>>();
 
             foreach (var result in surrogateIdResults)
             {
                 dateTimeResults.Add(new Tuple<DateTime, DateTime>(
-                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Item1),
-                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Item2)));
+                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Start),
+                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.End)));
             }
 
             return dateTimeResults;
         }
 
-        public async Task<IReadOnlyList<Tuple<long, long>>> GetSurrogateIdRange(string resourceType, long startId, long endId, int numberOfRanges, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<(long Start, long End)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int numberOfRanges, CancellationToken cancellationToken)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             try
@@ -610,10 +637,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper2, resourceTypeId, startId, endId, countPerPage, numberOfRanges);
                 using SqlDataReader reader2 = await sqlCommandWrapper2.ExecuteReaderAsync(cancellationToken);
 
-                var ranges = new List<Tuple<long, long>>(numberOfRanges);
+                var ranges = new List<(long start, long end)>(numberOfRanges);
                 while (await reader2.ReadAsync(cancellationToken))
                 {
-                    ranges.Add(new Tuple<long, long>(reader2.GetInt64(1), reader2.GetInt64(2)));
+                    ranges.Add((reader2.GetInt64(1), reader2.GetInt64(2)));
                 }
 
                 return ranges;

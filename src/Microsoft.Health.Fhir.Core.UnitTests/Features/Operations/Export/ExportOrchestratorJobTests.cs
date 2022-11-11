@@ -227,6 +227,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private void SetupMockQueue(int numExpectedJobs, long orchestratorJobId, bool firstRun = true, bool failure = false)
         {
+            _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                int numRanges = x.ArgAt<int>(3);
+                var ranges = new List<(long Start, long End, long GlobalStart, long GlobalEnd)>();
+                for (int i = 0; i < numRanges; i++)
+                {
+                    ranges.Add((0, 0, 0, 0));
+                }
+
+                return Task.FromResult<IReadOnlyList<(long Start, long End, long GlobalStart, long GlobalEnd)>>(ranges);
+            });
+
             _mockSearchService.GetDateTimeRange(Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
                 int numRanges = x.ArgAt<int>(3);
