@@ -103,7 +103,7 @@ var aadCustomOperationsFunctionParams = {
   AZURE_ApiManagementHostName: 'https://${apimName}.azure-api.net'
   AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
   AZURE_TenantId: tenantId
-  Azure_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
+  AZURE_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
   AZURE_BackendServiceKeyVaultStore: backendServiceVaultName
 }
 

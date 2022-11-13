@@ -45,7 +45,10 @@
                 "sso-openid-connect",
                 "launch-standalone",
                 "context-standalone-patient",
-                "permission-offline"
+                "permission-offline",
+                "context-banner",
+                "context-style",
+                "permission-user"
             ]
         }</set-body>
 		<set-header name="Content-Type" exists-action="override">

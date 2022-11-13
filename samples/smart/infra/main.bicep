@@ -12,8 +12,8 @@ param location string
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
-@description('Audience for SMART scopes in Azure Active Directory')
-param smartAudience string = 'https://fhir.azurehealthcareapis.com'
+@description('Audience for SMART scopes in Azure Active Directory. Leave blank to use the PaaS Service URL.')
+param smartAudience string = ''
 
 @description('Name of the owner of the API Management resource')
 param apimPublisherName string

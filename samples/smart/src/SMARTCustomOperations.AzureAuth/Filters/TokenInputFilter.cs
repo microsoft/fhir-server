@@ -11,6 +11,7 @@ using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
 using SMARTCustomOperations.AzureAuth.Configuration;
+using SMARTCustomOperations.AzureAuth.Extensions;
 using SMARTCustomOperations.AzureAuth.Models;
 using SMARTCustomOperations.AzureAuth.Services;
 
@@ -51,8 +52,9 @@ namespace SMARTCustomOperations.AzureAuth.Filters
 
             if (!context.Request.Content!.Headers.GetValues("Content-Type").Single().Contains("application/x-www-form-urlencoded", StringComparison.CurrentCultureIgnoreCase))
             {
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: new ArgumentException("Content Type must be application/x-www-form-urlencoded"), code: HttpStatusCode.BadRequest));
-                return context;
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Content Type must be application/x-www-form-urlencoded"), code: HttpStatusCode.BadRequest);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
 
             // Read the request body
@@ -67,8 +69,9 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             }
             catch (Exception)
             {
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: new ArgumentException($"Token request invalid. {tokenContext?.ToLogString() ?? context.ContentString}"), code: HttpStatusCode.BadRequest));
-                return context;
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException($"Token request invalid. {tokenContext?.ToLogString() ?? context.ContentString}"), code: HttpStatusCode.BadRequest);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
 
             // Setup new http client for token request
@@ -109,18 +112,21 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             }
             catch (HttpRequestException)
             {
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: new ConfigurationErrorsException($"JWKS url {clientConfig?.JwksUri?.ToString()} is not responding. Please check the client configuration."), code: HttpStatusCode.InternalServerError));
-                return context;
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ConfigurationErrorsException($"JWKS url {clientConfig?.JwksUri?.ToString()} is not responding. Please check the client configuration."));
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
             catch (Exception ex) when (ex is Microsoft.IdentityModel.Tokens.SecurityTokenValidationException || ex is UnauthorizedAccessException)
             {
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.Unauthorized));
-                return context;
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.Unauthorized);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
             catch (Exception ex)
             {
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError));
-                return context;
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
 
             context.Request.Content = castTokenContext.ConvertToClientCredentialsFormUrlEncodedContent(clientConfig.ClientSecret);

@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
+using SMARTCustomOperations.AzureAuth.Extensions;
 using SMARTCustomOperations.Export.Configuration;
 
 namespace SMARTCustomOperations.Export.Filters
@@ -18,15 +19,17 @@ namespace SMARTCustomOperations.Export.Filters
     {
         private readonly ILogger _logger;
         private readonly string _id;
+        private readonly ExportCustomOperationsConfig _configuration;
 
         private static readonly Regex ExportCheckExpression = new(@"/?[A-Za-z0-9\-_]*/_operations/export/([A-Za-z0-9\\-]+)");
         private static readonly Regex GroupExportExpression = new(@"/?[A-Za-z0-9\-_]*/Group/([A-Za-z0-9\-]+)/\$export");
         private static readonly Regex GetExportFileExpression = new(@"/?[A-Za-z0-9\-_]*/_export/([A-Za-z0-9\-]+)/(.*)");
 
-        public ExtractPipelinePropertiesInputFilter(ILogger<ExtractPipelinePropertiesInputFilter> logger)
+        public ExtractPipelinePropertiesInputFilter(ILogger<ExtractPipelinePropertiesInputFilter> logger, ExportCustomOperationsConfig configuration)
         {
             _logger = logger;
             _id = Guid.NewGuid().ToString();
+            _configuration = configuration;
         }
 
         public event EventHandler<FilterErrorEventArgs>? OnFilterError;
@@ -71,8 +74,9 @@ namespace SMARTCustomOperations.Export.Filters
             }
             else
             {
-                // default error event in WebPipeline.cs of toolkit
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: new ArgumentException("This endpoint is not setup for this type of request."), code: HttpStatusCode.BadRequest));
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("This endpoint is not setup for this type of request."), code: HttpStatusCode.BadRequest);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
 
             return context;

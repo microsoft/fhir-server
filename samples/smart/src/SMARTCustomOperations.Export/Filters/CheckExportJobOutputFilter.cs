@@ -9,6 +9,7 @@ using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
+using SMARTCustomOperations.AzureAuth.Extensions;
 using SMARTCustomOperations.Export.Configuration;
 
 namespace SMARTCustomOperations.Export.Filters
@@ -62,9 +63,9 @@ namespace SMARTCustomOperations.Export.Filters
                 {
                     var ex = new SecurityException($"User attempted export with token with wrong oid claim. {Id}. OID: {context.Properties["oid"]}. Container: {origUrl.Segments[1]}.");
 
-                    // default error event in WebPipeline.cs of toolkit
-                    OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.Unauthorized));
-                    return Task.FromResult(context);
+                    FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.Unauthorized);
+                    OnFilterError?.Invoke(this, error);
+                    return Task.FromResult(context.SetContextErrorBody(error, _configuration.Debug));
                 }
 
                 outputObj["url"] = BuildNewExportFileUri(_configuration.ApiManagementHostName!, _configuration.ApiManagementFhirPrefex, origUrl.LocalPath);

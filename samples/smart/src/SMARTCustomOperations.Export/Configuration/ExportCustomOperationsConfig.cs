@@ -13,6 +13,9 @@ namespace SMARTCustomOperations.Export.Configuration
 
         public string? AppInsightsInstrumentationKey { get; set; }
 
+        // Returns more detailed error messages to client
+        public bool Debug { get; set; } = false;
+
 #pragma warning disable CA1056 // Needs to be string to parse from config easily
 
         // Example: https://<workspace>-<fhir>.fhir.azurehealthcareapis.com
@@ -26,7 +29,7 @@ namespace SMARTCustomOperations.Export.Configuration
         // Example: my-apim.azure-api.net
         public string? ApiManagementHostName { get; set; }
 
-        public string? ApiManagementFhirPrefex { get; set; } = "smart";
+        public string ApiManagementFhirPrefex { get; set; } = "smart";
 
         public void Validate()
         {

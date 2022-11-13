@@ -20,6 +20,14 @@ namespace SMARTCustomOperations.Export.UnitTests.Filters
 
         private static ILogger<ExtractPipelinePropertiesInputFilter> _logger = Substitute.For<ILogger<ExtractPipelinePropertiesInputFilter>>();
 
+        private static ExportCustomOperationsConfig _config = new()
+        {
+            ApiManagementHostName = "apim-name.azure-api.net",
+            ApiManagementFhirPrefex = "smart",
+            FhirServerUrl = "https://workspace-fhir.fhir.azurehealthcareapis.com",
+            ExportStorageAccountUrl = "https://account.blob.core.windows.net",
+        };
+
         [Fact]
         public void GivenAGroupExportOperation_WhenSavingPipelineTypeToProperties_PropertiesAreCorrect()
         {
@@ -27,7 +35,7 @@ namespace SMARTCustomOperations.Export.UnitTests.Filters
             OperationContext context = new();
             context.Request = new HttpRequestMessage(HttpMethod.Get, _fhirBaseUrl + $"/{_prefix}/Group/{id}/$export?_container=bad");
 
-            var filter = new ExtractPipelinePropertiesInputFilter(_logger);
+            var filter = new ExtractPipelinePropertiesInputFilter(_logger, _config);
             OperationContext newContext = filter.SavePipelineTypeToProperties(context);
 
             Assert.Equal(ExportOperationType.GroupExport.ToString(), newContext.Properties["PipelineType"]);
@@ -41,7 +49,7 @@ namespace SMARTCustomOperations.Export.UnitTests.Filters
             OperationContext context = new();
             context.Request = new HttpRequestMessage(HttpMethod.Get, _fhirBaseUrl + $"/{_prefix}/_operations/export/{id}");
 
-            var filter = new ExtractPipelinePropertiesInputFilter(_logger);
+            var filter = new ExtractPipelinePropertiesInputFilter(_logger, _config);
             OperationContext newContext = filter.SavePipelineTypeToProperties(context);
 
             Assert.Equal(ExportOperationType.ExportCheck.ToString(), newContext.Properties["PipelineType"]);
@@ -56,7 +64,7 @@ namespace SMARTCustomOperations.Export.UnitTests.Filters
             OperationContext context = new();
             context.Request = new HttpRequestMessage(HttpMethod.Get, _fhirBaseUrl + $"/{_prefix}/_export/{containerName}/{restOfPath}");
 
-            var filter = new ExtractPipelinePropertiesInputFilter(_logger);
+            var filter = new ExtractPipelinePropertiesInputFilter(_logger, _config);
             OperationContext newContext = filter.SavePipelineTypeToProperties(context);
 
             Assert.Equal(ExportOperationType.GetExportFile.ToString(), newContext.Properties["PipelineType"]);
@@ -75,7 +83,7 @@ namespace SMARTCustomOperations.Export.UnitTests.Filters
             message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             context.Request = message;
 
-            var filter = new ExtractPipelinePropertiesInputFilter(_logger);
+            var filter = new ExtractPipelinePropertiesInputFilter(_logger, _config);
             OperationContext newContext = filter.ExtractOidClaimToProperties(context);
 
             Assert.Equal(token, newContext.Properties["token"]);

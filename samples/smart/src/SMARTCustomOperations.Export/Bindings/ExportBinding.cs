@@ -86,7 +86,7 @@ namespace SMARTCustomOperations.Export.Bindings
             if ((int)context.StatusCode >= 400)
             {
                 context.IsFatal = true;
-                _logger.LogWarning("Invalid response from AzureActiveDirectory Binding. {Code}, {Body}", context.StatusCode, context.ContentString);
+                _logger.LogWarning("Invalid response from ExportBinding. {Code}, {Url}, {Body}, {Headers}", context.StatusCode, $"{builder.BaseUrl}{builder.Path}?{builder.QueryString}", context.ContentString, builder.Headers.ToString());
             }
 
             OnComplete?.Invoke(this, new BindingCompleteEventArgs(Id, Name, context)); // default complete event in WebPipeline.cs of toolkit
@@ -98,11 +98,14 @@ namespace SMARTCustomOperations.Export.Bindings
             // Set our default values for the below switch to override
             string localPath = requestUri.LocalPath;
             NameValueCollection queryCollection = requestUri.ParseQueryString();
+            NameValueCollection headers = new();
+            headers.Add("Prefer", "respond-async");
             string method = "GET";
             string token = requestToken;
             string serverUrl = _options.Value.FhirServerEndpoint!;
             string contentType = "application/json";
 
+            localPath = localPath.Replace($"/api", string.Empty, StringComparison.OrdinalIgnoreCase);
             if (_options.Value.ApiManagementFhirPrefex is not null)
             {
                 localPath = localPath.Replace($"/{_options.Value.ApiManagementFhirPrefex}", string.Empty, StringComparison.OrdinalIgnoreCase);
@@ -113,6 +116,7 @@ namespace SMARTCustomOperations.Export.Bindings
                 case ExportOperationType.GroupExport:
                     queryCollection.Remove("_container");
                     queryCollection.Add("_container", oid);
+                    contentType = "application/fhir+json";
                     break;
                 case ExportOperationType.GetExportFile:
                     token = await _authenticator.AcquireTokenForClientAsync(_options.Value.StorageEndpoint);
@@ -132,7 +136,7 @@ namespace SMARTCustomOperations.Export.Bindings
                 securityToken: token,
                 path: localPath,
                 query: queryCollection.ToString(),
-                headers: null,
+                headers: headers,
                 content: null,
                 contentType: contentType);
         }

@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.IdentityModel.Tokens.Jwt;
-using System.Net;
 using Azure.Core;
 using Azure.Identity;
 using Microsoft.AzureHealth.DataServices.Clients.Headers;
@@ -89,6 +88,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
                 var handler = new JwtSecurityTokenHandler();
                 JwtSecurityToken access_token = (JwtSecurityToken)handler.ReadToken(tokenResponse["access_token"]!.ToString());
 
+                // Application level scopes come across in the token roles.
                 var roles = access_token.Claims.Where(x => x.Type == "roles");
                 if (roles is not null)
                 {
@@ -98,7 +98,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
 
             // BEGIN OVERRIDE - TODO remove as it's temp until we get fhirUser claim
 
-            try
+            /*try
             {
                 if (!context.IsFatal && context.StatusCode == (HttpStatusCode)200 && tokenResponse.ContainsKey("access_token"))
                 {
@@ -111,7 +111,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Could not get token override. {Message}", ex.Message);
-            }
+            }*/
 
             // END OVERRIDE
 

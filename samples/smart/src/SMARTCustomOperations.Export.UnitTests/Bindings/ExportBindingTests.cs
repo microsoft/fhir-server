@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Specialized;
+using System.Web;
 using Microsoft.AzureHealth.DataServices.Clients;
 using Microsoft.AzureHealth.DataServices.Security;
 using Microsoft.Extensions.Logging;
@@ -25,6 +27,11 @@ namespace SMARTCustomOperations.Export.UnitTests.Bindings
 
         private static IAuthenticator _auth = Substitute.For<IAuthenticator>();
 
+        private static NameValueCollection _expectedHeaders = new()
+        {
+            HttpUtility.ParseQueryString("?Accept=application/fhir+json&Prefer=respond-async"),
+        };
+
         [Fact]
         public async Task GivenAGroupExportOperation_WhenCreatingRestRequestBuilder_BuilderIsProperlyFormed()
         {
@@ -42,6 +49,7 @@ namespace SMARTCustomOperations.Export.UnitTests.Bindings
             Assert.Equal($"/Group/{groupId}/$export", builder.Path);
             Assert.Equal($"_container={oid}", builder.QueryString);
             Assert.Equal("application/json", builder.ContentType);
+            Assert.Equal(_expectedHeaders, builder.Headers);
         }
 
         [Fact]
@@ -61,6 +69,7 @@ namespace SMARTCustomOperations.Export.UnitTests.Bindings
             Assert.Equal($"/_operations/export/{exportId}", builder.Path);
             Assert.Equal(string.Empty, builder.QueryString);
             Assert.Equal("application/json", builder.ContentType);
+            Assert.Equal(_expectedHeaders, builder.Headers);
         }
 
         [Fact]
@@ -83,6 +92,7 @@ namespace SMARTCustomOperations.Export.UnitTests.Bindings
             Assert.Equal($"/{oid}/DateTimeFolder/filename.ndjson", builder.Path);
             Assert.Equal(string.Empty, builder.QueryString);
             Assert.Equal("application/fhir+ndjson", builder.ContentType);
+            Assert.Equal(_expectedHeaders, builder.Headers);
         }
     }
 }

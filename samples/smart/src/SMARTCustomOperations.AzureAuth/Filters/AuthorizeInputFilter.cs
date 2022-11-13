@@ -10,6 +10,7 @@ using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
 using SMARTCustomOperations.AzureAuth.Configuration;
+using SMARTCustomOperations.AzureAuth.Extensions;
 using SMARTCustomOperations.AzureAuth.Models;
 
 namespace SMARTCustomOperations.AzureAuth.Filters
@@ -52,24 +53,27 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             }
             catch (ArgumentException ex)
             {
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.BadRequest));
-                return context;
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.BadRequest);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
 
             // Verify response_type is "code"
             if (!launchContext.IsValidResponseType())
             {
                 // default error event in WebPipeline.cs of toolkit
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: new ArgumentException($"Invalid response type  {launchContext.ResponseType}"), code: HttpStatusCode.BadRequest));
-                return context;
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException($"Invalid response type  {launchContext.ResponseType}"), code: HttpStatusCode.BadRequest);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
 
             // Verify required SMART launch params are not null
             if (!launchContext.Validate())
             {
                 // default error event in WebPipeline.cs of toolkit
-                OnFilterError?.Invoke(this, new FilterErrorEventArgs(name: Name, id: Id, fatal: true, error: new ArgumentException($"Required launch parameters missing. {JsonSerializer.Serialize(launchContext)}"), code: HttpStatusCode.BadRequest));
-                return context;
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException($"Required launch parameters missing. {JsonSerializer.Serialize(launchContext)}"), code: HttpStatusCode.BadRequest);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
             }
 
             // Build the aad authorize url

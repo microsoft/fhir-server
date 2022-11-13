@@ -193,11 +193,20 @@ resource smartApi 'Microsoft.ApiManagement/service/apis@2021-12-01-preview' = {
     }
   }
 
-  resource allOtherRequestsOperations 'operations' = {
-    name: 'allOtherRequests'
+  resource allOtherRequestsOperationsGet 'operations' = {
+    name: 'allOtherRequestsGet'
     properties: {
-      displayName: 'all-other-operations'
+      displayName: 'all-other-operations GET'
       method: 'GET'
+      urlTemplate: '/*'
+    }
+  }
+
+  resource allOtherRequestsOperationsPost 'operations' = {
+    name: 'allOtherRequestsPost'
+    properties: {
+      displayName: 'all-other-operations POST'
+      method: 'POST'
       urlTemplate: '/*'
     }
   }

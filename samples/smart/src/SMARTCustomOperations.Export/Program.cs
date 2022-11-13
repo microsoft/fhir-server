@@ -57,12 +57,20 @@ namespace SMARTCustomOperations.Export
 
                     services.UseAzureFunctionPipeline();
 
+                    services.AddSingleton<ExportCustomOperationsConfig>(config);
+
                     // First filter sets up the pipeline by extracting properties
                     services.AddInputFilter(typeof(ExtractPipelinePropertiesInputFilter));
 
                     // In the middle is our custom binding that will either hit the FHIR Service or Azure Storage
                     // Since we are using a custom binding, logic can be moved here instead of input filters.
-                    services.AddBinding(typeof(ExportBinding));
+
+                    services.AddBinding<ExportBindingOptions>(typeof(ExportBinding), options =>
+                    {
+                        options.ApiManagementFhirPrefex = config.ApiManagementFhirPrefex;
+                        options.FhirServerEndpoint = config.FhirServerUrl;
+                        options.StorageEndpoint = config.ExportStorageAccountUrl;
+                    });
 
                     // Next is the export operation check output filter to point export URLs to our APIM front end
                     services.AddOutputFilter(typeof(CheckExportJobOutputFilter));

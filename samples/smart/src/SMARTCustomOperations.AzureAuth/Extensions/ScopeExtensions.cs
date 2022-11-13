@@ -20,10 +20,10 @@ namespace SMARTCustomOperations.AzureAuth.Extensions
                 foreach (var s in scopes)
                 {
                     // if scope starts with patient/ or encounter/ or user/ or system/ or launch or equals fhirUser
-                    if (s.StartsWith("patient/", StringComparison.InvariantCulture) ||
-                        s.StartsWith("encounter/", StringComparison.InvariantCulture) ||
-                        s.StartsWith("user/", StringComparison.InvariantCulture) ||
-                        s.StartsWith("system/", StringComparison.InvariantCulture) ||
+                    if (s.StartsWith("patient", StringComparison.InvariantCulture) ||
+                        s.StartsWith("encounter", StringComparison.InvariantCulture) ||
+                        s.StartsWith("user", StringComparison.InvariantCulture) ||
+                        s.StartsWith("system", StringComparison.InvariantCulture) ||
                         s.StartsWith("launch", StringComparison.InvariantCulture) ||
                         s == "fhirUser")
                     {
