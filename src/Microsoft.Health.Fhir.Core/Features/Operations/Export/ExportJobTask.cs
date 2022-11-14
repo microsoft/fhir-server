@@ -232,6 +232,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (RequestEntityTooLargeException retle)
+            {
+                _logger.LogError(retle, "Unable to update the ExportJobRecord as it exceeds CosmosDb document max size. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.RequestEntityTooLargeExceptionDuringExport, HttpStatusCode.RequestEntityTooLarge);
+
+                // Need to remove output records in order to make the export job record savable in the database.
+                _exportJobRecord.Output.Clear();
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (Exception ex)
             {
                 // The job has encountered an error it cannot recover from.
@@ -605,7 +615,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         resourceType: resourceType,
                         queryParametersList,
                         cancellationToken,
-                        true);
+                        true,
+                        _exportJobRecord.SmartRequest);
                 }
 
                 ProcessSearchResults(searchResult.Results, anonymizer);

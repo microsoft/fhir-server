@@ -12,7 +12,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -50,6 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SortRewriter _sortRewriter;
         private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
         private readonly CompartmentSearchRewriter _compartmentSearchRewriter;
+        private readonly SmartCompartmentSearchRewriter _smartCompartmentSearchRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SortRewriter sortRewriter,
             PartitionEliminationRewriter partitionEliminationRewriter,
             CompartmentSearchRewriter compartmentSearchRewriter,
+            SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
@@ -84,6 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
+            EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -92,6 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sortRewriter = sortRewriter;
             _partitionEliminationRewriter = partitionEliminationRewriter;
             _compartmentSearchRewriter = compartmentSearchRewriter;
+            _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -267,6 +270,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpression expression = (SqlRootExpression)searchExpression
                                                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                                                .AcceptVisitor(_compartmentSearchRewriter)
+                                               .AcceptVisitor(_smartCompartmentSearchRewriter)
                                                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
@@ -364,18 +368,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out Stream rawResourceStream);
                         numberOfColumnsRead = reader.FieldCount;
 
-                        // If we get to this point, we know there are more results so we need a continuation token
-                        // Additionally, this resource shouldn't be included in the results
-                        if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
-                        {
-                            moreResults = true;
-
-                            continue;
-                        }
-
                         string rawResource;
-                        using (rawResourceStream)
+                        await using (rawResourceStream)
                         {
+                            // If we get to this point, we know there are more results so we need a continuation token
+                            // Additionally, this resource shouldn't be included in the results
+                            if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
+                            {
+                                moreResults = true;
+
+                                continue;
+                            }
+
                             rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 

@@ -51,6 +51,42 @@
         {
             "id": "wrongAudienceClient",
             "roles": []
+        },
+        {
+            "id": "smartUserClient",
+            "roles": [
+                "smartUser"
+            ]
+        },
+        {
+            "id": "smart-practitioner-A",
+            "roles": [
+                "smartUser"
+            ]
+        },
+        {
+            "id": "smart-practitioner-B",
+            "roles": [
+                "smartUser"
+            ]
+        },
+        {
+            "id": "smart-patient-A",
+            "roles": [
+                "smartUser"
+            ]
+        },
+        {
+            "id": "smart-patient-B",
+            "roles": [
+                "smartUser"
+            ]
+        },
+        {
+            "id": "smart-patient-C",
+            "roles": [
+                "smartUser"
+            ]
         }
     ]
 }

@@ -11,11 +11,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
@@ -23,6 +25,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
     /// <summary>
     /// Unit tests to validates input parameters of a GetRecordsAsync function.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerFhirResourceChangeDataStoreTests
     {
         private readonly SqlServerFhirResourceChangeDataStore resourceChangeDataStore;

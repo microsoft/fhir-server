@@ -20,12 +20,16 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Import;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
+    [Trait(Traits.Category, Categories.Import)]
     public class ImportControllerTests
     {
         private IMediator _mediator = Substitute.For<IMediator>();
@@ -46,6 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetBulkImportRequestConfigurationWithUnsupportedResourceType(),
                 GetBulkImportRequestConfigurationWithNoInputFile(),
                 GetBulkImportRequestConfigurationWithNoInputUrl(),
+                GetBulkImportRequestConfigurationWithSASToken(),
             };
 
         [Theory]
@@ -120,12 +125,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 new InputResource
                 {
                     Type = "Patient",
-                    Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
+                    Url = new Uri("https://client.example.org/patient_file_2.ndjson"),
                 },
                 new InputResource
                 {
                     Type = "Observation",
-                    Url = new Uri("https://client.example.org/obseration_file_19.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
+                    Url = new Uri("https://client.example.org/obseration_file_19.ndjson"),
                 },
             };
 
@@ -145,7 +150,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 new InputResource
                 {
                     Type = "Patient",
-                    Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
+                    Url = new Uri("https://client.example.org/patient_file_2.ndjson"),
                 },
             };
 
@@ -164,7 +169,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 new InputResource
                 {
                     Type = "Patient",
-                    Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
+                    Url = new Uri("https://client.example.org/patient_file_2.ndjson"),
                 },
             };
 
@@ -187,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 new InputResource
                 {
                     Type = "Fake",
-                    Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
+                    Url = new Uri("https://client.example.org/patient_file_2.ndjson"),
                 },
             };
 
@@ -225,6 +230,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             bulkImportRequestConfiguration.InputFormat = "application/fhir+ndjson";
             bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
             bulkImportRequestConfiguration.Input = input;
+
+            return bulkImportRequestConfiguration;
+        }
+
+        private static ImportRequest GetBulkImportRequestConfigurationWithSASToken()
+        {
+            var input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("https://client.example.org/patient_file_2.ndjson?sp=r&st=2022-09-30T01:39:01Z&se=2022-09-30T09:39:01Z&spr=https&sv=2021-06-08&sr=b&sig=RHIX5Xcg0Mq2rqI3OlWT"),
+                },
+            };
+
+            var bulkImportRequestConfiguration = new ImportRequest();
+            bulkImportRequestConfiguration.InputFormat = "application/fhir+ndjson";
+            bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
+            bulkImportRequestConfiguration.Input = input;
+            bulkImportRequestConfiguration.StorageDetail = new ImportRequestStorageDetail();
 
             return bulkImportRequestConfiguration;
         }

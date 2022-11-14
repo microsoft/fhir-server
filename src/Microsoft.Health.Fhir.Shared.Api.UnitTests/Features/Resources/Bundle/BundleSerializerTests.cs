@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using static Hl7.Fhir.Model.Bundle;
@@ -31,6 +32,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Batch)]
     public class BundleSerializerTests
     {
         private readonly ResourceWrapperFactory _wrapperFactory;

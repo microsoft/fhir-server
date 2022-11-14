@@ -27,6 +27,17 @@ stages:
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
 
+- stage: UpdateRandom
+  displayName: 'Determine Random String'
+  dependsOn: []
+  jobs:
+  - job: Password
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/update-sqlAdminPassword.yml
+
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   dependsOn:
@@ -44,7 +55,7 @@ stages:
     steps:
     - template: ./jobs/build.yml
       parameters:
-        packageArtifacts: false
+        packageIntegrationTests: true
 
   - job: Linux
     pool:
@@ -52,7 +63,21 @@ stages:
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
+      parameters:
+        codeCoverage: true
+        componentGovernance: true
+        packageArtifacts: true
     
+- stage: AnalyzeSecurity
+  displayName: 'Run Security Analysis'
+  dependsOn:
+  - BuildUnitTests
+  jobs:
+  - job: Guardian
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - template: ./jobs/analyze.yml
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -106,69 +131,20 @@ stages:
     steps:
     - template: ./jobs/add-aad-test-environment.yml
 
-- stage: deployAksR4Cosmos
-  displayName: 'Deploy R4 Cosmos in AKS'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
+- stage: deploySqlServer
+  displayName: 'Deploy SQLServer'
   dependsOn:
-  - DockerBuild
   - setupEnvironment
   jobs:
-  - template: ./jobs/deploy-aks.yml
-    parameters: 
-      version: R4
-      dataStore: CosmosDb
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-      clusterLocation: $(clusterLocation)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
-      imageTag: $(ImageTag)
-      dnsSuffix: $(aksDnsSuffix)
-      reindexEnabled: true
-
-- stage: deployAksR4Sql
-  displayName: 'Deploy R4 Sql in AKS'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  jobs:
-  - template: ./jobs/deploy-aks.yml
-    parameters: 
-      version: R4
-      dataStore: SqlServer
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-      clusterLocation: $(clusterLocation)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
-      imageTag: $(ImageTag)
-      dnsSuffix: $(aksDnsSuffix)
+  - template: ./jobs/provision-sqlServer.yml
+    parameters:
+      resourceGroup: $(ResourceGroupName)
+      sqlServerName: $(DeploymentEnvironmentName)
       schemaAutomaticUpdatesEnabled: 'auto'
-      reindexEnabled: true
-
-- stage: deployAksR4SqlContainer
-  displayName: 'Deploy R4 SqlContainer in AKS'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  jobs:
-  - template: ./jobs/deploy-aks.yml
-    parameters: 
-      version: R4
-      dataStore: SqlContainer
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-      clusterLocation: $(clusterLocation)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
-      imageTag: $(ImageTag)
-      dnsSuffix: $(aksDnsSuffix)
-      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
 
 - stage: deployStu3
-  displayName: 'Deploy STU3 Site'
+  displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -190,6 +166,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -203,10 +180,12 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: deployR4
-  displayName: 'Deploy R4 Site'
+  displayName: 'Deploy R4 CosmosDB Site'
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -228,6 +207,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -241,10 +221,53 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerName: $(DeploymentEnvironmentName)
+      reindexEnabled: true
+
+- stage: deployR4B
+  displayName: 'Deploy R4B CosmosDB Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4B
+      webAppName: $(DeploymentEnvironmentNameR4B)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      reindexEnabled: true
+
+- stage: deployR4BSql
+  displayName: 'Deploy R4B SQL Site'
+  dependsOn:
+  - DockerBuild
+  - setupEnvironment
+  - deploySqlServer
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4B
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR4BSql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+      testEnvironmentUrl: $(TestApplicationResource)
+      imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
 - stage: deployR5
-  displayName: 'Deploy R5 Site'
+  displayName: 'Deploy R5 CosmosDB Site'
   dependsOn:
   - DockerBuild
   - setupEnvironment
@@ -266,6 +289,7 @@ stages:
   dependsOn:
   - DockerBuild
   - setupEnvironment
+  - deploySqlServer
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -279,55 +303,9 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
+      sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
+      sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
-
-- stage: testAksR4Cosmos
-  displayName: 'R4 CosmosDb AKS Tests'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - BuildUnitTests
-  - setupEnvironment
-  - deployAksR4Cosmos
-  jobs:
-  - template: ./jobs/run-tests-aks.yml
-    parameters:
-      version: R4
-      dataStore: CosmosDb
-      dnsSuffix: $(aksDnsSuffix)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-
-- stage: testAksR4Sql
-  displayName: 'R4 SqlServer AKS Tests'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - BuildUnitTests
-  - setupEnvironment
-  - deployAksR4Sql
-  jobs:
-  - template: ./jobs/run-tests-aks.yml
-    parameters:
-      version: R4
-      dataStore: SqlServer
-      dnsSuffix: $(aksDnsSuffix)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-
-- stage: testAksR4SqlContainer
-  displayName: 'R4 SqlContainer AKS Tests'
-  condition: and(succeeded(), eq(variables.enableAks, 'true'))
-  dependsOn:
-  - BuildUnitTests
-  - setupEnvironment
-  - deployAksR4SqlContainer
-  jobs:
-  - template: ./jobs/run-tests-aks.yml
-    parameters:
-      version: R4
-      dataStore: SqlContainer
-      dnsSuffix: $(aksDnsSuffix)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
@@ -357,6 +335,20 @@ stages:
       keyVaultName: $(DeploymentEnvironmentNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
 
+- stage: testR4B
+  displayName: 'Run R4B Tests'
+  dependsOn:
+  - BuildUnitTests
+  - setupEnvironment
+  - deployR4B
+  - deployR4BSql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R4B
+      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      appServiceName: $(DeploymentEnvironmentNameR4B)
+
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
@@ -371,38 +363,13 @@ stages:
       keyVaultName: $(DeploymentEnvironmentNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
 
-- stage: cleanupAks
-  displayName: 'Cleanup AKS Deployments'
-  dependsOn:
-  - testAksR4Cosmos
-  - testAksR4Sql
-  - testAksR4SqlContainer
-  jobs:
-  - template: ./jobs/cleanup-aks.yml
-    parameters:
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
   - testStu3
   - testR4
+  - testR4B
   - testR5
-  - testAksR4Cosmos
-  - testAksR4Sql
-  - testAksR4SqlContainer
-  condition: |
-    and
-    (
-      eq(dependencies.testStu3.result, 'Succeeded'),
-      eq(dependencies.testR4.result, 'Succeeded'),
-      eq(dependencies.testR5.result, 'Succeeded'),
-      in(dependencies.testAksR4Cosmos.result, 'Succeeded', 'Skipped'),
-      in(dependencies.testAksR4Sql.result, 'Succeeded', 'Skipped'),
-      in(dependencies.testAksR4SqlContainer.result, 'Succeeded', 'Skipped')
-    )
   jobs:
   - template: ./jobs/cleanup.yml
 

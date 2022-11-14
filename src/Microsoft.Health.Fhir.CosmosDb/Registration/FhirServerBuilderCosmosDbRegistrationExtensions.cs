@@ -227,6 +227,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<SmartCompartmentSearchRewriter>()
+                .Singleton()
+                .AsSelf();
+
             return fhirServerBuilder;
         }
 

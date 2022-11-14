@@ -4,7 +4,6 @@ variables:
     appServicePlanName: '$(resourceGroupRoot)-$(prName)-asp'    
     ResourceGroupName: '$(resourceGroupRoot)-$(prName)'
     DeploymentEnvironmentName: 'f$(build.BuildNumber)'
-    CrucibleEnvironmentUrl: ''
     TestEnvironmentName: 'OSS PR$(prName)'
     ImageTag: '$(build.BuildNumber)'
 

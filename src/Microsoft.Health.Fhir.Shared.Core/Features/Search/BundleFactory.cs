@@ -70,7 +70,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     httpVerb = Bundle.HTTPVerb.PUT;
                 }
 #endif
-                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
+
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
                 if (hasVerb)
                 {
                     resource.Request = new Bundle.RequestComponent
@@ -161,6 +162,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                     Issue = new List<OperationOutcome.IssueComponent>(_fhirRequestContextAccessor.RequestContext.BundleIssues.Select(x => x.ToPoco())),
+                };
+
+                bundle.Entry.Add(new Bundle.EntryComponent
+                {
+                    Resource = operationOutcome,
+                    Search = new Bundle.SearchComponent
+                    {
+                        Mode = Bundle.SearchEntryMode.Outcome,
+                    },
+                });
+            }
+
+            if (result != null && result.SearchIssues.Any())
+            {
+                var operationOutcome = new OperationOutcome
+                {
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
+                    Issue = new List<OperationOutcome.IssueComponent>(result.SearchIssues.Select(x => x.ToPoco())),
                 };
 
                 bundle.Entry.Add(new Bundle.EntryComponent

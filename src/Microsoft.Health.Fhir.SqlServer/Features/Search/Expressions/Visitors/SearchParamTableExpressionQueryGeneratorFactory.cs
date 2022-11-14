@@ -173,6 +173,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return CompartmentQueryGenerator.Instance;
         }
 
+        public SearchParamTableExpressionQueryGenerator VisitSmartCompartment(SmartCompartmentSearchExpression expression, object context)
+        {
+            return CompartmentQueryGenerator.Instance;
+        }
+
         public SearchParamTableExpressionQueryGenerator VisitInclude(IncludeExpression expression, object context)
         {
             return IncludeQueryGenerator.Instance;

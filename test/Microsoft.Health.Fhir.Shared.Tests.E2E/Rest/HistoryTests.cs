@@ -34,9 +34,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// hence using the NextLink to keep querying for the next set
     /// Some tests have Thread.Sleep to avoid query time to fall in future
     /// </summary>
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     [CollectionDefinition("History", DisableParallelization = true)]
     [Collection("History")]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class HistoryTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         private FhirResponse<Observation> _createdResource;

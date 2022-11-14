@@ -10,14 +10,19 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Everything;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class EverythingOperationHandlerTests
     {
         private readonly IPatientEverythingService _patientEverythingService = Substitute.For<IPatientEverythingService>();
@@ -27,7 +32,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 
         public EverythingOperationHandlerTests()
         {
-            _everythingOperationHandler = new EverythingOperationHandler(_patientEverythingService, _bundleFactory, DisabledFhirAuthorizationService.Instance);
+            _everythingOperationHandler = new EverythingOperationHandler(
+                _patientEverythingService,
+                _bundleFactory,
+                DisabledFhirAuthorizationService.Instance,
+                new DataResourceFilter(MissingDataFilterCriteria.Default));
         }
 
         [Fact]

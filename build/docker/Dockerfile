@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:6.0.302-alpine3.16 AS build
+FROM mcr.microsoft.com/dotnet/sdk:6.0.401-alpine3.16 AS build
 
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
@@ -9,6 +9,7 @@ COPY .editorconfig \
      CustomAnalysisRules.ruleset \
      CustomAnalysisRules.Test.ruleset \
      Directory.Build.props \
+     Directory.Packages.props \
      global.json \
      nuget.config \
      stylecop.json \
@@ -67,7 +68,7 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}"
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0.7-alpine3.16 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:6.0.9-alpine3.16 AS runtime
 
 ARG FHIR_VERSION
 

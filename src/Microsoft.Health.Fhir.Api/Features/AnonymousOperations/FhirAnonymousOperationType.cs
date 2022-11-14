@@ -12,5 +12,7 @@ namespace Microsoft.Health.Fhir.Api.Features.AnonymousOperations
         public const string Metadata = "metadata";
 
         public const string Versions = "versions";
+
+        public const string WellKnown = "wellknown";
     }
 }
