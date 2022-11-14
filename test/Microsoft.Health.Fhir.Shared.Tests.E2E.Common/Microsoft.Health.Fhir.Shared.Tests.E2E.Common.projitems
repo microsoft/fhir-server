@@ -9,6 +9,7 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.E2E.Common</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)AuthenticationSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TestAuthenticationHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TestFhirClient.cs" />

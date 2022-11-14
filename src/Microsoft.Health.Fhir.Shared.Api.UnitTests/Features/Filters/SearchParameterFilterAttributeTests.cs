@@ -14,12 +14,17 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.Web)]
     public class SearchParameterFilterAttributeTests
     {
         private readonly ISearchParameterValidator _searchParameterValidator = Substitute.For<ISearchParameterValidator>();

@@ -36,7 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint maximumNumberOfResourcesPerQuery = 100,
             uint numberOfPagesPerCommit = 10,
             string storageAccountContainerName = null,
-            int schemaVersion = 2)
+            int schemaVersion = 2,
+            bool smartRequest = false)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -70,6 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
             QueuedTime = Clock.UtcNow;
             Till = new PartialDateTime(Clock.UtcNow);
+
+            SmartRequest = smartRequest;
 
             if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {
@@ -164,6 +167,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.RestartCount)]
         public uint RestartCount { get; set; }
+
+        [JsonProperty(JobRecordProperties.SmartRequest)]
+        public bool SmartRequest { get; private set; }
 
         internal ExportJobRecord Clone()
         {

@@ -274,6 +274,9 @@
     <value>The '_total' parameter value '{0}' is invalid. The supported values are: {1}.</value>
     <comment>{0}: the invalid _total parameter value. {1}: the supported _total parameter values.</comment>
   </data>
+  <data name="InvalidSecurityConfigurationBaseEndpoint" xml:space="preserve">
+    <value>"Security configuration base endpoint {0} is an invalid Uri".</value>
+  </data>
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>Invalid value for :missing modifier. Valid values are: true, false.</value>
   </data>
@@ -357,6 +360,9 @@
   </data>
   <data name="ReverseChainMissingType" xml:space="preserve">
     <value>The reverse chain search is missing the type to search.</value>
+  </data>
+  <data name="SecurityConfigurationAuthorizationNotEnabled" xml:space="preserve">
+    <value>Security configuration authorization is not enabled.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>
@@ -645,5 +651,49 @@
   <data name="InvalidInnerUnionExpression" xml:space="preserve">
     <value>Inner '{0}' are not supported</value>
     <comment>Union expression can't have other union expressions as children.</comment>
+  </data>
+  <data name="RequestEntityTooLargeExceptionDuringExport" xml:space="preserve">
+    <value>Timespan in export request contains too much data to export in a single request. Please try reducing the time range and try again.</value>
+  </data>
+  <data name="GenericMemberMatch" xml:space="preserve">
+    <value>Member match encountered an unknown exception while performing the search.</value>
+  </data>
+  <data name="SqlQueryProcessorRanOutOfInternalResourcesException" xml:space="preserve">
+    <value>The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry.</value>
+  </data>
+  <data name="ResourceTypeNotAllowedRestrictedByClinicalScopes" xml:space="preserve">
+    <value>Resource type {0} is not allowed. Additional clinical scopes should be requested to allow searching using this type.</value>
+    <comment>{0} is a string of the name of the resource type.</comment>
+  </data>
+  <data name="ChainedResourceTypesNotAllowedDueToScope" xml:space="preserve">
+    <value>The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type.</value>
+  </data>
+  <data name="OperationCanceled" xml:space="preserve">
+    <value>The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support.</value>
+  </data>
+  <data name="TransactionDeadlock" xml:space="preserve">
+    <value>There was resource contention with another process in the datastore. Please retry this transaction.</value>
+  </data>
+  <data name="FhirUserClaimMustHaveResourceTypeAndId" xml:space="preserve">
+    <value>The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id.</value>
+    <comment>{0} is a string value of given fhirUser claim.</comment>
+  </data>
+  <data name="FhirUserClaimInvalidFormat" xml:space="preserve">
+    <value>The fhirUser claim must be a URI with an ending format of &lt;resourceType&gt;/&lt;resourceId&gt;.</value>
+  </data>
+  <data name="FhirUserClaimIsNotAValidResource" xml:space="preserve">
+    <value>Provided fhirUser claim {0} is not a valid resource in this fhir server.</value>
+    <comment>{0} is a url of a fhir resource.</comment>
+  </data>  
+  <data name="InternalServerError" xml:space="preserve">
+    <value>An internal error has occurred. If this problem persists, please contact Customer Support.</value>
+  </data>
+  <data name="USCoreDeserializationError" xml:space="preserve">
+    <value>Error deserializing resource '{0}/{1}' for validation: {2}</value>
+    <comment>The resource caused a failure while deserializing for validation. {0} is the resource type of a FHIR resource. {1} is the ID of a FHIR resource. {2} are the exception details.</comment>
+  </data>
+  <data name="USCoreMissingDataRequirement" xml:space="preserve">
+    <value>Status code is missing for the resource '{0}/{1}'.</value>
+    <comment>The resource does not contain the expected status code following US Core requirements. {0} is the resource type of a FHIR resource. {1} is the ID of a FHIR resource.</comment>
   </data>
 </root>

@@ -79,7 +79,29 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
         }
 
-        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<JobInfo>> DequeueJobsAsync(byte queueType, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        {
+            var dequeuedJobs = new List<JobInfo>();
+
+            while (dequeuedJobs.Count < numberOfJobsToDequeue)
+            {
+                var jobInfo = await DequeueAsync(queueType, worker, heartbeatTimeoutSec, cancellationToken);
+
+                if (jobInfo != null)
+                {
+                    dequeuedJobs.Add(jobInfo);
+                }
+                else
+                {
+                    // No more jobs in queue
+                    break;
+                }
+            }
+
+            return dequeuedJobs;
+        }
+
+        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
         {
             DequeueFaultAction?.Invoke();
 
@@ -111,8 +133,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     Definition = definition,
                     Id = largestId,
                     GroupId = gId,
-                    Status = JobStatus.Created,
+                    Status = isCompleted ? JobStatus.Completed : JobStatus.Created,
                     HeartbeatDateTime = DateTime.Now,
+                    QueueType = queueType,
                 });
                 largestId++;
             }

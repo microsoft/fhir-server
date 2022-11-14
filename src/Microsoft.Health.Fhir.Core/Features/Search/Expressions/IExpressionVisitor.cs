@@ -83,6 +83,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         TOutput VisitCompartment(CompartmentSearchExpression expression, TContext context);
 
         /// <summary>
+        /// Visits the <see cref="SmartCompartmentSearchExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        /// <param name="context">The input</param>
+        TOutput VisitSmartCompartment(SmartCompartmentSearchExpression expression, TContext context);
+
+        /// <summary>
         /// Visits the <see cref="IncludeExpression"/>
         /// </summary>
         /// <param name="expression">The expression to visit.</param>

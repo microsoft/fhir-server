@@ -13,6 +13,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -23,6 +24,7 @@ using Microsoft.Health.Api.Features.AnonymousOperation;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionConstraints;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.AnonymousOperations;
@@ -33,6 +35,7 @@ using Microsoft.Health.Fhir.Api.Models;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
@@ -506,15 +509,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private IReadOnlyList<Tuple<string, string>> GetQueriesForSearch()
         {
-            IReadOnlyList<Tuple<string, string>> queries = Array.Empty<Tuple<string, string>>();
-
-            if (Request.Query != null)
-            {
-                queries = Request.Query
-                    .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
-            }
-
-            return queries;
+            return Request.GetQueriesForSearch();
         }
 
         /// <summary>
@@ -558,6 +553,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement response = await _mediator.GetCapabilitiesAsync(HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
+        }
+
+        /// <summary>
+        /// Returns the SMART configuration of this server.
+        /// </summary>
+        [HttpGet]
+        [FhirAnonymousOperation(FhirAnonymousOperationType.WellKnown)]
+        [Route(KnownRoutes.WellKnownSmartConfiguration, Name = RouteNames.WellKnownSmartConfiguration)]
+        public async Task<IActionResult> WellKnownSmartConfiguration()
+        {
+            SmartConfigurationResult response = await _mediator.GetSmartConfigurationAsync(HttpContext.RequestAborted);
+
+            return OperationSmartConfigurationResult.Ok(response);
         }
 
         /// <summary>

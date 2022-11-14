@@ -42,7 +42,7 @@
             ],
             "defaultValue": "S1"
         },
-        "numberOfInstances" : {
+        "numberOfInstances": {
             "type": "int",
             "defaultValue": 1,
             "metadata": {
@@ -144,6 +144,20 @@
                 "description": "Key url for the Cosmos DB customer managed key. If not provided a system managed key will be used. If an invalid value is provided the service will not start."
             }
         },
+        "sqlServerName": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Name of Sql Server (existing or new). If empty, a name will be generated."
+            }
+        },
+        "sqlServerNewOrExisting": {
+            "type": "string",
+            "defaultValue": "new",
+            "metadata": {
+                "description": "Determines whether or not a new SqlServer should be provisioned."
+            }
+        },
         "sqlAdminPassword": {
             "type": "securestring",
             "defaultValue": "",
@@ -160,7 +174,7 @@
         },
         "sqlSchemaAutomaticUpdatesEnabled": {
             "type": "string",
-            "allowedValues":["auto", "tool"],
+            "allowedValues": [ "auto", "tool" ],
             "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'tool', '')]",
             "metadata": {
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If set to 'tool', sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If set to 'auto', sql schema will be upgraded to the maximum supported version."
@@ -172,6 +186,7 @@
             "allowedValues": [
                 "Stu3",
                 "R4",
+                "R4B",
                 "R5"
             ],
             "metadata": {
@@ -257,7 +272,9 @@
             "FhirServer:Operations:Import:Enabled": "[parameters('enableImport')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
-        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
+        "sqlServerDerivedName": "[if(empty(parameters('sqlServerName')),variables('serviceName'),parameters('sqlServerName'))]",
+        "sqlDatabaseName": "[concat('FHIR', parameters('fhirVersion'))]",
+        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
         "azureContainerRegistryUri": "[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
         "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
@@ -320,7 +337,7 @@
                     "name": "MSDeploy",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[concat(variables('appServiceResourceId'), '/siteextensions/AspNetCoreRuntime.5.0.x86')]",
+                        "[concat(variables('appServiceResourceId'), '/siteextensions/AspNetCoreRuntime.6.0.x86')]",
                         "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'CosmosDb--Host')]"
                     ],
                     "properties": {
@@ -329,11 +346,11 @@
                 },
                 {
                     "type": "siteextensions",
-                    "name": "AspNetCoreRuntime.5.0.x86",
+                    "name": "AspNetCoreRuntime.6.0.x86",
                     "apiVersion": "2018-11-01",
                     "location": "[resourceGroup().location]",
                     "properties": {
-                        "version": "6.0.7"
+                        "version": "6.0.9"
                     },
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
@@ -382,8 +399,8 @@
             }
         },
         {
-            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
-            "name": "[variables('serviceName')]",
+            "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'),equals(parameters('sqlServerNewOrExisting'), 'new'))]",
+            "name": "[variables('sqlServerDerivedName')]",
             "type": "Microsoft.Sql/servers",
             "apiVersion": "2015-05-01-preview",
             "location": "[parameters('sqlLocation')]",
@@ -400,13 +417,13 @@
                     "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
                     "apiVersion": "2017-10-01-preview",
                     "dependsOn": [
-                        "[variables('serviceName')]"
+                        "[variables('sqlServerDerivedName')]"
                     ],
                     "location": "[parameters('sqlLocation')]",
                     "tags": {
                         "FhirServerSolution": "[parameters('solutionType')]"
                     },
-                    "name": "FHIR",
+                    "name": "[variables('sqlDatabaseName')]",
                     "properties": {
                         "collation": "SQL_Latin1_General_CP1_CI_AS"
                     },
@@ -421,7 +438,7 @@
                     "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
                     "apiVersion": "2014-04-01",
                     "dependsOn": [
-                        "[variables('serviceName')]"
+                        "[variables('sqlServerDerivedName')]"
                     ],
                     "location": "[resourceGroup().location]",
                     "name": "AllowAllWindowsAzureIps",
@@ -501,11 +518,11 @@
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin, ''),';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
+                "value": "[concat('Server=tcp:', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName, ''),',1433;Initial Catalog=',variables('sqlDatabaseName'),';Persist Security Info=False;User ID=', if(equals(parameters('solutionType'),'FhirServerSqlServer'), reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin, ''),';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.Sql/servers', variables('serviceName'))]"
+                "[resourceId('Microsoft.Sql/servers', variables('sqlServerDerivedName'))]"
             ]
         },
         {
@@ -555,7 +572,7 @@
                 "tier": "Basic"
             },
             "properties": {
-                "adminUserEnabled": "true"
+            "adminUserEnabled": "true"
             }
         },
         {

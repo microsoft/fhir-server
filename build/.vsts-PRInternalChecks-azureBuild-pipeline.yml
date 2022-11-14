@@ -27,15 +27,6 @@ jobs:
     inputs:
       useGlobalJson: true
 
-  - task: DotNetCoreCLI@2
-    displayName: dotnet restore
-    inputs:
-      command: restore
-      projects: '**/*.sln'
-      selectOrConfig: config
-      feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
-      nugetConfigPath: nuget.config
-
   - task: DotNetCoreCLI@1
     name: ''
     displayName: dotnet build

@@ -11,10 +11,12 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
 
@@ -22,6 +24,8 @@ namespace Microsoft.Health.Fhir.Web
 {
     public class Startup
     {
+        private static string instanceId;
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -32,6 +36,8 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public virtual void ConfigureServices(IServiceCollection services)
         {
+            instanceId = $"{Configuration["WEBSITE_ROLE_INSTANCE_ID"]}--{Configuration["WEBSITE_INSTANCE_ID"]}--{Guid.NewGuid()}";
+
             services.AddDevelopmentIdentityProvider(Configuration);
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder =
@@ -111,6 +117,19 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public virtual void Configure(IApplicationBuilder app)
         {
+            app.Use(async (context, next) =>
+            {
+                if (instanceId != null)
+                {
+                    string instanceKey = KnownHeaders.InstanceId;
+                    if (!context.Response.Headers.ContainsKey(instanceKey))
+                    {
+                        context.Response.Headers.Add(instanceKey, new StringValues(instanceId));
+                    }
+                }
+
+                await next.Invoke();
+            });
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
                 app.UseForwardedHeaders();

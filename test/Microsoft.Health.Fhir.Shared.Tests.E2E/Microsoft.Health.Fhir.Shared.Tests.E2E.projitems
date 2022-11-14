@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />
@@ -33,6 +34,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportLongRunningTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestFixture.cs" />
@@ -78,6 +81,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingAndSortTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSortAndSearchValidationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CustomSearchParamTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RequiresIsolatedDatabaseAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
@@ -88,8 +92,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\EscapeCharactersSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IdSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotExpressionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NumberSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\QuantitySearchTestFixture.cs" />

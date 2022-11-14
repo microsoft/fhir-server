@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             QueryPartitionStatisticsCache queryPartitionStatisticsCache,
             CompartmentSearchRewriter compartmentSearchRewriter,
+            SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -64,6 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(queryPartitionStatisticsCache, nameof(queryPartitionStatisticsCache));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
+            EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
@@ -80,6 +82,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 new IExpressionVisitorWithInitialContext<object, Expression>[]
                 {
                     compartmentSearchRewriter,
+                    smartCompartmentSearchRewriter,
                     DateTimeEqualityRewriter.Instance,
                 });
         }

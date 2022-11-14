@@ -6,6 +6,7 @@
 using System;
 using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
@@ -47,7 +48,61 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     return context;
 
                 case FieldName.TokenCode:
-                    VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
+                    if (context.SchemaInformation.Current >= SchemaVersionConstants.TokenOverflow)
+                    {
+                        // Temporary fix, once all of the databases are reindexed truncation128 should be removed.
+                        bool truncation128 = expression.Value.Length > 128;
+                        if (truncation128)
+                        {
+                            context.StringBuilder.Append("((");
+                        }
+
+                        if (expression.Value.Length < VLatest.TokenSearchParam.Code.Metadata.MaxLength)
+                        {
+                            // In this case CodeOverflow in the DB table is always NULL, no need to test. There are SQL constraints in each table to enforce this.
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
+                        }
+                        else if (expression.Value.Length == VLatest.TokenSearchParam.Code.Metadata.MaxLength)
+                        {
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
+                            context.StringBuilder.Append(" AND ");
+                            AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
+                            context.StringBuilder.Append(" IS NULL");
+                        }
+                        else
+                        {
+                            int codeLength;
+                            checked
+                            {
+                                codeLength = (int)VLatest.TokenSearchParam.Code.Metadata.MaxLength; // Throw overflow if code max lenght is ever too big to fit into int.
+                            }
+
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..codeLength]);
+                            context.StringBuilder.Append(" AND ");
+                            AppendColumnName(context, VLatest.TokenSearchParam.CodeOverflow, expression);
+                            context.StringBuilder.Append(" IS NOT NULL AND ");
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value[codeLength..]);
+                        }
+
+                        if (truncation128)
+                        {
+                            context.StringBuilder.Append(") OR (");
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
+                            context.StringBuilder.Append("))");
+                        }
+                    }
+                    else
+                    {
+                        if (expression.Value.Length > 128)
+                        {
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
+                        }
+                        else
+                        {
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
+                        }
+                    }
+
                     break;
                 default:
                     throw new InvalidOperationException();

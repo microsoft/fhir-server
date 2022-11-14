@@ -68,6 +68,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
+        public const string WellKnown = ".well-known";
+        public const string SmartConfiguration = "smart-configuration";
+        public const string WellKnownSmartConfiguration = WellKnown + "/" + SmartConfiguration;
+
         public const string Metadata = "metadata";
         public const string Versions = "$versions";
 
