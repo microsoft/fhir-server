@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.AzureHealth.DataServices.Pipelines;
@@ -26,6 +27,20 @@ namespace SMARTCustomOperations.Export
         {
             _logger.LogInformation("StartGroupExport function pipeline started.");
             var result = await _pipeline.ExecuteAsync(req);
+
+            // Toolkit uses content-length instead of transfer encoding
+            if (result.Headers.Contains("Transfer-Encoding"))
+            {
+                result.Headers.Remove("Transfer-Encoding");
+            }
+
+            // Toolkit does not support content headers - workaround.
+            if (result.Headers.Any(x => x.Key == "Custom-Content-Locaton"))
+            {
+                result.Headers.Add("Content-Location", result.Headers.First(x => x.Key == "Custom-Content-Locaton").Value);
+                result.Headers.Remove("Custom-Content-Locaton");
+            }
+
             return result;
         }
 
@@ -34,6 +49,13 @@ namespace SMARTCustomOperations.Export
         {
             _logger.LogInformation("ExportJob function pipeline started.");
             var result = await _pipeline.ExecuteAsync(req);
+
+            // Toolkit uses content-length instead of transfer encoding
+            if (result.Headers.Contains("Transfer-Encoding"))
+            {
+                result.Headers.Remove("Transfer-Encoding");
+            }
+
             return result;
         }
     }

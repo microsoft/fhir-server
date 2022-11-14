@@ -7,6 +7,7 @@ using System.Net;
 using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
+using SMARTCustomOperations.AzureAuth.Extensions;
 using SMARTCustomOperations.Export.Configuration;
 
 namespace SMARTCustomOperations.Export.Filters
@@ -45,14 +46,25 @@ namespace SMARTCustomOperations.Export.Filters
             }
 
             // Replace the content location URL with the public endpoint
-            var contentLocationHeader = context.Headers.Single(x => x.Name.Equals("content-location", StringComparison.OrdinalIgnoreCase));
-            contentLocationHeader.Value =
-                contentLocationHeader.Value.Replace(
-                    _configuration.FhirServerUrl!,
-                    $"https://{_configuration.ApiManagementHostName}/{_configuration.ApiManagementFhirPrefex}",
-                    StringComparison.OrdinalIgnoreCase);
+            var contentLocationHeader = context.Headers.FirstOrDefault(x => x.Name.Equals("Content-Location", StringComparison.OrdinalIgnoreCase));
 
-            return Task.FromResult(context);
+            if (contentLocationHeader is not null)
+            {
+                // Toolkit does not support setting Content output headers
+                contentLocationHeader.Name = "Custom-Content-Locaton";
+                contentLocationHeader.Value =
+                    contentLocationHeader.Value.Replace(
+                        _configuration.FhirServerUrl!,
+                        $"https://{_configuration.ApiManagementHostName}/{_configuration.ApiManagementFhirPrefex}",
+                        StringComparison.OrdinalIgnoreCase);
+
+                return Task.FromResult(context);
+            }
+
+#pragma warning disable CA2201 // #TODO - add more specific exception.
+            FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new Exception("Content Location not found."), code: HttpStatusCode.InternalServerError);
+            OnFilterError?.Invoke(this, error);
+            return Task.FromResult(context.SetContextErrorBody(error, _configuration.Debug));
         }
     }
 }

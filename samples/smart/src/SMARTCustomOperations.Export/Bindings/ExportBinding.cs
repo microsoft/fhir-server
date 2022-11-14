@@ -6,6 +6,7 @@
 using System.Collections.Specialized;
 using Microsoft.AzureHealth.DataServices.Bindings;
 using Microsoft.AzureHealth.DataServices.Clients;
+using Microsoft.AzureHealth.DataServices.Clients.Headers;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.AzureHealth.DataServices.Security;
 using Microsoft.Extensions.Logging;
@@ -80,6 +81,18 @@ namespace SMARTCustomOperations.Export.Bindings
 
             context.StatusCode = httpResponseMessage.StatusCode;
             context.ContentString = responseContent;
+
+            // Copy all non-restricted headers to context.
+            var responseHeaders = httpResponseMessage.GetHeaders();
+            foreach (var headerName in responseHeaders.AllKeys)
+            {
+                context.Headers.Add(new HeaderNameValuePair(headerName, responseHeaders[headerName], CustomHeaderType.ResponseStatic));
+            }
+
+            if (httpResponseMessage.Content.Headers.ContentLocation is not null)
+            {
+                context.Headers.Add(new HeaderNameValuePair("Content-Location", httpResponseMessage.Content.Headers.ContentLocation.OriginalString, CustomHeaderType.ResponseStatic));
+            }
 
             _logger?.LogTrace("Backend {ServerUrl} responded with code {StatusCode} and Body {Body}.", builder.BaseUrl, context.StatusCode, context.ContentString);
 

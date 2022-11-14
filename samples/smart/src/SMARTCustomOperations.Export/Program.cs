@@ -43,12 +43,12 @@ namespace SMARTCustomOperations.Export
                 {
                     if (config.AppInsightsConnectionString is not null)
                     {
-                        services.UseAppInsightsLogging(config.AppInsightsConnectionString, LogLevel.Information);
+                        services.UseAppInsightsLogging(config.AppInsightsConnectionString, LogLevel.Trace);
                         services.UseTelemetry(config.AppInsightsConnectionString);
                     }
                     else if (config.AppInsightsInstrumentationKey is not null)
                     {
-                        services.UseAppInsightsLogging(config.AppInsightsInstrumentationKey, LogLevel.Information);
+                        services.UseAppInsightsLogging(config.AppInsightsInstrumentationKey, LogLevel.Trace);
                         services.UseTelemetry(config.AppInsightsInstrumentationKey);
                     }
 
