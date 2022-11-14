@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task RunExport(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
         {
-            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, parallel: 2);
+            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1);
             var result = await _operationDataStore.CreateExportJobAsync(coordRecord, CancellationToken.None);
             Assert.Equal(OperationStatus.Queued, result.JobRecord.Status);
             var coordId = long.Parse(result.JobRecord.Id);

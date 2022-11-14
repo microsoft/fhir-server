@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 _exportJobConfiguration.NumberOfPagesPerCommit,
                 request.ContainerName,
-                request.Parallel,
+                request.IsParallel,
                 smartRequest: _contextAccessor?.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true);
 
             var outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
