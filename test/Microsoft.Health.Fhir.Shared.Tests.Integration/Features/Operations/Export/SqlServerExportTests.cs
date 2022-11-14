@@ -83,9 +83,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(result?.JobRecord?.Id);
             var groupId = (await _queueClient.GetJobByIdAsync((byte)QueueType.Export, long.Parse(result.JobRecord.Id), false, cancel)).GroupId;
 
-            coordRecord = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(60), cancel)).First().JobRecord;
-            var coordTask = coord.ExecuteAsync(ToJobInfo(coordRecord), new Progress<string>(), cancel);
-            coordTask.Wait(cancel);
+            coordRecord = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(60), cancel)).FirstOrDefault()?.JobRecord;
+            if (coordRecord != null) // It looks like coord is running in background
+            {
+                var coordTask = coord.ExecuteAsync(ToJobInfo(coordRecord), new Progress<string>(), cancel);
+                coordTask.Wait(cancel);
+            }
+
             var jobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, groupId, false, cancel)).ToList();
             Assert.Equal(expectedNumberOfJobs, jobs.Count);
         }
