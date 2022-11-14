@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -51,20 +52,37 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             PrepareData(); // 1000 patients and 1000 obesrvations
 
-            using var cts = new CancellationTokenSource();
-            cts.CancelAfter(TimeSpan.FromSeconds(600));
-            var worker = Task.Factory.StartNew(() => Worker(cts.Token));
-
             var coord = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
             coord.PollingFrequencyInSeconds = 1;
             coord.SurrogateIdRangeSize = 100;
             coord.NumberOfSurrogateIdRanges = 5;
 
-            await Check("Patient", 11, coord, cts.Token); // coord + 1000/SurrogateIdRangeSize
+            await Check("Patient", 11, coord); // coord + 1000/SurrogateIdRangeSize
 
-            await Check("Patient,Observation", 21, coord, cts.Token); // coord + 1000/SurrogateIdRangeSize + 1000/SurrogateIdRangeSize
+            await Check("Patient,Observation", 21, coord); // coord + 1000/SurrogateIdRangeSize + 1000/SurrogateIdRangeSize
 
-            await Check(null, 21, coord, cts.Token); // coord + 1000/SurrogateIdRangeSize + 1000/SurrogateIdRangeSize
+            await Check(null, 21, coord); // coord + 1000/SurrogateIdRangeSize + 1000/SurrogateIdRangeSize
+        }
+
+        private async Task Check(string resourceType, int expectedNumberOfJobs, ExportOrchestratorJob coord)
+        {
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(300));
+
+            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, parallel: 2);
+            var result = await _operationDataStore.CreateExportJobAsync(coordRecord, cts.Token);
+            Assert.Equal(OperationStatus.Queued, result.JobRecord.Status);
+            var groupId = (await _queueClient.GetJobByIdAsync((byte)QueueType.Export, long.Parse(result.JobRecord.Id), false, cts.Token)).GroupId;
+
+            coordRecord = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(60), cts.Token)).FirstOrDefault()?.JobRecord;
+
+            var worker = Task.Factory.StartNew(() => Worker(cts.Token));
+
+            var coordTask = coord.ExecuteAsync(ToJobInfo(coordRecord), new Progress<string>(), cts.Token);
+            coordTask.Wait(cts.Token);
+
+            var jobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, groupId, false, cts.Token)).ToList();
+            Assert.Equal(expectedNumberOfJobs, jobs.Count);
 
             cts.Cancel();
             try
@@ -74,24 +92,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             catch
             {
             }
-        }
-
-        private async Task Check(string format, int expectedNumberOfJobs, ExportOrchestratorJob coord, CancellationToken cancel)
-        {
-            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, format, null, Guid.NewGuid().ToString(), 1, parallel: 2);
-            var result = await _operationDataStore.CreateExportJobAsync(coordRecord, cancel);
-            Assert.NotNull(result?.JobRecord?.Id);
-            var groupId = (await _queueClient.GetJobByIdAsync((byte)QueueType.Export, long.Parse(result.JobRecord.Id), false, cancel)).GroupId;
-
-            coordRecord = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(60), cancel)).FirstOrDefault()?.JobRecord;
-            if (coordRecord != null) // It looks like coord is running in background
-            {
-                var coordTask = coord.ExecuteAsync(ToJobInfo(coordRecord), new Progress<string>(), cancel);
-                coordTask.Wait(cancel);
-            }
-
-            var jobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, groupId, false, cancel)).ToList();
-            Assert.Equal(expectedNumberOfJobs, jobs.Count);
         }
 
         private void Worker(CancellationToken cancel)
