@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class ExportOrchestratorJob : IJob
     {
-        private const int DefaultPollingFrequencyInSeconds = 60;
+        private const double DefaultPollingIntervalSec = 60;
         private const int DefaultSurrogateIdRangeSize = 100000;
         private const int DefaultNumberOfSurrogateIdRanges = 100;
 
@@ -44,16 +44,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = loggerFactory.CreateLogger<ExportOrchestratorJob>();
         }
 
-        internal int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
+        internal double PollingIntervalSec { get; set; } = DefaultPollingIntervalSec;
 
         internal int SurrogateIdRangeSize { get; set; } = DefaultSurrogateIdRangeSize;
 
         internal int NumberOfSurrogateIdRanges { get; set; } = DefaultNumberOfSurrogateIdRanges;
 
+        internal bool RaiseTestException { get; set; } = false;
+
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
-            var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
+            var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken)).ToList();
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
             if (record.ExportType == ExportJobType.All && record.Parallel > 1 && (record.Filters == null || record.Filters.Count == 0))
@@ -69,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 var enqueued = groupJobs.Where(_ => _.Id != jobInfo.Id) // exclude coord
                                         .Select(_ => JsonConvert.DeserializeObject<ExportJobRecord>(_.Definition))
-                                        .Where(_ => _.EndSurrogateId != null) // mock tests are incorrect
+                                        .Where(_ => _.EndSurrogateId != null) // This is to handle current mock tests. It is not needed but does not hurt.
                                         .GroupBy(_ => _.ResourceType)
                                         .ToDictionary(_ => _.Key, _ => Tuple.Create(_.Max(r => GetSequence(r)), _.Max(r => long.Parse(r.EndSurrogateId))));
 
@@ -107,6 +109,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         {
                             await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
                         }
+
+                        if (RaiseTestException)
+                        {
+                            throw new ArgumentException("Test");
+                        }
                     }
                 }
             }
@@ -131,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(PollingIntervalSec), cancellationToken);
                 groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
             }
             while (!allJobsComplete);

@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -36,7 +35,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISearchService _searchService;
         private readonly SqlServerFhirOperationDataStore _operationDataStore;
         private readonly SqlQueueClient _queueClient;
-        private ILoggerFactory _loggerFactory = new NullLoggerFactory();
+        private readonly ILoggerFactory _loggerFactory = new NullLoggerFactory();
+        private readonly byte _queueType = (byte)QueueType.Export;
 
         public SqlServerExportTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
@@ -52,37 +52,64 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             PrepareData(); // 1000 patients and 1000 obesrvations
 
-            var coord = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
-            coord.PollingFrequencyInSeconds = 1;
-            coord.SurrogateIdRangeSize = 100;
-            coord.NumberOfSurrogateIdRanges = 5;
+            var coordJob = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
+            coordJob.PollingIntervalSec = 0.3;
+            coordJob.SurrogateIdRangeSize = 100;
+            coordJob.NumberOfSurrogateIdRanges = 5;
 
-            await Check("Patient", 11, coord); // coord + 1000/SurrogateIdRangeSize
+            await RunExport("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
 
-            await Check("Patient,Observation", 21, coord); // coord + 1000/SurrogateIdRangeSize + 1000/SurrogateIdRangeSize
+            await RunExport("Patient,Observation", coordJob, 21, null); // 21=coord+2*1000/SurrogateIdRangeSize
 
-            await Check(null, 21, coord); // coord + 1000/SurrogateIdRangeSize + 1000/SurrogateIdRangeSize
+            await RunExport(null, coordJob, 31, null); // 31=coord+3*1000/SurrogateIdRangeSize
+
+            await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
         }
 
-        private async Task Check(string resourceType, int expectedNumberOfJobs, ExportOrchestratorJob coord)
+        private async Task RunExport(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
+        {
+            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, parallel: 2);
+            var result = await _operationDataStore.CreateExportJobAsync(coordRecord, CancellationToken.None);
+            Assert.Equal(OperationStatus.Queued, result.JobRecord.Status);
+            var coordId = long.Parse(result.JobRecord.Id);
+            var groupId = (await _queueClient.GetJobByIdAsync(_queueType, coordId, false, CancellationToken.None)).GroupId;
+
+            await RunCoordAndWorker(coordJob, coordId, groupId, totalJobs, totalJobsAfterFailure);
+        }
+
+        private async Task RunCoordAndWorker(ExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs, int? totalJobsAfterFailure)
         {
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(300));
 
-            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, parallel: 2);
-            var result = await _operationDataStore.CreateExportJobAsync(coordRecord, cts.Token);
-            Assert.Equal(OperationStatus.Queued, result.JobRecord.Status);
-            var groupId = (await _queueClient.GetJobByIdAsync((byte)QueueType.Export, long.Parse(result.JobRecord.Id), false, cts.Token)).GroupId;
+            if (totalJobsAfterFailure.HasValue)
+            {
+                coordJob.RaiseTestException = true;
+            }
 
-            coordRecord = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(60), cts.Token)).First().JobRecord;
-
+            var coordRecord = JsonConvert.DeserializeObject<ExportJobRecord>((await _queueClient.DequeueAsync(_queueType, "Coord", 60, cts.Token, coordId)).Definition);
             var worker = Task.Factory.StartNew(() => Worker(cts.Token)); // must start after coord is dequeued
 
-            await coord.ExecuteAsync(ToJobInfo(coordRecord), new Progress<string>(), cts.Token);
+            retryOnTestException:
+            try
+            {
+                await coordJob.ExecuteAsync(ToJobInfo(coordRecord, coordId, groupId), new Progress<string>(), cts.Token);
+            }
+            catch (ArgumentException e)
+            {
+                if (e.Message == "Test")
+                {
+                    var jobsAfterFailure = (await _queueClient.GetJobByGroupIdAsync(_queueType, groupId, false, cts.Token)).ToList();
+                    Assert.Equal(totalJobsAfterFailure.Value, jobsAfterFailure.Count);
+                    coordJob.RaiseTestException = false;
+                    goto retryOnTestException;
+                }
 
-            var jobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, groupId, false, cts.Token)).ToList();
-            Assert.Equal(expectedNumberOfJobs, jobs.Count);
+                throw;
+            }
 
+            var jobs = (await _queueClient.GetJobByGroupIdAsync(_queueType, groupId, false, cts.Token)).ToList();
+            Assert.Equal(totalJobs, jobs.Count);
             cts.Cancel();
             try
             {
@@ -97,7 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             while (!cancel.IsCancellationRequested)
             {
-                var job = _queueClient.DequeueAsync((byte)QueueType.Export, "Whatever", 60, cancel).Result;
+                var job = _queueClient.DequeueAsync(_queueType, "Worker", 60, cancel).Result;
                 if (job != null)
                 {
                     job.Result = job.Definition;
@@ -105,17 +132,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
                 else
                 {
-                    Task.Delay(1000, cancel).Wait(cancel);
+                    Task.Delay(200, cancel).Wait(cancel);
                 }
             }
         }
 
-        private JobManagement.JobInfo ToJobInfo(ExportJobRecord record)
+        private JobManagement.JobInfo ToJobInfo(ExportJobRecord record, long jobId, long groupId)
         {
             var jobInfo = new JobManagement.JobInfo();
-            jobInfo.QueueType = (byte)QueueType.Export;
-            jobInfo.Id = long.Parse(record.Id);
-            jobInfo.GroupId = record.GroupId == null ? jobInfo.Id : long.Parse(record.GroupId); // TODO: Remove hack
+            jobInfo.QueueType = _queueType;
+            jobInfo.Id = jobId;
+            jobInfo.GroupId = groupId;
             jobInfo.Definition = JsonConvert.SerializeObject(record);
             return jobInfo;
         }
@@ -137,7 +164,7 @@ INSERT INTO Resource
         ,1
         ,null 
     FROM (SELECT RowId FROM (SELECT RowId = row_number() OVER (ORDER BY A1.id) FROM syscolumns A1, syscolumns A2) A WHERE RowId <= 1000) A
-         CROSS JOIN (SELECT ResourceTypeId FROM dbo.ResourceType WHERE Name IN ('Patient','Observation')) B
+         CROSS JOIN (SELECT ResourceTypeId FROM dbo.ResourceType WHERE Name IN ('Patient','Observation','Claim')) B
                 ");
         }
 

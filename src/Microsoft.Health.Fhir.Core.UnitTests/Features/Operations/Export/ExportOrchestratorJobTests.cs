@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs, exportJobType: exportJobType).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
+            exportOrchestratorJob.PollingIntervalSec = 1;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             CountOutputFiles(jobResult, numExpectedJobs);
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
+            exportOrchestratorJob.PollingIntervalSec = 1;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             CountOutputFiles(jobResult, numExpectedJobs);
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
+            exportOrchestratorJob.PollingIntervalSec = 1;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             CountOutputFiles(jobResult, numExpectedJobs);
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs, typeFilter: "Patient,Observation").First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
+            exportOrchestratorJob.PollingIntervalSec = 1;
             exportOrchestratorJob.NumberOfSurrogateIdRanges = 10;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
+            exportOrchestratorJob.PollingIntervalSec = 1;
             var exception = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
             Assert.Equal(expectedMessage, ((ExportJobRecord)exception.Error).FailureDetails.FailureReason);
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
+            exportOrchestratorJob.PollingIntervalSec = 1;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             CountOutputFiles(jobResult, 10);
