@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 var enqueued = groupJobs.Where(_ => _.Id != jobInfo.Id) // exclude coord
                                         .Select(_ => JsonConvert.DeserializeObject<ExportJobRecord>(_.Definition))
+                                        .Where(_ => _.EndSurrogateId != null) // mock tests are incorrect
                                         .GroupBy(_ => _.ResourceType)
                                         .ToDictionary(_ => _.Key, _ => Tuple.Create(_.Max(r => GetSequence(r)), _.Max(r => long.Parse(r.EndSurrogateId))));
 
