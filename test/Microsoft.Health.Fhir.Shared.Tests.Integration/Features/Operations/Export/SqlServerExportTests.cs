@@ -74,12 +74,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(OperationStatus.Queued, result.JobRecord.Status);
             var groupId = (await _queueClient.GetJobByIdAsync((byte)QueueType.Export, long.Parse(result.JobRecord.Id), false, cts.Token)).GroupId;
 
-            coordRecord = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(60), cts.Token)).FirstOrDefault()?.JobRecord;
+            coordRecord = (await _operationDataStore.AcquireExportJobsAsync(1, TimeSpan.FromSeconds(60), cts.Token)).First().JobRecord;
 
-            var worker = Task.Factory.StartNew(() => Worker(cts.Token));
+            var worker = Task.Factory.StartNew(() => Worker(cts.Token)); // must start after coord is dequeued
 
-            var coordTask = coord.ExecuteAsync(ToJobInfo(coordRecord), new Progress<string>(), cts.Token);
-            coordTask.Wait(cts.Token);
+            await coord.ExecuteAsync(ToJobInfo(coordRecord), new Progress<string>(), cts.Token);
 
             var jobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, groupId, false, cts.Token)).ToList();
             Assert.Equal(expectedNumberOfJobs, jobs.Count);
