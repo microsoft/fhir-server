@@ -32,14 +32,6 @@
             "type": "instant"
         },
         {
-            "name": "_till",
-            "use": "in",
-            "min": 0,
-            "max": "1",
-            "documentation": "Resources updated before this period will be included in the response.",
-            "type": "instant"
-        },
-        {
             "name": "_type",
             "use": "in",
             "min": 0,

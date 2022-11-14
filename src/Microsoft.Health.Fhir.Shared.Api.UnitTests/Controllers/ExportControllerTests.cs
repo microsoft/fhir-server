@@ -54,11 +54,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
-                parallel: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null));
@@ -72,7 +70,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -90,7 +87,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceTypeById(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -107,7 +103,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -123,7 +118,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -142,7 +136,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -160,7 +153,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
@@ -178,7 +170,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
@@ -196,7 +187,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
@@ -231,7 +221,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
-                till: null,
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,

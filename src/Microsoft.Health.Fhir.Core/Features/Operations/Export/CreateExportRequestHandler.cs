@@ -12,10 +12,12 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -32,22 +34,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ExportJobConfiguration _exportJobConfiguration;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         public CreateExportRequestHandler(
             IClaimsExtractor claimsExtractor,
             IFhirOperationDataStore fhirOperationDataStore,
             IAuthorizationService<DataActions> authorizationService,
-            IOptions<ExportJobConfiguration> exportJobConfiguration)
+            IOptions<ExportJobConfiguration> exportJobConfiguration,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
+            EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(fhirRequestContextAccessor));
 
             _claimsExtractor = claimsExtractor;
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
             _exportJobConfiguration = exportJobConfiguration.Value;
+            _contextAccessor = fhirRequestContextAccessor;
         }
 
         public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
@@ -79,7 +85,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobConfiguration.RollingFileSizeInMB,
                 requestorClaims,
                 request.Since,
-                request.Till,
                 request.GroupId,
                 storageAccountConnectionHash,
                 _exportJobConfiguration.StorageAccountUri,
@@ -89,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 _exportJobConfiguration.NumberOfPagesPerCommit,
                 request.ContainerName,
-                request.Parallel);
+                smartRequest: _contextAccessor?.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true);
 
             var outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 

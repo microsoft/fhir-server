@@ -82,6 +82,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Throttling));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
@@ -113,19 +114,13 @@ namespace Microsoft.Extensions.DependencyInjection
         /// Adds background worker services.
         /// </summary>
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
-        /// <param name="addExportWorker">Whether to add the background worker for export jobs</param>
         /// <returns>The builder.</returns>
         public static IFhirServerBuilder AddBackgroundWorkers(
-            this IFhirServerBuilder fhirServerBuilder,
-            bool addExportWorker)
+            this IFhirServerBuilder fhirServerBuilder)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
 
-            if (addExportWorker)
-            {
-                fhirServerBuilder.Services.AddHostedService<ExportJobWorkerBackgroundService>();
-            }
-
+            fhirServerBuilder.Services.AddHostedService<ExportJobWorkerBackgroundService>();
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
 
             return fhirServerBuilder;

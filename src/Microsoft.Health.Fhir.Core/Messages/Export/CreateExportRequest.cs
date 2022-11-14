@@ -18,12 +18,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             ExportJobType requestType,
             string resourceType = null,
             PartialDateTime since = null,
-            PartialDateTime till = null,
             string filters = null,
             string groupId = null,
             string containerName = null,
             string formatName = null,
-            int parallel = 0,
             string anonymizationConfigurationCollectionReference = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null)
@@ -35,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             ResourceType = resourceType;
 
             Since = since;
-            Till = till;
             Filters = filters;
             AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
@@ -43,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             GroupId = groupId;
             ContainerName = containerName;
             FormatName = formatName;
-            Parallel = parallel;
         }
 
         public Uri RequestUri { get; }
@@ -53,8 +49,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string ResourceType { get; }
 
         public PartialDateTime Since { get; }
-
-        public PartialDateTime Till { get; }
 
         public string Filters { get; }
 
@@ -69,7 +63,5 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string ContainerName { get; }
 
         public string FormatName { get; }
-
-        public int Parallel { get; }
     }
 }

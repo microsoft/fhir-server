@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -18,7 +17,6 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
 
@@ -75,9 +73,8 @@ namespace Microsoft.Health.Fhir.Web
             /*
             The execution of IHostedServices depends on the order they are added to the dependency injection container, so we
             need to ensure that the schema is initialized before the background workers are started.
-            The Export background worker is only needed in Cosmos services. In SQL it is handled by the common Job Hosting worker.
             */
-            fhirServerBuilder.AddBackgroundWorkers(dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase));
+            fhirServerBuilder.AddBackgroundWorkers();
 
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
@@ -115,16 +112,6 @@ namespace Microsoft.Health.Fhir.Web
                 .AsSelf()
                 .AsImplementedInterfaces();
             services.Configure<TaskHostingConfiguration>(options => Configuration.GetSection("TaskHosting").Bind(options));
-
-            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
-                .AssignableTo<IJob>()
-                .Transient()
-                .AsSelf();
-
-            foreach (TypeRegistrationBuilder job in jobs)
-            {
-                job.AsDelegate<Func<IJob>>();
-            }
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

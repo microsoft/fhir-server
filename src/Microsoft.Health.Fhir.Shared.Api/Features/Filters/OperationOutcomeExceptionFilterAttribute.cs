@@ -118,6 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case RequestTooCostlyException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
+                    case TransactionDeadlockException _:
                     case ResourceConflictException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Conflict;
                         break;
@@ -181,6 +182,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case RequestTimeoutException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.RequestTimeout;
+                        break;
+                    case LoginFailedForUserException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Unauthorized;
                         break;
                 }
 

@@ -3,14 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+
+namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 {
-    public enum JobType : int
+    /// <summary>
+    /// Common interface for data filter criteria.
+    /// </summary>
+    internal interface IFilterCriteria
     {
-        Unknown = 0, // should not be used
-        ImportProcessing = 1,
-        ImportOrchestrator = 2,
-        ExportProcessing = 3,
-        ExportOrchestrator = 4,
+        SearchResult Apply(SearchResult searchResult);
+
+        FilterCriteriaOutcome Match(ResourceWrapper resourceWrapper);
     }
 }

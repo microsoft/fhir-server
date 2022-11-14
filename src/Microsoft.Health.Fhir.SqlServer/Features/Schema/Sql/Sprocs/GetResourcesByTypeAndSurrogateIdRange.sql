@@ -7,8 +7,8 @@ DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
        ,@Mode varchar(100) = 'RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')
                            +' S='+isnull(convert(varchar,@StartId),'NULL')
                            +' E='+isnull(convert(varchar,@EndId),'NULL')
-                           +' GS='+isnull(convert(varchar,@GlobalStartId),'NULL') -- Is global start id needed? I'm not seeing a usecase for setting it.
-                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL') -- Could this just be a boolean for if historical records should be returned? GlobalEndId should equal EndId in all cases I can think of.
+                           +' GS='+isnull(convert(varchar,@GlobalStartId),'NULL')
+                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL')
        ,@st datetime = getUTCdate()
 
 BEGIN TRY

@@ -45,7 +45,8 @@ namespace Microsoft.Health.JobManagement
         /// <param name="worker">Current worker name</param>
         /// <param name="heartbeatTimeoutSec">Heartbeat timeout for retry</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
+        /// <param name="jobId">Requested job id for dequeue</param>
+        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null);
 
         /// <summary>
         /// Get job by id

@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -71,6 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             ImportOrchestratorJobInputData importOrchestratorInputData = new ImportOrchestratorJobInputData();
+            ImportOrchestratorJobResult importOrchestratorInputResult = new ImportOrchestratorJobResult();
 
             IMediator mediator = Substitute.For<IMediator>();
 
@@ -96,14 +96,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
+                importOrchestratorInputData,
+                importOrchestratorInputResult,
                 contextAccessor,
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 },
                 loggerFactory);
 
-            JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
+            JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(new Progress<string>(), CancellationToken.None));
             ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
@@ -149,14 +152,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
+                importOrchestratorJobInputData,
+                new ImportOrchestratorJobResult(),
                 contextAccessor,
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1},
                 loggerFactory);
 
-            JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
+            JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(new Progress<string>(), CancellationToken.None));
             ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.Unauthorized, resultDetails.HttpStatusCode);
@@ -214,15 +220,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
+                importOrchestratorJobInputData,
+                new ImportOrchestratorJobResult(),
                 contextAccessor,
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 },
                 loggerFactory);
             orchestratorJob.PollingFrequencyInSeconds = 0;
 
-            var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
+            var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(new Progress<string>(), CancellationToken.None));
             ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.InternalServerError, resultDetails.HttpStatusCode);
@@ -280,15 +289,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
+                importOrchestratorInputData,
+                new ImportOrchestratorJobResult(),
                 contextAccessor,
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 },
                 loggerFactory);
             orchestratorJob.PollingFrequencyInSeconds = 0;
 
-            await Assert.ThrowsAnyAsync<RetriableJobException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
+            await Assert.ThrowsAnyAsync<RetriableJobException>(() => orchestratorJob.ExecuteAsync(new Progress<string>(), CancellationToken.None));
 
             _ = mediator.DidNotReceive().Publish(
                 Arg.Any<ImportJobMetricsNotification>(),
@@ -342,15 +354,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
+                importOrchestratorInputData,
+                new ImportOrchestratorJobResult(),
                 contextAccessor,
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 },
                 loggerFactory);
             orchestratorJob.PollingFrequencyInSeconds = 0;
 
-            var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
+            var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(new Progress<string>(), CancellationToken.None));
             ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
@@ -436,15 +451,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
+                importOrchestratorJobInputData,
+                new ImportOrchestratorJobResult(),
                 contextAccessor,
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 },
                 loggerFactory);
             orchestratorJob.PollingFrequencyInSeconds = 0;
 
-            await Assert.ThrowsAnyAsync<RetriableJobException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
+            await Assert.ThrowsAnyAsync<RetriableJobException>(() => orchestratorJob.ExecuteAsync(new Progress<string>(), CancellationToken.None));
 
             _ = mediator.DidNotReceive().Publish(
                 Arg.Any<ImportJobMetricsNotification>(),
@@ -504,17 +522,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
+                importOrchestratorJobInputData,
+                new ImportOrchestratorJobResult(),
                 contextAccessor,
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 },
                 loggerFactory);
             orchestratorJob.PollingFrequencyInSeconds = 0;
 
             CancellationTokenSource cancellationToken = new CancellationTokenSource();
             cancellationToken.CancelAfter(TimeSpan.FromSeconds(1));
-            await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), cancellationToken.Token));
+            await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(new Progress<string>(), cancellationToken.Token));
 
             Assert.True(testQueueClient.JobInfos.All(t => t.Status != JobStatus.Cancelled && !t.CancelRequested));
         }
@@ -615,34 +636,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorJobInputData.InputSource = new Uri("http://dummy");
             importOrchestratorJobInputData.RequestUri = new Uri("http://dummy");
             JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, false, CancellationToken.None)).First();
-            orchestratorJobInfo.Result = JsonConvert.SerializeObject(importOrchestratorJobResult);
 
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    var properties = new Dictionary<string, object>
-                    {
-                        [IntegrationDataStoreClientConstants.BlobPropertyETag] = "test",
-                        [IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L,
-                    };
+                    Dictionary<string, object> properties = new Dictionary<string, object>();
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
                     return properties;
                 });
 
             sequenceIdGenerator.GetCurrentSequenceId().Returns(_ => 0L);
 
-            var orchestratorJob = new ImportOrchestratorJob(
+            ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
+                importOrchestratorJobInputData,
+                importOrchestratorJobResult,
                 contextAccessor,
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = concurrentCount}),
-                loggerFactory)
-            {
-                PollingFrequencyInSeconds = 0,
-            };
+                orchestratorJobInfo,
+                new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = concurrentCount },
+                loggerFactory);
+            orchestratorJob.PollingFrequencyInSeconds = 0;
 
-            string result = await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None);
+            string result = await orchestratorJob.ExecuteAsync(new Progress<string>(), CancellationToken.None);
             ImportOrchestratorJobResult resultDetails = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(result);
             Assert.NotEmpty(resultDetails.Request);
             Assert.Equal(importOrchestratorJobInputData.CreateTime, resultDetails.TransactionTime);

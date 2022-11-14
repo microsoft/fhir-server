@@ -6,11 +6,14 @@
 using System;
 using System.Linq;
 using EnsureThat;
+using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -21,6 +24,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -122,6 +126,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.AddFactory<IScoped<SqlQueueClient>>();
 
             services.Add<SqlImportOperation>()
                 .Scoped()
@@ -229,6 +235,19 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CompartmentSearchRewriter>()
                 .Singleton()
                 .AsSelf();
+
+            services.Add<SmartCompartmentSearchRewriter>()
+                            .Singleton()
+                            .AsSelf();
+
+            services
+                .RemoveServiceTypeExact<DefragWatchdog, INotificationHandler<StorageInitializedNotification>>()
+                .Add<DefragWatchdog>()
+                .Singleton()
+                .AsSelf()
+                .AsService<INotificationHandler<StorageInitializedNotification>>();
+
+            services.AddHostedService<WatchdogsBackgroundService>();
 
             return fhirServerBuilder;
         }

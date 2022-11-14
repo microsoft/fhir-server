@@ -3,9 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.JobManagement;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-public interface IJobData
+namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public int TypeId { get; }
+    public interface IDataResourceFilter
+    {
+        SearchResult Filter(SearchResult searchResult);
+
+        FilterCriteriaOutcome Match(ResourceWrapper resourceWrapper);
+    }
 }

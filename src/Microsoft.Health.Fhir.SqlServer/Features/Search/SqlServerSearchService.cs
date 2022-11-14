@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SortRewriter _sortRewriter;
         private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
         private readonly CompartmentSearchRewriter _compartmentSearchRewriter;
+        private readonly SmartCompartmentSearchRewriter _smartCompartmentSearchRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SortRewriter sortRewriter,
             PartitionEliminationRewriter partitionEliminationRewriter,
             CompartmentSearchRewriter compartmentSearchRewriter,
+            SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
@@ -83,6 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
+            EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -91,6 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sortRewriter = sortRewriter;
             _partitionEliminationRewriter = partitionEliminationRewriter;
             _compartmentSearchRewriter = compartmentSearchRewriter;
+            _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -266,6 +270,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpression expression = (SqlRootExpression)searchExpression
                                                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                                                .AcceptVisitor(_compartmentSearchRewriter)
+                                               .AcceptVisitor(_smartCompartmentSearchRewriter)
                                                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
@@ -472,150 +477,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
                 }
-            }
-        }
-
-        public override async Task<SearchResult> SearchByDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
-        {
-            long startId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
-            long endId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
-            return await SearchBySurrogateIdRange(resourceType, startId, endId, startId, endId, cancellationToken);
-        }
-
-        /// <summary>
-        /// Searches for resources by their type and surrogate id
-        /// </summary>
-        /// <param name="resourceType">The resource type to search</param>
-        /// <param name="startId">The lower bound for surrogate ids to find</param>
-        /// <param name="endId">The upper bound for surrogate ids to find</param>
-        /// <param name="windowStartId">The lower bound for the window of time to consider for historical records</param>
-        /// <param name="windowEndId">The upper bound for the window of time to consider for historical records</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>All resources with surrogate ids greater than or equal to startId and less than endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
-        public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken)
-        {
-            var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.GetResourcesByTypeAndSurrogateIdRange.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, windowStartId, windowEndId);
-                try
-                {
-                    using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                    var resources = new List<SearchResultEntry>();
-                    while (await reader.ReadAsync(cancellationToken))
-                    {
-                        PopulateResourceTableColumnsToRead(
-                            reader,
-                            out short _,
-                            out string resourceId,
-                            out int version,
-                            out bool isDeleted,
-                            out long resourceSurrogateId,
-                            out string requestMethod,
-                            out bool isMatch,
-                            out bool isPartialEntry,
-                            out bool isRawResourceMetaSet,
-                            out string searchParameterHash,
-                            out Stream rawResourceStream);
-
-                        string rawResource;
-                        using (rawResourceStream)
-                        {
-                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-                        }
-
-                        if (string.IsNullOrEmpty(rawResource))
-                        {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
-
-                        resources.Add(new SearchResultEntry(
-                            new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                resourceType,
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                new ResourceRequest(requestMethod),
-                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                                isDeleted,
-                                null,
-                                null,
-                                null,
-                                searchParameterHash),
-                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
-                    }
-
-                    return new SearchResult(resources, null, null, new List<Tuple<string, string>>());
-                }
-                catch (SqlException)
-                {
-                    throw;
-                }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
-
-        public override async Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, int numberOfRanges, CancellationToken cancellationToken)
-        {
-            long startId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
-            long endId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
-            var surrogateIdResults = await GetSurrogateIdRange(resourceType, startId, endId, numberOfRanges, cancellationToken);
-            var dateTimeResults = new List<Tuple<DateTime, DateTime>>();
-
-            foreach (var result in surrogateIdResults)
-            {
-                dateTimeResults.Add(new Tuple<DateTime, DateTime>(
-                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Item1),
-                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Item2)));
-            }
-
-            return dateTimeResults;
-        }
-
-        public async Task<IReadOnlyList<Tuple<long, long>>> GetSurrogateIdRange(string resourceType, long startId, long endId, int numberOfRanges, CancellationToken cancellationToken)
-        {
-            var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, 1000, 100);
-                using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-                long resourceCount = 0;
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    var count = reader.GetInt32(3);
-                    resourceCount += count;
-                }
-
-                int countPerPage = (int)(resourceCount / numberOfRanges) + 1;
-
-                using SqlConnectionWrapper sqlConnectionWrapper2 = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper2 = sqlConnectionWrapper2.CreateRetrySqlCommand();
-
-                VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper2, resourceTypeId, startId, endId, countPerPage, numberOfRanges);
-                using SqlDataReader reader2 = await sqlCommandWrapper2.ExecuteReaderAsync(cancellationToken);
-
-                var ranges = new List<Tuple<long, long>>(numberOfRanges);
-                while (await reader2.ReadAsync(cancellationToken))
-                {
-                    ranges.Add(new Tuple<long, long>(reader2.GetInt64(1), reader2.GetInt64(2)));
-                }
-
-                return ranges;
-            }
-            catch (Exception)
-            {
-                throw;
             }
         }
 

@@ -4,16 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Exceptions;
 
-namespace Microsoft.Health.JobManagement;
-
-[AttributeUsage(AttributeTargets.Class)]
-public sealed class JobTypeIdAttribute : Attribute
+namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public JobTypeIdAttribute(int jobTypeId)
+    /// <summary>
+    /// Exception thrown when a filtering criteria fails.
+    /// </summary>
+    public class FilterCriteriaException : FhirException
     {
-        JobTypeId = jobTypeId;
+        public FilterCriteriaException(string message, Exception exception)
+            : base(message, exception)
+        {
+        }
     }
-
-    public int JobTypeId { get; }
 }

@@ -101,13 +101,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             Progress<string> progress = new Progress<string>();
             ImportProcessingJob job = new ImportProcessingJob(
+                                    inputData,
+                                    result,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
                                     loggerFactory);
 
-            await Assert.ThrowsAsync<RetriableJobException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), progress, CancellationToken.None));
+            await Assert.ThrowsAsync<RetriableJobException>(() => job.ExecuteAsync(progress, CancellationToken.None));
         }
 
         [Fact]
@@ -130,13 +132,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 });
 
             ImportProcessingJob job = new ImportProcessingJob(
+                                    inputData,
+                                    result,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
                                     loggerFactory);
 
-            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), new Progress<string>(), CancellationToken.None));
+            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(new Progress<string>(), CancellationToken.None));
         }
 
         private static async Task VerifyCommonImportAsync(ImportProcessingJobInputData inputData, ImportProcessingJobResult currentResult)
@@ -235,13 +239,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 progressResult = r;
             });
             ImportProcessingJob job = new ImportProcessingJob(
+                                    inputData,
+                                    currentResult,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
                                     contextAccessor,
                                     loggerFactory);
 
-            string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), progress, CancellationToken.None);
+            string resultString = await job.ExecuteAsync(progress, CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
             Assert.Equal(1 + failedCountFromProgress, result.FailedCount);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceedCount);
@@ -266,17 +272,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             inputData.UriString = "http://dummy";
 
             return inputData;
-        }
-
-        private static JobInfo GetJobInfo(ImportProcessingJobInputData data, ImportProcessingJobResult result)
-        {
-            var jobInfo = new JobInfo
-            {
-                Definition = JsonConvert.SerializeObject(data),
-                Result = result != null ? JsonConvert.SerializeObject(result) : null,
-            };
-
-            return jobInfo;
         }
     }
 }
