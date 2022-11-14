@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,12 +22,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class ExportOrchestratorJob : IJob
     {
-        private const int DefaultPollingFrequencyInSeconds = 3;
-        private const int DefaultNumberOfParallelJobs = 10;
+        private const int DefaultPollingFrequencyInSeconds = 60;
+        private const int DefaultSurrogateIdRangeSize = 100000;
+        private const int DefaultNumberOfSurrogateIdRanges = 100;
 
         private IQueueClient _queueClient;
         private ISearchService _searchService;
-        private ILogger<ExportOrchestratorJob> _logger;
+        private ILogger<ExportOrchestratorJob> _logger; // TODO: Either remove or use
 
         public ExportOrchestratorJob(
             IQueueClient queueClient,
@@ -42,83 +44,69 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = loggerFactory.CreateLogger<ExportOrchestratorJob>();
         }
 
-        public int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
+        internal int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
 
-        public int NumberOfParallelJobs { get; set; } = DefaultNumberOfParallelJobs;
+        internal int SurrogateIdRangeSize { get; set; } = DefaultSurrogateIdRangeSize;
+
+        internal int NumberOfSurrogateIdRanges { get; set; } = DefaultNumberOfSurrogateIdRanges;
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
-            var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken);
-            int numberOfParallelJobs = record.Parallel > 0 ? record.Parallel : NumberOfParallelJobs;
-            var count = 0;
-            foreach (var job in groupJobs)
+            var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
+
+            if (groupJobs.Count == 1)
             {
-                count++;
-            }
-
-            if (count == 1)
-            {
-                string[] definitions;
-
-                if (record.ExportType != ExportJobType.All || record.Parallel == 1 || record.Since == null || record.Filters?.Count > 0)
+                if (record.ExportType == ExportJobType.All && record.Parallel > 1 && (record.Filters == null || record.Filters.Count == 0))
                 {
-                    var processingRecord = CreateExportRecord(record);
-                    definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
-                }
-                else if (string.IsNullOrEmpty(record.ResourceType))
-                {
-                    // Since the GetDateTimeRange method needs a resource type, when one isn't provided the time range just needs to be split into equal buckets.
-                    var definitionsList = new List<string>();
-                    var tillTicks = record.Till.ToDateTimeOffset().Ticks;
-                    var sinceTicks = record.Since.ToDateTimeOffset().Ticks;
+                    var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
+                                      ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
+                                      : record.ResourceType.Split(',');
 
-                    var lengthOfRange = (tillTicks - sinceTicks) / numberOfParallelJobs;
-                    ExportJobRecord processingRecord;
-                    for (int i = 0; i < (numberOfParallelJobs - 1); i++)
-                    {
-                        processingRecord = CreateExportRecord(
-                            record,
-                            sequence: i,
-                            since: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + (i * lengthOfRange)))),
-                            till: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + ((i + 1) * lengthOfRange)))));
-                        definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
-                    }
-
-                    processingRecord = CreateExportRecord(
-                        record,
-                        sequence: numberOfParallelJobs - 1,
-                        since: new PartialDateTime(new DateTimeOffset(new DateTime(sinceTicks + ((numberOfParallelJobs - 1) * lengthOfRange)))),
-                        till: record.Till);
-                    definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
-
-                    definitions = definitionsList.ToArray();
-                }
-                else
-                {
-                    var resourceTypes = record.ResourceType.Split(',');
-                    var definitionsList = new List<string>();
-
+                    var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
+                    var globalStartId = _searchService.GetSurrogateId(since.DateTime);
                     var till = record.Till.ToDateTimeOffset();
-                    var since = record.Since.ToDateTimeOffset();
+                    var globalEndId = _searchService.GetSurrogateId(till.DateTime);
 
                     foreach (var type in resourceTypes)
                     {
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, since.DateTime, till.DateTime, numberOfParallelJobs, cancellationToken);
+                        var rows = 1;
                         var sequence = 0;
-                        foreach (var range in ranges)
+                        var startId = globalStartId;
+                        while (rows > 0)
                         {
-                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.Start.ToString(), endSurrogateId: range.End.ToString(), globalStartSurrogateId: range.GlobalStart.ToString(), globalEndSurrogateId: range.GlobalEnd.ToString());
-                            definitionsList.Add(JsonConvert.SerializeObject(processingRecord));
-                            sequence++;
+                            var definitions = new List<string>();
+                            var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, SurrogateIdRangeSize, NumberOfSurrogateIdRanges, cancellationToken);
+                            foreach (var range in ranges)
+                            {
+                                if (range.EndId > startId)
+                                {
+                                    startId = range.EndId;
+                                }
+
+                                var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                                definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                                sequence++;
+                            }
+
+                            startId++; // make sure we do not intersect ranges
+
+                            rows = definitions.Count;
+                            if (rows > 0)
+                            {
+                                await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
+                            }
                         }
                     }
-
-                    definitions = definitionsList.ToArray();
                 }
-
-                groupJobs = await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, jobInfo.GroupId, false, false, cancellationToken);
+                else
+                {
+                    var processingRecord = CreateExportRecord(record);
+                    await _queueClient.EnqueueAsync((byte)QueueType.Export, new string[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
+                }
             }
+
+            groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken)).ToList();
 
             bool allJobsComplete;
             do
@@ -133,8 +121,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
-                groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
             }
             while (!allJobsComplete);
 

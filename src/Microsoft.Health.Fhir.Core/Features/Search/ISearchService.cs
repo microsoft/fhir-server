@@ -91,24 +91,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool isAsyncOperation = false);
 
-        Task<SearchResult> SearchByDateTimeRange(
+        Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
             string resourceType,
-            DateTime startTime,
-            DateTime endTime,
-            CancellationToken cancellationToken);
-
-        Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(
-            string resourceType,
-            DateTime startTime,
-            DateTime endTime,
+            long startId,
+            long endId,
+            int rangeSize,
             int numberOfRanges,
             CancellationToken cancellationToken);
 
-        Task<IReadOnlyList<(long Start, long End, long GlobalStart, long GlobalEnd)>> GetSurrogateIdRanges(
-            string resourceType,
-            DateTime startTime,
-            DateTime endTime,
-            int numberOfRanges,
-            CancellationToken cancellationToken);
+        long GetSurrogateId(DateTime dateTime);
+
+        Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken);
     }
 }

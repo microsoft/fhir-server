@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs, exportJobType: exportJobType).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             CountOutputFiles(jobResult, numExpectedJobs);
@@ -60,6 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             CountOutputFiles(jobResult, numExpectedJobs);
@@ -75,6 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             CountOutputFiles(jobResult, numExpectedJobs);
@@ -86,13 +89,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             int numExpectedJobs = 10;
             long orchestratorJobId = 10000;
 
-            SetupMockQueue(numExpectedJobs * 2, orchestratorJobId);
+            SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs, typeFilter: "Patient,Observation").First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
+            exportOrchestratorJob.NumberOfSurrogateIdRanges = 10;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
-            CountOutputFiles(jobResult, numExpectedJobs * 2);
+            CountOutputFiles(jobResult, numExpectedJobs);
         }
 
         [Fact]
@@ -106,6 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
             var exception = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
             Assert.Equal(expectedMessage, ((ExportJobRecord)exception.Error).FailureDetails.FailureReason);
@@ -122,6 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
             var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            exportOrchestratorJob.PollingFrequencyInSeconds = 1;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             CountOutputFiles(jobResult, 10);
@@ -227,28 +234,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private void SetupMockQueue(int numExpectedJobs, long orchestratorJobId, bool firstRun = true, bool failure = false)
         {
-            _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x =>
+            _mockSearchService.GetSurrogateId(Arg.Any<DateTime>()).Returns(x =>
             {
-                int numRanges = x.ArgAt<int>(3);
-                var ranges = new List<(long Start, long End, long GlobalStart, long GlobalEnd)>();
-                for (int i = 0; i < numRanges; i++)
-                {
-                    ranges.Add((0, 0, 0, 0));
-                }
-
-                return Task.FromResult<IReadOnlyList<(long Start, long End, long GlobalStart, long GlobalEnd)>>(ranges);
+                return long.MaxValue - 1;
             });
 
-            _mockSearchService.GetDateTimeRange(Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x =>
+            _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
-                int numRanges = x.ArgAt<int>(3);
-                var ranges = new List<Tuple<DateTime, DateTime>>();
-                for (int i = 0; i < numRanges; i++)
+                int numRanges = x.ArgAt<int>(4);
+                var ranges = new List<(long StartId, long EndId)>();
+                if (x.ArgAt<long>(1) <= x.ArgAt<long>(2)) // start <= end to break internal loop
                 {
-                    ranges.Add(new Tuple<DateTime, DateTime>(new DateTime(10000), new DateTime(20000)));
+                    for (int i = 0; i < numRanges; i++)
+                    {
+                        ranges.Add((long.MaxValue - 1, long.MaxValue - 1));
+                    }
                 }
 
-                return Task.FromResult<IReadOnlyList<Tuple<DateTime, DateTime>>>(ranges);
+                return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(ranges);
             });
 
             _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), orchestratorJobId, false, false, Arg.Any<CancellationToken>()).Returns(x =>
