@@ -55,55 +55,64 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
             var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
 
-            if (groupJobs.Count == 1)
+            // for parallel case we enqueue in batches, so we should handle not completed registration
+            if (record.ExportType == ExportJobType.All && record.Parallel > 1 && (record.Filters == null || record.Filters.Count == 0))
             {
-                if (record.ExportType == ExportJobType.All && record.Parallel > 1 && (record.Filters == null || record.Filters.Count == 0))
+                var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
+                                  ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
+                                  : record.ResourceType.Split(',');
+
+                var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
+                var globalStartId = _searchService.GetSurrogateId(since.DateTime);
+                var till = record.Till.ToDateTimeOffset();
+                var globalEndId = _searchService.GetSurrogateId(till.DateTime);
+
+                var enqueued = groupJobs.Where(_ => _.Id != jobInfo.Id) // exclude coord
+                                        .Select(_ => JsonConvert.DeserializeObject<ExportJobRecord>(_.Definition))
+                                        .GroupBy(_ => _.ResourceType)
+                                        .ToDictionary(_ => _.Key, _ => Tuple.Create(_.Max(r => GetSequence(r)), _.Max(r => long.Parse(r.EndSurrogateId))));
+
+                foreach (var type in resourceTypes)
                 {
-                    var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
-                                      ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
-                                      : record.ResourceType.Split(',');
-
-                    var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
-                    var globalStartId = _searchService.GetSurrogateId(since.DateTime);
-                    var till = record.Till.ToDateTimeOffset();
-                    var globalEndId = _searchService.GetSurrogateId(till.DateTime);
-
-                    foreach (var type in resourceTypes)
+                    var startId = globalStartId;
+                    var sequence = 0;
+                    if (enqueued.TryGetValue(type, out var max))
                     {
-                        var rows = 1;
-                        var sequence = 0;
-                        var startId = globalStartId;
-                        while (rows > 0)
+                        sequence = max.Item1 + 1;
+                        startId = max.Item2 + 1;
+                    }
+
+                    var rows = 1;
+                    while (rows > 0)
+                    {
+                        var definitions = new List<string>();
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, SurrogateIdRangeSize, NumberOfSurrogateIdRanges, cancellationToken);
+                        foreach (var range in ranges)
                         {
-                            var definitions = new List<string>();
-                            var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, SurrogateIdRangeSize, NumberOfSurrogateIdRanges, cancellationToken);
-                            foreach (var range in ranges)
+                            if (range.EndId > startId)
                             {
-                                if (range.EndId > startId)
-                                {
-                                    startId = range.EndId;
-                                }
-
-                                var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
-                                definitions.Add(JsonConvert.SerializeObject(processingRecord));
-                                sequence++;
+                                startId = range.EndId;
                             }
 
-                            startId++; // make sure we do not intersect ranges
+                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                            definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                            sequence++;
+                        }
 
-                            rows = definitions.Count;
-                            if (rows > 0)
-                            {
-                                await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
-                            }
+                        startId++; // make sure we do not intersect ranges
+
+                        rows = definitions.Count;
+                        if (rows > 0)
+                        {
+                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
                         }
                     }
                 }
-                else
-                {
-                    var processingRecord = CreateExportRecord(record);
-                    await _queueClient.EnqueueAsync((byte)QueueType.Export, new string[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
-                }
+            }
+            else if (groupJobs.Count == 1)
+            {
+                var processingRecord = CreateExportRecord(record);
+                await _queueClient.EnqueueAsync((byte)QueueType.Export, new string[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
             }
 
             groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken)).ToList();
@@ -184,6 +193,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             record.Status = OperationStatus.Completed;
             return JsonConvert.SerializeObject(record);
+        }
+
+        private static int GetSequence(ExportJobRecord record)
+        {
+            var split = record.ExportFormat.Split("-");
+            return split.Length > 1 ? int.Parse(split[1]) : -1;
         }
 
         private static ExportJobRecord CreateExportRecord(ExportJobRecord record, int sequence = -1, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)

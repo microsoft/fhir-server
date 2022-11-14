@@ -9,6 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -33,6 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISearchService _searchService;
         private readonly SqlServerFhirOperationDataStore _operationDataStore;
         private readonly SqlQueueClient _queueClient;
+        private ILoggerFactory _loggerFactory = new NullLoggerFactory();
 
         public SqlServerExportTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
@@ -52,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             cts.CancelAfter(TimeSpan.FromSeconds(600));
             var worker = Task.Factory.StartNew(() => Worker(cts.Token));
 
-            var coord = new ExportOrchestratorJob(_queueClient, _searchService, null);
+            var coord = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
             coord.PollingFrequencyInSeconds = 1;
             coord.SurrogateIdRangeSize = 100;
             coord.NumberOfSurrogateIdRanges = 5;
