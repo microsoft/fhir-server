@@ -1164,7 +1164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             int FindImpl(int currentIndex)
             {
-                // Due the UnionAll expressions, the number of the current index used to create new CTEs can be greater than
+                // Due to the UnionAll expressions, the number of the current index used to create new CTEs can be greater than
                 // the number of expressions in '_rootExpression.SearchParamTableExpressions'.
                 if (currentIndex >= _rootExpression.SearchParamTableExpressions.Count)
                 {
@@ -1185,6 +1185,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     case SearchParamTableExpressionKind.SortWithFilter:
                         return currentIndex - 1;
                     case SearchParamTableExpressionKind.All:
+                        return currentIndex - 1;
+                    case SearchParamTableExpressionKind.Include:
+                    case SearchParamTableExpressionKind.IncludeLimit:
+                    case SearchParamTableExpressionKind.Union:
+                    case SearchParamTableExpressionKind.IncludeUnionAll:
                         return currentIndex - 1;
                     default:
                         throw new ArgumentOutOfRangeException(currentSearchParamTableExpression.Kind.ToString());
