@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
@@ -126,6 +127,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                     if (includeFhirUserClaim)
                     {
                         var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
+                        if (string.IsNullOrEmpty(fhirUser))
+                        {
+                            // look for the fhirUser info in a header
+                            if (context.Request.Headers.ContainsKey(KnownHeaders.FhirUserHeader)
+                                && context.Request.Headers.TryGetValue(KnownHeaders.FhirUserHeader, out var hValue))
+                            {
+                                fhirUser = hValue.ToString();
+                            }
+                        }
+
                         try
                         {
                             fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
