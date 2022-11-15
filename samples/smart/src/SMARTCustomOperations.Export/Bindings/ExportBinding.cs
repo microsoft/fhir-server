@@ -84,6 +84,8 @@ namespace SMARTCustomOperations.Export.Bindings
 
             // Copy all non-restricted headers to context.
             var responseHeaders = httpResponseMessage.GetHeaders();
+            responseHeaders.Remove("Server");
+
             foreach (var headerName in responseHeaders.AllKeys)
             {
                 context.Headers.Add(new HeaderNameValuePair(headerName, responseHeaders[headerName], CustomHeaderType.ResponseStatic));
@@ -112,7 +114,6 @@ namespace SMARTCustomOperations.Export.Bindings
             string localPath = requestUri.LocalPath;
             NameValueCollection queryCollection = requestUri.ParseQueryString();
             NameValueCollection headers = new();
-            headers.Add("Prefer", "respond-async");
             string method = "GET";
             string token = requestToken;
             string serverUrl = _options.Value.FhirServerEndpoint!;
@@ -130,12 +131,14 @@ namespace SMARTCustomOperations.Export.Bindings
                     queryCollection.Remove("_container");
                     queryCollection.Add("_container", oid);
                     contentType = "application/fhir+json";
+                    headers.Add("Prefer", "respond-async");
                     break;
                 case ExportOperationType.GetExportFile:
                     token = await _authenticator.AcquireTokenForClientAsync(_options.Value.StorageEndpoint);
                     serverUrl = _options.Value.StorageEndpoint!;
                     localPath = localPath.Replace("/_export", string.Empty, StringComparison.OrdinalIgnoreCase);
                     contentType = "application/fhir+ndjson";
+                    headers.Add("x-ms-version", "2019-02-02");
                     break;
                 case ExportOperationType.ExportCheck:
                     break;

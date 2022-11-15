@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Linq;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.AzureHealth.DataServices.Pipelines;
@@ -64,6 +63,13 @@ namespace SMARTCustomOperations.Export
         {
             _logger.LogInformation("ExportJob function pipeline started.");
             var result = await _pipeline.ExecuteAsync(req);
+
+            if (result.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                result.Headers.Remove("Content-Type");
+                result.Headers.Add("Content-Type", "application/fhir+ndjson");
+            }
+
             return result;
         }
     }
