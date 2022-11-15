@@ -50,20 +50,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task ExportWorkRegistration()
         {
-            PrepareData(); // 1000 patients and 1000 obesrvations
+            try
+            {
+                PrepareData(); // 1000 patients + 1000 observations + 1000 claims. !!! RawResource is invalid.
 
-            var coordJob = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
-            coordJob.PollingIntervalSec = 0.3;
-            coordJob.SurrogateIdRangeSize = 100;
-            coordJob.NumberOfSurrogateIdRanges = 5;
+                var coordJob = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
+                coordJob.PollingIntervalSec = 0.3;
+                coordJob.SurrogateIdRangeSize = 100;
+                coordJob.NumberOfSurrogateIdRanges = 5;
 
-            await RunExport("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
+                await RunExport("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
 
-            await RunExport("Patient,Observation", coordJob, 21, null); // 21=coord+2*1000/SurrogateIdRangeSize
+                await RunExport("Patient,Observation", coordJob, 21, null); // 21=coord+2*1000/SurrogateIdRangeSize
 
-            await RunExport(null, coordJob, 31, null); // 31=coord+3*1000/SurrogateIdRangeSize
+                await RunExport(null, coordJob, 31, null); // 31=coord+3*1000/SurrogateIdRangeSize
 
-            await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
+                await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
+            }
+            finally
+            {
+                ExecuteSql("DELETE FROM dbo.Resource");
+            }
         }
 
         private async Task RunExport(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
