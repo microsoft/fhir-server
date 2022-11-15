@@ -11,7 +11,7 @@ services:
     language: csharp
     host: function
   context:
-    project: src/Authorize-WebApp
-    dist: build
+    project: src/Authorize-WebApp/src
+    dist: dist
     language: js
     host: staticwebapp
