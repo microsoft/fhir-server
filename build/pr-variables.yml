@@ -1,5 +1,5 @@
 variables:
-    ResourceGroupRegion: 'northcentralus'
+    ResourceGroupRegion: 'centralus'
     resourceGroupRoot: 'msh-fhir-pr'
     appServicePlanName: '$(resourceGroupRoot)-$(prName)-asp'    
     ResourceGroupName: '$(resourceGroupRoot)-$(prName)'
