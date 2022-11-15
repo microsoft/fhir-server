@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Claims;
@@ -19,6 +20,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Smart;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -162,6 +164,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             var fhirConfiguration = new FhirServerConfiguration();
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            fhirConfiguration.Security.Enabled = true;
             authorizationConfiguration.Enabled = true;
             await LoadRoles(authorizationConfiguration);
 
@@ -178,6 +181,41 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
             Assert.Empty(fhirRequestContext.AccessControlContext.AllowedResourceActions);
+        }
+
+        [Fact]
+        public async Task GivenFhirUserInHeader_WhenRequestMade_ThenFhirUserIsSaved()
+        {
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+            var fhirRequestContext = new DefaultFhirRequestContext();
+
+            fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Add(KnownHeaders.FhirUserHeader, "https://fhirServer/Patient/foo");
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.EnableSmartWithoutAuth = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+            var scopesClaim = new Claim(authorizationConfiguration.ScopesClaim, "patient.patient.read");
+            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim });
+            var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+            httpContext.User = expectedPrincipal;
+            fhirRequestContext.Principal = expectedPrincipal;
+
+            _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+            Assert.Equal(new Uri("https://fhirServer/Patient/foo"), fhirRequestContext.AccessControlContext.FhirUserClaim);
+            Assert.Equal("Patient", fhirRequestContext.AccessControlContext.CompartmentResourceType);
+            Assert.Equal("foo", fhirRequestContext.AccessControlContext.CompartmentId);
         }
 
         public static IEnumerable<object[]> GetTestScopes()
