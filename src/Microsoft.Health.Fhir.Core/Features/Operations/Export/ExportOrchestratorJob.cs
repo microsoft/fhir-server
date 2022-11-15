@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ////    throw new JobExecutionException(record.FailureDetails.FailureReason, record);
             ////}
 
-            ////record.Status = OperationStatus.Completed;
+            record.Status = OperationStatus.Completed;
             return JsonConvert.SerializeObject(record);
         }
 
