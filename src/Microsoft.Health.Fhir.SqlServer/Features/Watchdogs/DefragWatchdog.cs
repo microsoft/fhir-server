@@ -24,7 +24,7 @@ using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public sealed class DefragWatchdog : Watchdog<DefragWatchdog>, INotificationHandler<StorageInitializedNotification>
+    public sealed class DefragWatchdog : Watchdog<DefragWatchdog>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private int _threads;
