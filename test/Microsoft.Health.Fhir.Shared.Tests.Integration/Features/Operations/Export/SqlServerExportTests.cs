@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task ExportWorkRegistration()
         {
-            PrepareData(); // 1000 patients and 1000 obesrvations
+            PrepareData(); // 1000 patients, 1000 observations, 1000 claims
 
             var coordJob = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
             coordJob.PollingIntervalSec = 0.3;
@@ -74,10 +74,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var coordId = long.Parse(result.JobRecord.Id);
             var groupId = (await _queueClient.GetJobByIdAsync(_queueType, coordId, false, CancellationToken.None)).GroupId;
 
-            await RunCoordAndWorker(coordJob, coordId, groupId, totalJobs, totalJobsAfterFailure);
+            await RunCoordinator(coordJob, coordId, groupId, totalJobs, totalJobsAfterFailure);
         }
 
-        private async Task RunCoordAndWorker(ExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs, int? totalJobsAfterFailure)
+        private async Task RunCoordinator(ExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs, int? totalJobsAfterFailure)
         {
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(300));
@@ -88,7 +88,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             var coordRecord = JsonConvert.DeserializeObject<ExportJobRecord>((await _queueClient.DequeueAsync(_queueType, "Coord", 60, cts.Token, coordId)).Definition);
-            var worker = Task.Factory.StartNew(() => Worker(cts.Token)); // must start after coord is dequeued
 
             retryOnTestException:
             try
@@ -110,31 +109,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var jobs = (await _queueClient.GetJobByGroupIdAsync(_queueType, groupId, false, cts.Token)).ToList();
             Assert.Equal(totalJobs, jobs.Count);
-            cts.Cancel();
-            try
-            {
-                await worker;
-            }
-            catch
-            {
-            }
-        }
-
-        private void Worker(CancellationToken cancel)
-        {
-            while (!cancel.IsCancellationRequested)
-            {
-                var job = _queueClient.DequeueAsync(_queueType, "Worker", 60, cancel).Result;
-                if (job != null)
-                {
-                    job.Result = job.Definition;
-                    _queueClient.CompleteJobAsync(job, false, cancel).Wait();
-                }
-                else
-                {
-                    Task.Delay(200, cancel).Wait(cancel);
-                }
-            }
         }
 
         private JobManagement.JobInfo ToJobInfo(ExportJobRecord record, long jobId, long groupId)

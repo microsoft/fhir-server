@@ -107,9 +107,91 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var def = jobInfo.Definition;
+            var status = jobInfo.Status;
             var result = jobInfo.Result;
-            var rawJobRecord = result ?? def;
-            return CreateExportJobOutcome(jobId, rawJobRecord, jobInfo.Version, (byte)jobInfo.Status, jobInfo.CreateDate);
+
+            if (jobInfo.Status == JobStatus.Completed)
+            {
+                var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
+                var allJobsComplete = true;
+                foreach (var job in groupJobs)
+                {
+                    if (job.Id != jobInfo.Id && (job.Status == JobStatus.Running || job.Status == JobStatus.Created))
+                    {
+                        allJobsComplete = false;
+                        break;
+                    }
+                }
+
+                if (allJobsComplete)
+                {
+                    var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+                    bool jobFailed = false;
+                    foreach (var job in groupJobs)
+                    {
+                        if (job.Id != jobInfo.Id)
+                        {
+                            if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var processResult = JsonConvert.DeserializeObject<ExportJobRecord>(job.Result);
+                                foreach (var output in processResult.Output)
+                                {
+                                    if (record.Output.TryGetValue(output.Key, out var exportFileInfos))
+                                    {
+                                        exportFileInfos.AddRange(output.Value);
+                                    }
+                                    else
+                                    {
+                                        record.Output.Add(output.Key, output.Value);
+                                    }
+                                }
+
+                                if (processResult.FailureDetails != null)
+                                {
+                                    if (record.FailureDetails == null)
+                                    {
+                                        record.FailureDetails = processResult.FailureDetails;
+                                    }
+                                    else if (!processResult.FailureDetails.FailureReason.Equals(record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + processResult.FailureDetails.FailureReason, record.FailureDetails.FailureStatusCode);
+                                    }
+
+                                    jobFailed = true;
+                                }
+                            }
+                            else
+                            {
+                                if (record.FailureDetails == null)
+                                {
+                                    record.FailureDetails = new JobFailureDetails("Processing job had no results", System.Net.HttpStatusCode.InternalServerError);
+                                }
+                                else
+                                {
+                                    record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\nProcessing job had no results", HttpStatusCode.InternalServerError);
+                                }
+
+                                jobFailed = true;
+                            }
+                        }
+                    }
+
+                    if (jobFailed)
+                    {
+                        record.Status = OperationStatus.Failed;
+                        throw new JobExecutionException(record.FailureDetails.FailureReason, record);
+                    }
+
+                    record.Status = OperationStatus.Completed;
+                    result = JsonConvert.SerializeObject(record);
+                }
+                else
+                {
+                    status = JobStatus.Running;
+                }
+            }
+
+            return CreateExportJobOutcome(jobId, result ?? def, jobInfo.Version, (byte)status, jobInfo.CreateDate);
         }
 
         public async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
