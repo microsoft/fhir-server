@@ -9,6 +9,8 @@ namespace SMARTCustomOperations.Export.Configuration
 {
     public class ExportCustomOperationsConfig
     {
+        private string? _apiManagementHostName;
+
         public string? AppInsightsConnectionString { get; set; }
 
         public string? AppInsightsInstrumentationKey { get; set; }
@@ -27,7 +29,23 @@ namespace SMARTCustomOperations.Export.Configuration
 #pragma warning restore CA1056 // Needs to be string to parse from config easily
 
         // Example: my-apim.azure-api.net
-        public string? ApiManagementHostName { get; set; }
+        public string? ApiManagementHostName
+        {
+            get
+            {
+                if (_apiManagementHostName is null)
+                {
+                    return null;
+                }
+
+                return _apiManagementHostName.Replace("https://", string.Empty, StringComparison.InvariantCultureIgnoreCase);
+            }
+
+            set
+            {
+                _apiManagementHostName = value;
+            }
+        }
 
         public string ApiManagementFhirPrefex { get; set; } = "smart";
 

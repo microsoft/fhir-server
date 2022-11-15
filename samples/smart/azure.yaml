@@ -10,8 +10,8 @@ services:
     project: src/SMARTCustomOperations.Export
     language: csharp
     host: function
-    AuthorizeWebApp:
-    project: src/authorize-app
+  AuthorizeWebApp:
+    project: src/Authorize-WebApp
     dist: build
     language: js
     host: staticwebapp

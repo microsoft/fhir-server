@@ -113,7 +113,7 @@ resource smartApi 'Microsoft.ApiManagement/service/apis@2021-12-01-preview' = {
     properties: {
       displayName: 'GET Exported Data'
       method: 'GET'
-      urlTemplate: '/export-output/{containerName}/{folderName}/{fileName}'
+      urlTemplate: '/_export/{containerName}/{folderName}/{fileName}'
       templateParameters: [
         {
           name: 'containerName'

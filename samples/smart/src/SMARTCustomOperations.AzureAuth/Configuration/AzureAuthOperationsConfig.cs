@@ -10,9 +10,26 @@ namespace SMARTCustomOperations.AzureAuth.Configuration
     public class AzureAuthOperationsConfig
     {
         private string? _audience;
+        private string? _apiManagementHostName;
 
         // Example: my-apim.azure-api.net
-        public string? ApiManagementHostName { get; set; }
+        public string? ApiManagementHostName
+        {
+            get
+            {
+                if (_apiManagementHostName is null)
+                {
+                    return null;
+                }
+
+                return _apiManagementHostName.Replace("https://", string.Empty, StringComparison.InvariantCultureIgnoreCase);
+            }
+
+            set
+            {
+                _apiManagementHostName = value;
+            }
+        }
 
         public string? ApiManagementFhirPrefex { get; set; } = "smart";
 

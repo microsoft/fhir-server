@@ -96,11 +96,12 @@ This sample demonstrates how Azure Health Data Services can be used to pass the 
 
 #### Backend Service Client Application
 
-- Create a new application in Azure Active Directory. No platform or redirect URL is needed. 
-- In API Permissions for this new application, add the below:
+- Create a new application in Azure Active Directory. No platform or redirect URL is needed.
+-  Grant this application `FHIR Data Reader` and `FHIR Exporter` role in your FHIR Service. We only support `system/*.read` for now through the `FHIR Data Reader` role.
+<!--- In API Permissions for this new application, add the below:
   - Azure Healthcare APIs (Application)
     - system.all.read
-- Grant admin consent for your Application on the API Permission page
+- Grant admin consent for your Application on the API Permission page-->
 - Generate a secret for this application. Save this and the client id.
 - In the resource group that matches your environment, open the KeyVault with the suffix `backkv`.
 - Add a new secret that corresponds to the Application you just generated. 

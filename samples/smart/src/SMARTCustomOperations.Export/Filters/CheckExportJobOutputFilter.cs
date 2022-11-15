@@ -5,6 +5,7 @@
 
 using System.Net;
 using System.Security;
+using System.Security.Policy;
 using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
@@ -43,45 +44,61 @@ namespace SMARTCustomOperations.Export.Filters
                 return Task.FromResult(context);
             }
 
+            // Don't process running or failed export operations
+            if (context.StatusCode != HttpStatusCode.OK)
+            {
+                return Task.FromResult(context);
+            }
+
             _logger?.LogInformation("Entered {Name}", Name);
 
             Uri requestUri = context.Request!.RequestUri!;
 
-            // Replace the content location URL with the public endpoint
-            var jBody = JObject.Parse(context.ContentString);
-
-            jBody["requireAccessToken"] = true;
-
-            foreach (JToken output in (JArray)jBody.SelectToken("output")!)
+            try
             {
-                // Get the orig URL of the output array item
-                var outputObj = (JObject)output;
-                var origUrl = new Uri(outputObj["url"]!.ToString());
+                // Replace the content location URL with the public endpoint
+                var jBody = JObject.Parse(context.ContentString);
 
-                // #TODO - test this logic
-                if (!origUrl.LocalPath.StartsWith("/" + context.Properties["oid"], StringComparison.InvariantCulture))
+                jBody["requiresAccessToken"] = true;
+
+                foreach (JToken output in (JArray)jBody.SelectToken("output")!)
                 {
-                    var ex = new SecurityException($"User attempted export with token with wrong oid claim. {Id}. OID: {context.Properties["oid"]}. Container: {origUrl.Segments[1]}.");
+                    // Get the orig URL of the output array item
+                    var outputObj = (JObject)output;
+                    var origUrl = new Uri(outputObj["url"]!.ToString());
 
-                    FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.Unauthorized);
-                    OnFilterError?.Invoke(this, error);
-                    return Task.FromResult(context.SetContextErrorBody(error, _configuration.Debug));
+                    // #TODO - test this logic
+                    if (!origUrl.LocalPath.StartsWith("/" + context.Properties["oid"], StringComparison.InvariantCulture))
+                    {
+                        var ex = new SecurityException($"User attempted export with token with wrong oid claim. {Id}. OID: {context.Properties["oid"]}. Container: {origUrl.Segments[1]}.");
+
+                        FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.Unauthorized);
+                        OnFilterError?.Invoke(this, error);
+                        return Task.FromResult(context.SetContextErrorBody(error, _configuration.Debug));
+                    }
+
+                    outputObj["url"] = BuildNewExportFileUri(_configuration.ApiManagementHostName!, _configuration.ApiManagementFhirPrefex, origUrl.LocalPath);
                 }
 
-                outputObj["url"] = BuildNewExportFileUri(_configuration.ApiManagementHostName!, _configuration.ApiManagementFhirPrefex, origUrl.LocalPath);
+                context.ContentString = jBody.ToString();
             }
-
-            context.ContentString = jBody.ToString();
+            catch (Exception ex)
+            {
+#pragma warning disable CA2201
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new Exception($"Could not process export check result.", ex), code: HttpStatusCode.InternalServerError, responseBody: context.ContentString);
+                OnFilterError?.Invoke(this, error);
+                return Task.FromResult(context.SetContextErrorBody(error, _configuration.Debug));
+            }
 
             return Task.FromResult(context);
         }
 
         // Maps the url segment to our proxied storage endpoint
-        private static Uri BuildNewExportFileUri(string apiManagementEndpointHostName, string? apiManagementEndpointPrefix, string requestLocalPath)
+        private static Uri BuildNewExportFileUri(string apiManagementHostname, string? apiManagementEndpointPrefix, string requestLocalPath)
         {
             var outputUriBuilder = new UriBuilder();
-            outputUriBuilder.Scheme = "https";
-            outputUriBuilder.Host = apiManagementEndpointHostName;
+            outputUriBuilder.Scheme = "https://";
+            outputUriBuilder.Host = apiManagementHostname;
 
             // Add the API prefix if it exists
             if (apiManagementEndpointPrefix is not null)

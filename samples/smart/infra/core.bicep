@@ -100,7 +100,7 @@ var fhirUrl = 'https://${workspaceName}-${fhirServiceName}.fhir.azurehealthcarea
 
 var aadCustomOperationsFunctionParams = {
   AZURE_FhirServerUrl: fhirUrl
-  AZURE_ApiManagementHostName: 'https://${apimName}.azure-api.net'
+  AZURE_ApiManagementHostName: '${apimName}.azure-api.net'
   AZURE_InstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
   AZURE_TenantId: tenantId
   AZURE_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
@@ -191,6 +191,16 @@ module fhirSMARTIdentities './identity.bicep' =  [for principalId in  fhirSMARTP
     roleType: 'fhirSmart'
   }
 }]
+
+@description('Setup identity connection between Export functon app and export storage account')
+module exportFhirRoleAssignment './identity.bicep'= {
+  name: 'fhirExportRoleAssignment'
+  params: {
+    principalId: exportCustomOperationFunction.outputs.functionAppPrincipalId
+    fhirId: fhir.outputs.fhirId
+    roleType: 'storageBlobContributor'
+  }
+}
 
 var apimName = '${prefixName}-apim'
 

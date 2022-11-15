@@ -58,5 +58,13 @@ namespace SMARTCustomOperations.Export
 
             return result;
         }
+
+        [Function("ExportFile")]
+        public async Task<HttpResponseData> GetExportFile([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "_export/{containerName}/{folderName}/{fileName}")] HttpRequestData req)
+        {
+            _logger.LogInformation("ExportJob function pipeline started.");
+            var result = await _pipeline.ExecuteAsync(req);
+            return result;
+        }
     }
 }
