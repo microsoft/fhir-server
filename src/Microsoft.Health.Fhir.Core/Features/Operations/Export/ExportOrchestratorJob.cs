@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -67,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
                 var globalStartId = _searchService.GetSurrogateId(since.DateTime);
                 var till = record.Till.ToDateTimeOffset();
-                var globalEndId = _searchService.GetSurrogateId(till.DateTime);
+                var globalEndId = _searchService.GetSurrogateId(till.DateTime) - 1; // -1 is so _till value can be used as _since in the next time based export
 
                 var enqueued = groupJobs.Where(_ => _.Id != jobInfo.Id) // exclude coord
                                         .Select(_ => JsonConvert.DeserializeObject<ExportJobRecord>(_.Definition))
@@ -122,82 +121,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var processingRecord = CreateExportRecord(record);
                 await _queueClient.EnqueueAsync((byte)QueueType.Export, new string[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
             }
-
-            ////groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken)).ToList();
-
-            ////bool allJobsComplete;
-            ////do
-            ////{
-            ////    allJobsComplete = true;
-            ////    foreach (var job in groupJobs)
-            ////    {
-            ////        if (job.Id != jobInfo.Id && (job.Status == JobStatus.Running || job.Status == JobStatus.Created))
-            ////        {
-            ////            allJobsComplete = false;
-            ////            break;
-            ////        }
-            ////    }
-
-            ////    await Task.Delay(TimeSpan.FromSeconds(PollingIntervalSec), cancellationToken);
-            ////    groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
-            ////}
-            ////while (!allJobsComplete);
-
-            ////bool jobFailed = false;
-            ////foreach (var job in groupJobs)
-            ////{
-            ////    if (job.Id != jobInfo.Id)
-            ////    {
-            ////        if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
-            ////        {
-            ////            var processResult = JsonConvert.DeserializeObject<ExportJobRecord>(job.Result);
-            ////            foreach (var output in processResult.Output)
-            ////            {
-            ////                if (record.Output.TryGetValue(output.Key, out var exportFileInfos))
-            ////                {
-            ////                    exportFileInfos.AddRange(output.Value);
-            ////                }
-            ////                else
-            ////                {
-            ////                    record.Output.Add(output.Key, output.Value);
-            ////                }
-            ////            }
-
-            ////            if (processResult.FailureDetails != null)
-            ////            {
-            ////                if (record.FailureDetails == null)
-            ////                {
-            ////                    record.FailureDetails = processResult.FailureDetails;
-            ////                }
-            ////                else if (!processResult.FailureDetails.FailureReason.Equals(record.FailureDetails.FailureReason, StringComparison.OrdinalIgnoreCase))
-            ////                {
-            ////                    record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\n" + processResult.FailureDetails.FailureReason, record.FailureDetails.FailureStatusCode);
-            ////                }
-
-            ////                jobFailed = true;
-            ////            }
-            ////        }
-            ////        else
-            ////        {
-            ////            if (record.FailureDetails == null)
-            ////            {
-            ////                record.FailureDetails = new JobFailureDetails("Processing job had no results", System.Net.HttpStatusCode.InternalServerError);
-            ////            }
-            ////            else
-            ////            {
-            ////                record.FailureDetails = new JobFailureDetails(record.FailureDetails.FailureReason + "\r\nProcessing job had no results", HttpStatusCode.InternalServerError);
-            ////            }
-
-            ////            jobFailed = true;
-            ////        }
-            ////    }
-            ////}
-
-            ////if (jobFailed)
-            ////{
-            ////    record.Status = OperationStatus.Failed;
-            ////    throw new JobExecutionException(record.FailureDetails.FailureReason, record);
-            ////}
 
             record.Status = OperationStatus.Completed;
             return JsonConvert.SerializeObject(record);
