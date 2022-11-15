@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             var fhirConfiguration = new FhirServerConfiguration();
             fhirConfiguration.Security.Enabled = true;
             var authorizationConfiguration = fhirConfiguration.Security.Authorization;
-            authorizationConfiguration.Enabled = true;
+            authorizationConfiguration.EnableSmartWithoutAuth = true;
             await LoadRoles(authorizationConfiguration);
 
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
