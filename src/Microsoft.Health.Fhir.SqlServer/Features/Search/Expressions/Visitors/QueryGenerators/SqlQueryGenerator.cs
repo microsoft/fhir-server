@@ -1172,6 +1172,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 SearchParamTableExpression currentSearchParamTableExpression = _rootExpression.SearchParamTableExpressions[currentIndex];
+
+                // Include all the required SearchParamTableExpressionKind here
                 switch (currentSearchParamTableExpression.Kind)
                 {
                     case SearchParamTableExpressionKind.NotExists:
