@@ -95,6 +95,12 @@ namespace Microsoft.Health.Extensions.Xunit
                 ExecutionContext.Run(_context, state => result = new CollectionRunner(_assemblyFixtureMappings, testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync(), state: null);
                 return result;
             }
+
+            public override void Dispose()
+            {
+                _context?.Dispose();
+                base.Dispose();
+            }
         }
 
         private class CollectionRunner : XunitTestCollectionRunner
