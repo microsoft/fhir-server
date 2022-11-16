@@ -2920,6 +2920,27 @@ FROM   [dbo].[TaskInfo]
 WHERE  TaskId = @taskId;
 
 GO
+CREATE PROCEDURE dbo.GetUsedResourceTypes
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'GetUsedResourceTypes', @Mode AS VARCHAR (100) = '', @st AS DATETIME = getUTCdate();
+BEGIN TRY
+    SELECT ResourceTypeId,
+           Name
+    FROM   dbo.ResourceType AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   dbo.Resource AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId);
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.HardDeleteResource_2
 @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @keepCurrentVersion SMALLINT
 AS
@@ -3167,6 +3188,7 @@ BEGIN TRY
         BEGIN
             UPDATE dbo.JobQueue
             SET    Status  = 4,
+                   EndDate = getUTCdate(),
                    Version = datediff_big(millisecond, '0001-01-01', getUTCdate())
             WHERE  QueueType = @QueueType
                    AND PartitionId = @PartitionId
@@ -3188,6 +3210,7 @@ BEGIN TRY
         BEGIN
             UPDATE dbo.JobQueue
             SET    Status  = 4,
+                   EndDate = getUTCdate(),
                    Version = datediff_big(millisecond, '0001-01-01', getUTCdate())
             WHERE  QueueType = @QueueType
                    AND GroupId = @GroupId

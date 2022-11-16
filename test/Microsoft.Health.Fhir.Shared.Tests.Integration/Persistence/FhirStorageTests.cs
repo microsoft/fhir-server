@@ -105,14 +105,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Empty(results.Results);
 
             // add magic parameters
-            var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, DateTime.MinValue, till, 1, CancellationToken.None)).First();
+            var maxId = _fixture.SearchService.GetSurrogateId(till);
+            var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, CancellationToken.None)).First();
             queryParameters = new[]
             {
                 Tuple.Create(KnownQueryParameterNames.Type, type),
-                Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, range.GlobalEnd.ToString()),
-                Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.End.ToString()),
-                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, range.GlobalStart.ToString()),
-                Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.Start.ToString()),
+                Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
+                Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
+                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, "0"),
+                Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
 
             // !!! time travel behavior

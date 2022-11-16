@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string Till = "_till";
 
-        public const string Parallel = "_parallel";
+        public const string IsParallel = "_isParallel";
 
         public const string StartSurrogateId = "_startSurrogateId";
 
