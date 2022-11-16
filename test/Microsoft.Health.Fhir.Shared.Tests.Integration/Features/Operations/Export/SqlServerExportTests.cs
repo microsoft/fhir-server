@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
@@ -37,6 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SqlQueueClient _queueClient;
         private readonly ILoggerFactory _loggerFactory = new NullLoggerFactory();
         private readonly byte _queueType = (byte)QueueType.Export;
+        private const string DropTrigger = "IF object_id('tmp_JobQueueIns') IS NOT NULL DROP TRIGGER tmp_JobQueueIns";
 
         public SqlServerExportTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
@@ -57,19 +57,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var coordJob = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
                 coordJob.PollingIntervalSec = 0.3;
                 coordJob.SurrogateIdRangeSize = 100;
-                coordJob.NumberOfSurrogateIdRanges = 5;
+                coordJob.NumberOfSurrogateIdRanges = 5; // 100*5=500 is 1/2 of 1000, so there are 2 insert transactions in JobQueue
+
+                await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
 
                 await RunExportWithCancel("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
 
                 await RunExport("Patient,Observation", coordJob, 21, null); // 21=coord+2*1000/SurrogateIdRangeSize
 
                 await RunExport(null, coordJob, 31, null); // 31=coord+3*1000/SurrogateIdRangeSize
-
-                await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
             }
             finally
             {
-                ExecuteSql("DELETE FROM dbo.Resource");
+                ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+                ExecuteSql("TRUNCATE TABLE dbo.Resource");
+                ExecuteSql(DropTrigger);
             }
         }
 
@@ -104,7 +106,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             if (totalJobsAfterFailure.HasValue)
             {
-                coordJob.RaiseTestException = true;
+                ExecuteSql(DropTrigger);
+                ExecuteSql(@"
+CREATE TRIGGER dbo.tmp_JobQueueIns ON dbo.JobQueue
+FOR INSERT
+AS
+BEGIN
+  IF (SELECT count(*) FROM dbo.JobQueue) > 10 RAISERROR('Test Error',18,127)
+  RETURN
+END
+                    ");
             }
 
             var jobInfo = await _queueClient.DequeueAsync(_queueType, "Coord", 60, cts.Token, coordId);
@@ -115,13 +126,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await coordJob.ExecuteAsync(jobInfo, new Progress<string>(), cts.Token);
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
             }
-            catch (ArgumentException e)
+            catch (Exception e)
             {
-                if (e.Message == "Test")
+                if (e.Message.Contains("Test Error"))
                 {
                     var jobsAfterFailure = (await _queueClient.GetJobByGroupIdAsync(_queueType, groupId, false, cts.Token)).ToList();
                     Assert.Equal(totalJobsAfterFailure.Value, jobsAfterFailure.Count);
-                    coordJob.RaiseTestException = false;
+                    ExecuteSql(DropTrigger);
                     goto retryOnTestException;
                 }
 
@@ -132,19 +143,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(totalJobs, jobs.Count);
         }
 
-        private JobManagement.JobInfo ToJobInfo(ExportJobRecord record, long jobId, long groupId)
-        {
-            var jobInfo = new JobManagement.JobInfo();
-            jobInfo.QueueType = _queueType;
-            jobInfo.Id = jobId;
-            jobInfo.GroupId = groupId;
-            jobInfo.Definition = JsonConvert.SerializeObject(record);
-            return jobInfo;
-        }
-
         private void PrepareData()
         {
-            ExecuteSql("DELETE FROM dbo.Resource");
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+            ExecuteSql("TRUNCATE TABLE dbo.Resource");
             var surrId = _searchService.GetSurrogateId(DateTime.UtcNow);
             ExecuteSql(@$"
 INSERT INTO Resource 

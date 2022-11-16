@@ -49,8 +49,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         internal int NumberOfSurrogateIdRanges { get; set; } = DefaultNumberOfSurrogateIdRanges;
 
-        internal bool RaiseTestException { get; set; } = false;
-
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
@@ -107,11 +105,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         if (rows > 0)
                         {
                             await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
-                        }
-
-                        if (RaiseTestException)
-                        {
-                            throw new ArgumentException("Test");
                         }
                     }
                 }
