@@ -5,32 +5,72 @@
 
 using System;
 using System.Collections.Generic;
+using EnsureThat;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
+using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Binders;
 
-public class EnvironmentVariablesDictionaryConfigurationProvider : EnvironmentVariablesConfigurationProvider
+public class EnvironmentVariablesDictionaryConfigurationProvider : IConfigurationProvider
 {
-    public override void Load()
+    private readonly IConfigurationProvider _configurationProvider;
+
+    public EnvironmentVariablesDictionaryConfigurationProvider()
     {
-        base.Load();
+        _configurationProvider = new EnvironmentVariablesConfigurationProvider();
+        Data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public EnvironmentVariablesDictionaryConfigurationProvider(IConfigurationProvider configurationProvider)
+    {
+        EnsureArg.IsNotNull(configurationProvider, nameof(configurationProvider));
+
+        _configurationProvider = configurationProvider;
+        Data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The configuration key value pairs for this provider.
+    /// </summary>
+    protected IDictionary<string, string> Data { get; private set; }
+
+    public IEnumerable<string> GetChildKeys(IEnumerable<string> earlierKeys, string parentPath) => _configurationProvider.GetChildKeys(earlierKeys, parentPath);
+
+    public IChangeToken GetReloadToken() => _configurationProvider.GetReloadToken();
+
+    public void Load()
+    {
+        _configurationProvider.Load();
+
+        IEnumerable<string> keys = _configurationProvider.GetChildKeys(Array.Empty<string>(), null);
 
         var data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (KeyValuePair<string, string> item in Data)
+        foreach (string environmentVariableName in keys)
         {
-            if (item.Value?.Trim().StartsWith("{", StringComparison.Ordinal) == true)
+            _configurationProvider.TryGet(environmentVariableName, out string environmentVariableValue);
+
+            if (!string.IsNullOrEmpty(environmentVariableValue) && environmentVariableValue.Trim().StartsWith("{", StringComparison.Ordinal) == true)
             {
-                Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(item.Value);
+                Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(environmentVariableValue);
 
                 foreach (KeyValuePair<string, string> kvp in asDictionary!)
                 {
-                    data.Add($"{item.Key}:{kvp.Key}", kvp.Value);
+                    data.Add($"{environmentVariableName}:{kvp.Key}", kvp.Value);
                 }
+            }
+            else
+            {
+                data.Add(environmentVariableName, environmentVariableValue);
             }
         }
 
         Data = data;
     }
+
+    public void Set(string key, string value) => _configurationProvider.Set(key, value);
+
+    public bool TryGet(string key, out string value) => Data.TryGetValue(key, out value);
 }
