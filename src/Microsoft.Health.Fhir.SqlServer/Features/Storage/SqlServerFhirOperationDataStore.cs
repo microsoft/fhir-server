@@ -23,6 +23,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.SqlServer.Management.Smo.Agent;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -113,22 +114,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (status == JobStatus.Completed)
             {
                 var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
-                var allJobsComplete = true;
-                foreach (var job in groupJobs.Where(_ => _.Id != jobInfo.Id))
-                {
-                    if (job.Status == JobStatus.Running || job.Status == JobStatus.Created)
-                    {
-                        allJobsComplete = false;
-                        break;
-                    }
-                }
+                var inFlightJobsExist = groupJobs.Where(_ => _.Id != jobInfo.Id).Any(_ => _.Status == JobStatus.Running || _.Status == JobStatus.Created);
+                var cancelledJobsExist = groupJobs.Where(_ => _.Id != jobInfo.Id).Any(_ => _.Status == JobStatus.Cancelled);
 
-                if (allJobsComplete)
+                if (!inFlightJobsExist && !cancelledJobsExist)
                 {
                     var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
                     bool jobFailed = false;
                     foreach (var job in groupJobs.Where(_ => _.Id != jobInfo.Id))
                     {
+                        if (job.Status == JobStatus.Cancelled)
+                        {
+                            status = JobStatus.Running;
+                        }
+
                         if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
                         {
                             var processResult = JsonConvert.DeserializeObject<ExportJobRecord>(job.Result);
@@ -162,7 +161,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             if (record.FailureDetails == null)
                             {
-                                record.FailureDetails = new JobFailureDetails("Processing job had no results", System.Net.HttpStatusCode.InternalServerError);
+                                record.FailureDetails = new JobFailureDetails("Processing job had no results", HttpStatusCode.InternalServerError);
                             }
                             else
                             {
@@ -176,6 +175,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     record.Status = jobFailed ? OperationStatus.Failed : OperationStatus.Completed;
                     status = jobFailed ? JobStatus.Failed : JobStatus.Completed;
                     result = JsonConvert.SerializeObject(record);
+                }
+                else if (cancelledJobsExist)
+                {
+                    status = JobStatus.Cancelled;
                 }
                 else
                 {
@@ -211,7 +214,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (jobRecord.Status == OperationStatus.Canceled)
                 {
-                    await _queueClient.CancelJobByIdAsync((byte)QueueType.Export, jobId, cancellationToken);
+                    var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Export, jobId, false, cancellationToken);
+                    await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
                 }
                 else
                 {

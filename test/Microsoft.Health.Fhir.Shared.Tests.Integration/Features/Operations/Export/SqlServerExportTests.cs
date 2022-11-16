@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 coordJob.SurrogateIdRangeSize = 100;
                 coordJob.NumberOfSurrogateIdRanges = 5;
 
-                await RunExport("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
+                await RunExportWithCancel("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
 
                 await RunExport("Patient,Observation", coordJob, 21, null); // 21=coord+2*1000/SurrogateIdRangeSize
 
@@ -73,7 +74,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private async Task RunExport(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
+        private async Task RunExportWithCancel(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
+        {
+            var coorId = await RunExport(resourceType, coordJob, totalJobs, totalJobsAfterFailure);
+            var record = (await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None)).JobRecord;
+            Assert.Equal(OperationStatus.Running, record.Status);
+            record.Status = OperationStatus.Canceled;
+            var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
+            Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+            result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
+            Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+        }
+
+        private async Task<string> RunExport(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
         {
             var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1);
             var result = await _operationDataStore.CreateExportJobAsync(coordRecord, CancellationToken.None);
@@ -82,6 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var groupId = (await _queueClient.GetJobByIdAsync(_queueType, coordId, false, CancellationToken.None)).GroupId;
 
             await RunCoordinator(coordJob, coordId, groupId, totalJobs, totalJobsAfterFailure);
+            return coordId.ToString();
         }
 
         private async Task RunCoordinator(ExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs, int? totalJobsAfterFailure)
@@ -94,12 +108,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 coordJob.RaiseTestException = true;
             }
 
-            var coordRecord = JsonConvert.DeserializeObject<ExportJobRecord>((await _queueClient.DequeueAsync(_queueType, "Coord", 60, cts.Token, coordId)).Definition);
+            var jobInfo = await _queueClient.DequeueAsync(_queueType, "Coord", 60, cts.Token, coordId);
 
             retryOnTestException:
             try
             {
-                await coordJob.ExecuteAsync(ToJobInfo(coordRecord, coordId, groupId), new Progress<string>(), cts.Token);
+                await coordJob.ExecuteAsync(jobInfo, new Progress<string>(), cts.Token);
+                await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
             }
             catch (ArgumentException e)
             {
