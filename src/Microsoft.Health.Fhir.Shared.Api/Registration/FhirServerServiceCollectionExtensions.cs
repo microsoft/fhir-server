@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -27,10 +26,8 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
-using Newtonsoft.Json;
 using Polly;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -87,16 +84,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
-
-            // if ResourceTypeOverrides exists as a string, deserialize it (this will be the case when coming from Environment Variables)
-            var resourceTypeOverrides = configurationRoot?.GetValue<string>($"{FhirServerConfigurationSectionName}:{nameof(FhirServerConfiguration.CoreFeatures)}:{nameof(CoreFeatureConfiguration.Versioning)}:{nameof(VersioningConfiguration.ResourceTypeOverrides)}");
-            if (!string.IsNullOrEmpty(resourceTypeOverrides))
-            {
-                foreach (KeyValuePair<string, string> item in JsonConvert.DeserializeObject<IDictionary<string, string>>(resourceTypeOverrides)!)
-                {
-                    fhirServerConfiguration.CoreFeatures.Versioning.ResourceTypeOverrides.Add(item.Key, item.Value);
-                }
-            }
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
 
