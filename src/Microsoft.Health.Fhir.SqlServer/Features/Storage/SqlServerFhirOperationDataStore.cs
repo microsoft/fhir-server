@@ -122,11 +122,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     bool jobFailed = false;
                     foreach (var job in groupJobs.Where(_ => _.Id != jobInfo.Id))
                     {
-                        if (job.Status == JobStatus.Cancelled)
-                        {
-                            status = JobStatus.Running;
-                        }
-
                         if (!string.IsNullOrEmpty(job.Result) && !job.Result.Equals("null", StringComparison.OrdinalIgnoreCase))
                         {
                             var processResult = JsonConvert.DeserializeObject<ExportJobRecord>(job.Result);
