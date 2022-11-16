@@ -23,7 +23,6 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Storage;
-using Microsoft.SqlServer.Management.Smo.Agent;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage

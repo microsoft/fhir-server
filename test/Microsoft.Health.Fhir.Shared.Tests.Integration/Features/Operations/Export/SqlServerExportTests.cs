@@ -18,7 +18,6 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
