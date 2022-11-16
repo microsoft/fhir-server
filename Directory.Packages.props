@@ -72,7 +72,7 @@
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.4.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.6319.0-preview" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.8.0" />
