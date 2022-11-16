@@ -21,9 +21,9 @@ jobs:
   steps:
   - checkout: self
     clean: true
-    
+
   - task: UseDotNet@2
-    displayName: Use .NET Core sdk
+    displayName: Use .NET sdk
     inputs:
       useGlobalJson: true
 

@@ -6,8 +6,9 @@ parameters:
   packageIntegrationTests: false
 
 steps:
+
 - task: UseDotNet@2
-  displayName: 'Use .NET Core sdk'
+  displayName: 'Use .NET SDK'
   inputs:
     useGlobalJson: true
 
