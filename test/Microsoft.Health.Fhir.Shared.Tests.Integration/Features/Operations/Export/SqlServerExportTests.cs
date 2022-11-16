@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var coordJob = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
                 coordJob.PollingIntervalSec = 0.3;
                 coordJob.SurrogateIdRangeSize = 100;
-                coordJob.NumberOfSurrogateIdRanges = 5; // 100*5=500 is 1/2 of 1000, so there are 2 insert transactions in JobQueue
+                coordJob.NumberOfSurrogateIdRanges = 5; // 100*5=500 is 50% of 1000, so there are 2 insert transactions in JobQueue per each resource type
 
                 await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
 
@@ -112,7 +112,7 @@ CREATE TRIGGER dbo.tmp_JobQueueIns ON dbo.JobQueue
 FOR INSERT
 AS
 BEGIN
-  IF (SELECT count(*) FROM dbo.JobQueue) > 10 RAISERROR('Test Error',18,127)
+  IF (SELECT count(*) FROM dbo.JobQueue) > 10 RAISERROR('Count > 10',18,127)
   RETURN
 END
                     ");
@@ -128,7 +128,7 @@ END
             }
             catch (Exception e)
             {
-                if (e.Message.Contains("Test Error"))
+                if (e.Message.Contains("Count > 10"))
                 {
                     var jobsAfterFailure = (await _queueClient.GetJobByGroupIdAsync(_queueType, groupId, false, cts.Token)).ToList();
                     Assert.Equal(totalJobsAfterFailure.Value, jobsAfterFailure.Count);
