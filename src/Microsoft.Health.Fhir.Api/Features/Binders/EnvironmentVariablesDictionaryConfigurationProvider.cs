@@ -13,6 +13,10 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Binders;
 
+/// <summary>
+/// Detects JSON dictionaries in environment variables and converts them to <see cref="IConfiguration"/> values.
+/// This allows the built-in binder to hydrate <see cref="Dictionary{TKey,TValue}"/> typed configuration properties.
+/// </summary>
 public class EnvironmentVariablesDictionaryConfigurationProvider : IConfigurationProvider
 {
     private readonly IConfigurationProvider _configurationProvider;

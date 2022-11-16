@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Microsoft.Health.Fhir.Api.Features.Binders;
 
-public class DictionaryConfigurationSource<T> : IConfigurationSource
+public class GenericConfigurationSource<T> : IConfigurationSource
     where T : class, IConfigurationProvider, new()
 {
     public IConfigurationProvider Build(IConfigurationBuilder builder)
