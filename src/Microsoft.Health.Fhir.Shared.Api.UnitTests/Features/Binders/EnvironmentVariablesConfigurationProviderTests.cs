@@ -8,7 +8,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Health.Fhir.Api.Features.Binders;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
                     { "FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides", "{ \"visionprescription\": \"versioned\" }" },
                 });
 
-            EnvironmentVariablesDictionaryConfigurationProvider configurationProvider = new EnvironmentVariablesDictionaryConfigurationProvider(mockProvider);
+            DictionaryExpansionConfigurationProvider configurationProvider = new DictionaryExpansionConfigurationProvider(mockProvider);
 
             configurationProvider.Load();
 
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
                 }
             }
 
-            EnvironmentVariablesDictionaryConfigurationProvider defaultConfigurationProvider = new EnvironmentVariablesDictionaryConfigurationProvider();
+            DictionaryExpansionConfigurationProvider defaultConfigurationProvider = new DictionaryExpansionConfigurationProvider(new EnvironmentVariablesConfigurationProvider());
             defaultConfigurationProvider.Load();
 
             int numberOfJsonVariablesInDefaultProvider = defaultConfigurationProvider.GetChildKeys(Array.Empty<string>(), null).Count();
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
             int mockProviderTotalNumberOfVariables = mockProviderWithAllEnvironmentVariables.GetChildKeys(Array.Empty<string>(), null).Count();
             Assert.Equal(variablesCount, mockProviderTotalNumberOfVariables);
 
-            EnvironmentVariablesDictionaryConfigurationProvider mockConfigurationProvider = new EnvironmentVariablesDictionaryConfigurationProvider(mockProviderWithAllEnvironmentVariables);
+            DictionaryExpansionConfigurationProvider mockConfigurationProvider = new DictionaryExpansionConfigurationProvider(mockProviderWithAllEnvironmentVariables);
             mockConfigurationProvider.Load();
 
             int numberOfJsonVariablesInMockProvider = mockConfigurationProvider.GetChildKeys(Array.Empty<string>(), null).Count();
@@ -123,29 +123,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
 
         private static bool HasJsonStructure(string value) => value.Trim().StartsWith("{", StringComparison.Ordinal);
 
-        public sealed class MockConfigurationProvider : IConfigurationProvider
+        public sealed class MockConfigurationProvider : ConfigurationProvider
         {
+            private readonly IDictionary<string, string> _data;
+
             public MockConfigurationProvider(IDictionary<string, string> data)
             {
-                Data = data;
+                _data = data;
             }
 
-            private IDictionary<string, string> Data { get; }
-
-            public IEnumerable<string> GetChildKeys(IEnumerable<string> earlierKeys, string parentPath) => Data.Keys;
-
-            public IChangeToken GetReloadToken()
+            public override void Load()
             {
-                throw new System.NotImplementedException();
+                Data = _data;
             }
-
-            public void Load()
-            {
-            }
-
-            public void Set(string key, string value) => Data.Add(key, value);
-
-            public bool TryGet(string key, out string value) => Data.TryGetValue(key, out value);
         }
     }
 }

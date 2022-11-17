@@ -5,9 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Binders;
@@ -19,23 +19,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Binders;
 /// <remarks>
 /// This configuration provider ignores other variables if not in JSON format.
 /// </remarks>
-public class EnvironmentVariablesDictionaryConfigurationProvider : ConfigurationProvider
+public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
 {
     private readonly IConfigurationProvider _configurationProvider;
 
-    public EnvironmentVariablesDictionaryConfigurationProvider()
-        : this(new EnvironmentVariablesConfigurationProvider())
-    {
-    }
-
     /// <summary>
-    /// Creates a <see cref="EnvironmentVariablesDictionaryConfigurationProvider"/> with a customer <see cref="IConfigurationProvider"/>.
+    /// Creates a <see cref="DictionaryExpansionConfigurationProvider"/> with a customer <see cref="IConfigurationProvider"/>.
     /// </summary>
     /// <param name="configurationProvider">Custom configuration provider.</param>
     /// <remarks>
     /// Constructor only used for testing purposes.
     /// </remarks>
-    public EnvironmentVariablesDictionaryConfigurationProvider(IConfigurationProvider configurationProvider)
+    public DictionaryExpansionConfigurationProvider(IConfigurationProvider configurationProvider)
     {
         EnsureArg.IsNotNull(configurationProvider, nameof(configurationProvider));
 
@@ -53,9 +48,18 @@ public class EnvironmentVariablesDictionaryConfigurationProvider : Configuration
 
         var data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string environmentVariableName in keys)
+        EnumerateKeys(keys, data);
+
+        Data = data;
+    }
+
+    private void EnumerateKeys(IEnumerable<string> keys, Dictionary<string, string> data, string path = null)
+    {
+        foreach (string keyName in keys.Distinct())
         {
-            _configurationProvider.TryGet(environmentVariableName, out string environmentVariableValue);
+            var keyPath = path != null ? $"{path}:{keyName}" : keyName;
+
+            _configurationProvider.TryGet(keyPath, out string environmentVariableValue);
 
             if (!string.IsNullOrEmpty(environmentVariableValue) && environmentVariableValue.Trim().StartsWith("{", StringComparison.Ordinal) == true)
             {
@@ -63,11 +67,12 @@ public class EnvironmentVariablesDictionaryConfigurationProvider : Configuration
 
                 foreach (KeyValuePair<string, string> kvp in asDictionary!)
                 {
-                    data.Add($"{environmentVariableName}:{kvp.Key}", kvp.Value);
+                    data.Add($"{keyPath}:{kvp.Key}", kvp.Value);
                 }
             }
-        }
 
-        Data = data;
+            IEnumerable<string> innerKeys = _configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath);
+            EnumerateKeys(innerKeys, data, keyPath);
+        }
     }
 }
