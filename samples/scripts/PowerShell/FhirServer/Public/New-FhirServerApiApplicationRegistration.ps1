@@ -13,7 +13,7 @@ function New-FhirServerApiApplicationRegistration {
     Name of the FHIR service instance. 
     .PARAMETER FhirServiceAudience
     Full URL of the FHIR service.
-    .PARAMETER WebAppSuffix
+    .PARAMETER TenantId
     Will be appended to FHIR service name to form the FhirServiceAudience if one is not supplied,
     e.g., azurewebsites.net or azurewebsites.us (for US Government cloud)
     .PARAMETER AppRoles
@@ -25,13 +25,13 @@ function New-FhirServerApiApplicationRegistration {
         [ValidateNotNullOrEmpty()]
         [string]$FhirServiceName,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'ByFhirServiceAudience' )]
+        [Parameter(Mandatory = $false, ParameterSetName = 'ByFhirServiceAudience' )]
         [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'TenantId' )]
+        [Parameter(Mandatory = $false, ParameterSetName = 'TenantId' )]
         [ValidateNotNullOrEmpty()]
-        [String]$TenantId,
+        [String]$TenantId = "azurewebsites.net",
 
         [Parameter(Mandatory = $false)]
         [String[]]$AppRoles = "admin"
@@ -50,7 +50,7 @@ function New-FhirServerApiApplicationRegistration {
     if ([string]::IsNullOrEmpty($FhirServiceAudience)) {
         $FhirServiceAudience = Get-ServiceAudience -ServiceName $FhirServiceName -TenantId $TenantId
     }
-
+    
     $desiredAppRoles = @()
     foreach ($role in $AppRoles) {
         $id = New-Guid
