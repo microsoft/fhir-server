@@ -4,7 +4,7 @@
             "commandName": "Project",
             "environmentVariables": {
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-                "DataStore": "CosmosDb",
+                "DataStore": "SqlServer",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
             "applicationUrl": "https://localhost:44348/"
@@ -31,6 +31,7 @@
                 "TaskHosting:MaxRunningTaskCount": "2",
                 "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "FhirServer:Operations:Import:Enabled": "true",
+                "FhirServer:Operations:Export:Enabled": "true",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
             "applicationUrl": "https://localhost:44348/"
