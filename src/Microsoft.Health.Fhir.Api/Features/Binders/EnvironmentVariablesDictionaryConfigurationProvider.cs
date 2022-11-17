@@ -22,11 +22,17 @@ public class EnvironmentVariablesDictionaryConfigurationProvider : IConfiguratio
     private readonly IConfigurationProvider _configurationProvider;
 
     public EnvironmentVariablesDictionaryConfigurationProvider()
+        : this(new EnvironmentVariablesConfigurationProvider())
     {
-        _configurationProvider = new EnvironmentVariablesConfigurationProvider();
-        Data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Creates a <see cref="EnvironmentVariablesDictionaryConfigurationProvider"/> with a customer <see cref="IConfigurationProvider"/>.
+    /// </summary>
+    /// <param name="configurationProvider">Custom configuration provider.</param>
+    /// <remarks>
+    /// Constructor only used for testing purposes.
+    /// </remarks>
     public EnvironmentVariablesDictionaryConfigurationProvider(IConfigurationProvider configurationProvider)
     {
         EnsureArg.IsNotNull(configurationProvider, nameof(configurationProvider));

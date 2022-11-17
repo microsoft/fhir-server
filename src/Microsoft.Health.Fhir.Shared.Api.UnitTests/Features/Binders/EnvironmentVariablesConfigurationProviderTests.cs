@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
     public sealed class EnvironmentVariablesConfigurationProviderTests
     {
         [Fact]
-        public void Test()
+        public void GivenAMockConfigurationProvider_WhenInitialized_ThenEnsureAllCustomEnvironmentVariablesAreIncluded()
         {
             MockConfigurationProvider mockProvider = new MockConfigurationProvider(
                 new Dictionary<string, string>()
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
         }
 
         [Fact]
-        public void Test2()
+        public void GivenARealConfigurationProvider_WhenInitialized_ThenEnsureAllEnvironmentVariablesAreIncluded()
         {
             var environmentVariables = Environment.GetEnvironmentVariables();
             var environmentVariablesAsDictionary = new Dictionary<string, string>();
