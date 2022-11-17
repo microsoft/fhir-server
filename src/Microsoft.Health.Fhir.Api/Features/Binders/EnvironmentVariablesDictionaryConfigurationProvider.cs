@@ -8,16 +8,18 @@ using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
-using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Binders;
 
 /// <summary>
-/// Detects JSON dictionaries in environment variables and converts them to <see cref="IConfiguration"/> values.
+/// Detects JSON dictionaries in variables and converts them to <see cref="IConfiguration"/> values.
 /// This allows the built-in binder to hydrate <see cref="Dictionary{TKey,TValue}"/> typed configuration properties.
 /// </summary>
-public class EnvironmentVariablesDictionaryConfigurationProvider : IConfigurationProvider
+/// <remarks>
+/// This configuration provider ignores other variables if not in JSON format.
+/// </remarks>
+public class EnvironmentVariablesDictionaryConfigurationProvider : ConfigurationProvider
 {
     private readonly IConfigurationProvider _configurationProvider;
 
@@ -41,17 +43,10 @@ public class EnvironmentVariablesDictionaryConfigurationProvider : IConfiguratio
         Data = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// The configuration key value pairs for this provider.
-    /// </summary>
-    protected IDictionary<string, string> Data { get; private set; }
-
-    public IEnumerable<string> GetChildKeys(IEnumerable<string> earlierKeys, string parentPath) => _configurationProvider.GetChildKeys(earlierKeys, parentPath);
-
-    public IChangeToken GetReloadToken() => _configurationProvider.GetReloadToken();
-
-    public void Load()
+    public override void Load()
     {
+        base.Load();
+
         _configurationProvider.Load();
 
         IEnumerable<string> keys = _configurationProvider.GetChildKeys(Array.Empty<string>(), null);
@@ -71,16 +66,8 @@ public class EnvironmentVariablesDictionaryConfigurationProvider : IConfiguratio
                     data.Add($"{environmentVariableName}:{kvp.Key}", kvp.Value);
                 }
             }
-            else
-            {
-                data.Add(environmentVariableName, environmentVariableValue);
-            }
         }
 
         Data = data;
     }
-
-    public void Set(string key, string value) => _configurationProvider.Set(key, value);
-
-    public bool TryGet(string key, out string value) => Data.TryGetValue(key, out value);
 }

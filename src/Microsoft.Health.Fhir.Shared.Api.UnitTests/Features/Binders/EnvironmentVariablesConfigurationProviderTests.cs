@@ -6,11 +6,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Binders;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
@@ -32,39 +34,94 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
 
             configurationProvider.Load();
 
+            Assert.Single(configurationProvider.GetChildKeys(Array.Empty<string>(), null));
             Assert.True(configurationProvider.TryGet("FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides:visionprescription", out string visionPrescriptionValue));
             Assert.Equal("versioned", visionPrescriptionValue);
         }
 
         [Fact]
-        public void GivenARealConfigurationProvider_WhenInitialized_ThenEnsureAllEnvironmentVariablesAreIncluded()
+        public void GivenARealConfigurationProvider_WhenInitialized_ThenEnsureJustVariablesWithJsonAreReturned()
         {
             var environmentVariables = Environment.GetEnvironmentVariables();
-            var environmentVariablesAsDictionary = new Dictionary<string, string>();
-
             IDictionaryEnumerator e = environmentVariables.GetEnumerator();
+
+            var environmentVariablesAsDictionary = new Dictionary<string, string>();
+            int variablesInJsonFormat = 0;
             while (e.MoveNext())
             {
                 DictionaryEntry entry = e.Entry;
                 string key = (string)entry.Key;
-                environmentVariablesAsDictionary.Add((string)entry.Key, (string)entry.Value);
-            }
+                string value = (string)entry.Value;
+                environmentVariablesAsDictionary.Add(key, value);
 
-            MockConfigurationProvider mockProvider = new MockConfigurationProvider(environmentVariablesAsDictionary);
-            EnvironmentVariablesDictionaryConfigurationProvider configurationProvider = new EnvironmentVariablesDictionaryConfigurationProvider(mockProvider);
-            configurationProvider.Load();
+                if (HasJsonStructure(value))
+                {
+                    Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
+                    variablesInJsonFormat += asDictionary.Count;
+                }
+            }
 
             EnvironmentVariablesDictionaryConfigurationProvider defaultConfigurationProvider = new EnvironmentVariablesDictionaryConfigurationProvider();
             defaultConfigurationProvider.Load();
 
-            foreach (string key in environmentVariables.Keys)
-            {
-                Assert.True(configurationProvider.TryGet(key, out string value1));
-                Assert.True(defaultConfigurationProvider.TryGet(key, out string value2));
-
-                Assert.Equal(value1, value2);
-            }
+            int numberOfJsonVariablesInDefaultProvider = defaultConfigurationProvider.GetChildKeys(Array.Empty<string>(), null).Count();
+            Assert.Equal(variablesInJsonFormat, numberOfJsonVariablesInDefaultProvider);
         }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenAMockConfigurationProvider_WhenInitialized_ThenEnsureJustVariablesWithJsonAreReturned(bool loadLocalEnvironmentVariablesInsteadOfFakeOnes)
+        {
+            IDictionaryEnumerator e = null;
+
+            if (loadLocalEnvironmentVariablesInsteadOfFakeOnes)
+            {
+                var environmentVariables = Environment.GetEnvironmentVariables();
+                e = environmentVariables.GetEnumerator();
+            }
+            else
+            {
+                var customVariables = new Dictionary<string, string>()
+                {
+                    { "FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides", "{ \"account\": \"no-version\", \"visionprescription\": \"versioned\", \"activitydefinition\": \"versioned-update\" }" },
+                };
+                e = customVariables.GetEnumerator();
+            }
+
+            var environmentVariablesAsDictionary = new Dictionary<string, string>();
+            int variablesInJsonFormat = 0;
+            int variablesCount = 0;
+            while (e.MoveNext())
+            {
+                variablesCount++;
+
+                DictionaryEntry entry = e.Entry;
+                string key = (string)entry.Key;
+                string value = (string)entry.Value;
+                environmentVariablesAsDictionary.Add(key, value);
+
+                if (HasJsonStructure(value))
+                {
+                    Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
+                    variablesInJsonFormat += asDictionary.Count;
+                }
+            }
+
+            MockConfigurationProvider mockProviderWithAllEnvironmentVariables = new MockConfigurationProvider(environmentVariablesAsDictionary);
+            mockProviderWithAllEnvironmentVariables.Load();
+
+            int mockProviderTotalNumberOfVariables = mockProviderWithAllEnvironmentVariables.GetChildKeys(Array.Empty<string>(), null).Count();
+            Assert.Equal(variablesCount, mockProviderTotalNumberOfVariables);
+
+            EnvironmentVariablesDictionaryConfigurationProvider mockConfigurationProvider = new EnvironmentVariablesDictionaryConfigurationProvider(mockProviderWithAllEnvironmentVariables);
+            mockConfigurationProvider.Load();
+
+            int numberOfJsonVariablesInMockProvider = mockConfigurationProvider.GetChildKeys(Array.Empty<string>(), null).Count();
+            Assert.Equal(variablesInJsonFormat, numberOfJsonVariablesInMockProvider);
+        }
+
+        private static bool HasJsonStructure(string value) => value.Trim().StartsWith("{", StringComparison.Ordinal);
 
         public sealed class MockConfigurationProvider : IConfigurationProvider
         {

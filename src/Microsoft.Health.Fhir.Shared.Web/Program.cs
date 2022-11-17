@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Web
                 .UseContentRoot(Path.GetDirectoryName(typeof(Program).Assembly.Location))
                 .ConfigureAppConfiguration((hostContext, builder) =>
                 {
-                    builder.Sources.Add(new GenericConfigurationSource<EnvironmentVariablesDictionaryConfigurationProvider>());
+                    builder.Sources.Add(new GenericConfigurationSource(() => new EnvironmentVariablesDictionaryConfigurationProvider()));
 
                     var builtConfig = builder.Build();
 
