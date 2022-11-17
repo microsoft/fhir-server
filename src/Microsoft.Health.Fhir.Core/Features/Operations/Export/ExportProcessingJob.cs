@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -37,12 +38,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // The etag passed to the ExportJobTask is unused, the actual etag is managed in the JobHosting class.
             exportJobTask.UpdateExportJob = UpdateExportJob;
             Task exportTask = exportJobTask.ExecuteAsync(record, WeakETag.FromVersionId("0"), cancellationToken);
-            return exportTask.ContinueWith<string>(
+            return exportTask.ContinueWith(
                 (Task parent) =>
                 {
                     switch (record.Status)
                     {
                         case OperationStatus.Completed:
+                            if (record.Output != null)
+                            {
+                                jobInfo.Data = record.Output.Values.Sum(infos => infos.Sum(info => info.Count));
+                            }
+
                             return JsonConvert.SerializeObject(record);
                         case OperationStatus.Failed:
                             throw new JobExecutionException(record.FailureDetails.FailureReason, record);
