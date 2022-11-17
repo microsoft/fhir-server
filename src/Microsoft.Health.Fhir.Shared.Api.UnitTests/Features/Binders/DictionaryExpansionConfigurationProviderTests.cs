@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
-    public sealed class EnvironmentVariablesConfigurationProviderTests
+    public sealed class DictionaryExpansionConfigurationProviderTests
     {
         [Fact]
         public void GivenAMockConfigurationProvider_WhenInitialized_ThenEnsureAllCustomEnvironmentVariablesAreIncluded()
@@ -27,16 +27,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
             MockConfigurationProvider mockProvider = new MockConfigurationProvider(
                 new Dictionary<string, string>()
                 {
-                    { "FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides", "{ \"visionprescription\": \"versioned\" }" },
+                    { "FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides1", "{ \"visionprescription\": \"versioned\" }" },
+                    { "FhirServer", "{ \"visionprescription\": \"versioned\" }" },
+                    { "FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides2", "{ \"account\": \"no-version\", \"visionprescription\": \"versioned\", \"activitydefinition\": \"versioned-update\" }" },
                 });
 
             DictionaryExpansionConfigurationProvider configurationProvider = new DictionaryExpansionConfigurationProvider(mockProvider);
 
             configurationProvider.Load();
 
-            Assert.Single(configurationProvider.GetChildKeys(Array.Empty<string>(), null));
-            Assert.True(configurationProvider.TryGet("FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides:visionprescription", out string visionPrescriptionValue));
-            Assert.Equal("versioned", visionPrescriptionValue);
+            Assert.Equal(expected: 5, configurationProvider.GetChildKeys(Array.Empty<string>(), null).Count());
+
+            Assert.True(configurationProvider.TryGet("FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides1:visionprescription", out string visionPrescriptionValue1));
+            Assert.Equal("versioned", visionPrescriptionValue1);
+
+            Assert.True(configurationProvider.TryGet("FhirServer:visionprescription", out string visionPrescriptionValue2));
+            Assert.Equal("versioned", visionPrescriptionValue2);
+
+            Assert.True(configurationProvider.TryGet("FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides2:account", out string accountValue1));
+            Assert.Equal("no-version", accountValue1);
+
+            Assert.True(configurationProvider.TryGet("FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides2:visionprescription", out string visionPrescriptionValue3));
+            Assert.Equal("versioned", visionPrescriptionValue3);
+
+            Assert.True(configurationProvider.TryGet("FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides2:activitydefinition", out string activityDefinitionValue1));
+            Assert.Equal("versioned-update", activityDefinitionValue1);
         }
 
         [Fact]
