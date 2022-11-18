@@ -398,7 +398,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(_jobInfo.QueueType, definitions, _jobInfo.GroupId, false, false, cancellationToken)).First();
+                JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(_jobInfo.QueueType, definitions, _jobInfo.GroupId, false, false, cancellationToken))[0];
 
                 return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
             }
