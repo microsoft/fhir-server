@@ -109,8 +109,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         [InlineData(OperationStatus.Canceled, 0)]
         [InlineData(OperationStatus.Completed, 0)]
-        [InlineData(OperationStatus.Queued, 1)]
         [InlineData(OperationStatus.Failed, 0)]
+        [InlineData(OperationStatus.Queued, 1)]
         public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned(OperationStatus operationStatus, int expectedNumberOfJobsReturned)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
