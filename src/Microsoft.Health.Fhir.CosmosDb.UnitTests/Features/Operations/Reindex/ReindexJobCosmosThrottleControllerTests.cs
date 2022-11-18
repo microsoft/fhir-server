@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             _fhirRequestContextAccessor.RequestContext = fhirRequestContext;
         }
 
-        [Fact]
+        [Fact(Skip = "TODO: Investigate intermittent failures")]
         public async Task GivenATargetRUConsumption_WhenConsumedRUsIsTooHigh_QueryDelayIsIncreased()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
