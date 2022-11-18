@@ -79,23 +79,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (!long.TryParse(id, out var jobId))
             {
-                // Invoke old logic. Must be eventually removed.
-                using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.GetExportJobById.PopulateCommand(sqlCommandWrapper, id);
-                using var readerToBeDeprecated = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-                if (!await readerToBeDeprecated.ReadAsync(cancellationToken))
-                {
-                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
-                }
-
-                (string rawJobRecordToBeDeprecated, byte[] rowVersion) = readerToBeDeprecated.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
-                return CreateExportJobOutcomeToBeDeprecated(rawJobRecordToBeDeprecated, rowVersion);
-            }
-
-            if (jobId < 0)
-            {
                 throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
             }
 

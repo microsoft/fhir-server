@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
@@ -30,13 +29,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
     {
         private readonly IFhirOperationDataStore _operationDataStore;
         private readonly IFhirStorageTestHelper _testHelper;
-        private readonly FhirStorageTestsFixture _fixture;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), ExportJobType.All);
 
         public FhirOperationDataStoreExportTests(FhirStorageTestsFixture fixture)
         {
-            _fixture = fixture;
             _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
         }
@@ -49,19 +46,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         public Task DisposeAsync()
         {
             return Task.CompletedTask;
-        }
-
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task ReturnExportRegisteredInOldSchema()
-        {
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.RequestType, ExportFormatTags.ResourceName, _exportRequest.ResourceType, null, "hash", rollingFileSizeInMB: 64);
-            var raw = JsonConvert.SerializeObject(jobRecord);
-            var jobId = jobRecord.Id;
-            await _fixture.SqlHelper.ExecuteSqlCmd("INSERT INTO dbo.ExportJob (Id, Hash, Status, RawJobRecord) SELECT '" + jobId + "', 'test', 'Queued', '" + raw + "'");
-            var outcome = await _operationDataStore.GetExportJobByIdAsync(jobId, CancellationToken.None);
-            Assert.NotNull(outcome);
-            Assert.Equal(jobId, outcome.JobRecord.Id);
         }
 
         [Fact]
@@ -122,23 +106,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Theory]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         [InlineData(OperationStatus.Canceled, 0)]
         [InlineData(OperationStatus.Completed, 0)]
         [InlineData(OperationStatus.Queued, 1)]
-        public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned1(OperationStatus operationStatus, int expectedNumberOfJobsReturned)
-        {
-            ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
-
-            IReadOnlyCollection<ExportJobOutcome> jobs = await AcquireExportJobsAsync();
-
-            Assert.NotNull(jobs);
-            Assert.Equal(expectedNumberOfJobsReturned, jobs.Count);
-        }
-
-        [Theory]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // TODO: Investigate whether this test should be moved to job hosting
         [InlineData(OperationStatus.Failed, 0)]
-        public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned2(OperationStatus operationStatus, int expectedNumberOfJobsReturned)
+        public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned(OperationStatus operationStatus, int expectedNumberOfJobsReturned)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
 
@@ -149,8 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Theory]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // TODO: Investigate whether this test should be moved to job hosting
-        ////TODO: Revise below when per instance max is introduced.
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         [InlineData(1, 1)]
         [InlineData(2, 2)]
         [InlineData(3, 2)]
@@ -213,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // TODO: Adopt for SQL when checked in.
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenThereAreQueuedExportJobs_WhenSimultaneouslyAcquiringExportJobs_ThenCorrectExportJobsShouldBeReturned()
         {
             ExportJobRecord[] jobRecords = new[]
@@ -268,7 +240,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // TODO: Investigate whether this test should be moved to job hosting
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenARunningExportJob_WhenUpdatingTheExportJob_ThenTheExportJobShouldBeUpdated()
         {
             ExportJobOutcome jobOutcome = await CreateRunningExportJob();
@@ -299,7 +271,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)] // TODO: Investigate whether this test should be moved to job hosting
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenANonexistentExportJob_WhenUpdatingTheExportJob_ThenJobNotFoundExceptionShouldBeThrown()
         {
             ExportJobOutcome jobOutcome = await CreateRunningExportJob();
