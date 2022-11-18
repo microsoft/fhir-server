@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -115,6 +115,15 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ContinuationTokenSize &apos;{0}&apos;Kb specified in the request is invalid. Valid limits are between 1 - 3 Kb..
+        /// </summary>
+        internal static string InvalidCosmosContinuationTokenSize {
+            get {
+                return ResourceManager.GetString("InvalidCosmosContinuationTokenSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Internal server error: the input bytes are not in base64 format..
         /// </summary>
         internal static string InvalidInputBytes {
@@ -201,12 +210,6 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         internal static string UnrecognizedConsistencyLevel {
             get {
                 return ResourceManager.GetString("UnrecognizedConsistencyLevel", resourceCulture);
-            }
-        }
-
-        internal static string InvalidCosmosContinuationTokenSize {
-            get {
-                return ResourceManager.GetString("InvalidCosmosContinuationTokenSize", resourceCulture);
             }
         }
     }
