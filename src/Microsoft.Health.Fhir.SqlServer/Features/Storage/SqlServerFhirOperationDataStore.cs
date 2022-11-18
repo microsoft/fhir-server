@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (jobRecord.Status != OperationStatus.Canceled)
             {
-                throw new NotSupportedException("Deprecated.");
+                throw new NotSupportedException($"Deprecated. Status={jobRecord.Status}");
             }
 
             eTag ??= WeakETag.FromVersionId("0");
