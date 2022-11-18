@@ -203,5 +203,11 @@ namespace Microsoft.Health.Fhir.CosmosDb {
                 return ResourceManager.GetString("UnrecognizedConsistencyLevel", resourceCulture);
             }
         }
+
+        internal static string InvalidCosmosContinuationTokenSize {
+            get {
+                return ResourceManager.GetString("InvalidCosmosContinuationTokenSize", resourceCulture);
+            }
+        }
     }
 }

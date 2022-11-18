@@ -14,5 +14,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public const string RequestCharge = "x-ms-request-charge";
 
         public const string SubStatus = "x-ms-substatus";
+
+        public const string CosmosContinuationTokenSize = "x-ms-continuation-token-size";
     }
 }
