@@ -66,12 +66,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return;
             }
 
+            _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb = Constants.ContinuationTokenDefaultLimit;
             if (fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbHeaders.CosmosContinuationTokenSize, out var tokenSize))
             {
                 var intTokenSize = int.TryParse(tokenSize, out var count) ? count : 0;
                 if (intTokenSize != 0)
                 {
-                    if (intTokenSize < 1 || intTokenSize > 3)
+                    if (intTokenSize < Constants.ContinuationTokenMinLimit || intTokenSize > Constants.ContinuationTokenMaxLimit)
                     {
                         throw new BadRequestException(string.Format(Resources.InvalidCosmosContinuationTokenSize, tokenSize));
                     }
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 else
                 {
-                   throw new BadRequestException(string.Format(Resources.InvalidCosmosContinuationTokenSize, tokenSize));
+                    throw new BadRequestException(string.Format(Resources.InvalidCosmosContinuationTokenSize, tokenSize));
                 }
             }
 
