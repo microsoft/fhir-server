@@ -16,7 +16,4 @@
   </ItemGroup>
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Api.UnitTests\Microsoft.Health.Fhir.Shared.Api.UnitTests.projitems" Label="Shared" />
-  <ItemGroup>
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Api.UnitTests\Features\Binders\DictionaryExpansionConfigurationProviderTests.cs" Link="DictionaryExpansionConfigurationProviderTests.cs" />
-  </ItemGroup>
 </Project>
