@@ -133,6 +133,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string RestartCount = "restartCount";
 
+        public const string TypeId = "typeId";
+
+        public const string Parallel = "parallel";
+
         public const string SmartRequest = "smartRequest";
     }
 }
