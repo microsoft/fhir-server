@@ -296,23 +296,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                var stringBuilder = new IndentedStringBuilder(new StringBuilder());
+                var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
+                if (exportTimeTravel)
+                {
+                    PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommandWrapper);
+                }
+                else
+                {
+                    var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
-                EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
+                    EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
-                var queryGenerator = new SqlQueryGenerator(
-                    stringBuilder,
-                    new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters)),
-                    _model,
-                    searchType,
-                    _schemaInformation,
-                    currentSearchParameterHash);
+                    var queryGenerator = new SqlQueryGenerator(
+                        stringBuilder,
+                        new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters)),
+                        _model,
+                        searchType,
+                        _schemaInformation,
+                        currentSearchParameterHash);
 
-                expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
+                    expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
-                SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
+                    SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
 
-                sqlCommandWrapper.CommandText = stringBuilder.ToString();
+                    sqlCommandWrapper.CommandText = stringBuilder.ToString();
+                }
 
                 LogSqlCommand(sqlCommandWrapper);
 
@@ -440,7 +448,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     await reader.NextResultAsync(cancellationToken);
 
                     ContinuationToken continuationToken =
-                        moreResults
+                        moreResults && !exportTimeTravel // with query hints all results are returned on single page
                             ? new ContinuationToken(
                                 clonedSearchOptions.Sort.Select(s =>
                                     s.searchParameterInfo.Name switch
@@ -480,11 +488,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        public override async Task<SearchResult> SearchByDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
+        private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommandWrapper cmd)
         {
-            long startId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
-            long endId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
-            return await SearchBySurrogateIdRange(resourceType, startId, endId, startId, endId, cancellationToken);
+            var hints = options.QueryHints;
+            var type = _model.GetResourceTypeId(hints.First(_ => _.Param == KnownQueryParameterNames.Type).Value);
+            var startId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            var endId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
+            var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
+            VLatest.GetResourcesByTypeAndSurrogateIdRange.PopulateCommand(cmd, type, startId, endId, globalStartId, globalEndId);
         }
 
         /// <summary>
@@ -568,60 +580,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        public override async Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(string resourceType, DateTime startTime, DateTime endTime, int numberOfRanges, CancellationToken cancellationToken)
-        {
-            long startId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(startTime);
-            long endId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(endTime);
-            var surrogateIdResults = await GetSurrogateIdRange(resourceType, startId, endId, numberOfRanges, cancellationToken);
-            var dateTimeResults = new List<Tuple<DateTime, DateTime>>();
-
-            foreach (var result in surrogateIdResults)
-            {
-                dateTimeResults.Add(new Tuple<DateTime, DateTime>(
-                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Item1),
-                    ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(result.Item2)));
-            }
-
-            return dateTimeResults;
-        }
-
-        public async Task<IReadOnlyList<Tuple<long, long>>> GetSurrogateIdRange(string resourceType, long startId, long endId, int numberOfRanges, CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, CancellationToken cancellationToken)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            try
+            var ranges = new List<(long start, long end)>(numberOfRanges);
+            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, rangeSize, numberOfRanges);
+            using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
             {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, 1000, 100);
-                using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-                long resourceCount = 0;
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    var count = reader.GetInt32(3);
-                    resourceCount += count;
-                }
-
-                int countPerPage = (int)(resourceCount / numberOfRanges) + 1;
-
-                using SqlConnectionWrapper sqlConnectionWrapper2 = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper2 = sqlConnectionWrapper2.CreateRetrySqlCommand();
-
-                VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper2, resourceTypeId, startId, endId, countPerPage, numberOfRanges);
-                using SqlDataReader reader2 = await sqlCommandWrapper2.ExecuteReaderAsync(cancellationToken);
-
-                var ranges = new List<Tuple<long, long>>(numberOfRanges);
-                while (await reader2.ReadAsync(cancellationToken))
-                {
-                    ranges.Add(new Tuple<long, long>(reader2.GetInt64(1), reader2.GetInt64(2)));
-                }
-
-                return ranges;
+                ranges.Add((reader.GetInt64(1), reader.GetInt64(2)));
             }
-            catch (Exception)
+
+            return ranges;
+        }
+
+        public override long GetSurrogateId(DateTime dateTime)
+        {
+            return ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(dateTime);
+        }
+
+        public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        {
+            var resourceTypes = new List<(short ResourceTypeId, string Name)>();
+            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            VLatest.GetUsedResourceTypes.PopulateCommand(sqlCommandWrapper);
+            using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
             {
-                throw;
+                resourceTypes.Add((reader.GetInt16(0), reader.GetString(1)));
             }
+
+            return resourceTypes;
         }
 
         /// <summary>

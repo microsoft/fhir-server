@@ -213,21 +213,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        public virtual Task<SearchResult> SearchByDateTimeRange(
+        public virtual Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
             string resourceType,
-            DateTime startTime,
-            DateTime endTime,
+            long startId,
+            long endId,
+            int rangeSize,
+            int numberOfRanges,
             CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public virtual Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(
-            string resourceType,
-            DateTime startTime,
-            DateTime endTime,
-            int numberOfRanges,
-            CancellationToken cancellationToken)
+        public virtual long GetSurrogateId(DateTime dateTime)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
