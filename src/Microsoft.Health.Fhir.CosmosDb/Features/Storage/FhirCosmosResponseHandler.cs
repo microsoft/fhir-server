@@ -66,7 +66,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return;
             }
 
-            _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb = Constants.ContinuationTokenDefaultLimit;
             if (fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbHeaders.CosmosContinuationTokenSize, out var tokenSize))
             {
                 var intTokenSize = int.TryParse(tokenSize, out var count) ? count : 0;
@@ -77,17 +76,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         throw new BadRequestException(string.Format(Resources.InvalidCosmosContinuationTokenSize, tokenSize));
                     }
 
-                    _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb = intTokenSize;
+                    options.Headers[_continuationTokenLimitHeaderName] = intTokenSize.ToString();
                 }
                 else
                 {
                     throw new BadRequestException(string.Format(Resources.InvalidCosmosContinuationTokenSize, tokenSize));
                 }
             }
-
-            if (_cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb != null)
+            else
             {
-                options.Headers[_continuationTokenLimitHeaderName] = _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb.ToString();
+                if (_cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb != null)
+                {
+                    options.Headers[_continuationTokenLimitHeaderName] = _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb.ToString();
+                }
             }
 
             (ConsistencyLevel? consistencyLevel, string sessionToken) = GetConsistencyHeaders();
