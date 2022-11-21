@@ -1,4 +1,4 @@
-$FHIR_URL = "https://mikaelwsmart4ahds-fhirdata.fhir.azurehealthcareapis.com"
+$FHIR_URL = "https://workspace-fhirdata.fhir.azurehealthcareapis.com"
 
 git clone https://github.com/microsoft/fhir-loader.git
 cd fhir-loader

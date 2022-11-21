@@ -3,10 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-import { Client } from '@microsoft/microsoft-graph-client';
+import { Client, ResponseType } from '@microsoft/microsoft-graph-client';
 import { Application, OAuth2PermissionGrant, ServicePrincipal, User } from '@microsoft/microsoft-graph-types';
 import { scopes } from './Config';
-import { msalInstance } from "./index";
+import { msalInstance } from "./App";
+import { resultContent } from '@fluentui/react/lib/components/FloatingPicker/PeoplePicker/PeoplePicker.scss';
 
 let graphClient: Client | undefined = undefined;
 
@@ -15,7 +16,7 @@ async function ensureClient() {
 
     const account = msalInstance.getActiveAccount();
     if (!account) {
-        throw Error("No active account! Verify a user has been signed in and setActiveAccount has been called.");
+      throw Error("No active account! Verify a user has been signed in and setActiveAccount has been called.");
     }
 
     const response = await msalInstance.acquireTokenSilent({
@@ -38,27 +39,25 @@ export async function getUser(): Promise<User> {
 
   let user: User;
 
-  try
-  {
-    // Return the /me API endpoint result as a User object
-    user = await graphClient!.api('/me')
-      // Only retrieve the specific fields needed
-      .select('displayName,mail,mailboxSettings,userPrincipalName,id')
-      .get();
-  }
-  catch (err : any)
-  {
-    // App won't have info for guest users
-    if (err.body.includes("AadGuestPft"))
-    {
+  // Return the /me API endpoint result as a User object
+  const response = await graphClient!.api('/me')
+    // Only retrieve the specific fields needed
+    .select('displayName,mail,mailboxSettings,userPrincipalName,id')
+    .responseType(ResponseType.RAW)
+    .get();
+
+  if (response.ok) {
+    user = await response.json();
+  } else {
+    const errResponseText = await response.text();
+    if (errResponseText.includes("AadGuestPft")) {
       const account = msalInstance.getActiveAccount();
       return {
         id: account?.localAccountId,
         displayName: account?.name ?? "Guest User"
       };
     }
-    
-    throw err;
+    throw Error(`Graph API returned ${response.status}: ${response.statusText}`);
   }
 
   return user;
@@ -67,38 +66,101 @@ export async function getUser(): Promise<User> {
 export async function getApplication(appId: string): Promise<Application | undefined> {
   await ensureClient();
 
-  const app = await graphClient?.api(`/applications?`)
+  const result = await graphClient?.api(`/applications?`)
     .query(`$search="appId%3A${appId}"`)
     .header('ConsistencyLevel', 'eventual')
+    .responseType(ResponseType.RAW)
     .get();
 
-  if (app.value.length == 1)
-  {
-    return app.value[0]; 
+  if (result.status === 200) {
+    const json = await result.json();
+
+    if (json.value.length == 1) {
+      return json.value[0];
+    }
+    else if (json.value.length > 1) {
+        throw Error(`Multiple applications found with appId ${appId}`);
+    }
+
+    throw Error(`No application found with appId ${appId}`);
   }
+
+  throw Error(`Error getting application with appId ${appId}: ${result.status} ${result.statusText}`);
 }
 
 export async function getServicePrincipal(appId: string): Promise<ServicePrincipal | undefined> {
   await ensureClient();
 
-  const app = await graphClient?.api(`/servicePrincipals?`)
+  const result = await graphClient?.api(`/servicePrincipals?`)
     .query(`$search="appId%3A${appId}"`)
     .header('ConsistencyLevel', 'eventual')
-    .select('id,displayName,appRoles,oauth2PermissionScopes')
+    .select('id,appId,displayName,appRoles,oauth2PermissionScopes')
+    .responseType(ResponseType.RAW)
     .get();
 
-  if (app.value.length == 1)
-  {
-    return app.value[0]; 
+  if (result.status == 200) {
+    const json = await result.json();
+
+    if (json.value.length == 1) {
+      const sp = json.value[0];
+      return sp;
+    } else if (json.value.length > 1) {
+      throw Error(`Multiple service principals found for appId ${appId}`);
+    }
+    throw Error(`No service principal found for app ${appId}`);
   }
+
+  throw Error(`Error ${result.status} returned from Graph API Service Principal query.`);
 }
 
 export async function getAppCurrentScopes(appObjectId: string, userId: string): Promise<OAuth2PermissionGrant[]> {
   await ensureClient();
 
-  const permissionList = await graphClient?.api(`/oauth2PermissionGrants`)
+  const result = await graphClient?.api(`/oauth2PermissionGrants`)
     .filter(`clientId eq '${appObjectId}' and principalId eq '${userId}'`)
+    .responseType(ResponseType.RAW)
     .get();
 
-  return permissionList.value;
+  if (result.status == 200) {
+    const json = await result.json();
+    return json.value;
+  }
+
+  throw Error(`Error ${result.status} returned from Graph API OAuth2PermissionGrant query.`);
+}
+
+export async function patchAppCurrentScopes(grantId: string, scope: string): Promise<void> {
+  await ensureClient();
+
+  const result = await graphClient?.api(`/oauth2PermissionGrants/${grantId}`)
+  .responseType(ResponseType.RAW)
+  .patch({"scope": scope});
+
+  if (result.status == 204) {
+    return
+  }
+
+  throw Error(`Error ${result.status} returned from Graph API OAuth2PermissionGrant update.`);
+}
+
+export async function createAppCurrentScopes(clientId: string, principalId: string, resourceId: string, scope: string): Promise<OAuth2PermissionGrant> {
+  await ensureClient();
+
+  const body : OAuth2PermissionGrant = {
+    "clientId": clientId,
+    "consentType": "Principal",
+    "principalId": principalId,
+    "resourceId": resourceId,
+    "scope": scope
+  };
+
+  const result = await graphClient?.api(`/oauth2PermissionGrants`)
+  .responseType(ResponseType.RAW)
+  .post(body);
+
+  if (result.status == 201) {
+    return result.value;
+  }
+
+  throw Error(`Error ${result.status} returned from Graph API OAuth2PermissionGrant create.`);
 }
