@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly ILogger _logger;
         private bool _storageReady;
 
-        private const int MaximumDelayInSeconds = 3601;
+        private const int MaximumDelayInSeconds = 3600;
 
         public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
         {
