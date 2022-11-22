@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                         .GroupBy(_ => _.ResourceType)
                                         .ToDictionary(_ => _.Key, _ => Tuple.Create(_.Max(r => GetSequence(r)), _.Max(r => long.Parse(r.EndSurrogateId))));
 
-                foreach (var type in resourceTypes)
+                Parallel.ForEach(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4 }, type =>
                 {
                     var startId = globalStartId;
                     var sequence = 0;
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     while (rows > 0)
                     {
                         var definitions = new List<string>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRaneSize, NumberOfSurrogateIdRanges, cancellationToken);
+                        var ranges = _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRaneSize, NumberOfSurrogateIdRanges, cancellationToken).Result;
                         foreach (var range in ranges)
                         {
                             if (range.EndId > startId)
@@ -99,10 +99,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         rows = definitions.Count;
                         if (rows > 0)
                         {
-                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
+                            _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken).Wait(cancellationToken);
                         }
                     }
-                }
+                });
             }
             else if (groupJobs.Count == 1)
             {
