@@ -50,7 +50,7 @@ function New-FhirServerApiApplicationRegistration {
     if ([string]::IsNullOrEmpty($FhirServiceAudience)) {
         $FhirServiceAudience = Get-ServiceAudience -ServiceName $FhirServiceName -TenantId $TenantId
     }
-    
+
     $desiredAppRoles = @()
     foreach ($role in $AppRoles) {
         $id = New-Guid
