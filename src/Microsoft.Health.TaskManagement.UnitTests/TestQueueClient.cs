@@ -115,7 +115,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult(job);
         }
 
-        public Task<IEnumerable<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
         {
             List<JobInfo> result = new List<JobInfo>();
 
@@ -141,13 +141,13 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
 
             jobInfos.AddRange(result);
-            return Task.FromResult<IEnumerable<JobInfo>>(result);
+            return Task.FromResult<IReadOnlyList<JobInfo>>(result);
         }
 
-        public Task<IEnumerable<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
         {
-            IEnumerable<JobInfo> result = jobInfos.Where(t => t.GroupId == groupId);
-            return Task.FromResult<IEnumerable<JobInfo>>(result);
+            IReadOnlyList<JobInfo> result = jobInfos.Where(t => t.GroupId == groupId).ToList();
+            return Task.FromResult(result);
         }
 
         public Task<JobInfo> GetJobByIdAsync(byte queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken)
@@ -161,15 +161,15 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult(result);
         }
 
-        public Task<IEnumerable<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
         {
             if (GetJobByIdFunc != null)
             {
-                return Task.FromResult(jobIds.Select(jobId => GetJobByIdFunc(this, jobId, cancellationToken)));
+                return Task.FromResult((IReadOnlyList<JobInfo>)jobIds.Select(jobId => GetJobByIdFunc(this, jobId, cancellationToken)).ToList());
             }
 
-            IEnumerable<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id));
-            return Task.FromResult<IEnumerable<JobInfo>>(result);
+            IReadOnlyList<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id)).ToList();
+            return Task.FromResult<IReadOnlyList<JobInfo>>(result);
         }
 
         public bool IsInitialized()

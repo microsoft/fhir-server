@@ -64,12 +64,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var def = JsonConvert.SerializeObject(clone, _jsonSerializerSettings);
             var results = await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { def }, null, false, clone.Status == OperationStatus.Completed, cancellationToken);
 
-            if (results.Count() != 1)
+            if (results.Count != 1)
             {
                 throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Export, "Failed to create export job."), HttpStatusCode.InternalServerError);
             }
 
-            var jobInfo = results.First();
+            var jobInfo = results[0];
             return CreateExportJobOutcome(jobInfo, clone);
         }
 
