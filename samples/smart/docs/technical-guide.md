@@ -19,8 +19,12 @@ To successfully use this ONC (g)(10) sample, your Azure environment must be setu
     - Backend Services Auth Handler enables the auth flow for SMART backend services scenarios.
 - Storage Account
   - Needed for Azure Function, assorted static assets, and configuration tables.
+- Azure KeyVault
+  - Needed for JWKS authentication since Azure AD does not support the RSA384 or ES384 encryption algorithms.
+- Azure Static Web Apps
+  - Needed for the Patient Standalone authorize flow to properly handle scopes. Azure AD does not support session based scoping. 
 
-![](./overview-architecture.png)
+![](./images/overview-architecture.png)
 
 ## Conformance/Discovery
 
@@ -45,18 +49,20 @@ Azure Health Data Services needs some modification to the capability statement a
     participant FHIR
     App ->> APIM: /.well-known/smart-configuration
     APIM ->> App: Static JSON body defined by user
-    note over App, APIM: Sample with have preset, templated body
+    note over App, APIM: Response is configured in APIM
     App ->> APIM: /metadata
     APIM ->> FHIR: /metadata
     FHIR ->> APIM: Metadata response
-    note over APIM: Transformation will be templated
+    note over APIM: Transformation is configured in APIM
     APIM ->> App: Transformed metadata response
 ```
 
 ## EHR Launch
 
+TODO - confirm this diagram and write informational text (Erik).
+
 ```mermaid
-sequenceDiagram
+  sequenceDiagram
     participant User/App
     participant EHR
     participant APIM
@@ -99,112 +105,88 @@ SMART standalone launch refers to when an app launches from outside an EHR sessi
 
 Azure Active Directory does not have a mechanism for selecting a subset of scopes when approving/denying an application. Due to this, we have to serve a custom scope selection interface for standalone launch scenarios.
 
-<details>
-  <summary>Click to view standalone launch mappings to Inferno tests</summary>
-
-  - Goal of this is to pass Inferno Sections 1 and 2
-    - This also includes Inferno 9.1
-  - 1.1 will be handled by Conformance/Discovery
-  - 1.3 is handled by changes to the OAuth endpoints
-    - 1.3.08 must include the openid scope
-    - 1.3.10 is context based
-      - Using fhirUser scope (which also much be a claim in the access token)
-  - 1.5 tests Azure AD’s openid scope and related artifacts in detail
-  - 1.6 tests Azure AD’s token refresh
-  - 1.7 need US Core loaded, test resources loaded
-  - 2.1 needs a way for users to select limited scopes from those the app is asking for
-    - this will be tricky - may need a UI or some special API
-  - 2.3 confirms that resources are returned correctly
-
-</details>
-
-<br />
-
-### Overall Standalone Launch Client Flow
-
 ```mermaid
-sequenceDiagram
+  sequenceDiagram
     participant User/App
     participant APIM
-    participant Standalone Launch Handler
+    participant SMART Auth Custom Operations
     participant AAD
     participant FHIR
     participant Graph
     User/App ->> APIM: Discovery Request
     APIM ->> User/App: Discovery Repsonse
-    User/App ->> APIM: GET/POST /authorize
-    alt Patient Picker - out of scope but FYI
-        APIM ->> Standalone Launch Handler: Forward /authorize
-        Standalone Launch Handler ->> AAD: Fetch FHIR User
-        Standalone Launch Handler ->> FHIR: Fetch eligible patients
-        Standalone Launch Handler ->> User/App: Patient Picker static webpage
-        User/App ->> APIM: /authorize with selected Patient
-    end
+    User/App ->> APIM: /authorize
     alt Scope Selector
+        note over User/App: Session scope selection
         APIM ->> User/App: Scope Selector static webpage
-        User/App ->> APIM: /authorize with scopes selected
-        APIM ->> Standalone Launch Handler: List of user approved scopes
-        Standalone Launch Handler ->> Graph: Save user scope preferences for app
-        note over Standalone Launch Handler, Graph: This will prevent asking the user twice for permissions
-        note over Standalone Launch Handler, Graph: Uses delegated permission grant (if possible?)
+        opt Scope Update
+            User/App ->> APIM: User Selected Scopes
+            APIM ->> SMART Auth Custom Operations:  Forward User Selected Scopes
+            SMART Auth Custom Operations ->> Graph: Save user scope preferences for app
+        end
+        
+        User/App ->> APIM: Redirect: /authorize        
     end
 
-    APIM ->> Standalone Launch Handler: Forward /authorize request    
-    Standalone Launch Handler ->> AAD: /authorize
-    note over Standalone Launch Handler, AAD: Limited scopes, transformed
+    APIM ->> SMART Auth Custom Operations: Forward /authorize request    
+    SMART Auth Custom Operations ->> AAD: /authorize
+    note over SMART Auth Custom Operations, AAD: Limited scopes, transformed
     AAD ->> User/App: Authorization response (code)
     User/App ->> APIM: /token
-    APIM ->> Standalone Launch Handler: Forward /token request
-    Standalone Launch Handler ->> AAD: POST /token on behalf of user
-    AAD ->> Standalone Launch Handler: Access token response
-    note over Standalone Launch Handler: Handler will augment the /token response with proper scopes, context
-    note over Standalone Launch Handler: Handler will NOT create a new token
-    Standalone Launch Handler ->> APIM: Return token response
+    APIM ->> SMART Auth Custom Operations: Forward /token request
+    SMART Auth Custom Operations ->> AAD: POST /token on behalf of user
+    AAD ->> SMART Auth Custom Operations: Access token response
+    note over SMART Auth Custom Operations: Handler will augment the /token response with proper scopes, context
+    note over SMART Auth Custom Operations: Handler will NOT create a new token
+    SMART Auth Custom Operations ->> APIM: Return token response
     APIM ->> User/App: Forward token response
 ```
-
-[Link to digram in editor](https://mermaid.live/edit#pako:eNqlVk2P2kAM_StWTrsSK-45bIXEsotEuwjooRKXYeKQEcnMdGYC3a72v9czQ_imzdKcwLGf7ednw3vCVYZJmlj8WaPk2BdsaVg1l0CPZsYJLjSTDr5bNN2e1udveuPh13Pr1DGZsVJJhBGrJS_ghQwlmgsAvf65cfAynJxbnw3TRTQ3BcHD42OoIYW-sFyt0bzBxLdjXfT0L4NXE3Lsqa2SFq-CPj_NuuPX6Qy6rHaFMuL31peVDsbMCaS6xoKv0MADqNqByoHQNcKCvgx-DKP7USVX2UlhoMyGmewsnX-uhsV6e30KR0dmz15opm2sD2iCsRRLsSiRmA_d2bYge35PeLGOvnPY4EKz5UE_F-jetw0b4QqwWCJ3mDWQMRhlth_CNJA9DY7KXGB7X9ex63_V5ZHsrrzPzXgkbJBJTXmAaW1Ii9kWsi3ZYRWoI7bGiBM1pw3maPwqW8hVQN8jSuUQvO6vY3ca4FkhLLValh5y7YfJ7ErIJbhim9BtBMeQRKOphLWCFum2ZES4hYy4XDI_6z0e0DWi1HciB63IQrL8cn-ggZMN_9RegYlXwiNEnBb7dbqWrboMkSNRCbcbcwccdWaJvapRD3mdyLW3zUUqJSoMWu1PFdz5o31_9WJ1nVrhLcyEuIaV1ozE4xhjqcoFFqzMG3Ufd_aXInqcFGuhKSF22pridFdWUCyrl5VXrJdq9xgybi9tnG5WhkbBlXT4y92a7tvrDLhBki4wkLiBgwH8g8AwsAm62siLvV-4Yc24jt2TTlLR1jCR0a_5uw-eJ9R-hfMkpY8Z5qwu3TyZyw9yrXVG1T5lgq5gkuastNhJSNlq-iZ5kjpTY-O0_Uew9fr4A5X_uqE)
 
 ## Backend Service Authorization
 
 Backend Service Authorization is part of the [FHIR Bulk Data Access Implementation Guide](https://hl7.org/fhir/uv/bulkdata/STU1.0.1/authorization/index.html). Backend services are intended to be used by developers of backend services (clients) that autonomously (or semi-autonomously) need to access resources from FHIR servers that have pre-authorized defined scopes of access. It is a combination of a client registration process (using JSON Web Keys), token generation without the sharing of secrets, and using SMART on FHIR with `system` scopes to access data.
 
-SMART Backend Services requires that FHIR servers allow client asymmetric authentication with RSA384 and/or ES384. Active Directory does not support this natively today, so the backend service handler in the SMART auth handlers function is responsible for validating the backend service authentication request, creating a token, and returning the token to Azure API Management for use with future client requests. Azure API Management will cache the token for the life fo the token and check that any backend service request tokens match entries in the cache.
+SMART Backend Services requires that FHIR servers allow client asymmetric authentication with RSA384 and/or ES384. Active Directory does not support this natively today, so the SMART Auth Custom Operations has code to handle these backend authorization request. This code in the SMART auth handlers function is responsible for validating the backend service authentication request, creating an Azure Active Directory token using the matching secret in Azure KeyVault, and returning the token to the backend service for use when calling Azure Health Data Services.
 
 ### Backend Service Registration
 
-Client registration is an out-of-band process required before backend services can access data from the FHIR server. Client registration can be an automated or manual process. In our sample, we have a manual client registration process leveraging a table in the Azure Storage service.
+Client registration is an out-of-band process required before backend services can access data from the FHIR server. Client registration can be an automated or manual process. In our sample, we have a manual client registration process that must be done during backend service registration. The process is as follows:
 
 - Collect the JWKS url from the client who needs to register.
-- Generate a `client_id` for the client who needs to register.
-- Store the `client_id` and JWKS url in the Azure Table Storage table created in the sample deployment.
+- Create an Application Registration for the backend service. Generate a client secret and save both.
+- In the Azure KeyVault created when deploying the sample, you need to create a new secret where the name is the client_id and the value is the secret.
+  - You also must create a tag on the secret called `jwks_url` containing the url for the backend service. The SMART Auth Custom Operation for backend services will use this tag to validate the backend service.  
+
+![](./images/keyvault-reg.png)
 
 ### Backend Service Authorization Flow
 
 ```mermaid
-sequenceDiagram
+  sequenceDiagram
     participant Backend Service
     participant APIM
-    participant Backend Services Auth Handler
+    participant SMART Auth Custom Operations
+    participant KeyVault
     participant FHIR
+
     Backend Service ->> APIM: Discovery Request
     APIM -->> Backend Service: Discovery Response
     Backend Service ->> Backend Service: Generate RSA 384 Client Assertion
     Backend Service ->> APIM: /token
-    APIM ->> Backend Services Auth Handler: /token request
-    note over Backend Services Auth Handler: Get client_id / JWKS URL from configuration
-    note over Backend Services Auth Handler: Validate assertion
-    note over Backend Services Auth Handler: Generate non-AAD token
+    APIM ->> SMART Auth Custom Operations: /token request
+    SMART Auth Custom Operations ->> KeyVault: client_id
+    KeyVault -->> SMART Auth Custom Operations: jwks_url & secret
+
+    note over SMART Auth Custom Operations: Validate assertion
     alt Granted
-        Backend Services Auth Handler -->> APIM: Token Response
-        APIM ->> APIM: Cache Access Token
-        note over APIM: Cached token to validate requests
+        note over SMART Auth Custom Operations: Generate AAD token using secret
+        SMART Auth Custom Operations -->> APIM: Token Response
         APIM -->> Backend Service: Access Token Response
         Backend Service ->> APIM: Request Resources
-        note over APIM: Validate token with token cache
         APIM ->> FHIR: Request Resources
+        FHIR -->> Backend Service: FHIR Response
     else Denied
-        Backend Services Auth Handler -->> APIM: Authorization Error
+        SMART Auth Custom Operations -->> APIM: Authorization Error
         APIM -->> Backend Service: Authorization Error
     end
 ```

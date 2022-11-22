@@ -107,6 +107,7 @@ function useProvideAppContext() {
     msal.instance.logoutRedirect();
   };
 
+  TODO - if this is a post, need to pull this from body.
   const applicationId = queryParams.get("client_id") ?? undefined;
   const scope = queryParams.get("scope") ?? undefined;
 

@@ -1,40 +1,28 @@
-# Azure ONC (g)(10) & SMART on FHIR Sample
+# Azure ONC (g)(10) SMART on FHIR Sample
 
-This sample demonstrates how Azure Health Data Services can be used to pass the Inferno test for ONC (g)(10) compliance, using Azure Active Directory as the identity provider. While the FHIR Server is the core of this sample, some custom code and routing is required to fully meet the requirements. This sample is therefore *not* using only the FHIR Server but other Azure Services with sample code to pass the Inferno tests. You can use this sample as a starting point for your own application to 
+This sample demonstrates how Azure Health Data Services can be used to pass the Inferno test for ONC (g)(10) compliance, using Azure Active Directory as the identity provider. While Azure Health Data Services is the core of this sample, some custom code and routing is required to fully meet the requirements, especially around Azure Active Directory. This sample is therefore *not* using only the FHIR Server but other Azure Services with sample code to pass the Inferno tests. You can use this sample as a starting point for building your application and solution to pass the ONC (g)(10) testing requirements.
 
-## Deployment
+This sample is using Azure Active Directory as the identity provider. If you have your own identity provider, you will need to build a custom solution around that instead.
 
-Deployment of this sample requires the creation of supporting Azure services, custom code deployed to Azure Function Apps, and setup in Azure Active Directory. For detailed deployment instructions, check out the [Deployment Document here](./docs/deployment.md).
+If you are using the open source FHIR Server, you will also need to build a custom solution around that instead.
 
-## Components 
+## Components
 
 The following components are deployed with this sample. For more details of how the pieces work together, check out [the technical guide](./docs/technical-guide.md).
 
-- FHIR Service
+- Azure Health Data Services FHIR Service
 - Azure API Management
-- Azure Function
+- Azure Active Directory
+- Azure Functions
 - Azure Storage
+- Azure Application Insights
 
-![](./docs/overview-architecture.png)
+![](./docs/images/overview-architecture.png)
 
-## Status
+## Sample Deployment
 
-This sample is still under active development.
+Deployment of this sample requires the creation of supporting Azure services, custom code deployed to Azure Function Apps, and setup in Azure Active Directory. For detailed deployment instructions, check out the [Deployment Document here](./docs/deployment.md).
 
-### Completed
+## Sample Support
 
-- Standalone Launch (Confidential Client)
-- EHR Launch 
-- Standalone Launch Public Client
-- Bulk Data APIs
-- Auth for SMART Backend Services (RSA384)
-- Export storage access
-
-### To Do
-
-- Limited Patient
-- Documentation for loading US Core
-
-## Support
-
-For help with this sample, please file a GitHub issue.
+If you have questions about this sample, please submit a Github issue. This sample is custom code you must adapt to your own environment and is not supported outside of Github issues.

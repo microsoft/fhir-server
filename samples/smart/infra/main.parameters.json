@@ -11,6 +11,9 @@
         "principalId": {
             "value": "${AZURE_PRINCIPAL_ID}"
         },
+        "contextAadApplicationId": {
+            "value": "your-context-app-id"
+        },
         "apimPublisherName": {
             "value": "Your Name"
         },
