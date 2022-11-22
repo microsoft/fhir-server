@@ -134,8 +134,13 @@ Azure Active Directory does not support RSA384 and/or ES384 which is required by
 
 - Save the client id for later testing.
 
+## 4. Add sample data
+
+See [this script](../scripts/Load-ProfilesData.ps1).
+
 ## TODO
 
 - Finish context app section.
 - Add public client app.
+- Add more info to add sample data. Link to generated data.
 - Talk about Need Patient Banner / SMART Style URL. This needs to be changed in APIM policy.
