@@ -2,10 +2,11 @@
 // Licensed under the MIT License.
 
 import React, { useContext, createContext, useState, useEffect } from 'react';
-import { useMsal  } from '@azure/msal-react';
+import { IMsalContext, useMsal  } from '@azure/msal-react';
 import { Application, ServicePrincipal, OAuth2PermissionGrant } from '@microsoft/microsoft-graph-types';
 
 import { getApplication, getServicePrincipal, getAppCurrentScopes, getUser, patchAppCurrentScopes, createAppCurrentScopes } from './GraphService';
+import { msalInstance } from './App';
 
 
 // Core application context object.
@@ -17,6 +18,7 @@ type AppContext = {
   displayError?: Function
   clearError?: Function
   saveScopes?: ((authInfo: AuthorizeRequestInfo) => Promise<boolean>)
+  logout?: Function
 }
 
 // Information about the user from Microsoft Graph.
@@ -84,7 +86,7 @@ export const queryParams = new URLSearchParams(window.location.search);
 
 function useProvideAppContext() {
   // Fetches user information post login.
-  const msal = useMsal();
+  const msal : IMsalContext = useMsal();
 
   // Raw placeholder for Graph User info.
   const [user, setUser] = useState<AppUser | undefined>(undefined);
@@ -109,6 +111,10 @@ function useProvideAppContext() {
   const clearError = () => {
     setError(undefined);
   }
+
+  const logoutUser = () => {
+    msal.instance.logoutRedirect();
+  };
 
   const applicationId = queryParams.get("client_id") ?? undefined;
   const requestedScopes = queryParams.get("scope")?.split(" ") ?? undefined;
@@ -136,7 +142,7 @@ function useProvideAppContext() {
   };
 
 const setClientApplicationIfEmpty = async () => {
-  if (!application && user && applicationId && error == undefined) {
+  if (application == undefined && user && applicationId && error == undefined) {
 
     try {
       const application = await getApplication(applicationId);
@@ -157,7 +163,7 @@ const setClientApplicationIfEmpty = async () => {
 };
 
 const setResourcePrincipalsIfEmpty = async () => {
-  if (application && resourceServicePrincipals != undefined && error == undefined) {
+  if (application && resourceServicePrincipals.length == 0 && error == undefined) {
 
     const matchedServicePrincipals : ServicePrincipal[] = [];
 
@@ -184,7 +190,7 @@ const setResourcePrincipalsIfEmpty = async () => {
 };
 
 const SetAppServicePrincipalIfEmpty = async () => {
-  if (!appServicePrincipal && user && applicationId && error == undefined) {
+  if (appServicePrincipal == undefined && user && applicationId && error == undefined) {
     try {
       const servicePrincipal = await getServicePrincipal(applicationId);
       SetAppServicePrincipal(servicePrincipal);
@@ -260,7 +266,6 @@ const saveScopes = async (modifiedAuthInfo: AuthorizeRequestInfo) : Promise<bool
     }
   }
 
-  window.location.assign("https://www.microsoft.com");
   return true;
 }
 
@@ -289,7 +294,8 @@ let authInfo: AppContext = {
   error: error,
   displayError: displayError,
   clearError: clearError,
-  saveScopes: saveScopes
+  saveScopes: saveScopes,
+  logout: logoutUser
 };
 
 return authInfo;

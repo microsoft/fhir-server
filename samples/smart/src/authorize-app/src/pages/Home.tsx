@@ -29,7 +29,7 @@ export default function Welcome() {
               !app.error &&
               <>
               <Stack.Item styles={moduleStyle}>
-                  <UserInfo user={app.user}/>
+                  <UserInfo user={app.user} logout={app.logout}/>
               </Stack.Item>
       
               <Stack.Item styles={moduleStyle}>

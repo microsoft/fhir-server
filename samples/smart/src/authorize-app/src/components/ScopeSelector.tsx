@@ -58,14 +58,24 @@ export const ScopeSelector: FC<ScopeSelectorProps> = (props: ScopeSelectorProps)
     }
 
     const updateScopes = () => {
-        if (props.updateUserApprovedScopes) {
             setMode('redirecting');
 
-            if (updateNeeded)
+            let queryParams = new URLSearchParams(window.location.search);
+            queryParams.set('scope', authInfo?.applicationScopes.filter(x => x.enabled).map(x => x.name).join(" ") ?? "");
+            queryParams.set('user', 'true');
+            queryParams.set('prompt', 'consent');
+
+
+            window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize?" + queryParams.toString());
+            /*if (updateNeeded)
             {
                 props.updateUserApprovedScopes(authInfo!);
+                window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize" + window.location.search + "&user=true&prompt=consent");
             }
-        }
+            else 
+            {
+                window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize" + window.location.search + "&user=true&prompt=consent");
+            }*/
     };
 
     return (

@@ -39,10 +39,10 @@ export async function getUser(): Promise<User> {
 
   let user: User;
 
+  const test = msalInstance.getActiveAccount()
+
   // Return the /me API endpoint result as a User object
   const response = await graphClient!.api('/me')
-    // Only retrieve the specific fields needed
-    .select('displayName,mail,mailboxSettings,userPrincipalName,id')
     .responseType(ResponseType.RAW)
     .get();
 
@@ -132,7 +132,7 @@ export async function getAppCurrentScopes(appObjectId: string, userId: string): 
 export async function patchAppCurrentScopes(grantId: string, scope: string): Promise<void> {
   await ensureClient();
 
-  const result = await graphClient?.api(`/oauth2PermissionGrants/${grantId}`)
+  /*const result = await graphClient?.api(`/oauth2PermissionGrants/${grantId}`)
   .responseType(ResponseType.RAW)
   .patch({"scope": scope});
 
@@ -140,7 +140,7 @@ export async function patchAppCurrentScopes(grantId: string, scope: string): Pro
     return
   }
 
-  throw Error(`Error ${result.status} returned from Graph API OAuth2PermissionGrant update.`);
+  throw Error(`Error ${result.status} returned from Graph API OAuth2PermissionGrant update.`);*/
 }
 
 export async function createAppCurrentScopes(clientId: string, principalId: string, resourceId: string, scope: string): Promise<OAuth2PermissionGrant> {
@@ -154,7 +154,7 @@ export async function createAppCurrentScopes(clientId: string, principalId: stri
     "scope": scope
   };
 
-  const result = await graphClient?.api(`/oauth2PermissionGrants`)
+/*#const result = await graphClient?.api(`/oauth2PermissionGrants`)
   .responseType(ResponseType.RAW)
   .post(body);
 
@@ -162,5 +162,18 @@ export async function createAppCurrentScopes(clientId: string, principalId: stri
     return result.value;
   }
 
-  throw Error(`Error ${result.status} returned from Graph API OAuth2PermissionGrant create.`);
+  throw Error(`Error ${result.status} returned from Graph API OAuth2PermissionGrant create.`);*/
+
+  return new Promise<OAuth2PermissionGrant>((resolve, reject) => {
+    setTimeout(() => {
+      resolve({
+        "clientId": clientId,
+        "consentType": "Principal",
+        "principalId": principalId,
+        "resourceId": resourceId,
+        "scope": scope,
+        "id": "1234567890"
+      });
+    }, 1000);
+  });
 }

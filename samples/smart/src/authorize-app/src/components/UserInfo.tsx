@@ -1,10 +1,11 @@
 import React, { useEffect, useState, FC, ReactElement } from 'react';
-import { Stack, Text, } from '@fluentui/react';
+import { Link, Stack, Text, } from '@fluentui/react';
 
 import { AppUser } from '../AppContext'
 
 interface UserInfoProps {
-    user?: AppUser;
+    user?: AppUser
+    logout?: Function
 }
 
 export const UserInfo: FC<UserInfoProps> = ( props: UserInfoProps): ReactElement => {
@@ -19,9 +20,13 @@ export const UserInfo: FC<UserInfoProps> = ( props: UserInfoProps): ReactElement
     return (
         <Stack>
             <Stack.Item>
-            <Text block variant="xLarge">Welcome {name}!</Text>
+                <Text block variant="xLarge">Welcome {name}!</Text>
                 <Text variant="small">Please review the below access permissions before continuing.</Text>
             </Stack.Item>
+            <Stack.Item>
+                <Link variant="small" onClick={() => props.logout?.call(null)}>Logout</Link>
+            </Stack.Item>
+
         </Stack>
     )
 }

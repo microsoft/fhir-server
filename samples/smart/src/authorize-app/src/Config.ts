@@ -15,6 +15,8 @@ export const msalConfig = {
         clientId: window.ENV_CONFIG.REACT_APP_AAD_APP_CLIENT_ID, 
         authority: `https://login.microsoftonline.com/${window.ENV_CONFIG.REACT_APP_AAD_APP_TENANT_ID}`,
         redirectUri: window.ENV_CONFIG.REACT_APP_AAD_APP_REDIRECT_URI, 
+        //redirectUri: "https://white-tree-0227e9610.2.azurestaticapps.net",
+        postLogoutRedirectUri: "https://www.microsoft.com",
     },
     cache: {
         cacheLocation: "sessionStorage", // This configures where your cache will be stored
