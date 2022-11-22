@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken)).ToList();
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
-            if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
+            if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0) && string.IsNullOrEmpty(record.AnonymizationConfigurationCollectionReference)))
             {
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                   ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
