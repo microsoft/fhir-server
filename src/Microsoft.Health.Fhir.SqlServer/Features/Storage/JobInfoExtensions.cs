@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return null;
         }
 
-        public static async Task<IEnumerable<JobInfo>> ReadJobInfosAsync(this SqlDataReader sqlDataReader, CancellationToken cancellationToken)
+        public static async Task<IReadOnlyList<JobInfo>> ReadJobInfosAsync(this SqlDataReader sqlDataReader, CancellationToken cancellationToken)
         {
             List<JobInfo> outcome = new List<JobInfo>();
             while (await sqlDataReader.ReadAsync(cancellationToken))
