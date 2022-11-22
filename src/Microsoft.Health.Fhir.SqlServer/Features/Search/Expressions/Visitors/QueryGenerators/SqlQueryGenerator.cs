@@ -1146,7 +1146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
 
-            if (predecessorIndex >= 1)
+            if (predecessorIndex >= 0)
             {
                 bool intersectWithFirst = (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain ? searchParamTableExpression.ChainLevel - 1 : searchParamTableExpression.ChainLevel) == 0;
                 sb.AppendLine("INNER JOIN " + TableExpressionName(predecessorIndex - 0));
