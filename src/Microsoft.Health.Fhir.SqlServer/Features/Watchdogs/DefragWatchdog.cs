@@ -6,15 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -212,11 +209,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
             {
-                JobInfo job = (await queueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken)).FirstOrDefault();
+                var jobs = await queueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken);
 
-                if (job != null)
+                if (jobs.Count > 0)
                 {
-                    id = (job.GroupId, job.Id, job.Version);
+                    id = (jobs[0].GroupId, jobs[0].Id, jobs[0].Version);
                 }
             }
             catch (Exception e)
