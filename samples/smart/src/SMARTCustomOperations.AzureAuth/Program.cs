@@ -55,6 +55,7 @@ namespace SMARTCustomOperations.AzureAuth
 
                     services.AddScoped<IAsymmetricAuthorizationService, AsymmetricAuthorizationService>();
                     services.AddScoped<IClientConfigService, KeyVaultClientConfiguratinService>();
+                    services.AddScoped<GraphConsentService>();
                     services.AddHttpClient();
 
                     services.UseAzureFunctionPipeline();
@@ -66,6 +67,7 @@ namespace SMARTCustomOperations.AzureAuth
 
                     services.AddInputFilter(typeof(AuthorizeInputFilter));
                     services.AddInputFilter(typeof(TokenInputFilter));
+                    services.AddInputFilter(typeof(ContextInfoInputFilter));
                     services.AddOutputFilter(typeof(TokenOutputFilter));
 
                     services.AddBinding<AzureActiveDirectoryBindingOptions>(typeof(AzureActiveDirectoryBinding), options =>

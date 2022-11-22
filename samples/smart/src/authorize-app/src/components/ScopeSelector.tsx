@@ -1,8 +1,7 @@
 import React, { useEffect, useState, FC, ReactElement } from 'react';
 import { Stack, Text, List, IStackStyles, PrimaryButton, DefaultButton, Checkbox, Spinner, SpinnerSize } from '@fluentui/react';
-import { Application, OAuth2PermissionGrant, RequiredResourceAccess } from '@microsoft/microsoft-graph-types';
 
-import { AuthorizeRequestInfo, Scopes } from '../AppContext';
+import { AppConsentInfo, AppConsentScope } from '../AppContext';
 
 const moduleStyle: IStackStyles = {
     root: {
@@ -11,24 +10,25 @@ const moduleStyle: IStackStyles = {
 }
 
 interface ScopeSelectorProps {
-    authInfo?: AuthorizeRequestInfo
-    updateUserApprovedScopes?: (scopes: AuthorizeRequestInfo) => Promise<boolean>
+    consentInfo?: AppConsentInfo
+    requestedScopes?: string[]
+    updateUserApprovedScopes?: (scopes: AppConsentInfo) => Promise<boolean>
 }
 
 export const ScopeSelector: FC<ScopeSelectorProps> = (props: ScopeSelectorProps): ReactElement => {
-    const [authInfo, setAuthInfo] = useState(props.authInfo);
+    const [consentInfo, setConsentInfo] = useState(props.consentInfo);
+    const [requestedScopes, setRequestedScopes] = useState(props.requestedScopes);
     const [updateNeeded, setUpdateNeeded] = useState(false);
     const [mode, setMode] = useState("loading");
 
     useEffect(() => {
-        setAuthInfo(props.authInfo);
+        setConsentInfo(props.consentInfo);
 
         // #TODO - check other state elements (like update function) before changing state from loading
 
         // Set the initial state value
-        if (props.authInfo && mode == "loading")
-        {
-            if (props.authInfo.applicationScopes.filter(x => x.enabled).length > 0) {
+        if (props.consentInfo && mode == "loading") {
+            if (props.consentInfo.scopes.filter(x => x.consented).length > 0) {
                 setMode('existing review');
             }
             else {
@@ -43,77 +43,82 @@ export const ScopeSelector: FC<ScopeSelectorProps> = (props: ScopeSelectorProps)
         setUpdateNeeded(true);
     };
 
-    const handleScopeChecked = (scope: Scopes) => {
+    const handleScopeChecked = (scope: AppConsentScope) => {
         return (ev?: React.FormEvent<HTMLElement | HTMLInputElement>, isChecked?: boolean) => {
-            scope.enabled = isChecked!;
-            const updateAuthInfo = { 
-                applicationId: authInfo!.applicationId,
-                enterpriseApplicationId: authInfo!.enterpriseApplicationId,
-                requestedScopes: authInfo!.requestedScopes,
-                applicationScopes: authInfo!.applicationScopes.map(x => x.name == scope.name && x.resourceId == scope.resourceId ? scope : x),
-            };
-            setAuthInfo(updateAuthInfo);
-            setUpdateNeeded(true);
+
+            if (consentInfo != undefined) {
+                scope.consented = isChecked!;
+                const updateConsentInfo = {
+                    applicationName: consentInfo.applicationName,
+                    applicationDescription: consentInfo.applicationDescription,
+                    applicationUrl: consentInfo.applicationUrl,
+
+                    // only update the scope that was changed
+                    scopes: consentInfo!.scopes.map(x => x.name == scope.name && x.resourceId == scope.resourceId ? scope : x),
+                };
+                setConsentInfo(updateConsentInfo);
+                setUpdateNeeded(true);
+            }
         }
     }
 
     const updateScopes = () => {
-            setMode('redirecting');
+        setMode('redirecting');
 
-            let queryParams = new URLSearchParams(window.location.search);
-            queryParams.set('scope', authInfo?.applicationScopes.filter(x => x.enabled).map(x => x.name).join(" ") ?? "");
-            queryParams.set('user', 'true');
-            queryParams.set('prompt', 'consent');
+        let queryParams = new URLSearchParams(window.location.search);
+        queryParams.set('scope', consentInfo?.scopes.filter(x => x.consented).map(x => x.name).join(" ") ?? "");
+        queryParams.set('user', 'true');
+        queryParams.set('prompt', 'consent');
 
 
-            window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize?" + queryParams.toString());
-            /*if (updateNeeded)
-            {
-                props.updateUserApprovedScopes(authInfo!);
-                window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize" + window.location.search + "&user=true&prompt=consent");
-            }
-            else 
-            {
-                window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize" + window.location.search + "&user=true&prompt=consent");
-            }*/
+        window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize?" + queryParams.toString());
+        /*if (updateNeeded)
+        {
+            props.updateUserApprovedScopes(authInfo!);
+            window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize" + window.location.search + "&user=true&prompt=consent");
+        }
+        else 
+        {
+            window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize" + window.location.search + "&user=true&prompt=consent");
+        }*/
     };
 
     return (
         <Stack>
             <Stack.Item align='start'>
-                { (mode === 'loading') && <Spinner size={SpinnerSize.large} label="Loading..." ariaLive="assertive" />}
-                { (mode === 'redirecting') && <Spinner size={SpinnerSize.large} label="Redirecting..." ariaLive="assertive" />}
+                {(mode === 'loading') && <Spinner size={SpinnerSize.large} label="Loading..." ariaLive="assertive" />}
+                {(mode === 'redirecting') && <Spinner size={SpinnerSize.large} label="Redirecting..." ariaLive="assertive" />}
             </Stack.Item>
 
-            { (mode.includes('existing') || mode.includes('new')) &&
+            {(mode.includes('existing') || mode.includes('new')) &&
                 <Stack.Item styles={moduleStyle}>
                     <Text block variant="xLarge">Requested Access:</Text>
-                    <List items={authInfo?.requestedScopes?.map(x => ({ name: x }))} />
+                    <List items={requestedScopes?.map(x => ({ name: x }))} />
                 </Stack.Item>
             }
 
-            { mode.includes('existing') &&
+            {mode.includes('existing') &&
                 <Stack.Item styles={moduleStyle}>
                     <Text block variant="xLarge">Approved Access:</Text>
-                    <List items={authInfo?.applicationScopes.filter(x => x.alreadyConsented).filter(x => !x.hidden)} />
+                    <List items={consentInfo?.scopes.filter(x => x.consented).filter(x => !x.hidden)} />
                 </Stack.Item>
             }
 
-            { mode.includes('edit') &&
+            {mode.includes('edit') &&
                 <Stack.Item styles={moduleStyle}>
                     <Text block variant="xLarge">Select Access:</Text>
-                    {authInfo?.applicationScopes.map((scope) => (
-                        scope.hidden ? null : <Checkbox key={scope.id} label={scope.name} checked={scope.enabled} onChange={handleScopeChecked(scope)} />
+                    {consentInfo?.scopes.map((scope) => (
+                        scope.hidden ? null : <Checkbox key={scope.id} label={scope.name} checked={scope.consented} onChange={handleScopeChecked(scope)} />
                     ))}
                 </Stack.Item>
             }
 
-            { mode != 'loading' && mode != 'redirecting' &&
+            {mode != 'loading' && mode != 'redirecting' &&
                 <Stack.Item styles={moduleStyle}>
                     <Stack horizontal>
                         <PrimaryButton text="Continue" onClick={updateScopes} />
 
-                        { mode === 'existing review' && <DefaultButton text="Change Access" onClick={changeEditMode} />}
+                        {mode === 'existing review' && <DefaultButton text="Change Access" onClick={changeEditMode} />}
                     </Stack>
                 </Stack.Item>
             }

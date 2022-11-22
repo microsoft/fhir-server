@@ -70,6 +70,8 @@ namespace SMARTCustomOperations.AzureAuth.Configuration
 
         public string? BackendServiceKeyVaultStore { get; set; }
 
+        public string? ContextAppClientId { get; set; }
+
         // Only for static environment config service - not for production.
         public string? TestBackendClientId { get; set; }
 

@@ -3,20 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable CA1002 // Do not expose generic lists
+#pragma warning disable CA1056 // URI-like properties should not be strings
+
 namespace SMARTCustomOperations.AzureAuth.Models
 {
-    public class AppConsentScope
+    public class AppConsentInfo
     {
-        public string? Name { get; set; }
+        public string? ApplicationName { get; set; }
 
-        public string? Id { get; set; }
+        public string? ApplicationDescription { get; set; }
 
-        public string? UserDescription { get; set; }
+        public string? ApplicationUrl { get; set; }
 
-        public string? ResourceId { get; set; }
-
-        public bool Consented { get; set; } = false;
-
-        public string? ConsentId { get; set; }
+        public List<AppConsentScope> Scopes { get; } = new List<AppConsentScope>();
     }
 }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using System.Security.Claims;
 using Microsoft.AzureHealth.DataServices.Filters;
 using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
@@ -21,9 +22,9 @@ namespace SMARTCustomOperations.AzureAuth.Filters
         private readonly ILogger _logger;
         private readonly AzureAuthOperationsConfig _configuration;
         private readonly string _id;
-        private readonly GraphContextService _graphContextService;
+        private readonly GraphConsentService _graphContextService;
 
-        public ContextInfoInputFilter(ILogger<TokenInputFilter> logger, AzureAuthOperationsConfig configuration, GraphContextService graphContextService)
+        public ContextInfoInputFilter(ILogger<TokenInputFilter> logger, AzureAuthOperationsConfig configuration, GraphConsentService graphContextService)
         {
             _logger = logger;
             _configuration = configuration;
@@ -50,12 +51,28 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             _logger?.LogInformation("Entered {Name}", Name);
 
             // Validate token against Microsoft Graph
-            string token = context.Request.Headers.Authorization!.Parameter!;
-            var userPrincipal = await _graphContextService.ValidateGraphAccessTokenAsync(token);
-
-            if (userPrincipal is null || !userPrincipal.HasClaim(x => x.Type == "oid"))
+            ClaimsPrincipal userPrincipal;
+            try
             {
-                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new UnauthorizedAccessException("Token validation failed for consent operation"), code: HttpStatusCode.Unauthorized);
+                string token = context.Request.Headers.Authorization!.Parameter!;
+                userPrincipal = await _graphContextService.ValidateGraphAccessTokenAsync(token);
+            }
+            catch (Exception ex) when (ex is Microsoft.IdentityModel.Tokens.SecurityTokenValidationException || ex is UnauthorizedAccessException)
+            {
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.Unauthorized);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
+            }
+            catch (Exception ex)
+            {
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError);
+                OnFilterError?.Invoke(this, error);
+                return context.SetContextErrorBody(error, _configuration.Debug);
+            }
+
+            if (userPrincipal is null || !userPrincipal.HasClaim(x => x.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier"))
+            {
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new UnauthorizedAccessException("Token validation failed for get context info operation"), code: HttpStatusCode.Unauthorized);
                 OnFilterError?.Invoke(this, error);
                 return context.SetContextErrorBody(error, _configuration.Debug);
             }
@@ -68,7 +85,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
 
                     var clientId = queryParameters["client_id"];
                     var scope = queryParameters["scope"]!.Split(" ");
-                    var userId = userPrincipal.FindFirst("oid")!.Value;
+                    var userId = userPrincipal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
 
                     if (clientId is null || scope is null || userId is null)
                     {
@@ -77,8 +94,9 @@ namespace SMARTCustomOperations.AzureAuth.Filters
                         return context.SetContextErrorBody(error, _configuration.Debug);
                     }
 
-                    var scopes = await _graphContextService.GetAppConsentScopes(clientId!, userId!, scope!.ToList());
-                    context.ContentString = JsonConvert.SerializeObject(scopes);
+                    var info = await _graphContextService.GetAppConsentScopes(clientId!, userId!, scope!.ToList());
+                    context.ContentString = JsonConvert.SerializeObject(info);
+                    context.StatusCode = HttpStatusCode.OK;
                     return context;
                 }
                 else
@@ -96,12 +114,14 @@ namespace SMARTCustomOperations.AzureAuth.Filters
                     }
 
                     await _graphContextService.PersistAppConsentScope(clientId, userId, appConsentScopes);
+                    context.StatusCode = HttpStatusCode.OK;
                     return context;
                 }
             }
             catch (Exception ex)
             {
                 FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError);
+                context.StatusCode = HttpStatusCode.InternalServerError;
                 return context.SetContextErrorBody(error, _configuration.Debug);
             }
         }

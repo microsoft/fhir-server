@@ -33,11 +33,16 @@ export default function Welcome() {
               </Stack.Item>
       
               <Stack.Item styles={moduleStyle}>
-                  <AppInfo appInfo={app.appInfo} />
+                  <AppInfo
+                    applicationName={app.consentInfo?.applicationName ?? ''}
+                    applicationDescription={app.consentInfo?.applicationDescription}
+                    applicationUrl={app.consentInfo?.applicationUrl}
+                  />
               </Stack.Item>
               <Stack.Item styles={moduleStyle}>
                   <ScopeSelector 
-                      authInfo={app.authInfo}
+                      consentInfo={app.consentInfo}
+                      requestedScopes={app.requestedScopes}
                       updateUserApprovedScopes={app.saveScopes}
                   />
               </Stack.Item>

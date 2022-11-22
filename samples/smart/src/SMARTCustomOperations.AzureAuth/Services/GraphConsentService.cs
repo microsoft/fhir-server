@@ -11,37 +11,34 @@ using Microsoft.Graph;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using SMARTCustomOperations.AzureAuth.Configuration;
 using SMARTCustomOperations.AzureAuth.Models;
 
 #pragma warning disable CA1002 // Do not expose generic lists
 
 namespace SMARTCustomOperations.AzureAuth.Services
 {
-    public class GraphContextService
+    public class GraphConsentService
     {
-        private readonly ILogger _logger;
+        private readonly ILogger<GraphConsentService> _logger;
         private readonly GraphServiceClient _graphServiceClient;
         private readonly bool _debug;
         private readonly string _contextAppClientId;
         private readonly string _tenantId;
         private readonly Dictionary<string, ServicePrincipal> _resourceServicePrincipals = new();
 
-        private const string GraphAppId = "00000003-0000-0000-c000-000000000000";
-
-        public GraphContextService(string contextAppClientID, string tenantId, ILogger logger, bool debug = false)
+        public GraphConsentService(AzureAuthOperationsConfig configuration, ILogger<GraphConsentService> logger)
         {
             _graphServiceClient = new GraphServiceClient(new DefaultAzureCredential());
             _logger = logger;
-            _debug = debug;
-            _contextAppClientId = contextAppClientID;
-            _tenantId = tenantId;
+            _debug = configuration.Debug;
+            _contextAppClientId = configuration.ContextAppClientId!;
+            _tenantId = configuration.TenantId!;
         }
 
         // https://github.com/Azure-Samples/ms-identity-dotnet-webapi-azurefunctions/blob/master/Function/BootLoader.cs
-        public async Task<ClaimsPrincipal?> ValidateGraphAccessTokenAsync(string accessToken)
+        public async Task<ClaimsPrincipal> ValidateGraphAccessTokenAsync(string accessToken)
         {
-            var audience = GraphAppId;
-            var clientId = _contextAppClientId;
             var authority = $"https://login.microsoftonline.com/{_tenantId}/v2.0";
             var validIssuers = new List<string>()
             {
@@ -70,37 +67,36 @@ namespace SMARTCustomOperations.AzureAuth.Services
             // Initialize the token validation parameters
             TokenValidationParameters validationParameters = new TokenValidationParameters
             {
+                ValidateAudience = true,
+                ValidateIssuer = true,
+                ValidateIssuerSigningKey = true,
+
                 // App Id URI and AppId of this service application are both valid audiences.
-                ValidAudiences = new[] { audience, clientId },
+                ValidAudiences = new[] { _contextAppClientId, $"api://{_contextAppClientId}" },
 
                 // Support Azure AD V1 and V2 endpoints.
                 ValidIssuers = validIssuers,
                 IssuerSigningKeys = config.SigningKeys,
             };
 
-            try
-            {
-                SecurityToken securityToken;
-                var claimsPrincipal = tokenValidator.ValidateToken(accessToken, validationParameters, out securityToken);
-                return claimsPrincipal;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex.ToString());
-            }
-
-            return null;
+            SecurityToken securityToken;
+            var claimsPrincipal = tokenValidator.ValidateToken(accessToken, validationParameters, out securityToken);
+            return claimsPrincipal;
         }
 
-        public async Task<List<AppConsentScope>> GetAppConsentScopes(string requestingAppClientId, string userId, List<string> requestedScopes)
+        public async Task<AppConsentInfo> GetAppConsentScopes(string requestingAppClientId, string userId, List<string> requestedScopes)
         {
             // Get needed objects from graph
             var requestingClientApp = await GetRequestingApplication(requestingAppClientId);
             var resourceServicePrincipals = await GetResourceServicePrincipals(requestingClientApp);
             var requestingClientAppScopeIds = GetAppScopeIds(requestingClientApp);
-            var permissions = await GetUserAppOAuth2PermissinGrants(requestingAppClientId, userId);
+            var requestingServicePrincipal = await GetRequestingServicePrincipal(requestingAppClientId);
+            var permissions = await GetUserAppOAuth2PermissinGrants(requestingServicePrincipal.Id, userId);
 
-            List<AppConsentScope> scopes = new();
+            AppConsentInfo info = new();
+            info.ApplicationName = requestingClientApp.DisplayName;
+            info.ApplicationDescription = requestingClientApp.Description;
+            info.ApplicationUrl = requestingClientApp.Info.MarketingUrl;
 
             foreach (string scope in requestedScopes)
             {
@@ -110,19 +106,19 @@ namespace SMARTCustomOperations.AzureAuth.Services
 
                 if (matchingResourcePrincipal is not null && scopeInfo?.Id is not null)
                 {
-                    scopes.Add(new AppConsentScope()
+                    info.Scopes.Add(new AppConsentScope()
                     {
                         Name = scopeInfo.Value,
                         Id = scopeInfo.Id.ToString(),
                         ResourceId = matchingResourcePrincipal?.Id,
-                        AlreadyConsented = scopeConsentRecord is not null,
+                        Consented = scopeConsentRecord is not null,
                         ConsentId = scopeConsentRecord?.Id,
                         UserDescription = scopeInfo.UserConsentDescription,
                     });
                 }
             }
 
-            return scopes;
+            return info;
         }
 
         public async Task PersistAppConsentScope(string requestingAppClientId, string userId, List<AppConsentScope> scopeList)

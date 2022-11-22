@@ -49,4 +49,5 @@ export const msalConfig = {
     }
 };
 
-export const scopes: string[] = ["User.Read", "DelegatedPermissionGrant.ReadWrite.All", "profile", "Application.Read.All"];
+export const scopes: string[] = ["api://b2113eeb-25d5-41ab-a74d-3518fcf7b727/user_impersonation"];
+export const apiEndpoint: string = "http://localhost:7081";

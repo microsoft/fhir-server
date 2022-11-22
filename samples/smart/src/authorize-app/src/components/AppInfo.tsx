@@ -1,31 +1,37 @@
 import { useEffect, useState, FC, ReactElement } from 'react';
 import { Stack, Text, } from '@fluentui/react';
-import { Application } from '@microsoft/microsoft-graph-types';
 
 interface AppInfoProps {
-    appInfo?: Application
+    applicationName: string
+    applicationDescription?: string
+    applicationUrl?: string
 }
 
 export const AppInfo: FC<AppInfoProps> = (props: AppInfoProps): ReactElement => {
-    const [displayName, setDisplayName] = useState(props.appInfo?.displayName);
-    const [description, setDescription] = useState(props.appInfo?.description);
-    const [infoUrl, setInfoUrl] = useState(props.appInfo?.info);
+    const [displayName, setDisplayName] = useState(props.applicationName);
+    const [description, setDescription] = useState(props.applicationDescription);
+    const [infoUrl, setInfoUrl] = useState(props.applicationUrl);
 
     useEffect(() => {
-        setDisplayName(props.appInfo?.displayName || '');
-        setDescription(props.appInfo?.description || '');
-        setInfoUrl(props.appInfo?.info);
+        setDisplayName(props.applicationName|| '');
+        setDescription(props.applicationDescription || '');
+        setInfoUrl(props.applicationUrl);
     }, [props]);
 
     return (
         <Stack>
-            {props.appInfo &&
+            {props.applicationName &&
                 <>
 
                     <Stack.Item>
                         <Text block variant="xLarge">Application {displayName} is requesting access to your information.</Text>
-                        <Text variant="small">{description}</Text>
-                        <Text variant="small">For more information, see {infoUrl?.marketingUrl}.</Text>
+                        {
+                            description &&
+                            <Text variant="small">{description}</Text>
+                        }
+                        {infoUrl &&
+                            <Text variant="small">For more information, see {infoUrl}.</Text>
+                        }
                     </Stack.Item>
                 </>
             }
