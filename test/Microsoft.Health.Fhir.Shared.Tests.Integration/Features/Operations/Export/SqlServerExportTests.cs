@@ -55,8 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 PrepareData(); // 1000 patients + 1000 observations + 1000 claims. !!! RawResource is invalid.
 
                 var coordJob = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
-                coordJob.PollingIntervalSec = 0.3;
-                coordJob.SurrogateIdRangeSize = 100;
+                //// surrogate id range size is set via max number of resources per query on coord record
                 coordJob.NumberOfSurrogateIdRanges = 5; // 100*5=500 is 50% of 1000, so there are 2 insert transactions in JobQueue per each resource type
 
                 await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
@@ -89,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task<string> RunExport(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
         {
-            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1);
+            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, maximumNumberOfResourcesPerQuery: 100);
             var result = await _operationDataStore.CreateExportJobAsync(coordRecord, CancellationToken.None);
             Assert.Equal(OperationStatus.Queued, result.JobRecord.Status);
             var coordId = long.Parse(result.JobRecord.Id);

@@ -21,8 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class ExportOrchestratorJob : IJob
     {
-        private const double DefaultPollingIntervalSec = 60;
-        private const int DefaultSurrogateIdRangeSize = 100000;
         private const int DefaultNumberOfSurrogateIdRanges = 100;
 
         private IQueueClient _queueClient;
@@ -43,15 +41,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = loggerFactory.CreateLogger<ExportOrchestratorJob>();
         }
 
-        internal double PollingIntervalSec { get; set; } = DefaultPollingIntervalSec;
-
-        internal int SurrogateIdRangeSize { get; set; } = DefaultSurrogateIdRangeSize;
-
         internal int NumberOfSurrogateIdRanges { get; set; } = DefaultNumberOfSurrogateIdRanges;
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
-            ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            var surrogateIdRaneSize = (int)record.MaximumNumberOfResourcesPerQuery;
             var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken)).ToList();
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
@@ -86,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     while (rows > 0)
                     {
                         var definitions = new List<string>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, SurrogateIdRangeSize, NumberOfSurrogateIdRanges, cancellationToken);
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRaneSize, NumberOfSurrogateIdRanges, cancellationToken);
                         foreach (var range in ranges)
                         {
                             if (range.EndId > startId)
@@ -122,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private static int GetSequence(ExportJobRecord record)
         {
             var split = record.ExportFormat.Split("-");
-            return split.Length > 1 ? int.Parse(split[1]) : -1;
+            return split.Length > 1 ? int.Parse(split[split.Length - 1]) : -1; // take last
         }
 
         private static ExportJobRecord CreateExportRecord(ExportJobRecord record, int sequence = -1, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
