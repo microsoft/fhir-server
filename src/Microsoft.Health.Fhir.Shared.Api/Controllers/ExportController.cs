@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool isParallel = true,
+            [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool isParallel = false,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
