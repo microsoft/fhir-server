@@ -48,10 +48,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
             var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
-            var isAnonym = !string.IsNullOrEmpty(record.AnonymizationConfigurationCollectionReference) || !string.IsNullOrEmpty(record.AnonymizationConfigurationLocation) || !string.IsNullOrEmpty(record.AnonymizationConfigurationFileETag);
+            ////var isAnonym = !string.IsNullOrEmpty(record.AnonymizationConfigurationCollectionReference) || !string.IsNullOrEmpty(record.AnonymizationConfigurationLocation) || !string.IsNullOrEmpty(record.AnonymizationConfigurationFileETag);
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
-            if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0) && !isAnonym)
+            if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0)) //// && !isAnonym)
             {
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                   ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
