@@ -54,10 +54,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
             var authorizationConfiguration = securityConfigurationOptions.Value.Authorization;
 
-            // _logger.LogInformation("Principal exists {Principal}", fhirRequestContextAccessor.RequestContext.Principal != null);
-            // _logger.LogInformation("securityConfigurationOptions Value Enabled {SecutiryConfigurationOption}", securityConfigurationOptions.Value.Enabled);
-            // _logger.LogInformation("Authorization configuration enabled {AuthorizationConfiguration} ", authorizationConfiguration.Enabled);
-
             if (fhirRequestContextAccessor.RequestContext.Principal != null
                 && securityConfigurationOptions.Value.Enabled
                 && (authorizationConfiguration.Enabled || authorizationConfiguration.EnableSmartWithoutAuth))
@@ -121,8 +117,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 scopeRestrictions.Append(permittedDataActions);
                                 scopeRestrictions.Append(" ) ");
                                 scopeRestrictions.Append(" \n ");
-
-                                // _logger.LogInformation("Resource and permitted data actions {Resource} {PermittedDataActions} ", resource, permittedDataActions);
 
                                 if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                                 {
