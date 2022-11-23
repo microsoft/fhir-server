@@ -116,7 +116,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 scopeRestrictions.Append(" - ");
                                 scopeRestrictions.Append(permittedDataActions);
                                 scopeRestrictions.Append(" ) ");
-                                scopeRestrictions.Append(" \n ");
 
                                 if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                                 {
