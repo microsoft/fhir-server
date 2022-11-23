@@ -42,7 +42,7 @@ export default function Welcome() {
               <Stack.Item styles={moduleStyle}>
                   <ScopeSelector 
                       consentInfo={app.consentInfo}
-                      requestedScopes={app.requestedScopes}
+                      requestedScopes={app.requestedScopesDisplay}
                       updateUserApprovedScopes={app.saveScopes}
                   />
               </Stack.Item>

@@ -51,22 +51,70 @@ export async function http<T>(
 export async function getAppConsentInfo(clientId: string, scopes: string): Promise<AppConsentInfo> {
   await ensureToken();
 
-  let response: HttpResponse<AppConsentInfo>;
+  let response: Response;
 
   try
   {
     // Return the /me API endpoint result as a User object
-    response = await http<AppConsentInfo>(
-      new Request(`${apiEndpoint}/api/contextInfo?clientId=${clientId}&scope=${scopes}`, {
+    response = await fetch(
+      new Request(`${apiEndpoint}/appConsentInfo?client_id=${clientId}&scope=${scopes}`, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${token}`,
       }
     }));
-    
-    return response.json();
   }
   catch (error: any) {
     throw Error(`Fatal error while accessing Backend Application Consent API. Check your application settings: ${error}`);
   }
+
+  if (!response.ok) {
+    try
+    {
+      const error = await response.json();
+      throw Error(`Backend Application Consent API returned ${response.status}: ${error}`);
+    }
+    catch (error: any) {
+      throw Error(`Backend Application Consent API returned ${response.status}: ${response.statusText}`);
+    }
+  }
+
+  return await response.json();
+}
+
+export async function saveAppConsentInfo(appConsentInfo: AppConsentInfo): Promise<void>
+{
+  await ensureToken();
+
+  let response: Response;
+
+  try
+  {
+    // Return the /me API endpoint result as a User object
+    response = await fetch(
+      new Request(`${apiEndpoint}/appConsentInfo`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(appConsentInfo)
+    }));
+  }
+  catch (error: any) {
+    throw Error(`Fatal error while accessing Backend Application Consent API. Check your application settings: ${error}`);
+  }
+
+  if (!response.ok) {
+    try
+    {
+      const error = await response.json();
+      throw Error(`Backend Application Consent API returned ${response.status}: ${error}`);
+    }
+    catch (error: any) {
+      throw Error(`Backend Application Consent API returned ${response.status}: ${response.statusText}`);
+    }
+  }
+
+  return;
 }

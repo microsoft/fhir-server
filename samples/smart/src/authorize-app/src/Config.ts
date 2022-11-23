@@ -14,8 +14,7 @@ export const msalConfig = {
     auth: {
         clientId: window.ENV_CONFIG.REACT_APP_AAD_APP_CLIENT_ID, 
         authority: `https://login.microsoftonline.com/${window.ENV_CONFIG.REACT_APP_AAD_APP_TENANT_ID}`,
-        redirectUri: window.ENV_CONFIG.REACT_APP_AAD_APP_REDIRECT_URI, 
-        //redirectUri: "https://white-tree-0227e9610.2.azurestaticapps.net",
+        redirectUri: window.location.protocol + "//" + window.location.host,
         postLogoutRedirectUri: "https://www.microsoft.com",
     },
     cache: {
@@ -49,5 +48,5 @@ export const msalConfig = {
     }
 };
 
-export const scopes: string[] = ["api://b2113eeb-25d5-41ab-a74d-3518fcf7b727/user_impersonation"];
-export const apiEndpoint: string = "http://localhost:7081";
+export const scopes: string[] = [`api://${msalConfig.auth.clientId}//user_impersonation`];
+export const apiEndpoint: string = window.ENV_CONFIG.REACT_APP_API_BASE_URL || "http://localhost:7081/api";

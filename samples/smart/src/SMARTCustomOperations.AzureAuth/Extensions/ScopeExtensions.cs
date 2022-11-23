@@ -34,7 +34,7 @@ namespace SMARTCustomOperations.AzureAuth.Extensions
                         formattedScope = formattedScope.Replace("*", "all", StringComparison.InvariantCulture);
 
                         // Leave the space in the string below
-                        if (scopeAudience.EndsWith("/", StringComparison.InvariantCultureIgnoreCase))
+                        if (scopeAudience.EndsWith("/", StringComparison.InvariantCultureIgnoreCase) || scopeAudience.Length == 0)
                         {
                             formattedScope = $"{scopeAudience}{formattedScope} ";
                         }

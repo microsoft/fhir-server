@@ -21,6 +21,8 @@ param apimPublisherName string
 @description('Email of the owner of the API Management resource')
 param apimPublisherEmail string
 
+param contextAadApplicationId string
+
 @description('Tags for all Azure resources in the solution')
 var appTags = {
   AppID: 'fhir-smart-onc-g10-sample'
@@ -61,3 +63,7 @@ output ApiManagementHostName string = template.outputs.ApiManagementHostName
 output BackendServiceKeyVaultStore string = template.outputs.BackendServiceKeyVaultStore
 output Audience string = template.outputs.Audience
 output TenantId string = template.outputs.TenantId
+
+output REACT_APP_AAD_APP_CLIENT_ID string = contextAadApplicationId
+output REACT_APP_AAD_APP_TENANT_ID string = template.outputs.TenantId
+output REACT_APP_API_BASE_URL string = 'https://${template.outputs.ApiManagementHostName}/smart'

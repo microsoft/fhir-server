@@ -32,18 +32,8 @@ const Header: FC = (): ReactElement => {
         <Stack horizontal>
             <Stack horizontal styles={titleStyle}>
                 <FontIcon aria-label="Check" iconName="Calories" className={logoIconClass} />
-                <Text variant="xxLarge">Sample FHIR Context App</Text>
+                <Text variant="xxLarge">Sample Authorize User Input App</Text>
             </Stack>
-            {
-            /*<Stack.Item grow={1}>
-                <div></div>
-            </Stack.Item>
-            <Stack.Item>
-                <Stack horizontal grow={1}>
-                <Persona size={PersonaSize.size32} text="Sample User" />
-                </Stack>
-            </Stack.Item>*/
-            }
         </Stack>
     );
 }

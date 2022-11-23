@@ -10,6 +10,7 @@ using Microsoft.AzureHealth.DataServices.Pipelines;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using SMARTCustomOperations.AzureAuth.Configuration;
 using SMARTCustomOperations.AzureAuth.Extensions;
 using SMARTCustomOperations.AzureAuth.Models;
@@ -17,14 +18,14 @@ using SMARTCustomOperations.AzureAuth.Services;
 
 namespace SMARTCustomOperations.AzureAuth.Filters
 {
-    public sealed class ContextInfoInputFilter : IInputFilter
+    public sealed class AppConsentInfoInputFilter : IInputFilter
     {
         private readonly ILogger _logger;
         private readonly AzureAuthOperationsConfig _configuration;
         private readonly string _id;
         private readonly GraphConsentService _graphContextService;
 
-        public ContextInfoInputFilter(ILogger<TokenInputFilter> logger, AzureAuthOperationsConfig configuration, GraphConsentService graphContextService)
+        public AppConsentInfoInputFilter(ILogger<TokenInputFilter> logger, AzureAuthOperationsConfig configuration, GraphConsentService graphContextService)
         {
             _logger = logger;
             _configuration = configuration;
@@ -34,7 +35,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
 
         public event EventHandler<FilterErrorEventArgs>? OnFilterError;
 
-        public string Name => nameof(ContextInfoInputFilter);
+        public string Name => nameof(AppConsentInfoInputFilter);
 
         public StatusType ExecutionStatusType => StatusType.Normal;
 
@@ -43,7 +44,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
         public async Task<OperationContext> ExecuteAsync(OperationContext context)
         {
             // Only execute for contextInfo request
-            if (!context.Request.RequestUri!.LocalPath.Contains("contextInfo", StringComparison.InvariantCultureIgnoreCase))
+            if (!context.Request.RequestUri!.LocalPath.Contains("appConsentInfo", StringComparison.InvariantCultureIgnoreCase))
             {
                 return context;
             }
@@ -81,39 +82,36 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             {
                 if (context.Request.Method == HttpMethod.Get)
                 {
-                    var queryParameters = context.Request.RequestUri.ParseQueryString();
-
-                    var clientId = queryParameters["client_id"];
-                    var scope = queryParameters["scope"]!.Split(" ");
+                    AuthorizeContext uriContext = new(context.Request.RequestUri.ParseQueryString());
                     var userId = userPrincipal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
 
-                    if (clientId is null || scope is null || userId is null)
+                    if (uriContext.ClientId is null || uriContext.Scope is null || userId is null)
                     {
-                        FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Get Context Info must contain client_id, scope and token parameters."), code: HttpStatusCode.Unauthorized);
+                        FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Get Context Info must contain client_id, scope and token parameters."), code: HttpStatusCode.BadRequest);
                         OnFilterError?.Invoke(this, error);
                         return context.SetContextErrorBody(error, _configuration.Debug);
                     }
 
-                    var info = await _graphContextService.GetAppConsentScopes(clientId!, userId!, scope!.ToList());
-                    context.ContentString = JsonConvert.SerializeObject(info);
+                    var scopes = uriContext.Scope.ParseScope(string.Empty).Split(" ");
+                    var info = await _graphContextService.GetAppConsentScopes(uriContext.ClientId, userId!, scopes);
+                    context.ContentString = JsonConvert.SerializeObject(info, new JsonSerializerSettings() { ContractResolver = new CamelCasePropertyNamesContractResolver() });
                     context.StatusCode = HttpStatusCode.OK;
                     return context;
                 }
                 else
                 {
                     var body = JObject.Parse(context.ContentString);
-                    var clientId = body.Value<string>("client_id");
-                    var userId = body.Value<string>("user_id");
-                    var appConsentScopes = body.Value<List<AppConsentScope>>("scopes");
+                    var appConsentInfo = body.ToObject<AppConsentInfo>();
+                    var userId = userPrincipal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
 
-                    if (clientId is null || userId is null || appConsentScopes is null)
+                    if (appConsentInfo?.ApplicationId is null || userId is null || appConsentInfo?.Scopes is null)
                     {
-                        FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Post Context Info must contain client_id, user_id and scopes parameters."), code: HttpStatusCode.Unauthorized);
+                        FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Post Context Info must contain application id and scope parameters. Token must have valid user information."), code: HttpStatusCode.BadRequest);
                         OnFilterError?.Invoke(this, error);
                         return context.SetContextErrorBody(error, _configuration.Debug);
                     }
 
-                    await _graphContextService.PersistAppConsentScope(clientId, userId, appConsentScopes);
+                    await _graphContextService.PersistAppConsentScope(appConsentInfo, userId);
                     context.StatusCode = HttpStatusCode.OK;
                     return context;
                 }

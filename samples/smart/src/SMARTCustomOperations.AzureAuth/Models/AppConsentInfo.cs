@@ -10,6 +10,12 @@ namespace SMARTCustomOperations.AzureAuth.Models
 {
     public class AppConsentInfo
     {
+        public AppConsentInfo()
+        {
+        }
+
+        public string? ApplicationId { get; set; }
+
         public string? ApplicationName { get; set; }
 
         public string? ApplicationDescription { get; set; }

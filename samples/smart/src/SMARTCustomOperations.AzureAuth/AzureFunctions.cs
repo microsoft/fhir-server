@@ -37,8 +37,8 @@ namespace SMARTCustomOperations.AzureAuth
             return await _pipeline.ExecuteAsync(req);
         }
 
-        [Function("ContextInfo")]
-        public async Task<HttpResponseData> RunContextInfoFunction([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "contextInfo")] HttpRequestData req)
+        [Function("AppConsentInfo")]
+        public async Task<HttpResponseData> RunContextInfoFunction([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = "appConsentInfo")] HttpRequestData req)
         {
             _logger.LogInformation("ContextInfo function pipeline started.");
 

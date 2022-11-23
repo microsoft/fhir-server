@@ -3,18 +3,18 @@
 
 import React, { useContext, createContext, useState, useEffect } from 'react';
 import { IMsalContext, useMsal  } from '@azure/msal-react';
-import { getAppConsentInfo } from './GraphConsentService';
+import { getAppConsentInfo, saveAppConsentInfo } from './GraphConsentService';
 
 
 // Core application context object.
 type AppContext = {
   consentInfo?: AppConsentInfo
-  requestedScopes?: string[]
+  requestedScopesDisplay?: string[]
   user?: AppUser
   error?: AppError
   displayError?: Function
   clearError?: Function
-  saveScopes?: ((authInfo: AppConsentInfo) => Promise<boolean>)
+  saveScopes?: ((authInfo: AppConsentInfo) => Promise<void>)
   logout?: Function
 }
 
@@ -27,6 +27,7 @@ export interface AppUser {
 
 // Information about the application the user is logging into.
 export interface AppConsentInfo {
+  applicationId: string
   applicationName: string
   applicationDescription?: string
   applicationUrl?: string
@@ -41,6 +42,7 @@ export interface AppConsentScope {
   resourceId: string
   consented: boolean
   consentId?: string
+  enabled?: boolean
   hidden?: boolean
 }
 
@@ -50,10 +52,14 @@ export interface AppError {
   debug?: string
 };
 
+export const queryParams = new URLSearchParams(window.location.search);
+const applicationId = queryParams.get("client_id") ?? undefined;
+const requestedScopes = queryParams.get("scope") ?? undefined;
+
 // Create starter (null) context.
 const appContext = createContext<AppContext>({
   consentInfo: undefined,
-  requestedScopes: undefined,
+  requestedScopesDisplay: undefined,
   user: undefined,
   error: undefined,
   displayError: undefined,
@@ -78,8 +84,6 @@ export default function ProvideAppContext({ children }: ProvideAppContextProps) 
   );
 }
 
-export const queryParams = new URLSearchParams(window.location.search);
-
 function useProvideAppContext() {
   // Fetches user information post login.
   const msal : IMsalContext = useMsal();
@@ -89,8 +93,6 @@ function useProvideAppContext() {
   
   // Raw placeholder for app consent information
   const [appConsentInfo, SetAppConsentInfo] = useState<AppConsentInfo | undefined>(undefined);
-
-  const [requestedScopes, setRequestedScopes] = useState<string[] | undefined>(undefined);
   
   // App error - used to display errors to the user.
   const [error, setError] = useState<AppError | undefined>(undefined);
@@ -106,10 +108,6 @@ function useProvideAppContext() {
   const logoutUser = () => {
     msal.instance.logoutRedirect();
   };
-
-  TODO - if this is a post, need to pull this from body.
-  const applicationId = queryParams.get("client_id") ?? undefined;
-  const scope = queryParams.get("scope") ?? undefined;
 
   const setUserIfEmpty = async () => {
     if (!user && applicationId && msal?.instance && error == undefined) {
@@ -133,10 +131,15 @@ function useProvideAppContext() {
 
 
 const setAppConsentInfoIfEmpty = async () => {
-  if (applicationId != undefined && scope != undefined && appConsentInfo == undefined && error == undefined)
+  if (applicationId != undefined && requestedScopes != undefined && appConsentInfo == undefined && error == undefined)
   {
     try {
-      const info = await getAppConsentInfo(applicationId, scope);
+      const info = await getAppConsentInfo(applicationId, requestedScopes);
+      info.scopes.forEach(scope => {
+        scope.hidden = shouldScopeBeHiddenAndAlwaysEnabled(scope.name);
+        scope.enabled = shouldScopeBeHiddenAndAlwaysEnabled(scope.name) || scope.consented
+      });
+
       SetAppConsentInfo(info);
     }
     catch (err: any) {
@@ -145,20 +148,36 @@ const setAppConsentInfoIfEmpty = async () => {
   }
 };
 
-const setRequestedScopesIfEmpty = async () => {
-  if (scope != undefined && requestedScopes == undefined && error == undefined)
-  {
-    setRequestedScopes(scope?.split(" ") ?? []);
-  }
-}
 
-const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<boolean> => {
+const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
   console.log("Saving scopes...");
-  return true;
+
+  if (modifiedAuthInfo.scopes.filter(x => x.enabled != x.consented).length >= 0) {
+    
+    // Convert scopes the user has enabled to consented for the API call.
+    modifiedAuthInfo.scopes.forEach(scope => {
+      scope.consented = scope.enabled ?? false;
+    });
+
+    try
+    {
+      await saveAppConsentInfo(modifiedAuthInfo);
+    }
+    catch (err: any) {
+      displayError(err.message);
+      return;
+    }
+  }
+
+  // Redirect to authorization endpoint.
+  const newQueryParams = queryParams;
+  newQueryParams.set("scope", modifiedAuthInfo.scopes.filter(x => x.enabled).map(x => x.name).join(" "));
+  newQueryParams.set("user", "true");
+  window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize?" + newQueryParams.toString());
 }
 
 useEffect(() => {
-  if (applicationId == undefined || scope == undefined) {
+  if (applicationId == undefined || requestedScopes == undefined) {
     if (error == undefined) {
       displayError("Missing required parameters in the URL.", "client_id and scope are required.");
     }
@@ -169,10 +188,13 @@ useEffect(() => {
       setAppConsentInfoIfEmpty();
     }
   }
-});
+}, []);
+
+const requestedScopesDisplay = requestedScopes?.split(" ").filter(x => !shouldScopeBeHiddenAndAlwaysEnabled(x)) || [];
 
 let authInfo: AppContext = {
   consentInfo: appConsentInfo,
+  requestedScopesDisplay: requestedScopesDisplay,
   user: user,
   error: error,
   displayError: displayError,
@@ -185,7 +207,7 @@ return authInfo;
 }
 
 
-const shouldScopeBeHidden = (scope: string): boolean => {
+const shouldScopeBeHiddenAndAlwaysEnabled = (scope: string): boolean => {
   const scopeLower = scope.toLowerCase();
   return scopeLower.includes("launch") || scopeLower == "openid" || scopeLower == "fhiruser";
 };

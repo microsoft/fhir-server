@@ -3,6 +3,7 @@ import { MsalProvider, MsalAuthenticationTemplate } from "@azure/msal-react";
 import { IPublicClientApplication, InteractionType } from "@azure/msal-browser";
 import { ThemeProvider, IStackStyles } from '@fluentui/react';
 import { initializeIcons } from '@fluentui/react/lib/Icons';
+import { Buffer } from "buffer";
 
 // MSAL imports
 import { PublicClientApplication, EventType, EventMessage, AuthenticationResult } from "@azure/msal-browser";
@@ -22,7 +23,6 @@ const appStyle: IStackStyles = {
       width: '800px'
   }
 }
-
 export const App: FC = () => {
   
   // Check if there are already accounts in the browser session
@@ -38,10 +38,15 @@ export const App: FC = () => {
       const authResult = event.payload as AuthenticationResult;
       msalInstance.setActiveAccount(authResult.account);
     }
+    else if (event.eventType == EventType.LOGIN_FAILURE)
+    {
+      console.log(event);
+    }
   });
 
   const authRequest = {
-    scopes: scopes
+    scopes: scopes,
+    //state:  Buffer.from(window.location.search, 'binary').toString('base64'),
   };
 
   initializeIcons();

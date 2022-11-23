@@ -67,7 +67,7 @@ namespace SMARTCustomOperations.AzureAuth
 
                     services.AddInputFilter(typeof(AuthorizeInputFilter));
                     services.AddInputFilter(typeof(TokenInputFilter));
-                    services.AddInputFilter(typeof(ContextInfoInputFilter));
+                    services.AddInputFilter(typeof(AppConsentInfoInputFilter));
                     services.AddOutputFilter(typeof(TokenOutputFilter));
 
                     services.AddBinding<AzureActiveDirectoryBindingOptions>(typeof(AzureActiveDirectoryBinding), options =>

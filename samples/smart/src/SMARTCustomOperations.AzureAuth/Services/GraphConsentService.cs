@@ -84,25 +84,28 @@ namespace SMARTCustomOperations.AzureAuth.Services
             return claimsPrincipal;
         }
 
-        public async Task<AppConsentInfo> GetAppConsentScopes(string requestingAppClientId, string userId, List<string> requestedScopes)
+        public async Task<AppConsentInfo> GetAppConsentScopes(string requestingAppClientId, string userId, string[] requestedScopes)
         {
             // Get needed objects from graph
             var requestingClientApp = await GetRequestingApplication(requestingAppClientId);
-            var resourceServicePrincipals = await GetResourceServicePrincipals(requestingClientApp);
-            var requestingClientAppScopeIds = GetAppScopeIds(requestingClientApp);
+            var resourceServicePrincipals = await GetResourceServicePrincipals(requestingClientApp.RequiredResourceAccess.Select(x => x.ResourceAppId).Distinct());
             var requestingServicePrincipal = await GetRequestingServicePrincipal(requestingAppClientId);
             var permissions = await GetUserAppOAuth2PermissinGrants(requestingServicePrincipal.Id, userId);
 
             AppConsentInfo info = new();
+            info.ApplicationId = requestingClientApp.AppId;
             info.ApplicationName = requestingClientApp.DisplayName;
             info.ApplicationDescription = requestingClientApp.Description;
             info.ApplicationUrl = requestingClientApp.Info.MarketingUrl;
 
-            foreach (string scope in requestedScopes)
+            var requestedAndApprovedScopes = string.Join(" ", permissions.Select(x => x.Scope)).Split(" ").Union(requestedScopes);
+
+            foreach (string scope in requestedAndApprovedScopes)
             {
+                var requestingClientAppScopeIds = GetAppScopeIds(requestingClientApp);
                 var matchingResourcePrincipal = resourceServicePrincipals.Values.Where(x => x.Oauth2PermissionScopes.Any(y => requestingClientAppScopeIds.Contains((Guid)y.Id!) && y.Value == scope)).FirstOrDefault();
                 var scopeInfo = matchingResourcePrincipal?.Oauth2PermissionScopes.Where(x => x.Value == scope).FirstOrDefault();
-                var scopeConsentRecord = permissions.SingleOrDefault(x => x.ResourceId == matchingResourcePrincipal?.Id && x.Scope == scope);
+                var scopeConsentRecord = permissions.SingleOrDefault(x => x.ResourceId == matchingResourcePrincipal?.Id && x.Scope.Contains(scope, StringComparison.InvariantCultureIgnoreCase));
 
                 if (matchingResourcePrincipal is not null && scopeInfo?.Id is not null)
                 {
@@ -121,19 +124,23 @@ namespace SMARTCustomOperations.AzureAuth.Services
             return info;
         }
 
-        public async Task PersistAppConsentScope(string requestingAppClientId, string userId, List<AppConsentScope> scopeList)
+        public async Task PersistAppConsentScope(AppConsentInfo consentInfo, string userId)
         {
-            foreach (var resourceId in scopeList.Where(x => x is not null).Select(x => x.ResourceId).Distinct())
+            // Task.WhenAll could be used for better performance.
+            foreach (var resourceId in consentInfo.Scopes.Where(x => x is not null).Select(x => x.ResourceId).Distinct())
             {
-                var resourceScopes = scopeList.Where(x => x.ResourceId == resourceId).ToList();
+                var resourceScopes = consentInfo.Scopes.Where(x => x.ResourceId == resourceId).ToList();
                 if (resourceScopes.Any(x => x.ConsentId is not null))
                 {
-                    await UpdateUserAppOAuth2PermissionGrant(resourceScopes.First(x => x.ConsentId is not null).ConsentId!, string.Join(" ", resourceScopes));
+                    var consentId = resourceScopes.First(x => x.ConsentId is not null).ConsentId!;
+                    var scopeString = string.Join(" ", resourceScopes.Select(x => x.Name));
+                    await UpdateUserAppOAuth2PermissionGrant(consentId, scopeString);
                 }
                 else if (resourceScopes.Any())
                 {
-                    var requestingServicePrincipal = await GetRequestingServicePrincipal(requestingAppClientId);
-                    await CreateUserAppOAuth2PermissinGrant(requestingServicePrincipal.Id, userId, resourceId!, string.Join(" ", resourceScopes));
+                    var requestingServicePrincipal = await GetRequestingServicePrincipal(consentInfo.ApplicationId!);
+                    var scopeString = string.Join(" ", resourceScopes.Select(x => x.Name));
+                    await CreateUserAppOAuth2PermissinGrant(requestingServicePrincipal.Id, userId, resourceId!, scopeString);
                 }
             }
         }
@@ -180,9 +187,9 @@ namespace SMARTCustomOperations.AzureAuth.Services
             return appScopeIds;
         }
 
-        private async Task<Dictionary<string, ServicePrincipal>> GetResourceServicePrincipals(Application clientApp)
+        private async Task<Dictionary<string, ServicePrincipal>> GetResourceServicePrincipals(IEnumerable<string> resourceAppIds)
         {
-            foreach (var resourceAppId in clientApp.RequiredResourceAccess.Select(x => x.ResourceAppId).Distinct())
+            foreach (var resourceAppId in resourceAppIds)
             {
                 if (_resourceServicePrincipals.ContainsKey(resourceAppId))
                 {

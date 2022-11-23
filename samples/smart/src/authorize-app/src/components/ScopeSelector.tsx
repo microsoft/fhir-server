@@ -11,14 +11,13 @@ const moduleStyle: IStackStyles = {
 
 interface ScopeSelectorProps {
     consentInfo?: AppConsentInfo
-    requestedScopes?: string[]
-    updateUserApprovedScopes?: (scopes: AppConsentInfo) => Promise<boolean>
+    requestedScopes: string[] | undefined
+    updateUserApprovedScopes?: (scopes: AppConsentInfo) => Promise<void>
 }
 
 export const ScopeSelector: FC<ScopeSelectorProps> = (props: ScopeSelectorProps): ReactElement => {
     const [consentInfo, setConsentInfo] = useState(props.consentInfo);
     const [requestedScopes, setRequestedScopes] = useState(props.requestedScopes);
-    const [updateNeeded, setUpdateNeeded] = useState(false);
     const [mode, setMode] = useState("loading");
 
     useEffect(() => {
@@ -33,54 +32,32 @@ export const ScopeSelector: FC<ScopeSelectorProps> = (props: ScopeSelectorProps)
             }
             else {
                 setMode('new edit');
-                setUpdateNeeded(true);
             }
         }
     }, [props]);
 
     const changeEditMode = () => {
         setMode('existing edit');
-        setUpdateNeeded(true);
     };
 
     const handleScopeChecked = (scope: AppConsentScope) => {
         return (ev?: React.FormEvent<HTMLElement | HTMLInputElement>, isChecked?: boolean) => {
 
             if (consentInfo != undefined) {
-                scope.consented = isChecked!;
+                scope.enabled = isChecked!;
                 const updateConsentInfo = {
-                    applicationName: consentInfo.applicationName,
-                    applicationDescription: consentInfo.applicationDescription,
-                    applicationUrl: consentInfo.applicationUrl,
-
+                    ...consentInfo,
                     // only update the scope that was changed
                     scopes: consentInfo!.scopes.map(x => x.name == scope.name && x.resourceId == scope.resourceId ? scope : x),
                 };
                 setConsentInfo(updateConsentInfo);
-                setUpdateNeeded(true);
             }
         }
     }
 
     const updateScopes = () => {
         setMode('redirecting');
-
-        let queryParams = new URLSearchParams(window.location.search);
-        queryParams.set('scope', consentInfo?.scopes.filter(x => x.consented).map(x => x.name).join(" ") ?? "");
-        queryParams.set('user', 'true');
-        queryParams.set('prompt', 'consent');
-
-
-        window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize?" + queryParams.toString());
-        /*if (updateNeeded)
-        {
-            props.updateUserApprovedScopes(authInfo!);
-            window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize" + window.location.search + "&user=true&prompt=consent");
-        }
-        else 
-        {
-            window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize" + window.location.search + "&user=true&prompt=consent");
-        }*/
+        props.updateUserApprovedScopes!(consentInfo!);
     };
 
     return (
@@ -108,7 +85,7 @@ export const ScopeSelector: FC<ScopeSelectorProps> = (props: ScopeSelectorProps)
                 <Stack.Item styles={moduleStyle}>
                     <Text block variant="xLarge">Select Access:</Text>
                     {consentInfo?.scopes.map((scope) => (
-                        scope.hidden ? null : <Checkbox key={scope.id} label={scope.name} checked={scope.consented} onChange={handleScopeChecked(scope)} />
+                        scope.hidden ? null : <Checkbox key={scope.id} label={scope.name} checked={scope.enabled} onChange={handleScopeChecked(scope)} />
                     ))}
                 </Stack.Item>
             }

@@ -1,0 +1,17 @@
+<policies>
+    <inbound>
+        <base />
+        <!-- Default to our Auth Function -->
+        <set-backend-service id="apim-generated-policy" backend-id="smartAuth" />
+        <rewrite-uri template="/appConsentInfo" copy-unmatched-params="true" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

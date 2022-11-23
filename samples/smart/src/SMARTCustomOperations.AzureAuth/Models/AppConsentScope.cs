@@ -7,6 +7,10 @@ namespace SMARTCustomOperations.AzureAuth.Models
 {
     public class AppConsentScope
     {
+        public AppConsentScope()
+        {
+        }
+
         public string? Name { get; set; }
 
         public string? Id { get; set; }
