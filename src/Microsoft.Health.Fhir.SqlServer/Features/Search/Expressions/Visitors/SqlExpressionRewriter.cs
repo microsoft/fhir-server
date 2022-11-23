@@ -33,7 +33,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return searchParamTableExpression;
             }
 
-            return new SearchParamTableExpression(searchParamTableExpression.QueryGenerator, rewrittenPredicate, searchParamTableExpression.Kind);
+            // if this is rewritten then the expression is considered a chain of 1
+            return new SearchParamTableExpression(searchParamTableExpression.QueryGenerator, rewrittenPredicate, searchParamTableExpression.Kind, 1);
         }
 
         public virtual Expression VisitSqlChainLink(SqlChainLinkExpression sqlChainLinkExpression, TContext context)
