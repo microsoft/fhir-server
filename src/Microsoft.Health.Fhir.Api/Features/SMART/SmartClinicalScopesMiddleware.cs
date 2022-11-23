@@ -111,11 +111,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 }
 
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
-                                scopeRestrictions.Append(" ( ");
-                                scopeRestrictions.Append(resource);
-                                scopeRestrictions.Append(" - ");
-                                scopeRestrictions.Append(permittedDataActions);
-                                scopeRestrictions.Append(" ) ");
+
+                                scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
 
                                 if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                                 {
