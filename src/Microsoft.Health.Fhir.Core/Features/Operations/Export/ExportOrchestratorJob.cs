@@ -46,8 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
             var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
-            var surrogateIdRaneSize = (int)record.MaximumNumberOfResourcesPerQuery;
-            var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken)).ToList();
+            var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
+            var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
             var isAnonym = !string.IsNullOrEmpty(record.AnonymizationConfigurationCollectionReference) || !string.IsNullOrEmpty(record.AnonymizationConfigurationLocation) || !string.IsNullOrEmpty(record.AnonymizationConfigurationFileETag);
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     while (rows > 0)
                     {
                         var definitions = new List<string>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRaneSize, NumberOfSurrogateIdRanges, cancel);
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfSurrogateIdRanges, cancel);
                         foreach (var range in ranges)
                         {
                             if (range.EndId > startId)
