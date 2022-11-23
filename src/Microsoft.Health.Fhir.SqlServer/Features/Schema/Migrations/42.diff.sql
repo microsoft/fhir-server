@@ -1,7 +1,7 @@
 ﻿GO
 CREATE OR ALTER PROCEDURE [dbo].[GetIndexCommands]
 @Tbl VARCHAR (100), @Ind VARCHAR (200), @AddPartClause BIT, @IncludeClustered BIT, @Txt VARCHAR (MAX)=NULL OUTPUT
-WITH EXECUTE AS 'dbo'
+WITH EXECUTE AS SELF
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'GetIndexCommands', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' Ind=' + isnull(@Ind, 'NULL'), @st AS DATETIME = getUTCdate();

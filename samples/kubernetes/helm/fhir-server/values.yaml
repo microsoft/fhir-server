@@ -19,6 +19,9 @@ podIdentity:
   # identityClientId: my-id
   # identityResourceId: my-identity-resource-id
 
+convertData:
+  enabled: false
+
 export:
   enabled: false
   blobStorageUri: https://mystorageaccount.blob.core.windows.net

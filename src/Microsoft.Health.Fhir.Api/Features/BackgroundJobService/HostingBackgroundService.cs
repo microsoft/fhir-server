@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -57,19 +56,12 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                     jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds = _hostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds;
                 }
 
-                var jobQueues = new List<Task>();
                 using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-
-                foreach (QueueType queueType in Enum.GetValues<QueueType>())
+                var jobQueues = new[]
                 {
-                    if (queueType == QueueType.Unknown)
-                    {
-                        continue;
-                    }
-
-                    jobQueues.Add(jobHostingValue.StartAsync((byte)queueType, Environment.MachineName, cancellationTokenSource));
-                }
-
+                    jobHostingValue.StartAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource),
+                    jobHostingValue.StartAsync((byte)QueueType.Export, Environment.MachineName, cancellationTokenSource),
+                };
                 await Task.WhenAll(jobQueues);
             }
             catch (Exception ex)

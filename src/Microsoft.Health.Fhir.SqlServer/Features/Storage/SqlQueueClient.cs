@@ -349,7 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
-            using (new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
+            await using (new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 await action(cancellationToken);
             }
@@ -357,7 +357,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void PutJobHeartbeatFireAndForget(byte queueType, long jobId, long version, CancellationToken cancellationToken)
         {
-            KeepAliveJobAsync(new JobInfo() { QueueType = queueType, Id = jobId, Version = version }, cancellationToken).Wait(cancellationToken);
+            try
+            {
+                KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationToken).Wait(cancellationToken);
+            }
+            catch (AggregateException ex) when (ex.InnerExceptions?.All(x => x is TaskCanceledException || x is OperationCanceledException) == true)
+            {
+                // ignore task cancellation exceptions
+            }
+            catch (TaskCanceledException)
+            {
+                // ignore task cancellation exceptions
+            }
+            catch (OperationCanceledException)
+            {
+                // ignore task cancellation exceptions
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to put job heartbeat.");
+            }
         }
     }
 }

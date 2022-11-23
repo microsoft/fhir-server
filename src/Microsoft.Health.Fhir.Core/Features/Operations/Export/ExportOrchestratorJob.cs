@@ -21,8 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class ExportOrchestratorJob : IJob
     {
-        private const double DefaultPollingIntervalSec = 60;
-        private const int DefaultSurrogateIdRangeSize = 100000;
         private const int DefaultNumberOfSurrogateIdRanges = 100;
 
         private IQueueClient _queueClient;
@@ -43,23 +41,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = loggerFactory.CreateLogger<ExportOrchestratorJob>();
         }
 
-        internal double PollingIntervalSec { get; set; } = DefaultPollingIntervalSec;
-
-        internal int SurrogateIdRangeSize { get; set; } = DefaultSurrogateIdRangeSize;
-
         internal int NumberOfSurrogateIdRanges { get; set; } = DefaultNumberOfSurrogateIdRanges;
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
-            ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            var surrogateIdRaneSize = (int)record.MaximumNumberOfResourcesPerQuery;
             var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken)).ToList();
+            var isAnonym = !string.IsNullOrEmpty(record.AnonymizationConfigurationCollectionReference) || !string.IsNullOrEmpty(record.AnonymizationConfigurationLocation) || !string.IsNullOrEmpty(record.AnonymizationConfigurationFileETag);
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
-            if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
+            if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0) && !isAnonym)
             {
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                   ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
                                   : record.ResourceType.Split(',');
+                resourceTypes = resourceTypes.OrderByDescending(_ => string.Equals(_, "Observation", StringComparison.OrdinalIgnoreCase)); // true first, so observation is processed as soon as
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
                 var globalStartId = _searchService.GetSurrogateId(since.DateTime);
@@ -72,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                         .GroupBy(_ => _.ResourceType)
                                         .ToDictionary(_ => _.Key, _ => Tuple.Create(_.Max(r => GetSequence(r)), _.Max(r => long.Parse(r.EndSurrogateId))));
 
-                foreach (var type in resourceTypes)
+                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startId = globalStartId;
                     var sequence = 0;
@@ -86,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     while (rows > 0)
                     {
                         var definitions = new List<string>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, SurrogateIdRangeSize, NumberOfSurrogateIdRanges, cancellationToken);
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRaneSize, NumberOfSurrogateIdRanges, cancel);
                         foreach (var range in ranges)
                         {
                             if (range.EndId > startId)
@@ -104,10 +101,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         rows = definitions.Count;
                         if (rows > 0)
                         {
-                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
+                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
                         }
                     }
-                }
+                });
             }
             else if (groupJobs.Count == 1)
             {
@@ -122,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private static int GetSequence(ExportJobRecord record)
         {
             var split = record.ExportFormat.Split("-");
-            return split.Length > 1 ? int.Parse(split[1]) : -1;
+            return split.Length > 1 ? int.Parse(split[split.Length - 1]) : -1; // take last
         }
 
         private static ExportJobRecord CreateExportRecord(ExportJobRecord record, int sequence = -1, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)

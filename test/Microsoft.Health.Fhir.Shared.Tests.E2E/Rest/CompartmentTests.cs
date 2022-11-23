@@ -158,6 +158,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatientCompartment_WhenSearchingForAResourceTypeUsingInclude_ThenResourcesShouldBeReturned()
+        {
+            string searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_include=Observation:performer:Practitioner&performer=Practitioner/f005";
+
+            Bundle bundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(bundle, searchUrl, Fixture.Observation);
+
+            searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_union=Observation:performer:Practitioner";
+
+            bundle = await Client.SearchAsync(searchUrl);
+            Assert.NotEmpty(bundle.Entry);
+
+            searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_includeunionall=Observation:performer:Practitioner";
+
+            bundle = await Client.SearchAsync(searchUrl);
+            Assert.NotEmpty(bundle.Entry);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMoreSearchResultsThanCount_WhenSearchingAPatientCompartment_ThenNextLinkShouldBePopulated()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/*?_count=1";
