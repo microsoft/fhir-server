@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                   ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
                                   : record.ResourceType.Split(',');
+                resourceTypes = resourceTypes.OrderByDescending(_ => string.Equals(_, "Observation", StringComparison.OrdinalIgnoreCase)); // true first, so observation is processed as soon as
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
                 var globalStartId = _searchService.GetSurrogateId(since.DateTime);
