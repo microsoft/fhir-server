@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
+                    var atLeastOneJobRegistered = false;
                     var startId = globalStartId;
                     var sequence = 0;
                     if (enqueued.TryGetValue(type, out var max))
@@ -102,7 +103,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         if (rows > 0)
                         {
                             await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
+                            atLeastOneJobRegistered = true;
                         }
+                    }
+
+                    if (!atLeastOneJobRegistered)
+                    {
+                        var processingRecord = CreateExportRecord(record, sequence: 0, resourceType: type, startSurrogateId: "0", endSurrogateId: "0", globalStartSurrogateId: "0", globalEndSurrogateId: "0");
+                        await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancel);
                     }
                 });
             }
