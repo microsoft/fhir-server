@@ -5,6 +5,7 @@
 
 using System;
 using System.Security.Claims;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -53,9 +54,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
             var authorizationConfiguration = securityConfigurationOptions.Value.Authorization;
 
-            _logger.LogInformation("Principal exists {Principal}", fhirRequestContextAccessor.RequestContext.Principal != null);
-            _logger.LogInformation("securityConfigurationOptions Value Enabled {SecutiryConfigurationOption}", securityConfigurationOptions.Value.Enabled);
-            _logger.LogInformation("Authorization configuration enabled {AuthorizationConfiguration} ", authorizationConfiguration.Enabled);
+            // _logger.LogInformation("Principal exists {Principal}", fhirRequestContextAccessor.RequestContext.Principal != null);
+            // _logger.LogInformation("securityConfigurationOptions Value Enabled {SecutiryConfigurationOption}", securityConfigurationOptions.Value.Enabled);
+            // _logger.LogInformation("Authorization configuration enabled {AuthorizationConfiguration} ", authorizationConfiguration.Enabled);
 
             if (fhirRequestContextAccessor.RequestContext.Principal != null
                 && securityConfigurationOptions.Value.Enabled
@@ -67,6 +68,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
 
                 _logger.LogInformation("Smart Data Action is present {Smart}", dataActions.HasFlag(DataActions.Smart));
+
+                var scopeRestrictions = new StringBuilder();
+                scopeRestrictions.Append("Resource(s) allowed and permitted data actions on it are : ");
 
                 // Only read and apply SMART clinical scopes if the user has the Smart Data action
                 if (dataActions.HasFlag(DataActions.Smart))
@@ -111,8 +115,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                 }
 
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+                                scopeRestrictions.Append(" ( ");
+                                scopeRestrictions.Append(resource);
+                                scopeRestrictions.Append(" - ");
+                                scopeRestrictions.Append(permittedDataActions);
+                                scopeRestrictions.Append(" ) ");
+                                scopeRestrictions.Append(" \n ");
 
-                                _logger.LogInformation("Resource and permitted data actions {Resource} {PermittedDataActions} ", resource, permittedDataActions);
+                                // _logger.LogInformation("Resource and permitted data actions {Resource} {PermittedDataActions} ", resource, permittedDataActions);
 
                                 if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                                 {
@@ -122,6 +132,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         }
                     }
 
+                    _logger.LogInformation("Scope restrictions allowed are {ScopeRestriction}", scopeRestrictions);
                     _logger.LogInformation("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
 
                     if (includeFhirUserClaim)
