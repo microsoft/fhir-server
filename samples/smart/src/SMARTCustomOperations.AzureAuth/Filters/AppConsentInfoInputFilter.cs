@@ -123,6 +123,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
                     return context.SetContextErrorBody(error, _configuration.Debug);
                 }
 
+                // TODO - catch unauthorized exception and return 500
                 // Update the scopes and return no content
                 try
                 {

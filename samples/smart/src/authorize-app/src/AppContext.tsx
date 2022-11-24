@@ -199,6 +199,9 @@ const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
       }
     }
 
+    // Give graph more time to replicate the consent information.
+    await sleep(30000);
+
     if (!scopeSaveSuccessful) {
       displayError("Scopes did not properly replicate.");
       return;

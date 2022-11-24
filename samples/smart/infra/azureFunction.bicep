@@ -5,6 +5,7 @@ param appInsightsInstrumentationKey string
 param appInsightsConnectionString string
 param location string
 param functionSettings object = {}
+param siteConfig object = {}
 param appTags object = {}
 param azdServiceName string
 param deployJwksTable bool = false
@@ -47,9 +48,10 @@ resource functionApp 'Microsoft.Web/sites@2021-03-01' = {
     enabled: true
     serverFarmId: hostingPlan.id
     clientAffinityEnabled: false
-    siteConfig: {
-      alwaysOn:true
-    }
+    siteConfig: union({
+      alwaysOn: true
+    }, siteConfig)
+    
   }
 
   tags: union(appTags, {'azd-service-name': azdServiceName})

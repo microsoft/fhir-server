@@ -115,6 +115,13 @@ module aadCustomOperationFunction './azureFunction.bicep'= {
     appTags: appTags
     azdServiceName: 'auth'
     deployJwksTable: true
+    siteConfig: {
+      cors: {
+        allowedOrigins: [
+          contextStaticWebApp.outputs.uri
+        ]
+      }
+    }
   }
 }
 

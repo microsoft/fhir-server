@@ -127,6 +127,8 @@ namespace SMARTCustomOperations.AzureAuth.Services
         public async Task PersistAppConsentScope(AppConsentInfo consentInfo, string userId)
         {
             // Task.WhenAll could be used for better performance.
+            // NOTE! This is not immediate! The client should check that the scopes persisted then sleep for like 30 seconds.
+
             foreach (var resourceId in consentInfo.Scopes.Where(x => x is not null).Select(x => x.ResourceId).Distinct())
             {
                 var resourceScopes = consentInfo.Scopes.Where(x => x.ResourceId == resourceId).ToList();
@@ -144,6 +146,17 @@ namespace SMARTCustomOperations.AzureAuth.Services
             }
 
             return;
+        }
+
+        public async Task DeleteAppConsentScope(AppConsentInfo consentInfo, string userId)
+        {
+            foreach (var grantId in consentInfo.Scopes.Select(x => x.ConsentId).Distinct())
+            {
+                if (grantId is not null)
+                {
+                    await DeleteUserAppOAuth2PermissionGrant(grantId);
+                }
+            }
         }
 
         private async Task<Application> GetRequestingApplication(string applicationId)
@@ -247,6 +260,13 @@ namespace SMARTCustomOperations.AzureAuth.Services
                 await _graphServiceClient.Oauth2PermissionGrants[grantId].Request().UpdateAsync(permission);
             }
 
+            return;
+        }
+
+        private async Task DeleteUserAppOAuth2PermissionGrant(string grantId)
+        {
+            _logger.LogInformation($"Deleting OAuth2PermissionGrant {grantId}");
+            await _graphServiceClient.Oauth2PermissionGrants[grantId].Request().DeleteAsync();
             return;
         }
     }
