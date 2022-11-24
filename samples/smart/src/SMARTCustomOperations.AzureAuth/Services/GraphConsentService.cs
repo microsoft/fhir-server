@@ -124,7 +124,7 @@ namespace SMARTCustomOperations.AzureAuth.Services
             return info;
         }
 
-        public async Task PersistAppConsentScope(AppConsentInfo consentInfo, string userId)
+        public async Task PersistAppConsentScopeIfRemoval(AppConsentInfo consentInfo, string userId)
         {
             // Task.WhenAll could be used for better performance.
             // NOTE! This is not immediate! The client should check that the scopes persisted then sleep for like 30 seconds.
@@ -136,13 +136,17 @@ namespace SMARTCustomOperations.AzureAuth.Services
                 if (resourceScopes.Any(x => x.ConsentId is not null))
                 {
                     var consentId = resourceScopes.First(x => x.ConsentId is not null).ConsentId!;
-                    await UpdateUserAppOAuth2PermissionGrant(consentId, scopeString);
+                    await UpdateUserAppOAuth2PermissionGrantIfRemovalNeeded(consentId, scopeString);
                 }
+
+                /*
+                Below is not needed. Graph will prompt user for scopes if needed
+
                 else if (resourceScopes.Any())
                 {
                     var requestingServicePrincipal = await GetRequestingServicePrincipal(consentInfo.ApplicationId!);
                     await CreateUserAppOAuth2PermissinGrant(requestingServicePrincipal.Id, userId, resourceId!, scopeString);
-                }
+                }*/
             }
 
             return;
@@ -243,21 +247,26 @@ namespace SMARTCustomOperations.AzureAuth.Services
             return await _graphServiceClient.Oauth2PermissionGrants.Request().AddAsync(permission);
         }
 
-        private async Task UpdateUserAppOAuth2PermissionGrant(string grantId, string scope)
+        private async Task UpdateUserAppOAuth2PermissionGrantIfRemovalNeeded(string grantId, string scope)
         {
             var existingGrant = await _graphServiceClient.Oauth2PermissionGrants[grantId].Request().GetAsync();
             var existingScopes = existingGrant.Scope.Split(" ");
             var newScopes = scope.Split(" ");
 
-            if (existingScopes.Except(newScopes).Union(newScopes.Except(existingScopes)).Any())
+            // We only care about removing scopes, not adding them. Graph will consent for the others.
+            if (existingScopes.Except(newScopes).Any())
             {
                 _logger.LogInformation($"Updating OAuth2PermissionGrant {grantId} with scope {scope}");
 
+                /*
                 var permission = new OAuth2PermissionGrant
                 {
                     Scope = scope,
                 };
                 await _graphServiceClient.Oauth2PermissionGrants[grantId].Request().UpdateAsync(permission);
+                */
+
+                await _graphServiceClient.Oauth2PermissionGrants[grantId].Request().DeleteAsync();
             }
 
             return;

@@ -158,7 +158,8 @@ const sleep = (ms: number) => new Promise(
 const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
   console.log("Saving scopes...");
 
-  if (modifiedAuthInfo.scopes.filter(x => x.enabled != x.consented).length >= 0) {
+  // We only care about removing scopes if needed. Consent prompt will ask user to re-add any needed scopes.
+  if (modifiedAuthInfo.scopes.filter(x => x.enabled == false && x.consented == true).length >= 0) {
     
     // Convert scopes the user has enabled to consented for the API call.
     modifiedAuthInfo.scopes.forEach(scope => {
@@ -175,7 +176,7 @@ const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
       return;
     }
 
-    // Get the new consent information, retry until replicated.
+    // Get the new consent information, retry until any scope removals are reflected.
     let retryAttempt = 0;
     let scopeSaveSuccessful: boolean = false;
     const userInputConsentedScopeCount = modifiedAuthInfo.scopes.filter(x => x.consented).length;
@@ -183,9 +184,12 @@ const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
     while(retryAttempt < 10) {
       try {
         let newInfo = await getAppConsentInfo(modifiedAuthInfo.applicationId, "");
-        let newConsentedScopeCount = newInfo.scopes.filter(x => x.consented).length; 
+        let currentGraphConsentCount = newInfo.scopes.filter(x => x.consented).length; 
         
-        if (userInputConsentedScopeCount == newConsentedScopeCount) {
+        console.log(`Checking if scopes have been removed. Attempt ${retryAttempt} of 10. User consented scope count: ${userInputConsentedScopeCount}. New consented scope count: ${currentGraphConsentCount}.`);
+
+        // We want the current graph consented scopes to be less than what the user needs to consent to. This will enable the Graph consent dialogue. 
+        if (userInputConsentedScopeCount >= currentGraphConsentCount) {
           scopeSaveSuccessful = true;
           break;
         }
@@ -200,6 +204,7 @@ const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
     }
 
     // Give graph more time to replicate the consent information.
+    console.log("Sleeping for 30 seconds to ensure graph will have the latest consent information.");
     await sleep(30000);
 
     if (!scopeSaveSuccessful) {

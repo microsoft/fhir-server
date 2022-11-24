@@ -124,11 +124,11 @@ namespace SMARTCustomOperations.AzureAuth.Filters
                 }
 
                 // TODO - catch unauthorized exception and return 500
-                // Update the scopes and return no content
+                // Graph will reprompt for scopes if needed. We only care about removal.
                 try
                 {
-                    await _graphContextService.PersistAppConsentScope(appConsentInfo, userId);
-                    context.StatusCode = HttpStatusCode.OK;
+                    await _graphContextService.PersistAppConsentScopeIfRemoval(appConsentInfo, userId);
+                    context.StatusCode = HttpStatusCode.NoContent;
                     return context;
                 }
                 catch (Microsoft.Graph.ServiceException ex)
