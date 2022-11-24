@@ -50,9 +50,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
-            var atLeastOneWorkerJobRegistered = false;
             if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
             {
+                var atLeastOneWorkerJobRegistered = false;
+
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                   ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
                                   : record.ResourceType.Split(',');
@@ -106,8 +107,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         }
                     }
                 });
+
+                if (!atLeastOneWorkerJobRegistered)
+                {
+                    var processingRecord = CreateExportRecord(record);
+                    await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
+                }
             }
-            else if (groupJobs.Count == 1 || !atLeastOneWorkerJobRegistered)
+            else if (groupJobs.Count == 1)
             {
                 var processingRecord = CreateExportRecord(record);
                 await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
