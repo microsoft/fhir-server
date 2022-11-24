@@ -1,0 +1,2 @@
+window.ENV_CONFIG = {
+}
