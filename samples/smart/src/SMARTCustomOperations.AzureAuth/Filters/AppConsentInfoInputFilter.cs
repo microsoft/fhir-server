@@ -122,7 +122,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error in AppConsentInfoInputFilter. {Method} {Uri}", context.Request.Method, context.Request.RequestUri);
+                _logger.LogError(ex, "Error in AppConsentInfoInputFilter. {Method} {Uri} {Body}", context.Request.Method, context.Request.RequestUri, context.ContentString);
                 FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError, responseBody: context.ContentString);
                 context.StatusCode = HttpStatusCode.InternalServerError;
                 return context.SetContextErrorBody(error, _configuration.Debug);
