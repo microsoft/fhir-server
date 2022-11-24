@@ -53,6 +53,7 @@ module template 'core.bicep'= {
     apimPublisherName: apimPublisherName
     apimPublisherEmail: apimPublisherEmail
     appTags: appTags
+    contextAadApplicationId: contextAadApplicationId
   }
 }
 
