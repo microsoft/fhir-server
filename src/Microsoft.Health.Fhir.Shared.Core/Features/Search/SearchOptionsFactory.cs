@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
-            foreach (Tuple<string, string> query in queryParameters.Where(_ => !_timeTravelParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
+            foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_timeTravelParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
             {
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
