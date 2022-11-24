@@ -3,7 +3,9 @@
 
 import React, { useContext, createContext, useState, useEffect } from 'react';
 import { IMsalContext, useMsal  } from '@azure/msal-react';
-import { getAppConsentInfo, saveAppConsentInfo } from './GraphConsentService';
+import { getAppConsentInfo, getLoginHint, saveAppConsentInfo } from './GraphConsentService';
+import { selectProperties } from '@fluentui/react';
+import internal from 'stream';
 
 
 // Core application context object.
@@ -148,6 +150,9 @@ const setAppConsentInfoIfEmpty = async () => {
   }
 };
 
+const sleep = (ms: number) => new Promise(
+  resolve => setTimeout(resolve, ms)
+);
 
 const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
   console.log("Saving scopes...");
@@ -159,6 +164,7 @@ const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
       scope.consented = scope.enabled ?? false;
     });
 
+    // Save the consent information.
     try
     {
       await saveAppConsentInfo(modifiedAuthInfo);
@@ -167,12 +173,46 @@ const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
       displayError(err.message);
       return;
     }
+
+    // Get the new consent information, retry until replicated.
+    let retryAttempt = 0;
+    let scopeSaveSuccessful: boolean = false;
+    const userInputConsentedScopeCount = modifiedAuthInfo.scopes.filter(x => x.consented).length;
+
+    while(retryAttempt < 10) {
+      try {
+        let newInfo = await getAppConsentInfo(modifiedAuthInfo.applicationId, "");
+        let newConsentedScopeCount = newInfo.scopes.filter(x => x.consented).length; 
+        
+        if (userInputConsentedScopeCount == newConsentedScopeCount) {
+          scopeSaveSuccessful = true;
+          break;
+        }
+
+        retryAttempt++;
+        await sleep(1000 * retryAttempt);
+      }
+      catch (err: any) {
+        displayError(err.message);
+        return;
+      }
+    }
+
+    if (!scopeSaveSuccessful) {
+      displayError("Scopes did not properly replicate.");
+      return;
+    }
   }
 
   // Redirect to authorization endpoint.
   const newQueryParams = queryParams;
   newQueryParams.set("scope", modifiedAuthInfo.scopes.filter(x => x.enabled).map(x => x.name).join(" "));
   newQueryParams.set("user", "true");
+
+  const hint = await getLoginHint();
+  if (hint.length > 0) {
+    newQueryParams.set("login_hint", hint)
+  }
   window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize?" + newQueryParams.toString());
 }
 

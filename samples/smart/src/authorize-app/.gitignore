@@ -10,6 +10,9 @@
 
 # production
 /build
+/public
+
+public/env-config.json
 
 # misc
 .DS_Store

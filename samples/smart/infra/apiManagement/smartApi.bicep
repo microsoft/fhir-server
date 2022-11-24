@@ -49,6 +49,23 @@ resource smartApi 'Microsoft.ApiManagement/service/apis@2021-12-01-preview' = {
     }
   }
 
+  resource smartAppConsentInfoOptions 'operations' = {
+    name: 'smartAppConsentInfoEndpointOptions'
+    properties: {
+      displayName: 'SMART Consent Info (OPTIONS)'
+      method: 'OPTIONS'
+      urlTemplate: '/appConsentInfo'
+    }
+
+    resource smartAuthorizeEndpointPolicy 'policies' = {
+      name: 'policy'
+      properties: {
+        format: 'rawxml'
+        value: loadTextContent('policies/appConsentInfoEndpointPolicy.xml')
+      }
+    }
+  }
+
   resource smartAppConsentInfoGet 'operations' = {
     name: 'smartAppConsentInfoEndpointGet'
     properties: {

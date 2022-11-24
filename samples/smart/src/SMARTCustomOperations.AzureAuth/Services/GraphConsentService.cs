@@ -130,19 +130,20 @@ namespace SMARTCustomOperations.AzureAuth.Services
             foreach (var resourceId in consentInfo.Scopes.Where(x => x is not null).Select(x => x.ResourceId).Distinct())
             {
                 var resourceScopes = consentInfo.Scopes.Where(x => x.ResourceId == resourceId).ToList();
+                var scopeString = string.Join(" ", resourceScopes.Where(x => x.Consented).Select(x => x.Name));
                 if (resourceScopes.Any(x => x.ConsentId is not null))
                 {
                     var consentId = resourceScopes.First(x => x.ConsentId is not null).ConsentId!;
-                    var scopeString = string.Join(" ", resourceScopes.Select(x => x.Name));
                     await UpdateUserAppOAuth2PermissionGrant(consentId, scopeString);
                 }
                 else if (resourceScopes.Any())
                 {
                     var requestingServicePrincipal = await GetRequestingServicePrincipal(consentInfo.ApplicationId!);
-                    var scopeString = string.Join(" ", resourceScopes.Select(x => x.Name));
                     await CreateUserAppOAuth2PermissinGrant(requestingServicePrincipal.Id, userId, resourceId!, scopeString);
                 }
             }
+
+            return;
         }
 
         private async Task<Application> GetRequestingApplication(string applicationId)
@@ -231,12 +232,22 @@ namespace SMARTCustomOperations.AzureAuth.Services
 
         private async Task UpdateUserAppOAuth2PermissionGrant(string grantId, string scope)
         {
-            var permission = new OAuth2PermissionGrant
-            {
-                Scope = scope,
-            };
+            var existingGrant = await _graphServiceClient.Oauth2PermissionGrants[grantId].Request().GetAsync();
+            var existingScopes = existingGrant.Scope.Split(" ");
+            var newScopes = scope.Split(" ");
 
-            await _graphServiceClient.Oauth2PermissionGrants[grantId].Request().UpdateAsync(permission);
+            if (existingScopes.Except(newScopes).Union(newScopes.Except(existingScopes)).Any())
+            {
+                _logger.LogInformation($"Updating OAuth2PermissionGrant {grantId} with scope {scope}");
+
+                var permission = new OAuth2PermissionGrant
+                {
+                    Scope = scope,
+                };
+                await _graphServiceClient.Oauth2PermissionGrants[grantId].Request().UpdateAsync(permission);
+            }
+
+            return;
         }
     }
 }

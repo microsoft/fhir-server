@@ -17,35 +17,41 @@ namespace SMARTCustomOperations.AzureAuth.Models
 
         public AuthorizeContext(NameValueCollection queryParams)
         {
+            // Required
             ResponseType = queryParams["response_type"]!;
             ClientId = queryParams["client_id"]!;
             _scope = queryParams["scope"]!;
-            State = queryParams["state"]!;
-            CodeChallenge = queryParams["code_challenge"]!;
-            CodeChallengeMethod = queryParams["code_challenge_method"]!;
             _audience = queryParams["aud"]!;
 
-            if (queryParams.AllKeys.Contains("redirect_uri"))
-            {
-                RedirectUri = new Uri(queryParams["redirect_uri"]!);
-            }
+            RedirectUri = queryParams.AllKeys.Contains("redirect_uri") ? new Uri(queryParams["redirect_uri"]!) : null;
+
+            // Optional
+            CodeChallenge = queryParams.AllKeys.Contains("code_challenge") ? queryParams["code_challenge"] : null;
+            CodeChallengeMethod = queryParams.AllKeys.Contains("code_challenge_method") ? queryParams["code_challenge_method"] : null;
+            State = queryParams.AllKeys.Contains("state") ? queryParams["state"] : null;
+            Prompt = queryParams.AllKeys.Contains("prompt") ? queryParams["prompt"] : null;
+            LoginHint = queryParams.AllKeys.Contains("login_hint") ? queryParams["login_hint"] : null;
         }
 
-        public string ResponseType { get; } = default!;
+        public string ResponseType { get; }
 
-        public string ClientId { get; } = default!;
+        public string ClientId { get; }
 
-        public Uri RedirectUri { get; } = default!;
+        public Uri? RedirectUri { get; }
 
         public string Scope => _scope;
 
-        public string State { get; } = default!;
+        public string? State { get; }
 
         public string Audience => _audience;
 
-        public string? CodeChallenge { get; } = default!;
+        public string? CodeChallenge { get; }
 
-        public string? CodeChallengeMethod { get; } = default!;
+        public string? CodeChallengeMethod { get; }
+
+        public string? Prompt { get; }
+
+        public string? LoginHint { get; }
 
         public AuthorizeContext Translate(string fhirServerAud)
         {
@@ -58,13 +64,28 @@ namespace SMARTCustomOperations.AzureAuth.Models
         {
             List<string> queryStringParams = new();
             queryStringParams.Add($"response_type={ResponseType}");
-            queryStringParams.Add($"redirect_uri ={HttpUtility.UrlEncode(RedirectUri.ToString())}");
+
+            if (RedirectUri is not null)
+            {
+                queryStringParams.Add($"redirect_uri ={HttpUtility.UrlEncode(RedirectUri.ToString())}");
+            }
+
             queryStringParams.Add($"client_id={HttpUtility.UrlEncode(ClientId)}");
             queryStringParams.Add($"scope={HttpUtility.UrlEncode(Scope)}");
             queryStringParams.Add($"state={HttpUtility.UrlEncode(State)}");
             queryStringParams.Add($"aud={HttpUtility.UrlEncode(Audience)}");
             queryStringParams.Add($"code_challenge={HttpUtility.UrlEncode(CodeChallenge)}");
-            queryStringParams.Add($" code_challenge_method={HttpUtility.UrlEncode(CodeChallengeMethod)}");
+            queryStringParams.Add($"code_challenge_method={HttpUtility.UrlEncode(CodeChallengeMethod)}");
+
+            if (Prompt is not null)
+            {
+                queryStringParams.Add($"prompt={Prompt}");
+            }
+
+            if (LoginHint is not null)
+            {
+                queryStringParams.Add($"login_hint={LoginHint}");
+            }
 
             return string.Join("&", queryStringParams);
         }
@@ -74,7 +95,7 @@ namespace SMARTCustomOperations.AzureAuth.Models
             // TODO - Add config to force PKCE?
             if (string.IsNullOrEmpty(ResponseType) ||
                 string.IsNullOrEmpty(ClientId) ||
-                string.IsNullOrEmpty(RedirectUri.ToString()) ||
+                string.IsNullOrEmpty(RedirectUri?.ToString()) ||
                 string.IsNullOrEmpty(Scope) ||
                 string.IsNullOrEmpty(State) ||
                 string.IsNullOrEmpty(Audience))

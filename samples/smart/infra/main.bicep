@@ -21,6 +21,7 @@ param apimPublisherName string
 @description('Email of the owner of the API Management resource')
 param apimPublisherEmail string
 
+@description('ClientId for the context static app registration for this FHIR Service (you must create this)')
 param contextAadApplicationId string
 
 @description('Tags for all Azure resources in the solution')

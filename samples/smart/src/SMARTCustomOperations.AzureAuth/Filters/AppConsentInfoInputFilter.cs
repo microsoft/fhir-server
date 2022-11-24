@@ -60,12 +60,14 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             }
             catch (Exception ex) when (ex is Microsoft.IdentityModel.Tokens.SecurityTokenValidationException || ex is UnauthorizedAccessException)
             {
+                _logger.LogWarning("User attempted to access app consent info without a valid token. {Exception}", ex);
                 FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.Unauthorized);
                 OnFilterError?.Invoke(this, error);
                 return context.SetContextErrorBody(error, _configuration.Debug);
             }
             catch (Exception ex)
             {
+                _logger.LogCritical("Unknown error while validating user token. {Exception}", ex);
                 FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError);
                 OnFilterError?.Invoke(this, error);
                 return context.SetContextErrorBody(error, _configuration.Debug);
@@ -73,6 +75,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
 
             if (userPrincipal is null || !userPrincipal.HasClaim(x => x.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier"))
             {
+                _logger.LogError("User does not have the oid claimin AppConsentInfoInputFilter. {User}", userPrincipal);
                 FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new UnauthorizedAccessException("Token validation failed for get context info operation"), code: HttpStatusCode.Unauthorized);
                 OnFilterError?.Invoke(this, error);
                 return context.SetContextErrorBody(error, _configuration.Debug);
@@ -111,6 +114,7 @@ namespace SMARTCustomOperations.AzureAuth.Filters
                         return context.SetContextErrorBody(error, _configuration.Debug);
                     }
 
+                    // Update the scopes and return no content
                     await _graphContextService.PersistAppConsentScope(appConsentInfo, userId);
                     context.StatusCode = HttpStatusCode.OK;
                     return context;
@@ -118,7 +122,8 @@ namespace SMARTCustomOperations.AzureAuth.Filters
             }
             catch (Exception ex)
             {
-                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError);
+                _logger.LogError("Error in AppConsentInfoInputFilter. {Method} {Uri}", context.Request.Method, context.Request.RequestUri);
+                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError, responseBody: context.ContentString);
                 context.StatusCode = HttpStatusCode.InternalServerError;
                 return context.SetContextErrorBody(error, _configuration.Debug);
             }

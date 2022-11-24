@@ -12,13 +12,13 @@
             "value": "${AZURE_PRINCIPAL_ID}"
         },
         "contextAadApplicationId": {
-            "value": "your-context-app-id"
+            "value": "b2113eeb-25d5-41ab-a74d-3518fcf7b727"
         },
         "apimPublisherName": {
-            "value": "Your Name"
+            "value": "Mikael Weaver"
         },
         "apimPublisherEmail": {
-            "value": "your@myourdomain.com"
+            "value": "mikaelw@microsoft.com"
         }
     }
 }

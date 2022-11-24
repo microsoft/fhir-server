@@ -6,7 +6,6 @@
 import { scopes, apiEndpoint } from './Config';
 import { msalInstance } from "./App";
 import { AppConsentInfo } from './AppContext';
-import { request } from 'http';
 
 let token: string | undefined = undefined;
 
@@ -26,26 +25,17 @@ async function ensureToken() {
   }
 }
 
-interface HttpResponse<T> extends Response {
-  parsedBody?: T;
-}
-interface HttpResponse<T> extends Response {
-  parsedBody?: T;
-}
-export async function http<T>(
-  request: RequestInfo
-): Promise<HttpResponse<T>> {
-  const response: HttpResponse<T> = await fetch(
-    request
-  );
+export async function getLoginHint()
+{
+  await ensureToken();
+  const decoded = decodeToken(token);
 
-  if (!response.ok) {
-    throw Error(`Backend Application Consent API returned ${response.status}: ${response.statusText}`);
+  if (decoded.hasOwnProperty('login_hint')) {
+    return decoded?.login_hint ?? '';
   }
-  response.parsedBody = await response.json();
-  return response;
-}
 
+  return '';
+}
 
 
 export async function getAppConsentInfo(clientId: string, scopes: string): Promise<AppConsentInfo> {
@@ -117,4 +107,35 @@ export async function saveAppConsentInfo(appConsentInfo: AppConsentInfo): Promis
   }
 
   return;
+}
+
+function urlBase64Decode(str: string) {
+  let output = str.replace(/-/g, '+').replace(/_/g, '/');
+  switch (output.length % 4) {
+      case 0:
+          break;
+      case 2:
+          output += '==';
+          break;
+      case 3:
+          output += '=';
+          break;
+      default:
+          throw Error('Illegal base64url string!');
+  }
+  return decodeURIComponent((<any>window).escape(window.atob(output)));
+}
+
+function decodeToken(token: string = '') {
+  if (token === null || token === '') { return { 'login_hint': '' }; }
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+
+      throw new Error('JWT must have 3 parts');
+  }
+  const decoded = urlBase64Decode(parts[1]);
+  if (!decoded) {
+      throw new Error('Cannot decode the token');
+  }
+  return JSON.parse(decoded);
 }

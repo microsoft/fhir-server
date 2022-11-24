@@ -64,7 +64,7 @@ export const ScopeSelector: FC<ScopeSelectorProps> = (props: ScopeSelectorProps)
         <Stack>
             <Stack.Item align='start'>
                 {(mode === 'loading') && <Spinner size={SpinnerSize.large} label="Loading..." ariaLive="assertive" />}
-                {(mode === 'redirecting') && <Spinner size={SpinnerSize.large} label="Redirecting..." ariaLive="assertive" />}
+                {(mode === 'redirecting') && <Spinner size={SpinnerSize.large} label="Saving your preferences...this may take a bit..." ariaLive="assertive" />}
             </Stack.Item>
 
             {(mode.includes('existing') || mode.includes('new')) &&

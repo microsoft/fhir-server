@@ -49,4 +49,4 @@ export const msalConfig = {
 };
 
 export const scopes: string[] = [`api://${msalConfig.auth.clientId}//user_impersonation`];
-export const apiEndpoint: string = window.ENV_CONFIG.REACT_APP_API_BASE_URL || "http://localhost:7081/api";
+export const apiEndpoint: string = (window.location.host.includes("localhost") ? "http://localhost:7081/api" :  window.ENV_CONFIG.REACT_APP_API_BASE_URL) || "http://localhost:7081/api";

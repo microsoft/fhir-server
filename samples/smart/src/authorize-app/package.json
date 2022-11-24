@@ -21,9 +21,14 @@
   },
   "scripts": {
     "envconfig": "node entrypoint.js -e .env -o ./public/env-config.js",
+    "prestart": "npm run envconfig",
     "start": "react-scripts start",
-    "build": "react-scripts build",
-    "eject": "react-scripts eject"
+    "prebuild": "npm run envconfig",
+    "build": "npm run envconfig && react-scripts build",
+    "pretest": "npm run envconfig",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "lint": "eslint ./src --ext .ts,.tsx"
   },
   "eslintConfig": {
     "extends": [

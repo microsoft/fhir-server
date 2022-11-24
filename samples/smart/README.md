@@ -6,6 +6,8 @@ This sample is using Azure Active Directory as the identity provider. If you hav
 
 If you are using the open source FHIR Server, you will also need to build a custom solution around that instead.
 
+This sample is targeted for EHR vendors who are looking to pass ONC (g)(10)
+
 ## Components
 
 The following components are deployed with this sample. For more details of how the pieces work together, check out [the technical guide](./docs/technical-guide.md).
@@ -22,6 +24,12 @@ The following components are deployed with this sample. For more details of how 
 ## Sample Deployment
 
 Deployment of this sample requires the creation of supporting Azure services, custom code deployed to Azure Function Apps, and setup in Azure Active Directory. For detailed deployment instructions, check out the [Deployment Document here](./docs/deployment.md).
+
+## Next steps
+
+- Integration of these com
+- APIM Developer portal
+- Private networking
 
 ## Sample Support
 

@@ -25,17 +25,10 @@ param apimPublisherName string
 @description('Email of the owner of the API Management resource')
 param apimPublisherEmail string
 
+@description('ClientId for the context static app registration for this FHIR Service (you must create this)')
+param contextAadApplicationId string
+
 param appTags object
-
-/*@description('Client ID for single principal based JWKS backend auth')
-param testBackendClientId string
-
-@secure()
-@description('Client Secret for single principal based JWKS backend auth')
-param testBackendClientSecret string
-
-@description('JWKS URL for single principal based JWKS backend auth')
-param testBackendClientJwks string*/
 
 @description('Name of the Log Analytics workspace to deploy or use. Leave blank to skip deployment')
 param logAnalyticsName string = '${prefixName}-la'
@@ -105,6 +98,7 @@ var aadCustomOperationsFunctionParams = {
   AZURE_TenantId: tenantId
   AZURE_Audience: length(smartAudience) > 0 ? smartAudience : fhirUrl
   AZURE_BackendServiceKeyVaultStore: backendServiceVaultName
+  AZURE_ContextAppClientId: contextAadApplicationId
 }
 
 @description('Deploy Azure Function to run SDK custom operations')

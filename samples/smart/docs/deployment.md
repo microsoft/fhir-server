@@ -15,7 +15,17 @@ Before deploying this sample, you will need to install some Azure tools **and** 
 - Access to an Azure Subscription where you can create resources and add role assignments.
 - Elevated access in Azure Active Directory to create Application Registrations and grant Admin Consent.
 
-## 2. Deploy Azure Resources
+## 2. Create Authorize User Input Application in Azure Active Directory
+
+The Authorize User Input Application is needed to allow users to select which scopes they want to consent to for SMART on FHIR applications. Azure AD does not support session based scoping, so this app handles modifying consent records for the user.
+
+1. Open Azure Active Directory and create a new Application Registration.
+1. Choose Spa for the redirict URI and add `http://localhost:3000` (useful for debugging).
+1. Under `Token Configuration` add `login_hint` as an optional claim on Access tokens.
+1. Under `Expose an API`, set the Application ID URI in the default format (`api://<app-id>`).
+1. Add a new scope with the value `user_impersonation` and save.
+
+## 3. Deploy Azure Resources
 
 This sample uses the Azure Developer CLI for deployment. This allows for easy deployment of both infrastructure and code. Deploying this sample requires some light configuration. 
 
@@ -32,13 +42,23 @@ This sample uses the Azure Developer CLI for deployment. This allows for easy de
   - Azure Subscription: The Azure location where your resources will be deployed.
 - *NOTE:* This will take about an hour to deploy, mainly for Azure API Management. You can continue with Azure Active Directory setup below.
 
-## 3. Azure Active Directory Setup
+## 4. Give Auth Azure Function Access to Modify Graph Data
+
+As part of the scope selection flow, the Auth Azure Function will modify user permissions for the signed in user. This requires granting the Azure Managed Identity behind Azure Functions Application Administrator (or similar access).
+
+1. Copy the Managed Identity for the Authorize Azure Function
+1. Open Azure Active Directory
+1. In "Roles and Administrators" open Application Administrator.
+1. Add the Azure Function Managed Identity to this AAD role.
+
+## 5. Set the redirect URL for your User Input Application in Azure Active Directory
+
+Open the Application Registration from step 2. Under "Authentication", add the follow URI as SPA Redirect URIs.
+- The base URL for your Azure Static WebApp deployed via AZD.
+
+## 6. Create Test Application Registrations in Azure Active Directory
 
 It's best practice to register an Application Registration in Azure AD for each client application that will need to access your FHIR Service. This will allow for granular control of data access per application for the tenant administrator and the users.
-
-### Context Application
-
-The Context Application is used to gather user input during the authentication process to correctly handle scopes and other user inputs. The patient picker would need to be implemented in this component per your organization's requirements.
 
 ### Patient Standalone Confidential Client Application
 
@@ -134,7 +154,7 @@ Azure Active Directory does not support RSA384 and/or ES384 which is required by
 
 - Save the client id for later testing.
 
-## 4. Add sample data
+## 7. Add sample data
 
 See [this script](../scripts/Load-ProfilesData.ps1).
 
