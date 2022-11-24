@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // add magic parameters
             var maxId = _fixture.SearchService.GetSurrogateId(till);
-            var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, CancellationToken.None)).First();
+            var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
             queryParameters = new[]
             {
                 Tuple.Create(KnownQueryParameterNames.Type, type),

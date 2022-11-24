@@ -2858,26 +2858,41 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.GetResourceSurrogateIdRanges
-@ResourceTypeId SMALLINT, @StartId BIGINT, @EndId BIGINT, @UnitSize INT, @NumberOfRanges INT=100
+@ResourceTypeId SMALLINT, @StartId BIGINT, @EndId BIGINT, @RangeSize INT, @NumberOfRanges INT=100, @Up BIT=1
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetResourceSurrogateIdRanges', @Mode AS VARCHAR (100) = 'RT=' + isnull(CONVERT (VARCHAR, @ResourceTypeId), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @StartId), 'NULL') + ' E=' + isnull(CONVERT (VARCHAR, @EndId), 'NULL') + ' U=' + isnull(CONVERT (VARCHAR, @UnitSize), 'NULL'), @st AS DATETIME = getUTCdate(), @IntStartId AS BIGINT, @IntEndId AS BIGINT;
+DECLARE @SP AS VARCHAR (100) = 'GetResourceSurrogateIdRanges', @Mode AS VARCHAR (100) = 'RT=' + isnull(CONVERT (VARCHAR, @ResourceTypeId), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @StartId), 'NULL') + ' E=' + isnull(CONVERT (VARCHAR, @EndId), 'NULL') + ' R=' + isnull(CONVERT (VARCHAR, @RangeSize), 'NULL') + ' UP=' + isnull(CONVERT (VARCHAR, @Up), 'NULL'), @st AS DATETIME = getUTCdate();
 BEGIN TRY
-    SELECT   UnitId,
-             min(ResourceSurrogateId),
-             max(ResourceSurrogateId),
-             count(*)
-    FROM     (SELECT isnull(CONVERT (INT, (row_number() OVER (ORDER BY ResourceSurrogateId) - 1) / @UnitSize), 0) AS UnitId,
-                     ResourceSurrogateId
-              FROM   (SELECT   TOP (@UnitSize * @NumberOfRanges) ResourceSurrogateId
-                      FROM     dbo.Resource
-                      WHERE    ResourceTypeId = @ResourceTypeId
-                               AND ResourceSurrogateId >= @StartId
-                               AND ResourceSurrogateId < @EndId
-                      ORDER BY ResourceSurrogateId) AS A) AS A
-    GROUP BY UnitId
-    ORDER BY UnitId
-    OPTION (MAXDOP 1);
+    IF @Up = 1
+        SELECT   RangeId,
+                 min(ResourceSurrogateId),
+                 max(ResourceSurrogateId),
+                 count(*)
+        FROM     (SELECT isnull(CONVERT (INT, (row_number() OVER (ORDER BY ResourceSurrogateId) - 1) / @RangeSize), 0) AS RangeId,
+                         ResourceSurrogateId
+                  FROM   (SELECT   TOP (@RangeSize * @NumberOfRanges) ResourceSurrogateId
+                          FROM     dbo.Resource
+                          WHERE    ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId >= @StartId
+                                   AND ResourceSurrogateId <= @EndId
+                          ORDER BY ResourceSurrogateId) AS A) AS A
+        GROUP BY RangeId
+        OPTION (MAXDOP 1);
+    ELSE
+        SELECT   RangeId,
+                 min(ResourceSurrogateId),
+                 max(ResourceSurrogateId),
+                 count(*)
+        FROM     (SELECT isnull(CONVERT (INT, (row_number() OVER (ORDER BY ResourceSurrogateId) - 1) / @RangeSize), 0) AS RangeId,
+                         ResourceSurrogateId
+                  FROM   (SELECT   TOP (@RangeSize * @NumberOfRanges) ResourceSurrogateId
+                          FROM     dbo.Resource
+                          WHERE    ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId >= @StartId
+                                   AND ResourceSurrogateId <= @EndId
+                          ORDER BY ResourceSurrogateId DESC) AS A) AS A
+        GROUP BY RangeId
+        OPTION (MAXDOP 1);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
 BEGIN CATCH

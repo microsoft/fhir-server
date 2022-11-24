@@ -219,6 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             long endId,
             int rangeSize,
             int numberOfRanges,
+            bool up,
             CancellationToken cancellationToken)
         {
             throw new NotImplementedException();

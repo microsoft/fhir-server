@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     while (rows > 0)
                     {
                         var definitions = new List<string>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRaneSize, NumberOfSurrogateIdRanges, cancel);
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfSurrogateIdRanges, true, cancel);
                         foreach (var range in ranges)
                         {
                             if (range.EndId > startId)
