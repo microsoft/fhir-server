@@ -34,6 +34,7 @@ if (fs.existsSync(envFilePath)) {
 }
 
 console.log(`Generating JS configuration output to: ${outputFile}`)
+console.log(`Current directory is: ${process.cwd()}`)
 
 fs.writeFileSync(outputFile, `window.${configRoot} = {${os.EOL}${
     Object.keys(process.env).filter(x => x.startsWith("REACT_APP_")).map(key => {

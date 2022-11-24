@@ -81,51 +81,62 @@ namespace SMARTCustomOperations.AzureAuth.Filters
                 return context.SetContextErrorBody(error, _configuration.Debug);
             }
 
-            try
+            if (context.Request.Method == HttpMethod.Get)
             {
-                if (context.Request.Method == HttpMethod.Get)
+                AuthorizeContext uriContext = new(context.Request.RequestUri.ParseQueryString());
+                var userId = userPrincipal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
+
+                if (uriContext.ClientId is null || uriContext.Scope is null || userId is null)
                 {
-                    AuthorizeContext uriContext = new(context.Request.RequestUri.ParseQueryString());
-                    var userId = userPrincipal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
+                    FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Get Context Info must contain client_id, scope and token parameters."), code: HttpStatusCode.BadRequest);
+                    OnFilterError?.Invoke(this, error);
+                    return context.SetContextErrorBody(error, _configuration.Debug);
+                }
 
-                    if (uriContext.ClientId is null || uriContext.Scope is null || userId is null)
-                    {
-                        FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Get Context Info must contain client_id, scope and token parameters."), code: HttpStatusCode.BadRequest);
-                        OnFilterError?.Invoke(this, error);
-                        return context.SetContextErrorBody(error, _configuration.Debug);
-                    }
+                var scopes = uriContext.Scope.ParseScope(string.Empty).Split(" ");
 
-                    var scopes = uriContext.Scope.ParseScope(string.Empty).Split(" ");
+                try
+                {
                     var info = await _graphContextService.GetAppConsentScopes(uriContext.ClientId, userId!, scopes);
                     context.ContentString = JsonConvert.SerializeObject(info, new JsonSerializerSettings() { ContractResolver = new CamelCasePropertyNamesContractResolver() });
                     context.StatusCode = HttpStatusCode.OK;
                     return context;
                 }
-                else
+                catch (Microsoft.Graph.ServiceException ex)
                 {
-                    var body = JObject.Parse(context.ContentString);
-                    var appConsentInfo = body.ToObject<AppConsentInfo>();
-                    var userId = userPrincipal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
+                    _logger.LogError(ex, "Fatal error calling Microsoft Graph to get Consent Inforation. {Uri} {CliendId} {UserId} {Scopes}", context.Request.RequestUri, uriContext.ClientId, userId!, scopes);
+                    FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError, responseBody: context.ContentString);
+                    context.StatusCode = HttpStatusCode.InternalServerError;
+                    return context.SetContextErrorBody(error, _configuration.Debug);
+                }
+            }
+            else
+            {
+                var body = JObject.Parse(context.ContentString);
+                var appConsentInfo = body.ToObject<AppConsentInfo>();
+                var userId = userPrincipal.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
 
-                    if (appConsentInfo?.ApplicationId is null || userId is null || appConsentInfo?.Scopes is null)
-                    {
-                        FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Post Context Info must contain application id and scope parameters. Token must have valid user information."), code: HttpStatusCode.BadRequest);
-                        OnFilterError?.Invoke(this, error);
-                        return context.SetContextErrorBody(error, _configuration.Debug);
-                    }
+                if (appConsentInfo?.ApplicationId is null || userId is null || appConsentInfo?.Scopes is null)
+                {
+                    FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: new ArgumentException("Post Context Info must contain application id and scope parameters. Token must have valid user information."), code: HttpStatusCode.BadRequest);
+                    OnFilterError?.Invoke(this, error);
+                    return context.SetContextErrorBody(error, _configuration.Debug);
+                }
 
-                    // Update the scopes and return no content
+                // Update the scopes and return no content
+                try
+                {
                     await _graphContextService.PersistAppConsentScope(appConsentInfo, userId);
                     context.StatusCode = HttpStatusCode.OK;
                     return context;
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in AppConsentInfoInputFilter. {Method} {Uri} {Body}", context.Request.Method, context.Request.RequestUri, context.ContentString);
-                FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError, responseBody: context.ContentString);
-                context.StatusCode = HttpStatusCode.InternalServerError;
-                return context.SetContextErrorBody(error, _configuration.Debug);
+                catch (Microsoft.Graph.ServiceException ex)
+                {
+                    _logger.LogError(ex, "Fatal error calling Microsoft Graph to update Consent Inforation. {Uri} {AppInformation} {UserId}", context.Request.RequestUri, appConsentInfo, userId);
+                    FilterErrorEventArgs error = new(name: Name, id: Id, fatal: true, error: ex, code: HttpStatusCode.InternalServerError, responseBody: context.ContentString);
+                    context.StatusCode = HttpStatusCode.InternalServerError;
+                    return context.SetContextErrorBody(error, _configuration.Debug);
+                }
             }
         }
     }
