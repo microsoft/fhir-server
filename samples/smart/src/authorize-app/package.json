@@ -24,7 +24,7 @@
     "prestart": "npm run envconfig",
     "start": "react-scripts start",
     "prebuild": "npm run envconfig",
-    "build": "npm run envconfig && react-scripts build",
+    "build": "react-scripts build",
     "pretest": "npm run envconfig",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
