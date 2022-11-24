@@ -6,6 +6,7 @@ import { IMsalContext, useMsal  } from '@azure/msal-react';
 import { getAppConsentInfo, getLoginHint, saveAppConsentInfo } from './GraphConsentService';
 import { selectProperties } from '@fluentui/react';
 import internal from 'stream';
+import { apiEndpoint } from './Config';
 
 
 // Core application context object.
@@ -213,7 +214,7 @@ const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
   if (hint.length > 0) {
     newQueryParams.set("login_hint", hint)
   }
-  window.location.assign("https://mikaelw-smart5-apim.azure-api.net/smart/authorize?" + newQueryParams.toString());
+  window.location.assign(apiEndpoint + "/authorize?" + newQueryParams.toString());
 }
 
 useEffect(() => {
