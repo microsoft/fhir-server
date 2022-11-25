@@ -73,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startId = globalStartId;
+                    var endId = globalEndId;
                     var sequence = 0;
                     if (enqueued.TryGetValue(type, out var max))
                     {
@@ -80,31 +81,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         startId = max.Item2 + 1;
                     }
 
-                    var rows = 1;
-                    while (rows > 0)
+                    var intersect = new Intersect(startId, endId);
+                    var taskUp = RegisterWorkerJobs(intersect, true, record, type, jobInfo.GroupId, startId, endId, globalStartId, globalEndId, surrogateIdRangeSize, sequence, cancel);
+                    var taskDown = RegisterWorkerJobs(intersect, false, record, type, jobInfo.GroupId, startId, endId, globalStartId, globalEndId, surrogateIdRangeSize, sequence, cancel);
+                    Task.WaitAll(new[] { taskUp, taskDown }, cancel);
+
+                    if (await taskUp)
                     {
-                        var definitions = new List<string>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfSurrogateIdRanges, true, cancel);
-                        foreach (var range in ranges)
-                        {
-                            if (range.EndId > startId)
-                            {
-                                startId = range.EndId;
-                            }
+                        atLeastOneWorkerJobRegistered = true;
+                    }
 
-                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
-                            definitions.Add(JsonConvert.SerializeObject(processingRecord));
-                            sequence++;
-                        }
-
-                        startId++; // make sure we do not intersect ranges
-
-                        rows = definitions.Count;
-                        if (rows > 0)
-                        {
-                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
-                            atLeastOneWorkerJobRegistered = true;
-                        }
+                    if (await taskDown)
+                    {
+                        atLeastOneWorkerJobRegistered = true;
                     }
                 });
 
@@ -124,10 +113,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
+        private async Task<bool> RegisterWorkerJobs(Intersect intersect, bool up, ExportJobRecord record, string type, long groupId, long startId, long endId, long globalStartId, long globalEndId, int surrogateIdRangeSize, int sequence, CancellationToken cancellationToken)
+        {
+            var isRegistered = false;
+            var rows = 1;
+            while (rows > 0 && !intersect.HasIntersection(up, up ? startId : endId))
+            {
+                var definitions = new List<string>();
+                var ranges = await _searchService.GetSurrogateIdRanges(type, startId, endId, surrogateIdRangeSize, NumberOfSurrogateIdRanges, up, cancellationToken);
+                foreach (var range in ranges)
+                {
+                    if (up)
+                    {
+                        if (range.EndId > startId)
+                        {
+                            startId = range.EndId;
+                        }
+                    }
+                    else
+                    {
+                        if (range.StartId < endId)
+                        {
+                            endId = range.StartId;
+                        }
+                    }
+
+                    var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                    definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                    sequence++;
+                }
+
+                if (up)
+                {
+                    startId++; // make sure start and end of adjacent ranges are different
+                }
+                else
+                {
+                    endId--;
+                }
+
+                rows = definitions.Count;
+                if (rows > 0 && !intersect.HasIntersection(up, up ? startId : endId))
+                {
+                    await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), groupId, false, false, cancellationToken);
+                    isRegistered = true;
+                }
+            }
+
+            return isRegistered;
+        }
+
         private static int GetSequence(ExportJobRecord record)
         {
             var split = record.ExportFormat.Split("-");
-            return split.Length > 1 ? int.Parse(split[split.Length - 1]) : -1; // take last
+            return split.Length > 1 ? int.Parse(split[split.Length - 1]) : -1; // take last element
         }
 
         private static ExportJobRecord CreateExportRecord(ExportJobRecord record, int sequence = -1, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
@@ -160,6 +199,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         record.SchemaVersion,
                         (int)JobType.ExportProcessing,
                         record.SmartRequest);
+        }
+
+        internal class Intersect
+        {
+            private long _lower;
+            private long _upper;
+            private object _locker = new object();
+
+            internal Intersect(long lower, long upper)
+            {
+                _lower = lower;
+                _upper = upper;
+            }
+
+            internal bool HasIntersection(bool up, long value)
+            {
+                lock (_locker)
+                {
+                    if (up)
+                    {
+                        _lower = value;
+                    }
+                    else
+                    {
+                        _upper = value;
+                    }
+                }
+
+                return _lower >= _upper;
+            }
         }
     }
 }
