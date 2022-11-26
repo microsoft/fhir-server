@@ -587,7 +587,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var ranges = new List<(long start, long end)>(numberOfRanges);
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            sqlCommandWrapper.CommandTimeout = 600; // Should be >> average execution time which for 100K resources is ~1 minute.
+            sqlCommandWrapper.CommandTimeout = 1200; // Should be >> average execution time which for 100K resources is ~3 minutes.
             VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
             using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
