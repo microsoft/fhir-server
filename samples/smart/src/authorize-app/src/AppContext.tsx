@@ -155,7 +155,7 @@ const sleep = (ms: number) => new Promise(
   resolve => setTimeout(resolve, ms)
 );
 
-const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
+const updateScopesWhereNeeded = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
   console.log("Saving scopes...");
 
   // We only care about removing scopes if needed. Consent prompt will ask user to re-add any needed scopes.
@@ -217,6 +217,7 @@ const saveScopes = async (modifiedAuthInfo: AppConsentInfo) : Promise<void> => {
   const newQueryParams = queryParams;
   newQueryParams.set("scope", modifiedAuthInfo.scopes.filter(x => x.enabled).map(x => x.name).join(" "));
   newQueryParams.set("user", "true");
+  newQueryParams.set("prompt", "consent");
 
   const hint = await getLoginHint();
   if (hint.length > 0) {
@@ -248,7 +249,7 @@ let authInfo: AppContext = {
   error: error,
   displayError: displayError,
   clearError: clearError,
-  saveScopes: saveScopes,
+  saveScopes: updateScopesWhereNeeded,
   logout: logoutUser
 };
 
