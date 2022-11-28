@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private static ExportJobRecord CreateExportRecord(ExportJobRecord record, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
-            return new ExportJobRecord(
+            var rec = new ExportJobRecord(
                         record.RequestUri,
                         record.ExportType,
                         record.ExportFormat,
@@ -151,6 +151,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         record.SchemaVersion,
                         (int)JobType.ExportProcessing,
                         record.SmartRequest);
+            rec.Id = string.Empty;
+            return rec;
         }
     }
 }

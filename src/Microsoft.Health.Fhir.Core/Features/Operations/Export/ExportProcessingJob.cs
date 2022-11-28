@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(progress, nameof(progress));
 
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(string.IsNullOrEmpty(jobInfo.Result) ? jobInfo.Definition : jobInfo.Result);
+            record.Id = jobInfo.Id.ToString();
             IExportJobTask exportJobTask = _exportJobTaskFactory();
 
             // The ExportJobTask was used to handling the database updates and etags itself, but the new job hosting flow manages it in a central location.
@@ -44,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     switch (record.Status)
                     {
                         case OperationStatus.Completed:
+                            record.Id = string.Empty;
                             if (record.Output != null)
                             {
                                 jobInfo.Data = record.Output.Values.Sum(infos => infos.Sum(info => info.Count));
