@@ -68,16 +68,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                         .Select(_ => JsonConvert.DeserializeObject<ExportJobRecord>(_.Definition))
                                         .Where(_ => _.EndSurrogateId != null) // This is to handle current mock tests. It is not needed but does not hurt.
                                         .GroupBy(_ => _.ResourceType)
-                                        .ToDictionary(_ => _.Key, _ => Tuple.Create(_.Max(r => GetSequence(r)), _.Max(r => long.Parse(r.EndSurrogateId))));
+                                        .ToDictionary(_ => _.Key, _ => _.Max(r => long.Parse(r.EndSurrogateId)));
 
                 await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startId = globalStartId;
-                    var sequence = 0;
                     if (enqueued.TryGetValue(type, out var max))
                     {
-                        sequence = max.Item1 + 1;
-                        startId = max.Item2 + 1;
+                        startId = max + 1;
                     }
 
                     var rows = 1;
@@ -92,9 +90,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 startId = range.EndId;
                             }
 
-                            var processingRecord = CreateExportRecord(record, sequence: sequence, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                            var processingRecord = CreateExportRecord(record, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
                             definitions.Add(JsonConvert.SerializeObject(processingRecord));
-                            sequence++;
                         }
 
                         startId++; // make sure we do not intersect ranges
@@ -124,18 +121,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static int GetSequence(ExportJobRecord record)
-        {
-            var split = record.ExportFormat.Split("-");
-            return split.Length > 1 ? int.Parse(split[split.Length - 1]) : -1; // take last
-        }
-
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, int sequence = -1, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
             return new ExportJobRecord(
                         record.RequestUri,
                         record.ExportType,
-                        sequence == -1 ? record.ExportFormat : $"{record.ExportFormat}-{sequence}",
+                        record.ExportFormat,
                         string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
                         record.Filters,
                         record.Hash,
