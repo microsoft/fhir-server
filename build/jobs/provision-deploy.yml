@@ -102,7 +102,7 @@ jobs:
 
         Write-Host "Provisioning Resource Group"
         Write-Host $webAppName
-        Write-Host "${{ parameters.resourceGroup }}"       
+        Write-Host "${{ parameters.resourceGroup }}"
         New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
         
         Write-Host "Setting Key Vault access"
