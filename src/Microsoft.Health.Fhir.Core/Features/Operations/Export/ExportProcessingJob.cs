@@ -46,6 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     {
                         case OperationStatus.Completed:
                             record.Id = string.Empty;
+                            record.StartTime = null;
+                            record.EndTime = null;
                             if (record.Output != null)
                             {
                                 jobInfo.Data = record.Output.Values.Sum(infos => infos.Sum(info => info.Count));

@@ -152,6 +152,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         (int)JobType.ExportProcessing,
                         record.SmartRequest);
             rec.Id = string.Empty;
+            rec.QueuedTime = DateTimeOffset.MinValue;
             return rec;
         }
     }
