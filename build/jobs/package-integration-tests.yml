@@ -5,7 +5,7 @@ steps:
     inputs:
       command: publish
       projects: 'test/**/*.csproj'
-      arguments: '--version-suffix $(build.buildNumber) -o "$(build.binariesdirectory)/IntegrationTests" --configuration $(buildConfiguration) --no-build -p:TargetFramework=net7.0'
+      arguments: '--version-suffix $(build.buildNumber) -o "$(build.binariesdirectory)/IntegrationTests" --configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework)'
       publishWebProjects: false
       zipAfterPublish: true
 

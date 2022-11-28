@@ -34,7 +34,7 @@ stages:
       displayName: 'dotnet build $(buildConfiguration)'
       inputs:
         command: build
-        arguments: '--configuration $(buildConfiguration) /warnaserror'
+        arguments: '--configuration $(buildConfiguration) /warnaserror -f $(defaultBuildFramework)'
     - template: ./jobs/package-integration-tests.yml
 
 - stage: redeployStu3

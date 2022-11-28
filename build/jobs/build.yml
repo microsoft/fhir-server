@@ -1,22 +1,33 @@
 parameters:
   # Default values
+  unitTest: true
   codeCoverage: false
   componentGovernance: false
   packageArtifacts: false
   packageIntegrationTests: false
+  targetBuildFramework: ''
 
 steps:
-
 - task: UseDotNet@2
   displayName: 'Use .NET SDK'
   inputs:
     useGlobalJson: true
 
-- task: DotNetCoreCLI@2
-  displayName: 'dotnet build $(buildConfiguration)'
-  inputs:
-    command: build
-    arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
+- ${{ if eq(parameters.targetBuildFramework, '') }}:
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet build $(buildConfiguration)'
+    inputs:
+      command: build
+      arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
+      workingDirectory: $(System.DefaultWorkingDirectory)
+
+- ${{ if ne(parameters.targetBuildFramework, '') }}:
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet build $(buildConfiguration)'
+    inputs:
+      command: build
+      arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{parameters.targetBuildFramework}}'
+      workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if eq(parameters.componentGovernance, 'true') }}:
   - task: ComponentGovernanceComponentDetection@0
@@ -26,13 +37,13 @@ steps:
       alertWarningLevel: 'High'
       failOnAlert: true
 
-- ${{ if eq(parameters.codeCoverage, 'false') }}:
+- ${{ if eq(parameters.unitTest, 'true') }}:
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test'
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
@@ -41,7 +52,7 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal'
+      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
       testRunTitle: 'Unit Tests'
   - task: reportgenerator@5
     displayName: 'aggregate code coverage'

@@ -10,5 +10,5 @@ steps:
     inputs:
       command: publish
       projects: '${{parameters.csproj}}'
-      arguments: '--output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) --no-build -p:TargetFramework=net7.0'
+      arguments: '--output $(build.artifactStagingDirectory)/web --configuration $(buildConfiguration) --version-suffix $(build.buildNumber) --no-build -f $(defaultBuildFramework)'
       publishWebProjects: false
