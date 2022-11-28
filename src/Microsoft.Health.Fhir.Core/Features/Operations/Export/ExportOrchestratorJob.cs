@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
             var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            record.QueuedTime = jobInfo.CreateDate; // get record of truth
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
             var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
@@ -152,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         (int)JobType.ExportProcessing,
                         record.SmartRequest);
             rec.Id = string.Empty;
-            rec.QueuedTime = DateTimeOffset.MinValue;
+            rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
             return rec;
         }
     }
