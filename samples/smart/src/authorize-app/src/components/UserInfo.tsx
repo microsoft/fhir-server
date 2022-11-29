@@ -21,8 +21,9 @@ export const UserInfo: FC<UserInfoProps> = ( props: UserInfoProps): ReactElement
         <Stack>
             <Stack.Item>
                 <Text block variant="xLarge">Welcome {name}!</Text>
-                <br />
                 <Text variant="small">{email}</Text>
+            </Stack.Item>
+            <Stack.Item>
                 <Text variant="small">Please review the below access permissions before continuing.</Text>
             </Stack.Item>
             <Stack.Item>
