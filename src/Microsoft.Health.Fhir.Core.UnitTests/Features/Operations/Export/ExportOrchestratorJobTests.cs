@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 return long.MaxValue - 1;
             });
 
-            _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x =>
+            _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
                 int numRanges = x.ArgAt<int>(4);
                 var ranges = new List<(long StartId, long EndId)>();

@@ -300,6 +300,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (exportTimeTravel)
                 {
                     PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommandWrapper);
+                    sqlCommandWrapper.CommandTimeout = 600; // set to 10 minutes, as dataset is usually large
                 }
                 else
                 {
@@ -580,13 +581,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             var ranges = new List<(long start, long end)>(numberOfRanges);
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, rangeSize, numberOfRanges);
+            sqlCommandWrapper.CommandTimeout = 1200; // Should be >> average execution time which for 100K resources is ~3 minutes.
+            VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
             using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
