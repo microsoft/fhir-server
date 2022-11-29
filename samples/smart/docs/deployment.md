@@ -20,14 +20,16 @@ Before deploying this sample, you will need to install some Azure tools **and** 
 The Authorize User Input Application is needed to allow users to select which scopes they want to consent to for SMART on FHIR applications. Azure AD does not support session based scoping, so this app handles modifying consent records for the user.
 
 1. Open Azure Active Directory and create a new Application Registration.
-1. Choose Spa for the redirict URI and add `http://localhost:3000` (useful for debugging).
-1. Under `Token Configuration` add `login_hint` as an optional claim on Access tokens.
-1. Under `Expose an API`, set the Application ID URI in the default format (`api://<app-id>`).
-1. Add a new scope with the value `user_impersonation` and save.
+1. Choose Single-page application (SPA) for the redirict URI and add `http://localhost:3000` (useful for debugging).
+1. After registering the application, Under `Token Configuration` add optional claim for Access token type. Select `login_hint` claim and click on Add. 
+1. Under `Expose an API`
+     * Set the Application ID URI in the default format (`api://<app-id>`).
+     * Add a new scope with the value `user_impersonation` and click on 'Add Scope'.
 
 ## 3. Deploy Azure Resources
 
-This sample uses the Azure Developer CLI for deployment. This allows for easy deployment of both infrastructure and code. Deploying this sample requires some light configuration. 
+This sample uses the Azure Developer CLI for deployment. This allows for easy deployment of both infrastructure and code. 
+Lets look at the configuration needed to deploying this sample :  
 
 - Open `main.pramaters.json` inside of the `infra` folder and fill out the following parameters:
   - `apimPublisherName`: Sample owner name.
