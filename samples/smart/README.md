@@ -1,12 +1,10 @@
 # Azure ONC (g)(10) SMART on FHIR Sample
 
-This sample demonstrates how Azure Health Data Services can be used to pass the Inferno test for ONC (g)(10) compliance, using Azure Active Directory as the identity provider. While Azure Health Data Services is the core of this sample, some custom code and routing is required to fully meet the requirements, especially around Azure Active Directory. This sample is therefore *not* using only the FHIR Server but other Azure Services with sample code to pass the Inferno tests. You can use this sample as a starting point for building your application and solution to pass the ONC (g)(10) testing requirements.
+This sample demonstrates how Azure Health Data Services can be used to pass the Inferno test for ONC (g)(10) compliance, using Azure Active Directory as the identity provider. Azure Health Data Services is the core of this sample, additionally there is custom code and routing required to fully meet the §170.315(g)(10) Standardized API for patient and population services criteriarequirements. This sample can be used as a reference for building your application and solution to pass Inferno tests for ONC (g)(10).
 
-This sample is using Azure Active Directory as the identity provider. If you have your own identity provider, you will need to build a custom solution around that instead.
+Note : This sample relies Azure Active Directory as the identity provider. You would need to build a custom solution for identity provider other than Azure Active Directory.
 
-If you are using the open source FHIR Server, you will also need to build a custom solution around that instead.
-
-This sample is targeted for EHR vendors who are looking to pass ONC (g)(10)
+Targeted audience : EHR vendors who are looking to pass ONC (g)(10).
 
 ## Components
 
