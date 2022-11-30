@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EntryComponent throttledEntryComponent = null;
             foreach (HTTPVerb verb in _verbExecutionOrder)
             {
-                throttledEntryComponent = await ExecuteRequestsInParallelAsync(responseBundle, verb, throttledEntryComponent);
+                throttledEntryComponent = await ExecuteRequestsInParallelAsync(responseBundle, verb, throttledEntryComponent, cancellationToken);
             }
         }
 
@@ -432,14 +432,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _requests[requestMethod].Add((routeContext, order, persistedId));
         }
 
-        private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
-        {
-            if (!string.IsNullOrWhiteSpace(headerValue))
-            {
-                httpContext.Request.Headers.Add(headerKey, new StringValues(headerValue));
-            }
-        }
-
         private async Task<EntryComponent> ExecuteRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
         {
             foreach ((RouteContext request, int entryIndex, string persistedId) in _requests[httpVerb])
@@ -538,7 +530,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return throttledEntryComponent;
         }
 
-        private async Task<EntryComponent> ExecuteRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
+        private async Task<EntryComponent> ExecuteRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, CancellationToken cancellationToken)
         {
             IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
             IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext;
@@ -547,106 +539,241 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceIdProvider resourceIdProvider = _resourceIdProvider;
             FhirJsonParser fhirJsonParser = _fhirJsonParser;
 
+            Parallel.ForEach(_requests[httpVerb], async (item) =>
+            {
+                await HandleRequestAsync(
+                    responseBundle,
+                    httpVerb,
+                    throttledEntryComponent,
+                    _bundleType,
+                    item.Item1, // Request
+                    item.Item2, // Entry index
+                    item.Item3, // Persisted ID
+                    _requestCount,
+                    auditEventTypeMapping,
+                    originalFhirRequestContext,
+                    requestContext,
+                    bundleHttpContextAccessor,
+                    resourceIdProvider,
+                    fhirJsonParser,
+                    _logger,
+                    cancellationToken);
+            });
+
+            // TODO: Start using Parallel.ForEachAsync.
+            await Task.CompletedTask;
+
+            /*
             foreach ((RouteContext request, int entryIndex, string persistedId) in _requests[httpVerb])
             {
-                EntryComponent entryComponent;
+                await HandleRequestAsync(
+                    responseBundle,
+                    httpVerb,
+                    throttledEntryComponent,
+                    _bundleType,
+                    request,
+                    entryIndex,
+                    persistedId,
+                    _requestCount,
+                    auditEventTypeMapping,
+                    originalFhirRequestContext,
+                    requestContext,
+                    bundleHttpContextAccessor,
+                    resourceIdProvider,
+                    fhirJsonParser,
+                    _logger,
+                    cancellationToken);
+            }
+            */
 
-                if (request.Handler != null)
+            return throttledEntryComponent;
+        }
+
+        private void SetupContexts(RouteContext request, HttpContext httpContext)
+        {
+            request.RouteData.Values.TryGetValue("controller", out object controllerName);
+            request.RouteData.Values.TryGetValue("action", out object actionName);
+            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+            var newFhirRequestContext = new FhirRequestContext(
+                httpContext.Request.Method,
+                httpContext.Request.GetDisplayUrl(),
+                _originalFhirRequestContext.BaseUri.OriginalString,
+                _originalFhirRequestContext.CorrelationId,
+                httpContext.Request.Headers,
+                httpContext.Response.Headers)
+            {
+                Principal = _originalFhirRequestContext.Principal,
+                ResourceType = resourceType?.ToString(),
+                AuditEventType = _auditEventTypeMapping.GetAuditEventType(
+                    controllerName?.ToString(),
+                    actionName?.ToString()),
+                ExecutingBatchOrTransaction = true,
+            };
+
+            _fhirRequestContextAccessor.RequestContext = newFhirRequestContext;
+
+            _bundleHttpContextAccessor.HttpContext = httpContext;
+
+            foreach (string headerName in HeadersToAccumulate)
+            {
+                if (_originalFhirRequestContext.ResponseHeaders.TryGetValue(headerName, out var values))
                 {
-                    if (throttledEntryComponent != null)
-                    {
-                        // A previous action was throttled.
-                        // Skip executing subsequent actions and include the 429 response.
-                        entryComponent = throttledEntryComponent;
-                    }
-                    else
-                    {
-                        HttpContext httpContext = request.HttpContext;
+                    newFhirRequestContext.ResponseHeaders.Add(headerName, values);
+                }
+            }
+        }
 
-                        SetupContexts(request, httpContext, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
+        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
+        {
+            foreach (EntryComponent entry in bundleEntries)
+            {
+                if (string.IsNullOrWhiteSpace(entry.FullUrl))
+                {
+                    continue;
+                }
 
-                        Func<string> originalResourceIdProvider = resourceIdProvider.Create;
-
-                        if (!string.IsNullOrWhiteSpace(persistedId))
+                switch (entry.Request.Method)
+                {
+                    case HTTPVerb.PUT when entry.Request.Url.Contains('?', StringComparison.InvariantCultureIgnoreCase):
+                    case HTTPVerb.POST:
+                        if (!idDictionary.ContainsKey(entry.FullUrl))
                         {
-                            resourceIdProvider.Create = () => persistedId;
+                            // This id is new to us
+                            var insertId = _resourceIdProvider.Create();
+                            entry.Resource.Id = insertId;
+
+                            idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
                         }
 
-                        // Attempt 1.
-                        await request.Handler.Invoke(httpContext);
+                        break;
+                }
+            }
+        }
 
-                        // Should we continue retrying HTTP 429s?
-                        // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
-                        // -----------
-                        // We will retry a 429 one time per request in the bundle
-                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
-                        {
-                            _logger.LogTrace("BundleHandler received 429 message, attempting retry.  HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", httpVerb, _requestCount, entryIndex);
-                            int retryDelay = 2;
-                            var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
-                            if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
-                            {
-                                retryDelay = retryHeaderValue;
-                            }
+        private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
+        {
+            if (!string.IsNullOrWhiteSpace(headerValue))
+            {
+                httpContext.Request.Headers.Add(headerKey, new StringValues(headerValue));
+            }
+        }
 
-                            await Task.Delay(retryDelay * 1000); // multiply by 1000 as retry-header specifies delay in seconds
+        private static async Task<EntryComponent> HandleRequestAsync(
+            Hl7.Fhir.Model.Bundle responseBundle,
+            HTTPVerb httpVerb,
+            EntryComponent throttledEntryComponent,
+            BundleType? bundleType,
+            RouteContext request,
+            int entryIndex,
+            string persistedId,
+            int requestCount,
+            IAuditEventTypeMapping auditEventTypeMapping,
+            IFhirRequestContext originalFhirRequestContext,
+            RequestContextAccessor<IFhirRequestContext> requestContext,
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            ResourceIdProvider resourceIdProvider,
+            FhirJsonParser fhirJsonParser,
+            ILogger<BundleHandler> logger,
+            CancellationToken cancellationToken)
+        {
+            EntryComponent entryComponent;
 
-                            // Attempt 2.
-                            await request.Handler.Invoke(httpContext);
-                        }
-
-                        resourceIdProvider.Create = originalResourceIdProvider;
-
-                        entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
-
-                        foreach (string headerName in HeadersToAccumulate)
-                        {
-                            if (httpContext.Response.Headers.TryGetValue(headerName, out var values))
-                            {
-                                _originalFhirRequestContext.ResponseHeaders[headerName] = values;
-                            }
-                        }
-
-                        if (_bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
-                        {
-                            _logger.LogTrace("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", httpVerb, _requestCount, entryIndex);
-
-                            // this action was throttled. Capture the entry and reuse it for subsequent actions.
-                            throttledEntryComponent = entryComponent;
-                        }
-                    }
+            if (request.Handler != null)
+            {
+                if (throttledEntryComponent != null)
+                {
+                    // A previous action was throttled.
+                    // Skip executing subsequent actions and include the 429 response.
+                    logger.LogTrace("BundleHandler was throttled, subsequent actions will be skipped and HTTP 429 will be added as a result. HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", httpVerb, requestCount, entryIndex);
+                    entryComponent = throttledEntryComponent;
                 }
                 else
                 {
-                    entryComponent = new EntryComponent
-                    {
-                        Response = new ResponseComponent
-                        {
-                            Status = ((int)HttpStatusCode.NotFound).ToString(),
-                            Outcome = CreateOperationOutcome(
-                                OperationOutcome.IssueSeverity.Error,
-                                OperationOutcome.IssueType.NotFound,
-                                string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
-                        },
-                    };
-                }
+                    HttpContext httpContext = request.HttpContext;
 
-                if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
-                {
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, request.HttpContext.Request.Method, request.HttpContext.Request.Path);
+                    SetupContexts(request, httpContext, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
 
-                    if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
+                    Func<string> originalResourceIdProvider = resourceIdProvider.Create;
+
+                    if (!string.IsNullOrWhiteSpace(persistedId))
                     {
-                        httpStatusCode = HttpStatusCode.BadRequest;
+                        resourceIdProvider.Create = () => persistedId;
                     }
 
-                    TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
-                }
+                    // Attempt 1.
+                    await request.Handler.Invoke(httpContext);
 
-                responseBundle.Entry[entryIndex] = entryComponent;
+                    // Should we continue retrying HTTP 429s?
+                    // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
+                    // -----------
+                    // We will retry a 429 one time per request in the bundle
+                    if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
+                    {
+                        logger.LogTrace("BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", httpVerb, requestCount, entryIndex);
+                        int retryDelay = 2;
+                        var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
+                        if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
+                        {
+                            retryDelay = retryHeaderValue;
+                        }
+
+                        await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
+
+                        // Attempt 2.
+                        await request.Handler.Invoke(httpContext);
+                    }
+
+                    resourceIdProvider.Create = originalResourceIdProvider;
+
+                    entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
+
+                    foreach (string headerName in HeadersToAccumulate)
+                    {
+                        if (httpContext.Response.Headers.TryGetValue(headerName, out var values))
+                        {
+                            originalFhirRequestContext.ResponseHeaders[headerName] = values;
+                        }
+                    }
+
+                    if (bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
+                    {
+                        logger.LogTrace("BundleHandler received HTTP 429 response after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", httpVerb, requestCount, entryIndex);
+
+                        // this action was throttled. Capture the entry and reuse it for subsequent actions.
+                        throttledEntryComponent = entryComponent;
+                    }
+                }
+            }
+            else
+            {
+                entryComponent = new EntryComponent
+                {
+                    Response = new ResponseComponent
+                    {
+                        Status = ((int)HttpStatusCode.NotFound).ToString(),
+                        Outcome = CreateOperationOutcome(
+                            OperationOutcome.IssueSeverity.Error,
+                            OperationOutcome.IssueType.NotFound,
+                            string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                    },
+                };
             }
 
-            return throttledEntryComponent;
+            if (bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
+            {
+                var errorMessage = string.Format(Api.Resources.TransactionFailed, request.HttpContext.Request.Method, request.HttpContext.Request.Path);
+
+                if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
+                {
+                    httpStatusCode = HttpStatusCode.BadRequest;
+                }
+
+                TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
+            }
+
+            responseBundle.Entry[entryIndex] = entryComponent;
+
+            return entryComponent;
         }
 
         private static EntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)
@@ -695,40 +822,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private void SetupContexts(RouteContext request, HttpContext httpContext)
-        {
-            request.RouteData.Values.TryGetValue("controller", out object controllerName);
-            request.RouteData.Values.TryGetValue("action", out object actionName);
-            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
-            var newFhirRequestContext = new FhirRequestContext(
-                httpContext.Request.Method,
-                httpContext.Request.GetDisplayUrl(),
-                _originalFhirRequestContext.BaseUri.OriginalString,
-                _originalFhirRequestContext.CorrelationId,
-                httpContext.Request.Headers,
-                httpContext.Response.Headers)
-            {
-                Principal = _originalFhirRequestContext.Principal,
-                ResourceType = resourceType?.ToString(),
-                AuditEventType = _auditEventTypeMapping.GetAuditEventType(
-                    controllerName?.ToString(),
-                    actionName?.ToString()),
-                ExecutingBatchOrTransaction = true,
-            };
-
-            _fhirRequestContextAccessor.RequestContext = newFhirRequestContext;
-
-            _bundleHttpContextAccessor.HttpContext = httpContext;
-
-            foreach (string headerName in HeadersToAccumulate)
-            {
-                if (_originalFhirRequestContext.ResponseHeaders.TryGetValue(headerName, out var values))
-                {
-                    newFhirRequestContext.ResponseHeaders.Add(headerName, values);
-                }
-            }
-        }
-
         private static void SetupContexts(
             RouteContext request,
             HttpContext httpContext,
@@ -766,33 +859,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (requestContext.ResponseHeaders.TryGetValue(headerName, out var values))
                 {
                     newFhirRequestContext.ResponseHeaders.Add(headerName, values);
-                }
-            }
-        }
-
-        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
-        {
-            foreach (EntryComponent entry in bundleEntries)
-            {
-                if (string.IsNullOrWhiteSpace(entry.FullUrl))
-                {
-                    continue;
-                }
-
-                switch (entry.Request.Method)
-                {
-                    case HTTPVerb.PUT when entry.Request.Url.Contains('?', StringComparison.InvariantCultureIgnoreCase):
-                    case HTTPVerb.POST:
-                        if (!idDictionary.ContainsKey(entry.FullUrl))
-                        {
-                            // This id is new to us
-                            var insertId = _resourceIdProvider.Create();
-                            entry.Resource.Id = insertId;
-
-                            idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
-                        }
-
-                        break;
                 }
             }
         }
