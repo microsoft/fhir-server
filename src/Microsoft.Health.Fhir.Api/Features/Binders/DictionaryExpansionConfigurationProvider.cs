@@ -61,18 +61,37 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
 
             _configurationProvider.TryGet(keyPath, out string environmentVariableValue);
 
-            if (!string.IsNullOrEmpty(environmentVariableValue) && environmentVariableValue.Trim().StartsWith("{", StringComparison.Ordinal) == true)
+            if (!string.IsNullOrEmpty(environmentVariableValue))
             {
-                Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(environmentVariableValue);
-
-                foreach (KeyValuePair<string, string> kvp in asDictionary!)
+                Dictionary<string, string> asDictionary = HasJsonStructure(environmentVariableValue);
+                if (asDictionary?.Count > 0)
                 {
-                    data.Add($"{keyPath}:{kvp.Key}", kvp.Value);
+                    foreach (KeyValuePair<string, string> kvp in asDictionary!)
+                    {
+                        data.Add($"{keyPath}:{kvp.Key}", kvp.Value);
+                    }
                 }
             }
 
             IEnumerable<string> innerKeys = _configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath);
             EnumerateKeys(innerKeys, data, keyPath);
         }
+    }
+
+    private static Dictionary<string, string> HasJsonStructure(string value)
+    {
+        try
+        {
+            if (value.Trim().StartsWith("{", StringComparison.Ordinal))
+            {
+                return JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
+            }
+        }
+        catch (Newtonsoft.Json.JsonReaderException)
+        {
+            return default;
+        }
+
+        return default;
     }
 }

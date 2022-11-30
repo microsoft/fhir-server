@@ -69,9 +69,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
                 string value = (string)entry.Value;
                 environmentVariablesAsDictionary.Add(key, value);
 
-                if (HasJsonStructure(value))
+                Dictionary<string, string> asDictionary = HasJsonStructure(value);
+                if (asDictionary?.Count > 0)
                 {
-                    Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
                     variablesInJsonFormat += asDictionary.Count;
                 }
             }
@@ -100,6 +100,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
                 var customVariables = new Dictionary<string, string>()
                 {
                     { "FhirServer:CoreFeatures:Versioning:ResourceTypeOverrides", "{ \"account\": \"no-version\", \"visionprescription\": \"versioned\", \"activitydefinition\": \"versioned-update\" }" },
+                    { "NotValidJson", "{4EDD8C98-B197-450C-B63C-217CB9AE2C09}"},
                 };
                 e = customVariables.GetEnumerator();
             }
@@ -116,9 +117,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
                 string value = (string)entry.Value;
                 environmentVariablesAsDictionary.Add(key, value);
 
-                if (HasJsonStructure(value))
+                Dictionary<string, string> asDictionary = HasJsonStructure(value);
+                if (asDictionary?.Count > 0)
                 {
-                    Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
                     variablesInJsonFormat += asDictionary.Count;
                 }
             }
@@ -136,7 +137,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
             Assert.Equal(variablesInJsonFormat, numberOfJsonVariablesInMockProvider);
         }
 
-        private static bool HasJsonStructure(string value) => value.Trim().StartsWith("{", StringComparison.Ordinal);
+        private static Dictionary<string, string> HasJsonStructure(string value)
+        {
+            try
+            {
+                if (value.Trim().StartsWith("{", StringComparison.Ordinal))
+                {
+                    return JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
+                }
+            }
+            catch (Newtonsoft.Json.JsonReaderException)
+            {
+                return default;
+            }
+
+            return default;
+        }
 
         public sealed class MockConfigurationProvider : ConfigurationProvider
         {
