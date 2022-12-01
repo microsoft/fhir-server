@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 }
             }
 
-            throw new ArgumentException($"Cannot commit none existant file {fileName}");
+            throw new ArgumentException($"Cannot commit non-existent file {fileName}");
         }
 
         private Uri CommitFileRetry(string fileName)
