@@ -7,6 +7,9 @@
     <IsTestProject>false</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="TestFiles\Normative\SearchDataBatch.json" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />
@@ -39,6 +42,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noidentifier.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noGender.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchDataBatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
