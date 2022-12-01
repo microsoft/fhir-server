@@ -53,29 +53,14 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
         Data = data;
     }
 
-    private void EnumerateKeys(IEnumerable<string> keys, Dictionary<string, string> data, string path = null)
-    {
-        foreach (string keyName in keys.Distinct())
-        {
-            var keyPath = path != null ? $"{path}:{keyName}" : keyName;
-
-            _configurationProvider.TryGet(keyPath, out string environmentVariableValue);
-
-            if (!string.IsNullOrEmpty(environmentVariableValue)
-                && TryParseDictionaryJson(environmentVariableValue, out Dictionary<string, string> asDictionary))
-            {
-                foreach (KeyValuePair<string, string> kvp in asDictionary!)
-                {
-                    data.Add($"{keyPath}:{kvp.Key}", kvp.Value);
-                }
-            }
-
-            IEnumerable<string> innerKeys = _configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath);
-            EnumerateKeys(innerKeys, data, keyPath);
-        }
-    }
-
-    private static bool TryParseDictionaryJson(string value, out Dictionary<string, string> dictionary)
+    /// <summary>
+    /// Try to parse a JSON string value into a Dictionary.
+    /// </summary>
+    /// <param name="value">JSON string value to be parsed.</param>
+    /// <param name="dictionary">Resultant dictionary if the value is able to be parsed.</param>
+    /// <returns>True if the JSON string value is able to be parsed to a Dictionary.</returns>
+    /// <remarks>Public method for testing purposes.</remarks>
+    public static bool TryParseDictionaryJson(string value, out Dictionary<string, string> dictionary)
     {
         dictionary = null;
 
@@ -98,6 +83,28 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
         catch (JsonReaderException)
         {
             return false;
+        }
+    }
+
+    private void EnumerateKeys(IEnumerable<string> keys, Dictionary<string, string> data, string path = null)
+    {
+        foreach (string keyName in keys.Distinct())
+        {
+            var keyPath = path != null ? $"{path}:{keyName}" : keyName;
+
+            _configurationProvider.TryGet(keyPath, out string environmentVariableValue);
+
+            if (!string.IsNullOrEmpty(environmentVariableValue)
+                && TryParseDictionaryJson(environmentVariableValue, out Dictionary<string, string> asDictionary))
+            {
+                foreach (KeyValuePair<string, string> kvp in asDictionary!)
+                {
+                    data.Add($"{keyPath}:{kvp.Key}", kvp.Value);
+                }
+            }
+
+            IEnumerable<string> innerKeys = _configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath);
+            EnumerateKeys(innerKeys, data, keyPath);
         }
     }
 }

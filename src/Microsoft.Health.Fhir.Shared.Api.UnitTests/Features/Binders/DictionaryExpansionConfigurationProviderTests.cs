@@ -12,7 +12,6 @@ using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Health.Fhir.Api.Features.Binders;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
@@ -69,9 +68,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
                 string value = (string)entry.Value;
                 environmentVariablesAsDictionary.Add(key, value);
 
-                if (HasJsonStructure(value))
+                if (DictionaryExpansionConfigurationProvider.TryParseDictionaryJson(value, out Dictionary<string, string> asDictionary))
                 {
-                    Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
                     variablesInJsonFormat += asDictionary.Count;
                 }
             }
@@ -116,9 +114,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
                 string value = (string)entry.Value;
                 environmentVariablesAsDictionary.Add(key, value);
 
-                if (HasJsonStructure(value))
+                if (DictionaryExpansionConfigurationProvider.TryParseDictionaryJson(value, out Dictionary<string, string> asDictionary))
                 {
-                    Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
                     variablesInJsonFormat += asDictionary.Count;
                 }
             }
@@ -162,8 +159,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
 
             Assert.Empty(configurationProvider.GetChildKeys(Array.Empty<string>(), null));
         }
-
-        private static bool HasJsonStructure(string value) => value.Trim().StartsWith("{", StringComparison.Ordinal);
 
         public sealed class MockConfigurationProvider : ConfigurationProvider
         {
