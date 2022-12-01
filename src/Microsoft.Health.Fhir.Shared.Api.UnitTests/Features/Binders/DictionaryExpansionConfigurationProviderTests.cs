@@ -136,6 +136,27 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
             Assert.Equal(variablesInJsonFormat, numberOfJsonVariablesInMockProvider);
         }
 
+        [Theory]
+        [InlineData("")]
+        [InlineData("{foo}")]
+        [InlineData(" { foo } ")]
+        [InlineData("{ 'foo' }")]
+        [InlineData("{ \"foo\" }")]
+        public void GivenAnInvalidJsonConfiguration_WhenInitialized_ThenKeepValuesAsTheyAre(string value)
+        {
+            MockConfigurationProvider mockProvider = new MockConfigurationProvider(
+                new Dictionary<string, string>()
+                {
+                    { "key", value},
+                });
+
+            DictionaryExpansionConfigurationProvider configurationProvider = new DictionaryExpansionConfigurationProvider(mockProvider);
+
+            configurationProvider.Load();
+
+            Assert.Empty(configurationProvider.GetChildKeys(Array.Empty<string>(), null));
+        }
+
         private static bool HasJsonStructure(string value) => value.Trim().StartsWith("{", StringComparison.Ordinal);
 
         public sealed class MockConfigurationProvider : ConfigurationProvider

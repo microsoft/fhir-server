@@ -61,10 +61,9 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
 
             _configurationProvider.TryGet(keyPath, out string environmentVariableValue);
 
-            if (!string.IsNullOrEmpty(environmentVariableValue) && environmentVariableValue.Trim().StartsWith("{", StringComparison.Ordinal) == true)
+            if (!string.IsNullOrEmpty(environmentVariableValue)
+                && TryParseDictionaryJson(environmentVariableValue, out Dictionary<string, string> asDictionary))
             {
-                Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(environmentVariableValue);
-
                 foreach (KeyValuePair<string, string> kvp in asDictionary!)
                 {
                     data.Add($"{keyPath}:{kvp.Key}", kvp.Value);
@@ -74,5 +73,32 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
             IEnumerable<string> innerKeys = _configurationProvider.GetChildKeys(Array.Empty<string>(), keyPath);
             EnumerateKeys(innerKeys, data, keyPath);
         }
+    }
+
+    private static bool TryParseDictionaryJson(string value, out Dictionary<string, string> dictionary)
+    {
+        dictionary = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        value = value.Trim();
+        if (!value.Trim().StartsWith("{", StringComparison.Ordinal) || !value.Trim().EndsWith("}", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            dictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
+        }
+        catch (JsonReaderException)
+        {
+            return false;
+        }
+
+        return true;
     }
 }
