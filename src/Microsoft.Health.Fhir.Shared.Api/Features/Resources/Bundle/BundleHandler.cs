@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -171,7 +172,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private void ExecuteAllRequestsInParallel(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
+        private async Task ExecuteAllRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
         {
             // List is not created initially since it doesn't create a list with _requestCount elements
             responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
@@ -195,7 +196,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EntryComponent throttledEntryComponent = null;
             foreach (HTTPVerb verb in _verbExecutionOrder)
             {
-                throttledEntryComponent = ExecuteRequestsInParallel(responseBundle, verb, throttledEntryComponent, cancellationToken);
+                throttledEntryComponent = await ExecuteRequestsInParallelAsync(responseBundle, verb, throttledEntryComponent, cancellationToken);
             }
         }
 
@@ -233,7 +234,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
-                    ExecuteAllRequestsInParallel(responseBundle, cancellationToken);
+                    await ExecuteAllRequestsInParallelAsync(responseBundle, cancellationToken);
                     var response = new BundleResponse(responseBundle.ToResourceElement());
 
                     await PublishNotification(responseBundle, BundleType.Batch);
@@ -530,8 +531,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return throttledEntryComponent;
         }
 
-        private EntryComponent ExecuteRequestsInParallel(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, CancellationToken cancellationToken)
+        private async Task<EntryComponent> ExecuteRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, CancellationToken cancellationToken)
         {
+            /* This method runs in parallel requests extracted from bundles.
+             * It uses Parallel.ForEachAsync as an optimization, given that Parallel.ForEachAsync has a better parallel Task management then handling Tasks manually. */
+
             IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
             IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext;
             RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
@@ -539,55 +543,43 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceIdProvider resourceIdProvider = _resourceIdProvider;
             FhirJsonParser fhirJsonParser = _fhirJsonParser;
 
-            Action<object> action = async (args) =>
+            if (_requests[httpVerb].Any())
             {
-                (RouteContext, int, string) state = ((RouteContext, int, string))args;
-
-                await HandleRequestAsync(
-                    responseBundle,
-                    httpVerb,
-                    throttledEntryComponent,
-                    _bundleType,
-                    state.Item1, // Request
-                    state.Item2, // Entry index
-                    state.Item3, // Persisted ID
-                    _requestCount,
-                    auditEventTypeMapping,
-                    originalFhirRequestContext,
-                    requestContext,
-                    bundleHttpContextAccessor,
-                    resourceIdProvider,
-                    fhirJsonParser,
-                    _logger,
-                    cancellationToken);
-            };
-
-            const int MaxNumberOfRequestsInParallel = 2;
-
-            var requestsEnumerator = _requests[httpVerb].GetEnumerator();
-            TaskScheduler taskScheduler = TaskScheduler.Default;
-            while (true)
-            {
-                List<Task> requestsInParallel = new List<Task>(capacity: MaxNumberOfRequestsInParallel);
-
-                while (requestsInParallel.Count < MaxNumberOfRequestsInParallel && requestsEnumerator.MoveNext())
+                int totalNumberOfRequests = _requests[httpVerb].Count;
+                const int MaxNumberOfRequestsInParallel = 4;
+                var options = new ParallelOptions()
                 {
-                    var request = requestsEnumerator.Current;
+                    MaxDegreeOfParallelism = MaxNumberOfRequestsInParallel,
+                    CancellationToken = cancellationToken,
+                };
 
-                    requestsInParallel.Add(Task.Factory.StartNew(action, request, cancellationToken, TaskCreationOptions.None, taskScheduler));
-                }
+                _logger.LogTrace("BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests. MaxDegreeOfParallelism of {MaxDegreeOfParallelism}.", totalNumberOfRequests, httpVerb, options.MaxDegreeOfParallelism);
 
-                if (requestsInParallel.Any())
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                await Parallel.ForEachAsync(_requests[httpVerb], options, async (state, ct) =>
                 {
-                    _logger.LogTrace("BundleHandler - Running {NumberOfTasksRunningInParallel} tasks in parallel.", requestsInParallel.Count);
-                    Task.WaitAll(requestsInParallel.ToArray(), cancellationToken);
-                }
+                    _logger.LogTrace("BundleHandler - Running request #{RequestNumber} out of {TotalNumberOfRequests}.", state.Item2, totalNumberOfRequests);
 
-                if (requestsInParallel.Count < MaxNumberOfRequestsInParallel)
-                {
-                    // Looping's escape clausule
-                    break;
-                }
+                    await HandleRequestAsync(
+                        responseBundle,
+                        httpVerb,
+                        throttledEntryComponent,
+                        _bundleType,
+                        state.Item1, // Request
+                        state.Item2, // Entry index
+                        state.Item3, // Persisted ID
+                        _requestCount,
+                        auditEventTypeMapping,
+                        originalFhirRequestContext,
+                        requestContext,
+                        bundleHttpContextAccessor,
+                        resourceIdProvider,
+                        fhirJsonParser,
+                        _logger,
+                        ct);
+                });
+
+                _logger.LogTrace("BundleHandler - Parallel processing of requests completed in {TimeElapsed}. With {TotalNumberOfRequests} '{HttpVerb}' requests processed.", stopwatch.Elapsed, totalNumberOfRequests, httpVerb);
             }
 
             return throttledEntryComponent;
