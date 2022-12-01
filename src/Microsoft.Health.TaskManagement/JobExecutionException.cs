@@ -11,8 +11,9 @@ namespace Microsoft.Health.JobManagement
     public class JobExecutionException : Exception
     {
         public JobExecutionException(string message)
-            : this(message, null)
+            : base(message)
         {
+            Error = null;
         }
 
         public JobExecutionException(string message, object error)

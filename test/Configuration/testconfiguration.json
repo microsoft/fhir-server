@@ -9,6 +9,12 @@
         "Operations": {
             "Validate": {
                 "CacheDurationInSeconds": 0
+            },
+            "Import": {
+                "PollingFrequencyInSeconds": 1
+            },
+            "Export": {
+                "PollingFrequencyInSeconds": 1
             }
         }
     }
