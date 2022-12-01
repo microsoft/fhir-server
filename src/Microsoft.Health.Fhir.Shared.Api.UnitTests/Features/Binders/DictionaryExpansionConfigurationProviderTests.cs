@@ -138,10 +138,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Binders
 
         [Theory]
         [InlineData("")]
+        [InlineData("{}")]
+        [InlineData("{ {")]
+        [InlineData("{ { } }")]
+        [InlineData(" {} ")]
+        [InlineData(" { } ")]
         [InlineData("{foo}")]
         [InlineData(" { foo } ")]
         [InlineData("{ 'foo' }")]
         [InlineData("{ \"foo\" }")]
+        [InlineData("{070741cc-f9e9-516d-9f32-f3a4cca9614d}")]
         public void GivenAnInvalidJsonConfiguration_WhenInitialized_ThenKeepValuesAsTheyAre(string value)
         {
             MockConfigurationProvider mockProvider = new MockConfigurationProvider(

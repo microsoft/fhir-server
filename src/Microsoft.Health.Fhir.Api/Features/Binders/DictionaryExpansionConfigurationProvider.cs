@@ -93,12 +93,11 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
         try
         {
             dictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
+            return true;
         }
         catch (JsonReaderException)
         {
             return false;
         }
-
-        return true;
     }
 }
