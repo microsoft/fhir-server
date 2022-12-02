@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -21,6 +22,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -46,6 +48,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Rest;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -533,8 +536,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, CancellationToken cancellationToken)
         {
-            /* This method runs in parallel requests extracted from bundles.
-             * It uses Parallel.ForEachAsync as an optimization, given that Parallel.ForEachAsync has a better parallel Task management then handling Tasks manually. */
+            // This method runs in parallel requests extracted from bundles.
+            // It uses Parallel.ForEachAsync as an optimization, given that Parallel.ForEachAsync has a better parallel Task management then handling Tasks manually.
 
             IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
             IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext;
@@ -579,10 +582,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         ct);
                 });
 
-                _logger.LogTrace("BundleHandler - Parallel processing of requests completed in {TimeElapsed}. With {TotalNumberOfRequests} '{HttpVerb}' requests processed.", stopwatch.Elapsed, totalNumberOfRequests, httpVerb);
+                stopwatch.Stop();
+                LogBundleStatistics(responseBundle, totalNumberOfRequests, httpVerb, stopwatch);
             }
 
             return throttledEntryComponent;
+        }
+
+        private void LogBundleStatistics(Hl7.Fhir.Model.Bundle responseBundle, int originalNumberOfRequests, HTTPVerb httpVerb, Stopwatch stopwatch)
+        {
+            Dictionary<string, int> statistics = new Dictionary<string, int>();
+            foreach (EntryComponent entryComponent in responseBundle.Entry)
+            {
+                if (statistics.ContainsKey(entryComponent.Response.Status))
+                {
+                    statistics[entryComponent.Response.Status]++;
+                }
+                else
+                {
+                    statistics.Add(entryComponent.Response.Status, 1);
+                }
+            }
+
+            _logger.LogTrace(
+                "BundleHandler - Parallel processing of requests completed in {TimeElapsed}. With {OriginalNumberOfRequests} '{HttpVerb}' requests processed. Statistics: {Statistics}",
+                stopwatch.Elapsed,
+                originalNumberOfRequests,
+                httpVerb,
+                statistics.AsFormattedString());
         }
 
         private void SetupContexts(RouteContext request, HttpContext httpContext)
