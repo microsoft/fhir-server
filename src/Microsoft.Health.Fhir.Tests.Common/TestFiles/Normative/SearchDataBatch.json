@@ -4,27 +4,6 @@
     "entry": [
         {
             "resource": {
-                "resourceType": "MedicationRequest",
-                "status": "active",
-                "intent": "plan",
-                "medicationCodeableConcept": {
-                    "coding": [
-                        {
-                            "code": "test"
-                        }
-                    ]
-                },
-                "subject": {
-                    "reference": "Patient/searchpatient1"
-                }
-            },
-            "request": {
-                "method": "POST",
-                "url": "MedicationRequest"
-            }
-        },
-        {
-            "resource": {
                 "resourceType": "Patient",
                 "id": "searchpatient1",
                 "name": [
@@ -165,7 +144,7 @@
         {
             "resource": {
                 "resourceType": "Encounter",
-                "status": "arrived",
+                "status": "planned",
                 "class": {
                     "system": "system",
                     "code": "code"
@@ -367,30 +346,7 @@
         {
             "resource": {
                 "resourceType": "AuditEvent",
-                "type": {
-                    "system": "system",
-                    "code": "code"
-                },
-                "recorded": "2021-05-28T00:00:00.000",
-                "agent": [
-                    {
-                        "who": {
-                            "reference": "Practitioner/searchpractitioner3"
-                        }
-                    }
-                ],
-                "source": {
-                    "observer": {
-                        "reference": "Patient/searchpatient2"
-                    }
-                },
-                "entity": [
-                    {
-                        "what": {
-                            "reference": "Observation/searchobservation2"
-                        }
-                    }
-                ]
+                "recorded": "2021-05-28T00:00:00.000"
             },
             "request": {
                 "method": "POST",
