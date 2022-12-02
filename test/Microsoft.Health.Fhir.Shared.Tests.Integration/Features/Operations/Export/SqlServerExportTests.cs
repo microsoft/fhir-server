@@ -9,8 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -34,7 +32,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISearchService _searchService;
         private readonly SqlServerFhirOperationDataStore _operationDataStore;
         private readonly SqlQueueClient _queueClient;
-        private readonly ILoggerFactory _loggerFactory = new NullLoggerFactory();
         private readonly byte _queueType = (byte)QueueType.Export;
         private const string DropTrigger = "IF object_id('tmp_JobQueueIns') IS NOT NULL DROP TRIGGER tmp_JobQueueIns";
 
@@ -54,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 PrepareData(); // 1000 patients + 1000 observations + 1000 claims. !!! RawResource is invalid.
 
-                var coordJob = new ExportOrchestratorJob(_queueClient, _searchService, _loggerFactory);
+                var coordJob = new ExportOrchestratorJob(_queueClient, _searchService);
                 //// surrogate id range size is set via max number of resources per query on coord record
                 coordJob.NumberOfSurrogateIdRanges = 5; // 100*5=500 is 50% of 1000, so there are 2 insert transactions in JobQueue per each resource type
 
