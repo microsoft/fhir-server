@@ -131,7 +131,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             else
             {
-                container = groupId.ToString();
+                // Need the export- to make sure the container meets the minimum length requirements of 3 characters.
+                container = $"export-{groupId}";
             }
 
             var rec = new ExportJobRecord(
