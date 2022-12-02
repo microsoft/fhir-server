@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Controls how many resources will be returned for each search query while exporting the data.
         /// </summary>
-        public uint MaximumNumberOfResourcesPerQuery { get; set; } = 5000;
+        public uint MaximumNumberOfResourcesPerQuery { get; set; } = 50000;
 
         /// <summary>
         /// Number of pages to be iterated before committing the export progress.
