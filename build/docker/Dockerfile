@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:6.0.401-alpine3.16 AS build
+FROM mcr.microsoft.com/dotnet/sdk:6.0.403-alpine3.16 AS build
 
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
