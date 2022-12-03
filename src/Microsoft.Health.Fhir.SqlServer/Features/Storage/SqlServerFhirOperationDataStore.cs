@@ -59,7 +59,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             var clone = jobRecord.Clone();
-            clone.Id = string.Empty;
             clone.QueuedTime = DateTime.Parse("1900-01-01");
             var def = JsonConvert.SerializeObject(clone, _jsonSerializerSettings);
             var results = await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { def }, null, false, clone.Status == OperationStatus.Completed, cancellationToken);

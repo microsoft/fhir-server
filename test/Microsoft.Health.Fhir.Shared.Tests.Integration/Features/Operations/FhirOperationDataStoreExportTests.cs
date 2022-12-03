@@ -80,6 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAMatchingExportJob_WhenReCreatingPreviouslyCreatedJob_ThenTheMatchingJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();

@@ -9,7 +9,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -25,26 +24,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private IQueueClient _queueClient;
         private ISearchService _searchService;
-        private ILogger<ExportOrchestratorJob> _logger; // TODO: Either remove or use
 
         public ExportOrchestratorJob(
             IQueueClient queueClient,
-            ISearchService searchService,
-            ILoggerFactory loggerFactory)
+            ISearchService searchService)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
-            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _queueClient = queueClient;
             _searchService = searchService;
-            _logger = loggerFactory.CreateLogger<ExportOrchestratorJob>();
         }
 
         internal int NumberOfSurrogateIdRanges { get; set; } = DefaultNumberOfSurrogateIdRanges;
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+            EnsureArg.IsNotNull(progress, nameof(progress));
+
             var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
@@ -91,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 startId = range.EndId;
                             }
 
-                            var processingRecord = CreateExportRecord(record, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                            var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
                             definitions.Add(JsonConvert.SerializeObject(processingRecord));
                         }
 
@@ -108,13 +106,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (!atLeastOneWorkerJobRegistered)
                 {
-                    var processingRecord = CreateExportRecord(record);
+                    var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
                     await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
                 }
             }
             else if (groupJobs.Count == 1)
             {
-                var processingRecord = CreateExportRecord(record);
+                var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
                 await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
             }
 
@@ -122,12 +120,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
+            var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
+            var container = record.StorageAccountContainerName;
+
+            if (record.Id != record.StorageAccountContainerName)
+            {
+                format = $"{ExportFormatTags.Timestamp}-{groupId}/{format}";
+            }
+            else
+            {
+                // Need the export- to make sure the container meets the minimum length requirements of 3 characters.
+                container = $"export-{groupId}";
+            }
+
             var rec = new ExportJobRecord(
                         record.RequestUri,
                         record.ExportType,
-                        record.ExportFormat,
+                        format,
                         string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
                         record.Filters,
                         record.Hash,
@@ -147,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         record.AnonymizationConfigurationFileETag,
                         record.MaximumNumberOfResourcesPerQuery,
                         record.NumberOfPagesPerCommit,
-                        record.StorageAccountContainerName,
+                        container,
                         record.IsParallel,
                         record.SchemaVersion,
                         (int)JobType.ExportProcessing,
