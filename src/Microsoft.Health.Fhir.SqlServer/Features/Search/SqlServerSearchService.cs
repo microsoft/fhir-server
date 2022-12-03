@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -61,6 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
+        private readonly object _lock = new object();
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -293,6 +295,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
+            AddRetryListener(_sqlConnectionWrapperFactory);
+
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
@@ -485,6 +489,57 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
 
                     return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
+                }
+            }
+        }
+
+        private void AddRetryListener(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+        {
+            FieldInfo retryLogicBaseProviderFieldInfo = typeof(SqlConnectionWrapperFactory).GetField("_sqlRetryLogicBaseProvider", BindingFlags.NonPublic | BindingFlags.Instance);
+            SqlRetryLogicBaseProvider retryLogicProvider = retryLogicBaseProviderFieldInfo.GetValue(sqlConnectionWrapperFactory) as SqlRetryLogicBaseProvider;
+
+            if (retryLogicProvider != null)
+            {
+                // Lock to avoid multiple threads trying to set a retry listener at the same time.
+                // It should not impact logging operations at the same time.
+                lock (_lock)
+                {
+                    if (retryLogicProvider.Retrying == null)
+                    {
+                        retryLogicProvider.Retrying += (sender, args) =>
+                        {
+                            try
+                            {
+                                StringBuilder error = new StringBuilder();
+
+                                if (args == null)
+                                {
+                                    error.AppendLine("SqlRetryingEventArgs is null");
+                                }
+                                else if (args.Exceptions == null || args.Exceptions.Count == 0)
+                                {
+                                    error.AppendLine("SqlRetryingEventArgs does not contain any exception");
+                                }
+                                else
+                                {
+                                    foreach (Exception exception in args.Exceptions)
+                                    {
+                                        error.AppendLine(exception.ToString());
+                                        error.AppendLine("===============");
+                                    }
+                                }
+
+                                using var conn = sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+                                using var cmd = conn.CreateRetrySqlCommand();
+                                VLatest.LogEvent.PopulateCommand(cmd, "Search", "Warn", null, null, null, null, null, error.ToString(), null, null);
+                                cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+                            }
+                            catch
+                            {
+                                // Do nothing.
+                            }
+                        };
+                    }
                 }
             }
         }
