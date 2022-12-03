@@ -53,6 +53,39 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
         Data = data;
     }
 
+    /// <summary>
+    /// Try to parse a JSON string value into a Dictionary.
+    /// </summary>
+    /// <param name="value">JSON string value to be parsed.</param>
+    /// <param name="dictionary">Resultant dictionary if the value is able to be parsed.</param>
+    /// <returns>True if the JSON string value is able to be parsed to a Dictionary.</returns>
+    /// <remarks>Public method for testing purposes.</remarks>
+    public static bool TryParseDictionaryJson(string value, out Dictionary<string, string> dictionary)
+    {
+        dictionary = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        value = value.Trim();
+        if (!value.StartsWith("{", StringComparison.Ordinal) || !value.EndsWith("}", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            dictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
+            return true;
+        }
+        catch (JsonReaderException)
+        {
+            return false;
+        }
+    }
+
     private void EnumerateKeys(IEnumerable<string> keys, Dictionary<string, string> data, string path = null)
     {
         foreach (string keyName in keys.Distinct())
@@ -61,10 +94,9 @@ public class DictionaryExpansionConfigurationProvider : ConfigurationProvider
 
             _configurationProvider.TryGet(keyPath, out string environmentVariableValue);
 
-            if (!string.IsNullOrEmpty(environmentVariableValue) && environmentVariableValue.Trim().StartsWith("{", StringComparison.Ordinal) == true)
+            if (!string.IsNullOrEmpty(environmentVariableValue)
+                && TryParseDictionaryJson(environmentVariableValue, out Dictionary<string, string> asDictionary))
             {
-                Dictionary<string, string> asDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(environmentVariableValue);
-
                 foreach (KeyValuePair<string, string> kvp in asDictionary!)
                 {
                     data.Add($"{keyPath}:{kvp.Key}", kvp.Value);

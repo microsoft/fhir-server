@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
             else
             {
-                throw new ArgumentException($"Cannot commit none existant file {fileName}");
+                throw new ArgumentException($"Cannot commit non-existant file {fileName}");
             }
 
             _dataBuffers.Remove(fileName);
