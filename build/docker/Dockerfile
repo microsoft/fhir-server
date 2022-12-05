@@ -66,7 +66,7 @@ RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Hea
 
 COPY . .
 
-RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}"
+RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}" -p:TargetFramework=net7.0
 
 FROM mcr.microsoft.com/dotnet/aspnet:6.0.9-alpine3.16 AS runtime
 
