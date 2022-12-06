@@ -22,16 +22,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         {
             retryAfterTimeSpan ??= TimeSpan.FromSeconds(1); // in case this is missing, provide some value so we that the header is always there
 
-            if (responseHeaders.ContainsKey(KnownHeaders.RetryAfterMilliseconds))
-            {
-                responseHeaders.Remove(KnownHeaders.RetryAfterMilliseconds);
-            }
-
-            if (responseHeaders.ContainsKey(KnownHeaders.RetryAfter))
-            {
-                responseHeaders.Remove(KnownHeaders.RetryAfter);
-            }
-
             responseHeaders.Add(
                 KnownHeaders.RetryAfterMilliseconds,
                 ((int)retryAfterTimeSpan.Value.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
