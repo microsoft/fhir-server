@@ -29,6 +29,14 @@
             "type": "instant"
         },
         {
+            "name": "_till",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Resources updated before this period will be included in the response.",
+            "type": "instant"
+        },
+        {
             "name": "_type",
             "use": "in",
             "min": 0,
@@ -43,6 +51,14 @@
             "max": "1",
             "documentation": "(Experimental) Search filters to refine a type search. See https://hl7.org/fhir/uv/bulkdata/export/index.html#experimental-query-parameters for formating. This parameter is experimental and the behavior may change.",
             "type": "string"
+        },
+        {
+            "name": "_isParallel",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Whether to divide the job into multiple parallel operations. Defaults to true.",
+            "type": "bool"
         }
     ]
 }

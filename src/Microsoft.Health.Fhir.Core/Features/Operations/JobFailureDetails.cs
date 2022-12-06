@@ -11,12 +11,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public class JobFailureDetails
     {
-        public JobFailureDetails(string failureReason, HttpStatusCode statusCode)
+        public JobFailureDetails(string failureReason, HttpStatusCode statusCode, string failureDetails = "")
         {
             EnsureArg.IsNotNullOrWhiteSpace(failureReason, nameof(failureReason));
 
             FailureReason = failureReason;
             FailureStatusCode = statusCode;
+            FailureDetails = failureDetails;
         }
 
         [JsonConstructor]
@@ -26,6 +27,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         [JsonProperty(JobRecordProperties.FailureReason)]
         public string FailureReason { get; private set; }
+
+        [JsonProperty(JobRecordProperties.FailureDetails)]
+        public string FailureDetails { get; private set; }
 
         [JsonProperty(JobRecordProperties.FailureStatusCode)]
         public HttpStatusCode FailureStatusCode { get; private set; }

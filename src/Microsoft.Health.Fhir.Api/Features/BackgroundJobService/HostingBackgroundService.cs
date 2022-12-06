@@ -46,20 +46,23 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
             try
             {
-                using (IScoped<JobHosting> jobHosting = _jobHostingFactory())
+                using IScoped<JobHosting> jobHosting = _jobHostingFactory();
+                JobHosting jobHostingValue = jobHosting.Value;
+                if (_hostingConfiguration != null)
                 {
-                    JobHosting jobHostingValue = jobHosting.Value;
-                    if (_hostingConfiguration != null)
-                    {
-                        jobHostingValue.PollingFrequencyInSeconds = _hostingConfiguration.PollingFrequencyInSeconds ?? jobHostingValue.PollingFrequencyInSeconds;
-                        jobHostingValue.MaxRunningJobCount = _hostingConfiguration.MaxRunningTaskCount ?? jobHostingValue.MaxRunningJobCount;
-                        jobHostingValue.JobHeartbeatIntervalInSeconds = _hostingConfiguration.TaskHeartbeatIntervalInSeconds ?? jobHostingValue.JobHeartbeatIntervalInSeconds;
-                        jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds = _hostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds;
-                    }
-
-                    using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                    await jobHostingValue.StartAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource);
+                    jobHostingValue.PollingFrequencyInSeconds = _hostingConfiguration.PollingFrequencyInSeconds ?? jobHostingValue.PollingFrequencyInSeconds;
+                    jobHostingValue.MaxRunningJobCount = _hostingConfiguration.MaxRunningTaskCount ?? jobHostingValue.MaxRunningJobCount;
+                    jobHostingValue.JobHeartbeatIntervalInSeconds = _hostingConfiguration.TaskHeartbeatIntervalInSeconds ?? jobHostingValue.JobHeartbeatIntervalInSeconds;
+                    jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds = _hostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? jobHostingValue.JobHeartbeatTimeoutThresholdInSeconds;
                 }
+
+                using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                var jobQueues = new[]
+                {
+                    jobHostingValue.StartAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource),
+                    jobHostingValue.StartAsync((byte)QueueType.Export, Environment.MachineName, cancellationTokenSource),
+                };
+                await Task.WhenAll(jobQueues);
             }
             catch (Exception ex)
             {
