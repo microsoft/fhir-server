@@ -25,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Binders\DictionaryExpansionConfigurationProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Bundle\FhirTransactionFailedExceptionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextAfterAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextBeforeAuthenticationMiddlewareTests.cs" />

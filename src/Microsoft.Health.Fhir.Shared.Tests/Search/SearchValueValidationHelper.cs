@@ -23,15 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.Common.Search
         {
             DateTimeSearchValue dtsv = Assert.IsType<DateTimeSearchValue>(sv);
 
-            DateTimeOffset expectedStartDateTime = PartialDateTime.Parse(expected.StartDateTime)
-                .ToDateTimeOffset(
-                1,
-                (year, month) => 1,
-                0,
-                0,
-                0,
-                0,
-                TimeSpan.FromMinutes(0));
+            DateTimeOffset expectedStartDateTime = PartialDateTime.Parse(expected.StartDateTime).ToDateTimeOffset();
 
             DateTimeOffset expectedEndDateTime = PartialDateTime.Parse(expected.EndDateTime)
                 .ToDateTimeOffset(

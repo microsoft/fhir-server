@@ -5,6 +5,7 @@
 
 using System;
 using System.Security.Claims;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -14,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
@@ -52,13 +54,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
             var authorizationConfiguration = securityConfigurationOptions.Value.Authorization;
 
-            _logger.LogInformation("Principal exists {Principal}", fhirRequestContextAccessor.RequestContext.Principal != null);
-            _logger.LogInformation("securityConfigurationOptions Value Enabled {SecutiryConfigurationOption}", securityConfigurationOptions.Value.Enabled);
-            _logger.LogInformation("Authorization configuration enabled {AuthorizationConfiguration} ", authorizationConfiguration.Enabled);
-
             if (fhirRequestContextAccessor.RequestContext.Principal != null
                 && securityConfigurationOptions.Value.Enabled
-                && authorizationConfiguration.Enabled)
+                && (authorizationConfiguration.Enabled || authorizationConfiguration.EnableSmartWithoutAuth))
             {
                 var fhirRequestContext = fhirRequestContextAccessor.RequestContext;
                 var principal = fhirRequestContext.Principal;
@@ -66,6 +64,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                 var dataActions = await authorizationService.CheckAccess(DataActions.Smart, context.RequestAborted);
 
                 _logger.LogInformation("Smart Data Action is present {Smart}", dataActions.HasFlag(DataActions.Smart));
+
+                var scopeRestrictions = new StringBuilder();
+                scopeRestrictions.Append("Resource(s) allowed and permitted data actions on it are : ");
 
                 // Only read and apply SMART clinical scopes if the user has the Smart Data action
                 if (dataActions.HasFlag(DataActions.Smart))
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                                 fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
 
-                                _logger.LogInformation("Resource and permitted data actions {Resource} {PermittedDataActions} ", resource, permittedDataActions);
+                                scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
 
                                 if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                                 {
@@ -121,11 +122,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         }
                     }
 
+                    _logger.LogInformation("Scope restrictions allowed are {ScopeRestriction}", scopeRestrictions);
                     _logger.LogInformation("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
 
                     if (includeFhirUserClaim)
                     {
                         var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
+                        if (string.IsNullOrEmpty(fhirUser))
+                        {
+                            // look for the fhirUser info in a header
+                            if (context.Request.Headers.ContainsKey(KnownHeaders.FhirUserHeader)
+                                && context.Request.Headers.TryGetValue(KnownHeaders.FhirUserHeader, out var hValue))
+                            {
+                                fhirUser = hValue.ToString();
+                            }
+                        }
+
                         try
                         {
                             fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);

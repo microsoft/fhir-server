@@ -3,7 +3,7 @@
 
 @hostname = localhost:44348
 
-### Get the bearer token, if authentication is enabled
+### 1 - Get a regular bearer token.
 # @name bearer
 POST https://{{hostname}}/connect/token
 content-type: application/x-www-form-urlencoded
@@ -12,6 +12,16 @@ grant_type=client_credentials
 &client_id=globalAdminServicePrincipal
 &client_secret=globalAdminServicePrincipal
 &scope=fhir-api
+
+### or 2 - Get a SMART bearer token.
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=fhirUser fhir-api patient/*.*
 
 ###
 # US Core - Missing Data

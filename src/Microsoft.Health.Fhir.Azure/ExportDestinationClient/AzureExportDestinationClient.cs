@@ -113,17 +113,18 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public Uri CommitFile(string fileName)
         {
+            Uri uri;
             if (_dataBuffers.ContainsKey(fileName))
             {
                 try
                 {
-                    return CommitFileRetry(fileName);
+                    uri = CommitFileRetry(fileName);
                 }
                 catch (RequestFailedException)
                 {
                     try
                     {
-                        return CommitFileRetry(fileName);
+                        uri = CommitFileRetry(fileName);
                     }
                     catch (RequestFailedException ex)
                     {
@@ -132,8 +133,13 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                     }
                 }
             }
+            else
+            {
+                throw new ArgumentException($"Cannot commit non-existant file {fileName}");
+            }
 
-            throw new ArgumentException($"Cannot commit none existant file {fileName}");
+            _dataBuffers.Remove(fileName);
+            return uri;
         }
 
         private Uri CommitFileRetry(string fileName)
@@ -148,8 +154,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 writer.WriteLine(line);
             }
-
-            _dataBuffers.Remove(fileName);
 
             return blockBlob.Uri;
         }
