@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 ConsistencyLevel = ConsistencyLevel.Session,
             };
 
+            // Upsert 'healthcheck' item.
             var resourceResponse = await container.UpsertItemAsync(
                 _document,
                 _partitionKey,
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             requestOptions.SessionToken = resourceResponse.Headers.Session;
 
+            // Retrieve 'healthcheck' item.
             await container.ReadItemAsync<HealthCheckDocument>(_document.Id, _partitionKey, requestOptions, cancellationToken);
         }
 
