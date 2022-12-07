@@ -4,7 +4,7 @@
 This guide provides information to deploy OSS FHIR Server with latest release. This provides you the flexibility to run your own integration test suite, against the latest OSS version of FHIR API.
 
 ## Understanding the changes in the release
-To understand the changes shipped as part of a particular OSS release. Refer to the content under  [releases](https://github.com/microsoft/fhir-server/releases) section in Github.
+To understand the changes shipped as part of a particular OSS release. Refer to the content under the [releases](https://github.com/microsoft/fhir-server/releases) section.
 
 After an OSS release has been created, these assets will be staged in the next deployment of Azure release. The deployments for FHIR Service will usually roll out the following week after the OSS release.
 
