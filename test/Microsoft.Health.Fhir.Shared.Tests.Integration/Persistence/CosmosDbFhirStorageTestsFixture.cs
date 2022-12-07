@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             try
             {
-                await documentClientInitializer.InitializeDataStore(_cosmosClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer });
+                await documentClientInitializer.InitializeDataStoreAsync(_cosmosClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer });
                 _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
             }
             finally

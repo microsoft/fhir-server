@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -21,18 +22,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _partitionKey = new PartitionKey(_document.PartitionKey);
         }
 
-        public async Task PerformTest(Container container, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
+        public async Task PerformTestAsync(
+            Container container,
+            CosmosDataStoreConfiguration configuration,
+            CosmosCollectionConfiguration cosmosCollectionConfiguration,
+            CancellationToken cancellationToken)
         {
-            var requestOptions = new ItemRequestOptions { ConsistencyLevel = ConsistencyLevel.Session };
+            var requestOptions = new ItemRequestOptions
+            {
+                EnableContentResponseOnWrite = false,
+                ConsistencyLevel = ConsistencyLevel.Session,
+            };
 
             var resourceResponse = await container.UpsertItemAsync(
                 _document,
                 _partitionKey,
-                requestOptions);
+                requestOptions,
+                cancellationToken);
 
             requestOptions.SessionToken = resourceResponse.Headers.Session;
 
-            await container.ReadItemAsync<HealthCheckDocument>(resourceResponse.Resource.Id, _partitionKey, requestOptions);
+            await container.ReadItemAsync<HealthCheckDocument>(_document.Id, _partitionKey, requestOptions, cancellationToken);
         }
 
         private class HealthCheckDocument : SystemData
