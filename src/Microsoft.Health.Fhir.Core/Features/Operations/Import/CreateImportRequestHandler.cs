@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -59,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             ImportOrchestratorJobInputData inputData = new ImportOrchestratorJobInputData()
             {
-                TypeId = ImportOrchestratorJob.ImportOrchestratorTypeId,
+                TypeId = (int)JobType.ImportOrchestrator,
                 RequestUri = request.RequestUri,
                 BaseUri = new Uri(request.RequestUri.GetLeftPart(UriPartial.Authority)),
                 Input = request.Input,
@@ -74,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                JobInfo jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, true, false, cancellationToken)).First();
+                JobInfo jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, true, false, cancellationToken))[0];
                 return new CreateImportResponse(jobInfo.Id.ToString());
             }
             catch (JobManagement.JobConflictException)

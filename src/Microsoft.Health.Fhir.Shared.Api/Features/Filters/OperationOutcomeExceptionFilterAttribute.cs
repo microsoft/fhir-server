@@ -118,6 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case RequestTooCostlyException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
+                    case TransactionDeadlockException _:
                     case ResourceConflictException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Conflict;
                         break;
@@ -182,6 +183,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case RequestTimeoutException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.RequestTimeout;
                         break;
+                    case LoginFailedForUserException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Unauthorized;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;
@@ -225,6 +229,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             else if (context.Exception is FormatException formatException)
             {
                 context.Result = CreateOperationOutcomeResult(formatException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
+                context.ExceptionHandled = true;
+            }
+            else if (context.Exception is System.OperationCanceledException)
+            {
+                context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
                 context.ExceptionHandled = true;
             }
             else if (context.Exception.InnerException != null)

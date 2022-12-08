@@ -16,6 +16,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -37,12 +39,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SqlServerFhirModel _sqlServerFhirModel;
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
+        private readonly TestQueueClient _queueClient;
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
             string masterDatabaseName,
             SqlServerFhirModel sqlServerFhirModel,
-            ISqlConnectionBuilder sqlConnectionBuilder)
+            ISqlConnectionBuilder sqlConnectionBuilder,
+            TestQueueClient queueClient)
         {
             EnsureArg.IsNotNull(sqlServerFhirModel, nameof(sqlServerFhirModel));
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
@@ -51,9 +55,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _initialConnectionString = initialConnectionString;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _queueClient = queueClient;
 
             _dbSetupRetryPolicy = Policy
-                .Handle<SqlException>()
+                .Handle<Exception>()
                 .WaitAndRetryAsync(
                     retryCount: 7,
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
@@ -93,8 +98,40 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await connection.CloseAsync();
             });
 
-            await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            {
+                await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
+            });
+            await InitWatchdogsParameters();
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
+        }
+
+        public async Task InitWatchdogsParameters()
+        {
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            using var cmd = new SqlCommand(
+                @"
+IF object_id('dbo.Parameters') IS NOT NULL -- still need exists check for earlier versions than 43
+BEGIN
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinFragPct')
+  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB')
+END
+                ",
+                conn);
+            await conn.OpenAsync(CancellationToken.None);
+            var defragWatchdog = new DefragWatchdog();
+            cmd.Parameters.AddWithValue("@IsEnabledId", defragWatchdog.IsEnabledId);
+            cmd.Parameters.AddWithValue("@ThreadsId", defragWatchdog.ThreadsId);
+            cmd.Parameters.AddWithValue("@PeriodSecId", defragWatchdog.PeriodSecId);
+            cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", defragWatchdog.HeartbeatPeriodSecId);
+            cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", defragWatchdog.HeartbeatTimeoutSecId);
+            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await conn.CloseAsync();
         }
 
         public async Task ExecuteSqlCmd(string sql)
@@ -108,6 +145,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
+            SqlConnection.ClearAllPools();
+
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
                 await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
@@ -120,25 +159,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             });
         }
 
-        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
+        public Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand("DELETE FROM dbo.JobQueue WHERE QueueType = @QueueType", connection);
-            command.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Export);
-            await command.Connection.OpenAsync(cancellationToken);
-            await command.ExecuteNonQueryAsync(cancellationToken);
-            await connection.CloseAsync();
+            _queueClient.JobInfos.Clear();
+            return Task.CompletedTask;
         }
 
-        public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        public Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            var command = new SqlCommand("DELETE FROM dbo.JobQueue WHERE QueueType = @QueueType AND JobId = @id", connection);
-            command.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Export);
-            command.Parameters.AddWithValue("@id", id);
-            await command.Connection.OpenAsync(cancellationToken);
-            await command.ExecuteNonQueryAsync(cancellationToken);
-            await connection.CloseAsync();
+            _queueClient.JobInfos.RemoveAll((info) => info.Id == long.Parse(id));
+            return Task.CompletedTask;
         }
 
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)

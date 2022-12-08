@@ -124,6 +124,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type..
+        /// </summary>
+        internal static string ChainedResourceTypesNotAllowedDueToScope {
+            get {
+                return ResourceManager.GetString("ChainedResourceTypesNotAllowedDueToScope", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
         /// </summary>
         internal static string ChangesToSearchParametersNotAllowedWhileReindexing {
@@ -440,11 +449,47 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The fhirUser claim must be a URI with an ending format of &lt;resourceType&gt;/&lt;resourceId&gt;..
+        /// </summary>
+        internal static string FhirUserClaimInvalidFormat {
+            get {
+                return ResourceManager.GetString("FhirUserClaimInvalidFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Provided fhirUser claim {0} is not a valid resource in this fhir server..
+        /// </summary>
+        internal static string FhirUserClaimIsNotAValidResource {
+            get {
+                return ResourceManager.GetString("FhirUserClaimIsNotAValidResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id..
+        /// </summary>
+        internal static string FhirUserClaimMustHaveResourceTypeAndId {
+            get {
+                return ResourceManager.GetString("FhirUserClaimMustHaveResourceTypeAndId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
         internal static string Forbidden {
             get {
                 return ResourceManager.GetString("Forbidden", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Member match encountered an unknown exception while performing the search..
+        /// </summary>
+        internal static string GenericMemberMatch {
+            get {
+                return ResourceManager.GetString("GenericMemberMatch", resourceCulture);
             }
         }
         
@@ -584,6 +629,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to An internal error has occurred. If this problem persists, please contact Customer Support..
+        /// </summary>
+        internal static string InternalServerError {
+            get {
+                return ResourceManager.GetString("InternalServerError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string InvalidBooleanConfigSetting {
@@ -670,6 +724,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidSearchCountSpecified {
             get {
                 return ResourceManager.GetString("InvalidSearchCountSpecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;Security configuration base endpoint {0} is an invalid Uri&quot;..
+        /// </summary>
+        internal static string InvalidSecurityConfigurationBaseEndpoint {
+            get {
+                return ResourceManager.GetString("InvalidSecurityConfigurationBaseEndpoint", resourceCulture);
             }
         }
         
@@ -859,6 +922,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string OpenIdConfiguration {
             get {
                 return ResourceManager.GetString("OpenIdConfiguration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support..
+        /// </summary>
+        internal static string OperationCanceled {
+            get {
+                return ResourceManager.GetString("OperationCanceled", resourceCulture);
             }
         }
         
@@ -1066,6 +1138,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ResourceTooLarge {
             get {
                 return ResourceManager.GetString("ResourceTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type {0} is not allowed. Additional clinical scopes should be requested to allow searching using this type..
+        /// </summary>
+        internal static string ResourceTypeNotAllowedRestrictedByClinicalScopes {
+            get {
+                return ResourceManager.GetString("ResourceTypeNotAllowedRestrictedByClinicalScopes", resourceCulture);
             }
         }
         
@@ -1322,6 +1403,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Security configuration authorization is not enabled..
+        /// </summary>
+        internal static string SecurityConfigurationAuthorizationNotEnabled {
+            get {
+                return ResourceManager.GetString("SecurityConfigurationAuthorizationNotEnabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to FHIR Server for Azure.
         /// </summary>
         internal static string ServerName {
@@ -1345,6 +1435,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SortParameterValueIsNotValidSearchParameter {
             get {
                 return ResourceManager.GetString("SortParameterValueIsNotValidSearchParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The query processor ran out of internal resources and could not produce a query plan. Please limit your parameters and retry..
+        /// </summary>
+        internal static string SqlQueryProcessorRanOutOfInternalResourcesException {
+            get {
+                return ResourceManager.GetString("SqlQueryProcessorRanOutOfInternalResourcesException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There was resource contention with another process in the datastore. Please retry this transaction..
+        /// </summary>
+        internal static string TransactionDeadlock {
+            get {
+                return ResourceManager.GetString("TransactionDeadlock", resourceCulture);
             }
         }
         
@@ -1453,6 +1561,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UpdateRequestsRequireId {
             get {
                 return ResourceManager.GetString("UpdateRequestsRequireId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}&apos; for validation: {1}.
+        /// </summary>
+        internal static string USCoreDeserializationError {
+            get {
+                return ResourceManager.GetString("USCoreDeserializationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Status code is missing for the resource &apos;{0}/{1}&apos;..
+        /// </summary>
+        internal static string USCoreMissingDataRequirement {
+            get {
+                return ResourceManager.GetString("USCoreMissingDataRequirement", resourceCulture);
             }
         }
         

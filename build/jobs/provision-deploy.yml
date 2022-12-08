@@ -22,9 +22,15 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: string
   default: 'tool'
+- name: sqlServerAdminPassword
+  type: string
+  default: ''
+- name: sqlServerName
+  type: string
+  default: ''
 - name: reindexEnabled
   type: boolean
-  default: false
+  default: true
 
 jobs:
 - job: provisionEnvironment
@@ -56,14 +62,15 @@ jobs:
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
-        $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 3
+        $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
-            appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "B3"
+            appServicePlanName = "${{ parameters.appServicePlanName }}-${{ parameters.version }}"
+            appServicePlanSku = "B2"
             numberOfInstances = 2
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
@@ -81,7 +88,9 @@ jobs:
         if("${{ parameters.sql }}" -eq "true"){
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
-            $templateParameters["sqlAdminPassword"] = "$(-join((((33,35,37,38,42,43,45,46,95) + (48..57) + (65..90) + (97..122) | Get-Random -Count 20) + ((33,35,37,38,42,43,45,46,95) | Get-Random -Count 1) + ((48..57) | Get-Random -Count 1) + ((65..90) | Get-Random -Count 1) + ((97..122) | Get-Random -Count 1) | Get-Random -Count 24) | % {[char]$_}))"
+            $templateParameters["sqlAdminPassword"] = "${{parameters.sqlServerAdminPassword}}"
+            $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}"
+            $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
 

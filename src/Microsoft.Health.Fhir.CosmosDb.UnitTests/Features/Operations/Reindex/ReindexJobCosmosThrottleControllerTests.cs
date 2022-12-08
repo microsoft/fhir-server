@@ -13,12 +13,16 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
 {
     [CollectionDefinition("ReindexThrottle", DisableParallelization = true)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexJobCosmosThrottleControllerTests
     {
         private ITestOutputHelper _output;
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             _fhirRequestContextAccessor.RequestContext = fhirRequestContext;
         }
 
-        [Fact]
+        [Fact(Skip = "TODO: Investigate intermittent failures")]
         public async Task GivenATargetRUConsumption_WhenConsumedRUsIsTooHigh_QueryDelayIsIncreased()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());

@@ -19,6 +19,8 @@ using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
@@ -26,6 +28,8 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.SmartOnFhir)]
     public class AadSmartOnFhirProxyControllerTests
     {
         private readonly SecurityConfiguration _securityConfiguration = new SecurityConfiguration();

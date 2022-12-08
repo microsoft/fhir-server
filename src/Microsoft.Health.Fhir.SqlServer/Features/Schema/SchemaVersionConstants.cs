@@ -8,7 +8,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
     public static class SchemaVersionConstants
     {
         public const int Min = (int)SchemaVersion.V32;
-        public const int Max = (int)SchemaVersion.V41;
+        public const int Max = (int)SchemaVersion.V44;
         public const int SearchParameterStatusSchemaVersion = (int)SchemaVersion.V6;
         public const int SupportForReferencesWithMissingTypeVersion = (int)SchemaVersion.V7;
         public const int SearchParameterHashSchemaVersion = (int)SchemaVersion.V8;
@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SupportParentTask = (int)SchemaVersion.V33;
         public const int ReturnCancelRequestInJobHeartbeat = (int)SchemaVersion.V37;
         public const int TokenOverflow = (int)SchemaVersion.V41;
+        public const int Defrag = (int)SchemaVersion.V43;
+        public const int ExportTimeTravel = (int)SchemaVersion.V44;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

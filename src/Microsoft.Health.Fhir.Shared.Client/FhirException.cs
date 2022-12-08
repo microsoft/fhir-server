@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Client
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public OperationOutcome OperationOutcome => Response.Resource;
 
-        public override string Message => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics} ({GetOperationId()})";
+        public override string Message => FormatMessage();
 
         public void Dispose()
         {
@@ -46,14 +47,39 @@ namespace Microsoft.Health.Fhir.Client
             }
         }
 
-        private string GetOperationId()
+        private string FormatMessage()
+        {
+            StringBuilder message = new StringBuilder();
+
+            string diagnostic = OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics;
+            string operationId = GetActivityId();
+
+            message.Append(StatusCode);
+            if (!string.IsNullOrWhiteSpace(diagnostic))
+            {
+                message.Append(": ").Append(diagnostic);
+            }
+
+            message.Append(" (").Append(operationId).AppendLine(")");
+
+            message.AppendLine("==============================================");
+            message.Append("Url: (").Append(Response.Response.RequestMessage?.Method.Method ?? "NO_HTTP_METHOD_AVAILABLE").Append(") ").AppendLine(Response.Response.RequestMessage?.RequestUri.ToString() ?? "NO_URI_AVAILABLE");
+            message.Append("Response code: ").Append(Response.Response.StatusCode.ToString()).Append('(').Append((int)Response.Response.StatusCode).AppendLine(")");
+            message.Append("Reason phrase: ").AppendLine(Response.Response.ReasonPhrase ?? "NO_REASON_PHRASE");
+            message.Append("Timestamp: ").AppendLine(DateTime.UtcNow.ToString("o"));
+            message.AppendLine("==============================================");
+
+            return message.ToString();
+        }
+
+        private string GetActivityId()
         {
             if (Response.Headers.TryGetValues("X-Request-Id", out var values))
             {
                 return values.First();
             }
 
-            return string.Empty;
+            return "NO_FHIR_ACTIVITY_ID_FOR_THIS_TRANSACTION";
         }
     }
 }

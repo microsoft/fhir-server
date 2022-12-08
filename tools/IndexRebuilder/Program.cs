@@ -10,7 +10,7 @@ using System.Diagnostics;
 using Microsoft.Health.Fhir.SqlServer.Database;
 using SqlService = Microsoft.Health.Fhir.Store.SqlUtils.SqlService;
 
-namespace Microsoft.Health.Fhir.IndexRebuilder
+namespace Microsoft.Health.Internal.IndexRebuilder
 {
     public static class Program
     {
@@ -81,8 +81,8 @@ EXECUTE(@cmd)
             }
             else
             {
-                DisableIndexes(ConnectionString);
-            }
+            DisableIndexes(ConnectionString);
+        }
         }
 
         private static void DisableIndexes(string connectionString)
@@ -113,8 +113,8 @@ EXECUTE(@cmd)
             }
             else
             {
-                RebuildIndexes(ConnectionString, sw);
-            }
+            RebuildIndexes(ConnectionString, sw);
+        }
         }
 
         private static void RebuildIndexes(string connectionString, Stopwatch sw)

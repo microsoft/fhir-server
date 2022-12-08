@@ -277,13 +277,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (SqlException e)
                     {
+                        _logger.LogError(e, $"Error from SQL database on {nameof(UpsertAsync)}");
+
                         switch (e.Number)
                         {
                             case SqlErrorCodes.Conflict:
                                 // someone else beat us to it, re-read and try comparing again - Compared resource was updated
                                 continue;
                             default:
-                                _logger.LogError(e, "Error from SQL database on upsert");
                                 throw;
                         }
                     }

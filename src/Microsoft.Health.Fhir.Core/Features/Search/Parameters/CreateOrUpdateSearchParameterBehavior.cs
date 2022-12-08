@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _fhirDataStore = fhirDataStore;
         }
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
+        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return await next();
         }
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
+        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             // if the resource type being updated is a SearchParameter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager

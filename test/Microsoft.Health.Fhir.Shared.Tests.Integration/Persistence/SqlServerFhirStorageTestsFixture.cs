@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly SqlServerFhirOperationDataStore _sqlServerFhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
         private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
@@ -192,14 +194,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 config);
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+            // the test queue client may not be enough for these tests. will need to look back into this.
+            var queueClient = new TestQueueClient();
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+
+            var sqlQueueClient = new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlQueueClient>.Instance);
+            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
-            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
+            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser, _fhirRequestContextAccessor);
 
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
@@ -215,7 +222,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sortRewriter = new SortRewriter(searchParamTableExpressionQueryGeneratorFactory);
             var partitionEliminationRewriter = new PartitionEliminationRewriter(sqlServerFhirModel, SchemaInformation, () => searchableSearchParameterDefinitionManager);
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
+            compartmentDefinitionManager.StartAsync(CancellationToken.None).Wait();
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
+            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -226,6 +235,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sortRewriter,
                 partitionEliminationRewriter,
                 compartmentSearchRewriter,
+                smartCompartmentSearchRewriter,
                 SqlConnectionWrapperFactory,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
@@ -242,7 +252,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
-            _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder);
+            _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient);
         }
 
         public string TestConnectionString { get; }
@@ -287,6 +297,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IFhirOperationDataStore))
             {
                 return _fhirOperationDataStore;
+            }
+
+            if (serviceType == typeof(SqlServerFhirOperationDataStore))
+            {
+                return _sqlServerFhirOperationDataStore;
             }
 
             if (serviceType == typeof(IFhirStorageTestHelper))

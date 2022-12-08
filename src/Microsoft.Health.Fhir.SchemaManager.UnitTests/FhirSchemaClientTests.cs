@@ -4,14 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.Health.SqlServer.Features.Schema.Manager.Model;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SchemaManager.UnitTests;
 
+[Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+[Trait(Traits.Category, Categories.Operations)]
 public class FhirSchemaClientTests
 {
     private readonly IScriptProvider _scriptProvider = Substitute.For<IScriptProvider>();
@@ -28,7 +32,7 @@ public class FhirSchemaClientTests
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        List<AvailableVersion>? actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
+        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
 
         int numberOfAvailableVersions = SchemaVersionConstants.Max - currentVersion + 1;
         var expectedVersions = Enumerable
@@ -48,7 +52,7 @@ public class FhirSchemaClientTests
         var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
 
         // Act
-        List<AvailableVersion>? actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
+        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
 
         var expectedVersions = new List<AvailableVersion>()
         {
@@ -61,7 +65,7 @@ public class FhirSchemaClientTests
 
     private class AvailableVersionEqualityCompare : IEqualityComparer<AvailableVersion>
     {
-        public bool Equals(AvailableVersion? x, AvailableVersion? y)
+        public bool Equals(AvailableVersion x, AvailableVersion y)
         {
             if (ReferenceEquals(x, y))
             {

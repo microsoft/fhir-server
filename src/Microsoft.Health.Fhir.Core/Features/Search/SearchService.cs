@@ -59,9 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false)
+            bool isAsyncOperation = false,
+            bool useSmartCompartmentDefinition = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation, useSmartCompartmentDefinition);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -108,14 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (before != null)
             {
-                var beforeOffset = before.ToDateTimeOffset(
-                    defaultMonth: 1,
-                    defaultDaySelector: (year, month) => 1,
-                    defaultHour: 0,
-                    defaultMinute: 0,
-                    defaultSecond: 0,
-                    defaultFraction: 0.0000000m,
-                    defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
+                var beforeOffset = before.ToDateTimeOffset().ToUniversalTime();
 
                 if (beforeOffset.CompareTo(Clock.UtcNow) > 0)
                 {
@@ -217,6 +211,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
 
             return results;
+        }
+
+        public virtual Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
+            string resourceType,
+            long startId,
+            long endId,
+            int rangeSize,
+            int numberOfRanges,
+            bool up,
+            CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual long GetSurrogateId(DateTime dateTime)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
 
         /// <inheritdoc />

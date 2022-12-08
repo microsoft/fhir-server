@@ -7,13 +7,17 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using ResourceVersionPolicy = Hl7.Fhir.Model.CapabilityStatement.ResourceVersionPolicy;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public class ConformanceProviderExtensionTests
     {
         private readonly IConformanceProvider _conformanceProvider;

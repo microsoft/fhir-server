@@ -18,5 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public IReadOnlyList<Role> Roles { get; internal set; } = ImmutableList<Role>.Empty;
 
         public string ScopesClaim { get; set; } = "scp";
+
+        public string FhirUserClaim { get; set; } = "fhirUser";
+
+        public bool ErrorOnMissingFhirUserClaim { get; set; } = false;
+
+        public bool EnableSmartWithoutAuth { get; set; } = false;
     }
 }

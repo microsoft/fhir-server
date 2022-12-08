@@ -5,8 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -23,19 +25,22 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public sealed class SystemConformanceProvider
-        : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IDisposable
+        : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IAsyncDisposable
     {
+        private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private readonly int _rebuildDelay = 240; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
         private ResourceElement _listedCapabilityStatement;
         private ResourceElement _metadata;
         private ICapabilityStatementBuilder _builder;
-        private SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
-        private SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
+        private Task _rebuilder;
+        private static SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
+        private static SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
-        private readonly IKnowSupportedProfiles _supportedProfiles;
+        private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger _logger;
 
         public SystemConformanceProvider(
@@ -43,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders,
             IOptions<CoreFeatureConfiguration> configuration,
-            IKnowSupportedProfiles supportedProfiles,
+            ISupportedProfilesStore supportedProfiles,
             ILogger<SystemConformanceProvider> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -86,6 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         }
 
                         _listedCapabilityStatement = _builder.Build().ToResourceElement();
+
+                        _rebuilder = Task.Run(BackgroudLoop, CancellationToken.None);
                     }
                 }
                 finally
@@ -96,6 +103,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             }
 
             return _listedCapabilityStatement;
+        }
+
+        public async Task BackgroudLoop()
+        {
+            while (!_cancellationTokenSource.IsCancellationRequested)
+            {
+                for (int i = 0; i < _rebuildDelay; i++)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(1));
+
+                    if (_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                }
+
+                if (_builder != null)
+                {
+                    // Update search params;
+                    _builder.SyncSearchParameters();
+
+                    // Update supported profiles;
+                    _builder.SyncProfiles();
+                }
+
+                await _metadataSemaphore.WaitAsync(CancellationToken.None);
+                try
+                {
+                    _metadata = null;
+                }
+                finally
+                {
+                    _metadataSemaphore.Release();
+                }
+            }
         }
 
         public void ConfigureOptionalCapabilities(Action<ListedCapabilityStatement> builder)
@@ -110,8 +152,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _configurationUpdates.Add(builder);
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
+            if (!_cancellationTokenSource.IsCancellationRequested)
+            {
+                _cancellationTokenSource.Cancel();
+            }
+
+            if (_rebuilder != null)
+            {
+                await _rebuilder;
+            }
+
+            _cancellationTokenSource.Dispose();
+            _rebuilder = null;
             _defaultCapabilitySemaphore?.Dispose();
             _defaultCapabilitySemaphore = null;
             _metadataSemaphore?.Dispose();
@@ -121,25 +175,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
             _logger.LogInformation("SystemConformanceProvider: Rebuild capability statement notification handled");
+
+            if (_builder != null)
+            {
+                switch (notification.Part)
+                {
+                    case RebuildPart.SearchParameter:
+                        // Update search params;
+                        _builder.SyncSearchParameters();
+                        break;
+
+                    case RebuildPart.Profiles:
+                        // Update supported profiles;
+                        _builder.SyncProfiles(true);
+                        break;
+                }
+            }
+
             await _metadataSemaphore.WaitAsync(cancellationToken);
             try
             {
-                if (_builder != null)
-                {
-                    switch (notification.Part)
-                    {
-                        case RebuildPart.SearchParameter:
-                            // Update search params;
-                            _builder.SyncSearchParameters();
-                            break;
-
-                        case RebuildPart.Profiles:
-                            // Update supported profiles;
-                            _builder.SyncProfiles(true);
-                            break;
-                    }
-                }
-
                 _metadata = null;
             }
             finally
@@ -150,16 +205,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
         {
+            // There is a chance that the BackgroundLoop handler sets _metadata to null between when it is checked and returned, so the value is stored in a local variable.
+            ResourceElement metadata;
+            if ((metadata = _metadata) != null)
+            {
+                return metadata;
+            }
+
+            _ = await GetCapabilityStatementOnStartup(cancellationToken);
+
+            // The semaphore is only used for building the metadata because claiming it before the GetCapabilityStatementOnStartup was leading to deadlocks where the creation
+            // of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built.
+            // But the metadata builder was waiting on the rebuild handler.
             await _metadataSemaphore.WaitAsync(cancellationToken);
             try
             {
-                if (_metadata == null)
-                {
-                    _ = await GetCapabilityStatementOnStartup(cancellationToken);
-
-                    _metadata = _builder.Build().ToResourceElement();
-                }
-
+                _metadata = _builder.Build().ToResourceElement();
                 return _metadata;
             }
             finally

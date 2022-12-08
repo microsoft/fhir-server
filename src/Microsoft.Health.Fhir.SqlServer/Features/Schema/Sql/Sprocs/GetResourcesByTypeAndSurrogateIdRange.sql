@@ -7,8 +7,8 @@ DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
        ,@Mode varchar(100) = 'RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')
                            +' S='+isnull(convert(varchar,@StartId),'NULL')
                            +' E='+isnull(convert(varchar,@EndId),'NULL')
-                           +' GS='+isnull(convert(varchar,@GlobalStartId),'NULL')
-                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL')
+                           +' GS='+isnull(convert(varchar,@GlobalStartId),'NULL') -- Is global start id needed? I'm not seeing a usecase for setting it.
+                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL') -- Could this just be a boolean for if historical records should be returned? GlobalEndId should equal EndId in all cases I can think of.
        ,@st datetime = getUTCdate()
 
 BEGIN TRY
@@ -39,7 +39,17 @@ BEGIN TRY
         FROM (SELECT * FROM @ResourceIds WHERE RowId = 1 AND ResourceSurrogateId BETWEEN @StartId AND @EndId) A
              CROSS APPLY (SELECT ResourceSurrogateId FROM @ResourceIds B WHERE B.ResourceId = A.ResourceId) C
 
-    SELECT isnull(C.RawResource, A.RawResource) 
+    SELECT @ResourceTypeId
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.ResourceId ELSE A.ResourceId END
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.Version ELSE A.Version END
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.IsDeleted ELSE A.IsDeleted END
+          ,isnull(C.ResourceSurrogateId, A.ResourceSurrogateId)
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.RequestMethod ELSE A.RequestMethod END
+          ,IsMatch = convert(bit,1)
+          ,IsPartial = convert(bit,0)
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.IsRawResourceMetaSet ELSE A.IsRawResourceMetaSet END
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.SearchParamHash ELSE A.SearchParamHash END
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.RawResource ELSE A.RawResource END
       FROM dbo.Resource A
            LEFT OUTER JOIN @SurrogateIdMap B ON B.MinSurrogateId = A.ResourceSurrogateId
            LEFT OUTER JOIN dbo.Resource C ON C.ResourceTypeId = @ResourceTypeId AND C.ResourceSurrogateId = MaxSurrogateId
@@ -48,7 +58,7 @@ BEGIN TRY
         AND (A.IsHistory = 0 OR MaxSurrogateId IS NOT NULL)
   END
   ELSE
-    SELECT RawResource 
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource 
       FROM dbo.Resource 
       WHERE ResourceTypeId = @ResourceTypeId 
         AND ResourceSurrogateId BETWEEN @StartId AND @EndId 

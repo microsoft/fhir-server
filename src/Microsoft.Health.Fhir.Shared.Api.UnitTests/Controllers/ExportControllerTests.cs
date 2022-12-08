@@ -15,12 +15,16 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Export)]
     public class ExportControllerTests
     {
         private ExportController _exportEnabledController;
@@ -50,9 +54,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                isParallel: false,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null));
@@ -66,6 +72,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -83,6 +90,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceTypeById(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -99,6 +107,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -114,6 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -132,6 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: null,
                 formatName: null,
@@ -149,6 +160,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
@@ -166,6 +178,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
@@ -183,6 +196,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
@@ -217,6 +231,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
                 since: null,
+                till: null,
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,

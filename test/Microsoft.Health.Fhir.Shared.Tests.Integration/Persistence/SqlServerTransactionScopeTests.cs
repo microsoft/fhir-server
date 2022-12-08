@@ -8,12 +8,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.DataSourceValidation)]
     [CollectionDefinition("SqlTransactionScopeTests", DisableParallelization = true)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     public class SqlServerTransactionScopeTests : IClassFixture<SqlServerFhirStorageTestsFixture>

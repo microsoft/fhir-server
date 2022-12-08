@@ -50,9 +50,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case FieldName.TokenCode:
                     if (context.SchemaInformation.Current >= SchemaVersionConstants.TokenOverflow)
                     {
+                        // Temporary fix, once all of the databases are reindexed truncation128 should be removed.
+                        bool truncation128 = expression.Value.Length > 128;
+                        if (truncation128)
+                        {
+                            context.StringBuilder.Append("((");
+                        }
+
                         if (expression.Value.Length < VLatest.TokenSearchParam.Code.Metadata.MaxLength)
                         {
-                            // In this case CodeOverflow in the DB table is always NULL, no need to test.
+                            // In this case CodeOverflow in the DB table is always NULL, no need to test. There are SQL constraints in each table to enforce this.
                             VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
                         }
                         else if (expression.Value.Length == VLatest.TokenSearchParam.Code.Metadata.MaxLength)
@@ -76,10 +83,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             context.StringBuilder.Append(" IS NOT NULL AND ");
                             VisitSimpleString(expression, context, VLatest.TokenSearchParam.CodeOverflow, expression.Value[codeLength..]);
                         }
+
+                        if (truncation128)
+                        {
+                            context.StringBuilder.Append(") OR (");
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
+                            context.StringBuilder.Append("))");
+                        }
                     }
                     else
                     {
-                        VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
+                        if (expression.Value.Length > 128)
+                        {
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value[..128]);
+                        }
+                        else
+                        {
+                            VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
+                        }
                     }
 
                     break;

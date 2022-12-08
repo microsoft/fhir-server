@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <RootNamespace>Microsoft.Health.Fhir.IndexRebuilder</RootNamespace>
+    <RootNamespace>Microsoft.Health.Internal.IndexRebuilder</RootNamespace>
     <AssemblyName>Fhir.IndexRebuilder</AssemblyName>
   </PropertyGroup>
 
@@ -18,7 +18,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj" />
   </ItemGroup>
-
+  
   <PropertyGroup>
     <PostBuildEvent>copy "..\..\..\..\..\src\Microsoft.Health.Fhir.SqlServer.Database\bin\$(Configuration)\*.dacpac" *</PostBuildEvent>
   </PropertyGroup>

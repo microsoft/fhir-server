@@ -131,6 +131,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Till = "till";
 
+        public const string StartSurrogateId = "startSurrogateId";
+
+        public const string EndSurrogateId = "endSurrogateId";
+
+        public const string GlobalStartSurrogateId = "globalStartSurrogateId";
+
+        public const string GlobalEndSurrogateId = "globalEndSurrogateId";
+
         public const string RestartCount = "restartCount";
+
+        public const string TypeId = "typeId";
+
+        public const string IsParallel = "isParallel";
+
+        public const string SmartRequest = "smartRequest";
     }
 }

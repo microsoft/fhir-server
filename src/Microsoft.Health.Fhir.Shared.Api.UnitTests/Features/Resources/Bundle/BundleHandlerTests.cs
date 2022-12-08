@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
@@ -46,6 +47,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Batch)]
     public class BundleHandlerTests
     {
         private readonly BundleHandler _bundleHandler;

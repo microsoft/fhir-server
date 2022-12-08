@@ -20,6 +20,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportTests : IClassFixture<HttpIntegrationTestFixture>
@@ -80,14 +81,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("time")]
-        [InlineData("2021-06-13T00:00:00Z ")]
-        public async Task GivenUnparsableTime_WhenRequestionExportWithIt_ThenServerShouldReturnBadRequest(string time)
+        [InlineData("time", KnownQueryParameterNames.Since)]
+        [InlineData("2021-06-13T00:00:00Z ", KnownQueryParameterNames.Since)]
+        [InlineData("time", KnownQueryParameterNames.Till)]
+        [InlineData("2021-06-13T00:00:00Z ", KnownQueryParameterNames.Till)]
+        public async Task GivenUnparsableTime_WhenRequestionExportWithIt_ThenServerShouldReturnBadRequest(string time, string queryParameter)
         {
             var queryParam = new Dictionary<string, string>()
             {
                 { KnownQueryParameterNames.Type, "Patient" },
-                { KnownQueryParameterNames.Since, time},
+                { queryParameter, time},
             };
             using HttpRequestMessage request = GenerateExportRequest("$export", queryParams: queryParam);
 
