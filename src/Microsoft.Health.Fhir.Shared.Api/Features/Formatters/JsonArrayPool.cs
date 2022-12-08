@@ -6,7 +6,6 @@
 using System;
 using System.Buffers;
 using Newtonsoft.Json;
-using static Microsoft.Health.Fhir.Core.Features.Search.Registry.FilebasedSearchParameterStatusDataStore;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
@@ -26,11 +25,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
         public char[] Rent(int minimumLength)
         {
-            if (minimumLength > MaxArrayPoolRentSizeInBytes)
+            if (minimumLength >= MaxArrayPoolRentSizeInBytes)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(minimumLength),
-                    $"The size of the array attempted to be rent is greater than 100MB. Value {minimumLength}.");
+                    $"The size of the array attempted to be rent is greater or equal than 100MB. Value {minimumLength}.");
             }
 
             return _inner.Rent(minimumLength);
