@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(async () =>
-                    await _testProvider.PerformTest(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
+                    await _testProvider.PerformTestAsync(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
 
                 _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             }
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         /// <inheritdoc />
-        public async Task InitializeDataStore(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers)
+        public async Task InitializeDataStoreAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -129,12 +130,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         async () =>
                             await client.CreateDatabaseIfNotExistsAsync(
                                 cosmosDataStoreConfiguration.DatabaseId,
-                                cosmosDataStoreConfiguration.InitialDatabaseThroughput.HasValue ? ThroughputProperties.CreateManualThroughput(cosmosDataStoreConfiguration.InitialDatabaseThroughput.Value) : null));
+                                cosmosDataStoreConfiguration.InitialDatabaseThroughput.HasValue ? ThroughputProperties.CreateManualThroughput(cosmosDataStoreConfiguration.InitialDatabaseThroughput.Value) : null,
+                                cancellationToken: cancellationToken));
                 }
 
                 foreach (var collectionInitializer in collectionInitializers)
                 {
-                    await collectionInitializer.InitializeCollection(client);
+                    await collectionInitializer.InitializeCollectionAsync(client, cancellationToken);
                 }
 
                 _logger.LogInformation("Cosmos DB Database {DatabaseId} and collections successfully initialized", cosmosDataStoreConfiguration.DatabaseId);
