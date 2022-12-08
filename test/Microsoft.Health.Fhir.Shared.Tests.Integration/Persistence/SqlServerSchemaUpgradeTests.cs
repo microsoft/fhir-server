@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             finally
             {
                 await (testHelper1?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
-                await (testHelper2?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
+                await (testHelper2?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
             }
         }
 
