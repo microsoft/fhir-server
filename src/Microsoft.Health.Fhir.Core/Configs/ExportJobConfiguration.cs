@@ -35,12 +35,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public TimeSpan JobHeartbeatTimeoutThreshold { get; set; } = TimeSpan.FromMinutes(10);
 
-        public TimeSpan JobPollingFrequency { get; set; } = TimeSpan.FromSeconds(10);
+        public TimeSpan JobPollingFrequency { get; set; } = TimeSpan.FromSeconds(60);
 
         /// <summary>
         /// Controls how many resources will be returned for each search query while exporting the data.
         /// </summary>
-        public uint MaximumNumberOfResourcesPerQuery { get; set; } = 100;
+        public uint MaximumNumberOfResourcesPerQuery { get; set; } = 50000;
 
         /// <summary>
         /// Number of pages to be iterated before committing the export progress.

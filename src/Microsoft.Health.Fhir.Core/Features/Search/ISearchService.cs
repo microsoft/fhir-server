@@ -90,5 +90,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool countOnly,
             CancellationToken cancellationToken,
             bool isAsyncOperation = false);
+
+        Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
+            string resourceType,
+            long startId,
+            long endId,
+            int rangeSize,
+            int numberOfRanges,
+            bool up,
+            CancellationToken cancellationToken);
+
+        long GetSurrogateId(DateTime dateTime);
+
+        Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken);
     }
 }

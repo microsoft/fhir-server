@@ -28,7 +28,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -86,6 +85,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _mediator = mediator;
             _contextAccessor = contextAccessor;
             _logger = logger;
+
+            UpdateExportJob = UpdateExportJobAsync;
+        }
+
+        public Func<ExportJobRecord, WeakETag, CancellationToken, Task<ExportJobOutcome>> UpdateExportJob
+        {
+            get; set;
         }
 
         /// <inheritdoc />
@@ -166,6 +172,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
                 };
+
+                if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
+                {
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, _exportJobRecord.GlobalStartSurrogateId));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
+                }
 
                 if (_exportJobRecord.Since != null)
                 {
@@ -248,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UnknownError, HttpStatusCode.InternalServerError, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             finally
@@ -292,14 +306,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
+            ExportJobOutcome updatedExportJobOutcome = await UpdateExportJob(_exportJobRecord, _weakETag, cancellationToken);
+            _exportJobRecord = updatedExportJobOutcome.JobRecord;
+            _weakETag = updatedExportJobOutcome.ETag;
+
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+        }
+
+        private async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken)
+        {
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
-                ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
-
-                _exportJobRecord = updatedExportJobOutcome.JobRecord;
-                _weakETag = updatedExportJobOutcome.ETag;
-
-                _contextAccessor.RequestContext.BundleIssues.Clear();
+                return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, cancellationToken);
             }
         }
 
