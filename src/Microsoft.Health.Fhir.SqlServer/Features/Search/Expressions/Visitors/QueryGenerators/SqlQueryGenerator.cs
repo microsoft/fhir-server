@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal class SqlQueryGenerator : DefaultSqlExpressionVisitor<SearchOptions, object>
     {
+        // In the case of input search parameter being too complex, there is a possibility of a stack overflow.
+        // Stack overflow exceptions cannot be caught in .NET and will abort the process. For that reason, we enforce this stack depth limit.
         private const int _stackOverflowLimiter = 100;
         private int _stackDepth = 0;
 
@@ -880,13 +882,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // Handle Multiple Results sets to include from
-            // if (_includeFromCteIds?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCteIds.Count - 1)
             if (count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < count - 1)
             {
                 StringBuilder.AppendLine("),");
 
                 // If it's not the last result set, append a new IncludeLimit cte, since IncludeLimitCte was not created for the current cte
-                // if (_curFromCteIndex < _includeFromCteIds?.Count - 1)
                 if (_curFromCteIndex < count - 1)
                 {
                     var cteToLimit = TableExpressionName(_tableExpressionCounter);
@@ -1356,23 +1356,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             public object SortValue { get; set; }
 
             public Column SortColumnName { get; set; }
-        }
-
-        /// <summary>
-        /// The exception that is thrown when the search parameter is too complex.
-        /// </summary>
-        public class SearchParameterTooComplexException : Core.Exceptions.FhirException
-        {
-            /// <summary>
-            /// Initializes a new instance of the <see cref="SearchParameterTooComplexException"/> class.
-            /// </summary>
-            public SearchParameterTooComplexException()
-            {
-                Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.NotSupported,
-                    "Search parameter too complex."));
-            }
         }
     }
 }
