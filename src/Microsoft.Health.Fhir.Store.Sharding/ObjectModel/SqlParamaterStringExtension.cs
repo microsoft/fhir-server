@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
 
         private static SqlMetaData[] MetaData { get; }
 
-        public static void AddStringList(this SqlParameter param, IEnumerable<string> strings)
+        public static void AddCopyStringList(this SqlParameter param, IEnumerable<string> strings)
         {
             param.SqlDbType = SqlDbType.Structured;
             param.TypeName = "dbo.StringList";

@@ -200,8 +200,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4B.T
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4B.Api.UnitTests", "src\Microsoft.Health.Fhir.R4B.Api.UnitTests\Microsoft.Health.Fhir.R4B.Api.UnitTests.csproj", "{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IndexRebuilder", "tools\IndexRebuilder\IndexRebuilder.csproj", "{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -484,10 +482,6 @@ Global
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -583,8 +577,8 @@ Global
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E} = {1295CCC3-73FB-4376-AE95-F6F31A37B152}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13

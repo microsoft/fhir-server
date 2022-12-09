@@ -57,7 +57,7 @@ EXECUTE(@cmd)
         {
             if (IsSharded)
             {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
+                var shardedStore = new Fhir.Store.Sharding.SqlService(ConnectionString);
                 foreach (var shard in shardedStore.ShardletMap.Shards)
                 {
                     SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
@@ -73,7 +73,7 @@ EXECUTE(@cmd)
         {
             if (IsSharded)
             {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
+                var shardedStore = new Fhir.Store.Sharding.SqlService(ConnectionString);
                 foreach (var shard in shardedStore.ShardletMap.Shards.Values)
                 {
                     DisableIndexes(shard.ConnectionString);
@@ -81,8 +81,8 @@ EXECUTE(@cmd)
             }
             else
             {
-            DisableIndexes(ConnectionString);
-        }
+                DisableIndexes(ConnectionString);
+            }
         }
 
         private static void DisableIndexes(string connectionString)
@@ -102,7 +102,7 @@ EXECUTE(@cmd)
             Console.WriteLine($"To monitor progress please run in the target database(s): {EventLogQuery}");
             if (IsSharded)
             {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
+                var shardedStore = new Fhir.Store.Sharding.SqlService(ConnectionString);
                 shardedStore.ParallelForEachShard(
                     shardId =>
                     {
@@ -113,8 +113,8 @@ EXECUTE(@cmd)
             }
             else
             {
-            RebuildIndexes(ConnectionString, sw);
-        }
+                RebuildIndexes(ConnectionString, sw);
+            }
         }
 
         private static void RebuildIndexes(string connectionString, Stopwatch sw)

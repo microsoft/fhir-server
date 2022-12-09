@@ -9,9 +9,9 @@ using System.Data.SqlClient;
 
 namespace Microsoft.Health.Fhir.Store.Copy
 {
-    internal partial class SqlService : SqlUtils.SqlService
+    public partial class SqlService : SqlUtils.SqlService
     {
-        internal int InsertResources(
+        public int InsertResources(
                         bool isMerge,
                         IEnumerable<Resource> resources,
                         IEnumerable<ReferenceSearchParam> referenceSearchParams,

@@ -54,8 +54,8 @@ namespace Microsoft.Health.Fhir.Store.Copy
             {
                 SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
                 SetupDb.Publish(TargetConnectionString, "Fhir.Store.Copy.Database.dacpac");
-                SetupDb.Publish(QueueConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
-                SetupDb.Publish(QueueConnectionString, "Fhir.Store.Copy.Database.dacpac");
+                ////SetupDb.Publish(QueueConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
+                ////SetupDb.Publish(QueueConnectionString, "Fhir.Store.Copy.Database.dacpac");
             }
             else
             {
