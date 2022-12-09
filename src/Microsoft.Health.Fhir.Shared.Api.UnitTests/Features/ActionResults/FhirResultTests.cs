@@ -4,11 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
@@ -61,6 +67,37 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
 
             Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.NotFound, result.StatusCode.GetValueOrDefault());
+        }
+
+        [Fact]
+        public void GivenAFhirResult_WhenHeadersThatAlreadyExistsInResponseArePassed_ThenDuplicteHeadersAreRemoved()
+        {
+            var result = FhirResult.Gone();
+            var context = new ActionContext
+            {
+                HttpContext = new DefaultHttpContext(),
+            };
+
+            IActionResultExecutor<ObjectResult> executor = Substitute.For<IActionResultExecutor<ObjectResult>>();
+            executor.ExecuteAsync(Arg.Any<ActionContext>(), Arg.Any<ObjectResult>()).ReturnsForAnyArgs(Task.CompletedTask);
+
+            ServiceCollection collection = new ServiceCollection();
+            collection.AddSingleton<IActionResultExecutor<ObjectResult>>(executor);
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            collection.AddSingleton<RequestContextAccessor<IFhirRequestContext>>(contextAccessor);
+
+            ServiceProvider provider = collection.BuildServiceProvider();
+            context.HttpContext.RequestServices = provider;
+
+            result.Headers.Add("testKey", "1");
+            context.HttpContext.Response.Headers.Add("testKey", "1");
+
+            result.ExecuteResultAsync(context);
+
+            Assert.Null(result.Result);
+            Assert.Equal(HttpStatusCode.Gone, result.StatusCode.GetValueOrDefault());
+            Assert.True(context.HttpContext.Response.Headers.ContainsKey("testKey"));
+            Assert.Equal(1, context.HttpContext.Response.Headers.Count);
         }
     }
 }
