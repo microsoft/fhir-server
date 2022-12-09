@@ -22,6 +22,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal class SqlQueryGenerator : DefaultSqlExpressionVisitor<SearchOptions, object>
     {
+        private const int _stackOverflowLimiter = 100;
+        private int _stackDepth = 0;
+
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCteIds;
         private Dictionary<string, List<string>> _includeLimitCtesByResourceType; // ctes of each include value, by their resource type
@@ -275,63 +278,76 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override object VisitTable(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            const string referenceSourceTableAlias = "refSource";
-            const string referenceTargetResourceTableAlias = "refTarget";
-
-            switch (searchParamTableExpression.Kind)
+            try
             {
-                case SearchParamTableExpressionKind.Normal:
-                    HandleTableKindNormal(searchParamTableExpression, context);
-                    break;
+                _stackDepth++;
+                if (_stackDepth > _stackOverflowLimiter)
+                {
+                    throw new SearchParameterTooComplexException();
+                }
 
-                case SearchParamTableExpressionKind.Concatenation:
-                    StringBuilder.Append("SELECT * FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
-                    StringBuilder.AppendLine("UNION ALL");
+                const string referenceSourceTableAlias = "refSource";
+                const string referenceTargetResourceTableAlias = "refTarget";
 
-                    goto case SearchParamTableExpressionKind.Normal;
+                switch (searchParamTableExpression.Kind)
+                {
+                    case SearchParamTableExpressionKind.Normal:
+                        HandleTableKindNormal(searchParamTableExpression, context);
+                        break;
 
-                case SearchParamTableExpressionKind.All:
-                    HandleTableKindAll(searchParamTableExpression);
-                    break;
+                    case SearchParamTableExpressionKind.Concatenation:
+                        StringBuilder.Append("SELECT * FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+                        StringBuilder.AppendLine("UNION ALL");
 
-                case SearchParamTableExpressionKind.NotExists:
-                    HandleTableKindNotExists(searchParamTableExpression, context);
-                    break;
+                        goto case SearchParamTableExpressionKind.Normal;
 
-                case SearchParamTableExpressionKind.Top:
-                    HandleTableKindTop(context);
-                    break;
+                    case SearchParamTableExpressionKind.All:
+                        HandleTableKindAll(searchParamTableExpression);
+                        break;
 
-                case SearchParamTableExpressionKind.Chain:
-                    HandleTableKindChain(searchParamTableExpression, referenceSourceTableAlias, referenceTargetResourceTableAlias);
-                    break;
+                    case SearchParamTableExpressionKind.NotExists:
+                        HandleTableKindNotExists(searchParamTableExpression, context);
+                        break;
 
-                case SearchParamTableExpressionKind.Include:
-                    HandleTableKindInclude(searchParamTableExpression, context, referenceSourceTableAlias, referenceTargetResourceTableAlias);
-                    break;
+                    case SearchParamTableExpressionKind.Top:
+                        HandleTableKindTop(context);
+                        break;
 
-                case SearchParamTableExpressionKind.IncludeLimit:
-                    HandleTableKindIncludeLimit(context);
-                    break;
+                    case SearchParamTableExpressionKind.Chain:
+                        HandleTableKindChain(searchParamTableExpression, referenceSourceTableAlias, referenceTargetResourceTableAlias);
+                        break;
 
-                case SearchParamTableExpressionKind.IncludeUnionAll:
-                    HandleTableKindIncludeUnionAll(context);
-                    break;
+                    case SearchParamTableExpressionKind.Include:
+                        HandleTableKindInclude(searchParamTableExpression, context, referenceSourceTableAlias, referenceTargetResourceTableAlias);
+                        break;
 
-                case SearchParamTableExpressionKind.Sort:
-                    HandleTableKindSort(searchParamTableExpression, context);
-                    break;
+                    case SearchParamTableExpressionKind.IncludeLimit:
+                        HandleTableKindIncludeLimit(context);
+                        break;
 
-                case SearchParamTableExpressionKind.SortWithFilter:
-                    HandleTableKindSortWithFilter(searchParamTableExpression, context);
-                    break;
+                    case SearchParamTableExpressionKind.IncludeUnionAll:
+                        HandleTableKindIncludeUnionAll(context);
+                        break;
 
-                case SearchParamTableExpressionKind.Union:
-                    HandleParamTableUnion(searchParamTableExpression);
-                    break;
+                    case SearchParamTableExpressionKind.Sort:
+                        HandleTableKindSort(searchParamTableExpression, context);
+                        break;
 
-                default:
-                    throw new ArgumentOutOfRangeException(searchParamTableExpression.Kind.ToString());
+                    case SearchParamTableExpressionKind.SortWithFilter:
+                        HandleTableKindSortWithFilter(searchParamTableExpression, context);
+                        break;
+
+                    case SearchParamTableExpressionKind.Union:
+                        HandleParamTableUnion(searchParamTableExpression);
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException(searchParamTableExpression.Kind.ToString());
+                }
+            }
+            finally
+            {
+                _stackDepth--;
             }
 
             return null;
@@ -842,6 +858,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // Update target reference cte dictionary
             var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
 
+            // Take the count before AddIncludeLimitCte because _includeFromCteIds?.Count will be incremented differently depending on the resource type.
+            int count = _includeFromCteIds != null ? _includeFromCteIds.Count : 0;
+
             // Add current cte limit to the dictionary
             if (includeExpression.Reversed)
             {
@@ -861,12 +880,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // Handle Multiple Results sets to include from
-            if (_includeFromCteIds?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCteIds.Count - 1)
+            // if (_includeFromCteIds?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCteIds.Count - 1)
+            if (count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < count - 1)
             {
                 StringBuilder.AppendLine("),");
 
                 // If it's not the last result set, append a new IncludeLimit cte, since IncludeLimitCte was not created for the current cte
-                if (_curFromCteIndex < _includeFromCteIds?.Count - 1)
+                // if (_curFromCteIndex < _includeFromCteIds?.Count - 1)
+                if (_curFromCteIndex < count - 1)
                 {
                     var cteToLimit = TableExpressionName(_tableExpressionCounter);
                     WriteIncludeLimitCte(cteToLimit, context);
@@ -1335,6 +1356,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             public object SortValue { get; set; }
 
             public Column SortColumnName { get; set; }
+        }
+
+        /// <summary>
+        /// The exception that is thrown when the search parameter is too complex.
+        /// </summary>
+        public class SearchParameterTooComplexException : Core.Exceptions.FhirException
+        {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="SearchParameterTooComplexException"/> class.
+            /// </summary>
+            public SearchParameterTooComplexException()
+            {
+                Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.NotSupported,
+                    "Search parameter too complex."));
+            }
         }
     }
 }
