@@ -26,6 +26,7 @@
     <NoWarn>1503</NoWarn>
     <SuppressTSqlWarnings>71502</SuppressTSqlWarnings>
     <TreatTSqlWarningsAsErrors>True</TreatTSqlWarningsAsErrors>
+    <GenerateCreateScript>True</GenerateCreateScript>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release\</OutputPath>
