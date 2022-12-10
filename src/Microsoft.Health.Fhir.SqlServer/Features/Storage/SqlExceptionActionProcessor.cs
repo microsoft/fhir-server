@@ -17,6 +17,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     public class SqlExceptionActionProcessor<TRequest, TException> : IRequestExceptionAction<TRequest, TException>
         where TException : Exception
     {
+        private const int LoginFailedForUser = 18456;
+
         public Task Execute(TRequest request, TException exception, CancellationToken cancellationToken)
         {
             if (exception is SqlException sqlException)
@@ -29,9 +31,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                 }
+                else if (sqlException.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
+                {
+                    throw new SqlQueryPlanException(Core.Resources.SqlQueryProcessorRanOutOfInternalResourcesException);
+                }
+                else if (sqlException.Number == LoginFailedForUser)
+                {
+                    throw new LoginFailedForUserException(Core.Resources.InternalServerError);
+                }
                 else
                 {
-                    throw new ResourceSqlException($"SqlException number: {sqlException.Number}; Exception: {sqlException.Message}");
+                    throw new ResourceSqlException(Core.Resources.InternalServerError);
                 }
             }
             else if (exception is SqlTruncateException sqlTruncateException)

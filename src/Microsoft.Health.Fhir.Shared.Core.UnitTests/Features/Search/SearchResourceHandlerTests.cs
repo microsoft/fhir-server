@@ -9,14 +9,19 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class SearchResourceHandlerTests
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
@@ -26,7 +31,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchResourceHandlerTests()
         {
-            _searchResourceHandler = new SearchResourceHandler(_searchService, _bundleFactory, DisabledFhirAuthorizationService.Instance);
+            _searchResourceHandler = new SearchResourceHandler(
+                _searchService,
+                _bundleFactory,
+                DisabledFhirAuthorizationService.Instance,
+                new DataResourceFilter(MissingDataFilterCriteria.Default));
         }
 
         [Fact]

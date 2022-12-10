@@ -8,10 +8,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
 {
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
+    [Trait(Traits.Category, Categories.Import)]
     public class InitialImportLockMiddlewareTests
     {
         [Fact]

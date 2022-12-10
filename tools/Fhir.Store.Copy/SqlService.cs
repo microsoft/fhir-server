@@ -8,15 +8,17 @@ using System.Data.SqlClient;
 
 namespace Microsoft.Health.Fhir.Store.Copy
 {
-    internal partial class SqlService : SqlUtils.SqlService
+    public partial class SqlService : SqlUtils.SqlService
     {
+        public const byte CopyQueueType = 3;
+
         private Random _rand = new Random();
 
         private byte _partitionId;
         private object _partitioinLocker = new object();
         private byte _numberOfPartitions;
 
-        internal SqlService(string connectionString, string secondaryConnectionString = null, byte? numberOfPartitions = null)
+        public SqlService(string connectionString, string secondaryConnectionString = null, byte? numberOfPartitions = null)
             : base(connectionString, secondaryConnectionString)
         {
             _numberOfPartitions = numberOfPartitions.HasValue ? numberOfPartitions.Value : (byte)16;
@@ -68,7 +70,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             return cnt > 0;
         }
 
-        private void DequeueJob(out long groupId, out long jobId, out long version, out string definition)
+        public void DequeueJob(out long groupId, out long jobId, out long version, out string definition)
         {
             definition = null;
             groupId = -1L;
@@ -78,7 +80,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.DequeueJob", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", (byte)3);
+            command.Parameters.AddWithValue("@QueueType", CopyQueueType);
             command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
             command.Parameters.AddWithValue("@HeartbeatTimeoutSec", 600);
             using var reader = command.ExecuteReader();

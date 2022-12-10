@@ -20,10 +20,10 @@ namespace Microsoft.Health.Fhir.Store.Copy
         private static readonly int UnitSize = int.Parse(ConfigurationManager.AppSettings["UnitSize"]);
         private static readonly bool RebuildQueue = bool.Parse(ConfigurationManager.AppSettings["RebuildQueue"]);
         [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1306:Field names should begin with lower-case letter", Justification = "Readability")]
-        private static SqlService Target;
+        private static Sharding.SqlService Target;
         private static readonly SqlServiceSingleDatabase Source = new SqlServiceSingleDatabase(SourceConnectionString);
         [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.NamingRules", "SA1306:Field names should begin with lower-case letter", Justification = "Readability")]
-        private static SqlService Queue;
+        private static Sharding.SqlService Queue;
 
         public static void Main(string[] args)
         {
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             {
                 SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.Central.dacpac");
                 SetupDb.Publish(TargetConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
-                Target = new SqlService(TargetConnectionString);
+                Target = new Sharding.SqlService(TargetConnectionString);
                 foreach (var shard in Target.ShardletMap.Shards)
                 {
                     SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.Distributed.dacpac");
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Store.Copy
             }
             else if (method == "init")
             {
-                Target = new SqlService(TargetConnectionString);
+                Target = new Sharding.SqlService(TargetConnectionString);
                 foreach (var shard in Target.ShardletMap.Shards)
                 {
                     TruncateTables(shard.Key);
@@ -55,20 +55,20 @@ namespace Microsoft.Health.Fhir.Store.Copy
             }
             else if (method == "rebuildqueue")
             {
-                Target = new SqlService(TargetConnectionString);
-                Queue = new SqlService(QueueConnectionString);
+                Target = new Sharding.SqlService(TargetConnectionString);
+                Queue = new Sharding.SqlService(QueueConnectionString);
                 PopulateJobQueue(UnitSize);
             }
             else if (method == "merge")
             {
-                Target = new SqlService(TargetConnectionString);
-                Queue = new SqlService(QueueConnectionString);
+                Target = new Sharding.SqlService(TargetConnectionString);
+                Queue = new Sharding.SqlService(QueueConnectionString);
                 ////PopulateJobQueue(UnitSize);
                 Copy();
             }
             else
             {
-                Target = new SqlService(TargetConnectionString);
+                Target = new Sharding.SqlService(TargetConnectionString);
                 Console.WriteLine($"RunQuery: started at {DateTime.UtcNow:s}...");
                 RunQuery();
             }

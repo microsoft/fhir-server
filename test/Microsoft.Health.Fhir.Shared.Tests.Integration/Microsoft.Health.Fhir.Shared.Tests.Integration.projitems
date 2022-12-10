@@ -9,21 +9,26 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Tests.Integration</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureDisabledTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureEnabledTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\SqlServerExportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationDataStoreReindexTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationDataStoreExportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\CreateExportRequestHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationTestConstants.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\DataGeneratorsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\SqlBulkImporterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\SqlServerIndexesRebuildTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\TestBulkDataProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\SqlServerFhirDataBulkOperationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageVersioningPolicyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterStatusDataStoreTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerWatchdogTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSchemaUpgradeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestsFixture.cs" />

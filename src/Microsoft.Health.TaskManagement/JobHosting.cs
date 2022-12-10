@@ -16,10 +16,10 @@ namespace Microsoft.Health.JobManagement
 {
     public class JobHosting
     {
-        private IQueueClient _queueClient;
-        private IJobFactory _jobFactory;
-        private ILogger<JobHosting> _logger;
-        private ConcurrentDictionary<long, Func<Task>> _activeJobsNeedKeepAlive = new ConcurrentDictionary<long, Func<Task>>();
+        private readonly IQueueClient _queueClient;
+        private readonly IJobFactory _jobFactory;
+        private readonly ILogger<JobHosting> _logger;
+        private readonly ConcurrentDictionary<long, Func<Task>> _activeJobsNeedKeepAlive = new();
 
         public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
         {
@@ -42,7 +42,7 @@ namespace Microsoft.Health.JobManagement
 
         public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationToken)
         {
-            using CancellationTokenSource keepAliveCancellationToken = new CancellationTokenSource();
+            using var keepAliveCancellationToken = new CancellationTokenSource();
             Task keepAliveTask = KeepAliveJobsAsync(keepAliveCancellationToken.Token);
 
             await PullAndProcessJobsAsync(queueType, workerName, cancellationToken.Token);
@@ -53,11 +53,11 @@ namespace Microsoft.Health.JobManagement
 
         private async Task PullAndProcessJobsAsync(byte queueType, string workerName, CancellationToken cancellationToken)
         {
-            List<Task> runningJobs = new List<Task>();
+            var runningJobs = new List<Task>();
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                Task intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), CancellationToken.None);
+                var intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), CancellationToken.None);
 
                 if (runningJobs.Count >= MaxRunningJobCount)
                 {
@@ -101,7 +101,7 @@ namespace Microsoft.Health.JobManagement
         private async Task ExecuteJobAsync(JobInfo jobInfo)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            using CancellationTokenSource jobCancellationToken = new CancellationTokenSource();
+            using var jobCancellationToken = new CancellationTokenSource();
 
             IJob job = _jobFactory.Create(jobInfo);
 
@@ -121,11 +121,12 @@ namespace Microsoft.Health.JobManagement
                         jobCancellationToken.Cancel();
                     }
 
-                    Progress<string> progress = new Progress<string>((result) =>
+                    var progress = new Progress<string>((result) =>
                     {
                         jobInfo.Result = result;
                     });
-                    Task<string> runningJob = Task.Run(() => job.ExecuteAsync(progress, jobCancellationToken.Token));
+
+                    var runningJob = Task.Run(() => job.ExecuteAsync(jobInfo, progress, jobCancellationToken.Token));
                     _activeJobsNeedKeepAlive[jobInfo.Id] = () => KeepAliveSingleJobAsync(jobInfo, jobCancellationToken);
 
                     jobInfo.Result = await runningJob;
@@ -224,7 +225,7 @@ namespace Microsoft.Health.JobManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                Task intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds), CancellationToken.None);
+                var intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds), CancellationToken.None);
                 KeyValuePair<long, Func<Task>>[] activeJobRecords = _activeJobsNeedKeepAlive.ToArray();
 
                 foreach ((long jobId, Func<Task> keepAliveFunc) in activeJobRecords)

@@ -4,6 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -23,6 +26,37 @@ namespace Microsoft.Health.Fhir.Api.Extensions
 
             return !request.Path.StartsWithSegments(KnownRoutes.HealthCheck, StringComparison.InvariantCultureIgnoreCase) &&
                    !request.Path.StartsWithSegments(KnownRoutes.CustomError, StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        /// <summary>
+        /// Return a group of search parameters from a query string.
+        /// </summary>
+        /// <param name="request">The request.</param>
+        public static IReadOnlyList<Tuple<string, string>> GetQueriesForSearch(this HttpRequest request)
+        {
+            EnsureArg.IsNotNull(request, nameof(request));
+
+            if (request.QueryString.HasValue)
+            {
+                NameValueCollection queryStringParameters =
+                    HttpUtility.ParseQueryString(
+                            request.QueryString.Value);
+
+                List<Tuple<string, string>> queries = new List<Tuple<string, string>>();
+                foreach (string key in queryStringParameters.AllKeys)
+                {
+                    foreach (var queryStringValue in queryStringParameters.GetValues(key))
+                    {
+                        queries.Add(Tuple.Create(key, queryStringValue));
+                    }
+                }
+
+                return queries;
+            }
+            else
+            {
+                return Array.Empty<Tuple<string, string>>();
+            }
         }
     }
 }

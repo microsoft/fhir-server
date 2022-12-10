@@ -75,5 +75,17 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string TypeFilter = "_typeFilter";
 
         public const string Text = "_text";
+
+        public const string Till = "_till";
+
+        public const string IsParallel = "_isParallel";
+
+        public const string StartSurrogateId = "_startSurrogateId";
+
+        public const string EndSurrogateId = "_endSurrogateId";
+
+        public const string GlobalStartSurrogateId = "_globalStartSurrogateId";
+
+        public const string GlobalEndSurrogateId = "_globalEndSurrogateId";
     }
 }

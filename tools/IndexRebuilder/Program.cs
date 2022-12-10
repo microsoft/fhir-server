@@ -10,7 +10,7 @@ using System.Diagnostics;
 using Microsoft.Health.Fhir.SqlServer.Database;
 using SqlService = Microsoft.Health.Fhir.Store.SqlUtils.SqlService;
 
-namespace Microsoft.Health.Fhir.IndexRebuilder
+namespace Microsoft.Health.Internal.IndexRebuilder
 {
     public static class Program
     {
@@ -57,7 +57,7 @@ EXECUTE(@cmd)
         {
             if (IsSharded)
             {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
+                var shardedStore = new Fhir.Store.Sharding.SqlService(ConnectionString);
                 foreach (var shard in shardedStore.ShardletMap.Shards)
                 {
                     SetupDb.Publish(shard.Value.ConnectionString, "Microsoft.Health.Fhir.SqlServer.Database.dacpac");
@@ -73,7 +73,7 @@ EXECUTE(@cmd)
         {
             if (IsSharded)
             {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
+                var shardedStore = new Fhir.Store.Sharding.SqlService(ConnectionString);
                 foreach (var shard in shardedStore.ShardletMap.Shards.Values)
                 {
                     DisableIndexes(shard.ConnectionString);
@@ -102,7 +102,7 @@ EXECUTE(@cmd)
             Console.WriteLine($"To monitor progress please run in the target database(s): {EventLogQuery}");
             if (IsSharded)
             {
-                var shardedStore = new Store.Sharding.SqlService(ConnectionString);
+                var shardedStore = new Fhir.Store.Sharding.SqlService(ConnectionString);
                 shardedStore.ParallelForEachShard(
                     shardId =>
                     {

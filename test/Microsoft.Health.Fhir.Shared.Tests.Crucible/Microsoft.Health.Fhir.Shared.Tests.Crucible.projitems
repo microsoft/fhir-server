@@ -9,6 +9,7 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.Crucible</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\CrucibleClient.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Category.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Models\Details.cs" />

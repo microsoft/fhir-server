@@ -19,6 +19,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Validate)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ValidateTests : IClassFixture<ValidateTestFixture>

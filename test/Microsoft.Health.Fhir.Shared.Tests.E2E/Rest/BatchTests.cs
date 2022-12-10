@@ -20,6 +20,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Batch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class BatchTests : IClassFixture<HttpIntegrationTestFixture>
@@ -172,9 +173,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("true")]
-        [InlineData("false")]
-        public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(string profileValidation)
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation)
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -211,12 +212,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithValidationHeader(bundle, profileValidation);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
             Bundle bundleResource = fhirResponse.Resource;
 
-            if (profileValidation.Equals("true"))
+            if (profileValidation)
             {
                 Assert.Equal("400", bundleResource.Entry[0].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[1].Response.Status);
@@ -231,10 +232,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("true")]
-        [InlineData("false")]
+        [InlineData(true)]
+        [InlineData(false)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenATransactionBundle_WithProfileValidationFlag_ReturnsABundleResponse(string profileValidation)
+        public async Task GivenATransactionBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation)
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -271,14 +272,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            if (profileValidation.Equals("true"))
+            if (profileValidation)
             {
-                using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsyncWithValidationHeader(bundle, profileValidation));
+                using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation));
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             }
             else
             {
-                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsyncWithValidationHeader(bundle, "false");
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, false);
                 Assert.NotNull(fhirResponse);
                 Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 

@@ -17,11 +17,15 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import
 {
+    [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
+    [Trait(Traits.Category, Categories.Import)]
     public class SqlBulkImporterTests
     {
         [Fact]

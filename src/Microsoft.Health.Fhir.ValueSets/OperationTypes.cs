@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.ValueSets
     {
         public const string Validate = "validate";
 
-        public const string ValidateUri = "https://www.hl7.org/fhir/operation-resource-validate.html";
+        public const string ValidateUri = "http://hl7.org/fhir/OperationDefinition/Resource-validate";
     }
 }

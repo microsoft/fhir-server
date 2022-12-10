@@ -14,9 +14,10 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.CompartmentSearch)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CompartmentTests : SearchTestsBase<CompartmentTestFixture>
     {
         public CompartmentTests(CompartmentTestFixture fixture)
@@ -153,6 +154,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Equal(bundle1.Entry[i].FullUrl, bundle2.Entry[i].FullUrl);
                 Assert.Equal(bundle1.Entry[i].FullUrlElement, bundle2.Entry[i].FullUrlElement);
             }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatientCompartment_WhenSearchingForAResourceTypeUsingInclude_ThenResourcesShouldBeReturned()
+        {
+            string searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_include=Observation:performer:Practitioner&performer=Practitioner/f005";
+
+            Bundle bundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(bundle, searchUrl, Fixture.Observation);
+
+            searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_union=Observation:performer:Practitioner";
+
+            bundle = await Client.SearchAsync(searchUrl);
+            Assert.NotEmpty(bundle.Entry);
+
+            searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_includeunionall=Observation:performer:Practitioner";
+
+            bundle = await Client.SearchAsync(searchUrl);
+            Assert.NotEmpty(bundle.Entry);
         }
 
         [Fact]

@@ -8,6 +8,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Operations;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -41,10 +42,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsFactory();
 
-            services.Add<ExportJobWorker>()
+            services
+                .RemoveServiceTypeExact<ExportJobWorker, INotificationHandler<StorageInitializedNotification>>()
+                .Add<ExportJobWorker>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
+                .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             services.Add<ResourceToNdjsonBytesSerializer>()
                 .Singleton()
@@ -59,10 +62,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsFactory();
 
-            services.Add<ReindexJobWorker>()
+            services
+                .RemoveServiceTypeExact<ReindexJobWorker, INotificationHandler<SearchParametersInitializedNotification>>()
+                .Add<ReindexJobWorker>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<INotificationHandler<SearchParametersInitializedNotification>>();
+                .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
 

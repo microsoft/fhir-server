@@ -11,6 +11,10 @@ steps:
 
   - template: package-web.yml
     parameters:
+      csproj: '**/Microsoft.Health.Fhir.R4B.Web.csproj'
+
+  - template: package-web.yml
+    parameters:
       csproj: '**/Microsoft.Health.Fhir.R5.Web.csproj'
 
   # Package nugets

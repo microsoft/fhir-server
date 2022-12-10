@@ -24,16 +24,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly IPatientEverythingService _patientEverythingService;
         private readonly IBundleFactory _bundleFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IDataResourceFilter _dataResourceFilter;
 
-        public EverythingOperationHandler(IPatientEverythingService patientEverythingService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService)
+        public EverythingOperationHandler(IPatientEverythingService patientEverythingService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService, IDataResourceFilter dataResourceFilter)
         {
             EnsureArg.IsNotNull(patientEverythingService, nameof(patientEverythingService));
             EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(dataResourceFilter, nameof(dataResourceFilter));
 
             _patientEverythingService = patientEverythingService;
             _bundleFactory = bundleFactory;
             _authorizationService = authorizationService;
+            _dataResourceFilter = dataResourceFilter;
         }
 
         public async Task<EverythingOperationResponse> Handle(EverythingOperationRequest request, CancellationToken cancellationToken)
@@ -58,6 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 request.ResourceTypes,
                 request.ContinuationToken,
                 cancellationToken);
+
+            searchResult = _dataResourceFilter.Filter(searchResult: searchResult);
 
             ResourceElement bundle = request.UnsupportedParameters != null && request.UnsupportedParameters.Any()
                 ? _bundleFactory.CreateSearchBundle(new SearchResult(searchResult.Results, searchResult.ContinuationToken, searchResult.SortOrder, request.UnsupportedParameters))

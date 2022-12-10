@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
         private bool _unionVisited = false;
+        private bool _firstChainAfterUnionVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
         public SqlQueryGenerator(
@@ -343,8 +344,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("SELECT ")
                 .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+                .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1");
+
+            var searchParameterExpressionPredicate = searchParamTableExpression.Predicate as SearchParameterExpression;
+
+            // handle special case where we want to Union a specific resource to the results
+            if (searchParameterExpressionPredicate != null &&
+                searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
+            {
+                StringBuilder.Append("FROM ").AppendLine(new VLatest.ResourceTable());
+            }
+            else
+            {
+                StringBuilder.Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
+            }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
@@ -394,16 +407,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else if (searchParamTableExpression.ChainLevel == 1 && _unionVisited)
             {
+                var tableName = searchParamTableExpression.QueryGenerator.Table;
+
+                // handle special case where we want to Union a specific resource to the results
+                var searchParameterExpressionPredicate = CheckExpressionOrFirstChildIsSearchParam(searchParamTableExpression.Predicate);
+                if (searchParameterExpressionPredicate != null &&
+                    searchParameterExpressionPredicate.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
+                {
+                    tableName = new VLatest.ResourceTable();
+                }
+
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).AppendLine(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
-                    .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
+                    .Append("FROM ").AppendLine(tableName)
                     .Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
-                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T1");
-                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append("Sid1");
+                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1");
+                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
+
+                    // once we have visited a table after the union all, the remained of the inner joins
+                    // should be on T1 and SID1
+                    _firstChainAfterUnionVisited = true;
                 }
             }
             else
@@ -728,6 +755,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
                             .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType), true));
+                    }
+                    else if (includeExpression.AllowedResourceTypesByScope != null &&
+                            !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                    {
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                            .Append(" IN (")
+                            .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
+                            .Append(")");
                     }
                 }
 
@@ -1129,7 +1164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             int FindImpl(int currentIndex)
             {
-                // Due the UnionAll expressions, the number of the current index used to create new CTEs can be greater than
+                // Due to the UnionAll expressions, the number of the current index used to create new CTEs can be greater than
                 // the number of expressions in '_rootExpression.SearchParamTableExpressions'.
                 if (currentIndex >= _rootExpression.SearchParamTableExpressions.Count)
                 {
@@ -1137,6 +1172,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 SearchParamTableExpression currentSearchParamTableExpression = _rootExpression.SearchParamTableExpressions[currentIndex];
+
+                // Include all the required SearchParamTableExpressionKind here
                 switch (currentSearchParamTableExpression.Kind)
                 {
                     case SearchParamTableExpressionKind.NotExists:
@@ -1150,6 +1187,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     case SearchParamTableExpressionKind.SortWithFilter:
                         return currentIndex - 1;
                     case SearchParamTableExpressionKind.All:
+                        return currentIndex - 1;
+                    case SearchParamTableExpressionKind.Include:
+                    case SearchParamTableExpressionKind.IncludeLimit:
+                    case SearchParamTableExpressionKind.Union:
+                    case SearchParamTableExpressionKind.IncludeUnionAll:
                         return currentIndex - 1;
                     default:
                         throw new ArgumentOutOfRangeException(currentSearchParamTableExpression.Kind.ToString());
@@ -1297,6 +1339,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return sortContext;
+        }
+
+        private static SearchParameterExpression CheckExpressionOrFirstChildIsSearchParam(Expression expression)
+        {
+            if (expression is MultiaryExpression)
+            {
+                expression = ((MultiaryExpression)expression).Expressions[0];
+            }
+
+            return expression as SearchParameterExpression;
         }
 
         /// <summary>
