@@ -26,6 +26,8 @@
     <NoWarn>1503</NoWarn>
     <SuppressTSqlWarnings>71502</SuppressTSqlWarnings>
     <TreatTSqlWarningsAsErrors>True</TreatTSqlWarningsAsErrors>
+    <GenerateCreateScript>True</GenerateCreateScript>
+    <DbScopedConfigMaxDOP>8</DbScopedConfigMaxDOP>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release\</OutputPath>
@@ -100,7 +102,6 @@
     <Build Include="Schema Objects\Schemas\dbo\Tables\ResourceSurrogateIdMaxSequence.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetResourceSurrogateIdMaxSequence.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\InsertResources.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Types\StringList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutStoreCopyWorkHeartBeat.sql" />
   </ItemGroup>
   <ItemGroup>

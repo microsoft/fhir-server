@@ -111,17 +111,67 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         private (int resourceCnt, int totalCnt) Copy(int thread, short resourceTypeId, long jobId, long minId, long maxId)
         {
             var sw = Stopwatch.StartNew();
-            var resources = GetData(_ => new Resource(_), resourceTypeId, minId, maxId);
-            var referenceSearchParams = GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId);
-            var tokenSearchParams = GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId);
-            var compartmentAssignments = GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId);
-            var tokenTexts = GetData(_ => new TokenText(_), resourceTypeId, minId, maxId);
-            var dateTimeSearchParams = GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId);
-            var tokenQuantityCompositeSearchParams = GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId);
-            var quantitySearchParams = GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId);
-            var stringSearchParams = GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId);
-            var tokenTokenCompositeSearchParams = GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId);
-            var tokenStringCompositeSearchParams = GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId);
+            var resources = GetData(_ => new Resource(_), resourceTypeId, minId, maxId).ToList();
+            var referenceSearchParams = GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (referenceSearchParams.Count == 0)
+            {
+                referenceSearchParams = null;
+            }
+
+            var tokenSearchParams = GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (tokenSearchParams.Count == 0)
+            {
+                tokenSearchParams = null;
+            }
+
+            var compartmentAssignments = GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId).ToList();
+            if (compartmentAssignments.Count == 0)
+            {
+                compartmentAssignments = null;
+            }
+
+            var tokenTexts = GetData(_ => new TokenText(_), resourceTypeId, minId, maxId).ToList();
+            if (tokenTexts.Count == 0)
+            {
+                tokenTexts = null;
+            }
+
+            var dateTimeSearchParams = GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (dateTimeSearchParams.Count == 0)
+            {
+                dateTimeSearchParams = null;
+            }
+
+            var tokenQuantityCompositeSearchParams = GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (tokenQuantityCompositeSearchParams.Count == 0)
+            {
+                tokenQuantityCompositeSearchParams = null;
+            }
+
+            var quantitySearchParams = GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (quantitySearchParams.Count == 0)
+            {
+                quantitySearchParams = null;
+            }
+
+            var stringSearchParams = GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (stringSearchParams.Count == 0)
+            {
+                stringSearchParams = null;
+            }
+
+            var tokenTokenCompositeSearchParams = GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (tokenTokenCompositeSearchParams.Count == 0)
+            {
+                tokenTokenCompositeSearchParams = null;
+            }
+
+            var tokenStringCompositeSearchParams = GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (tokenStringCompositeSearchParams.Count == 0)
+            {
+                tokenTokenCompositeSearchParams = null;
+            }
+
             var rows = 0;
             if (_writesEnabled)
             {
