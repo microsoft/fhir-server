@@ -862,7 +862,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
 
             // Take the count before AddIncludeLimitCte because _includeFromCteIds?.Count will be incremented differently depending on the resource type.
-            int count = _includeFromCteIds != null ? _includeFromCteIds.Count : 0;
+            int count = _includeFromCteIds?.Count ?? 0;
 
             // Add current cte limit to the dictionary
             if (includeExpression.Reversed)

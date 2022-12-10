@@ -1376,6 +1376,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A search parameter is too complex..
+        /// </summary>
+        internal static string SearchParameterTooComplex {
+            get {
+                return ResourceManager.GetString("SearchParameterTooComplex", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A search parameter is no longer supported..
         /// </summary>
         internal static string SearchParameterUnknownNotSupported {

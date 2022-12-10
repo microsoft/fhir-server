@@ -514,6 +514,9 @@
   <data name="ElementsAndSummaryParametersAreIncompatible" xml:space="preserve">
     <value>The '_elements' parameter is supported only when '_summary' is SummaryType.False or '_summary' is not specified at all.</value>
   </data>
+  <data name="SearchParameterTooComplex" xml:space="preserve">
+    <value>A search parameter is too complex.</value>
+  </data>
   <data name="SearchParameterUnknownNotSupported" xml:space="preserve">
     <value>A search parameter is no longer supported.</value>
   </data>

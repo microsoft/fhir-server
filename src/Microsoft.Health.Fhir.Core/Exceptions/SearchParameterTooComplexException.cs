@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
         {
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.NotSupported,
-                "Search parameter too complex."));
+                OperationOutcomeConstants.IssueType.TooCostly,
+                Resources.SearchParameterTooComplex));
         }
     }
 }
