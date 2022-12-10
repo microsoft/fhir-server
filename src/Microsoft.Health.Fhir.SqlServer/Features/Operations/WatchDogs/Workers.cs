@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                 {
                     _ = new CopyWorker(_targetConnectionString);
                     _ = new IndexRebuildWorker(_targetConnectionString);
-                    ////_queryWorker = new QueryWorker(_targetConnectionString);
+                    _ = new QueryWorker(_targetConnectionString);
                 }
                 catch (Exception e)
                 {
