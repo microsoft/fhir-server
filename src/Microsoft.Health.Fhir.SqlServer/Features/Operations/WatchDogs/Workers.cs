@@ -13,9 +13,6 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         private string _connectionString = string.Empty;
         private SqlUtils.SqlService _configService = null;
         private string _targetConnectionString = string.Empty;
-        private CopyWorkerNotSharded _copyWorker;
-        private IndexRebuildWorkerNotSharded _indexRebuildWorker;
-        ////private QueryWorker _queryWorker;
 
         public Workers(string connectionString)
         {
@@ -26,14 +23,19 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             {
                 try
                 {
-                    _copyWorker = new CopyWorkerNotSharded(_targetConnectionString);
-                    _indexRebuildWorker = new IndexRebuildWorkerNotSharded(_targetConnectionString);
+                    _ = new CopyWorker(_targetConnectionString);
+                    _ = new IndexRebuildWorker(_targetConnectionString);
                     ////_queryWorker = new QueryWorker(_targetConnectionString);
                 }
                 catch (Exception e)
                 {
                     _configService.LogEvent("Workers", "Error", "Create Workers", text: e.ToString());
                 }
+            }
+            else
+            {
+                _ = new CopyWorkerNotSharded(_targetConnectionString);
+                _ = new IndexRebuildWorkerNotSharded(_targetConnectionString);
             }
         }
 
