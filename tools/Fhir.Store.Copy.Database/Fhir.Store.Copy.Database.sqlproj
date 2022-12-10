@@ -102,7 +102,6 @@
     <Build Include="Schema Objects\Schemas\dbo\Tables\ResourceSurrogateIdMaxSequence.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\GetResourceSurrogateIdMaxSequence.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\InsertResources.sql" />
-    <Build Include="Schema Objects\Schemas\dbo\Types\StringList.sql" />
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\PutStoreCopyWorkHeartBeat.sql" />
   </ItemGroup>
   <ItemGroup>
