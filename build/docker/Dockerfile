@@ -40,8 +40,11 @@ COPY ./src/Microsoft.Health.Fhir.Store.Sharding/Microsoft.Health.Fhir.Store.Shar
 COPY ./src/Microsoft.Health.Fhir.Store.Utils/Microsoft.Health.Fhir.Store.Utils.csproj \
      ./src/Microsoft.Health.Fhir.Store.Utils/Microsoft.Health.Fhir.Store.Utils.csproj
 
-COPY ./src/Microsoft.Health.Fhir.Store.SqlUtils/Microsoft.Health.Fhir.Store.SqlUtils.csproj \
-     ./src/Microsoft.Health.Fhir.Store.SqlUtils/Microsoft.Health.Fhir.Store.SqlUtils.csproj
+COPY ./src/Microsoft.Health.Fhir.Store.Utils/Microsoft.Health.Fhir.Store.Utils.csproj \
+     ./src/Microsoft.Health.Fhir.Store.Utils/Microsoft.Health.Fhir.Store.Utils.csproj
+
+COPY ./tools/Fhir.Store.Copy/Fhir.Store.Copy.csproj \
+     ./tools/Fhir.Store.Copy/Fhir.Store.Copy.csproj
 
 COPY ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj \
      ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj
