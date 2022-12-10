@@ -46,9 +46,6 @@ COPY ./src/Microsoft.Health.Fhir.Store.Utils/Microsoft.Health.Fhir.Store.Utils.c
 COPY ./tools/Fhir.Store.Copy/Fhir.Store.Copy.csproj \
      ./tools/Fhir.Store.Copy/Fhir.Store.Copy.csproj
 
-COPY ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj \
-     ./src/Microsoft.Health.Fhir.Api/Microsoft.Health.Fhir.Api.csproj
-
 COPY ./src/Microsoft.Health.Fhir.CosmosDb/Microsoft.Health.Fhir.CosmosDb.csproj \
      ./src/Microsoft.Health.Fhir.CosmosDb/Microsoft.Health.Fhir.CosmosDb.csproj
 
