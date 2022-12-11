@@ -192,6 +192,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4B.T
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4B.Api.UnitTests", "src\Microsoft.Health.Fhir.R4B.Api.UnitTests\Microsoft.Health.Fhir.R4B.Api.UnitTests.csproj", "{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Store.Database", "Microsoft.Health.Fhir.Store.Database\Microsoft.Health.Fhir.Store.Database.csproj", "{A76114D7-2922-456D-A6CE-03537EA3AC6B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -450,6 +452,10 @@ Global
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A76114D7-2922-456D-A6CE-03537EA3AC6B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A76114D7-2922-456D-A6CE-03537EA3AC6B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A76114D7-2922-456D-A6CE-03537EA3AC6B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A76114D7-2922-456D-A6CE-03537EA3AC6B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -539,10 +545,11 @@ Global
 		{5E456FD7-E5A5-41F4-A0D3-7215585AEB7A} = {FCD51BAF-BFE5-476F-B562-C9AB36AA9839}
 		{A5DED132-32B1-4804-95F5-EBC6092EC8AE} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E} = {1295CCC3-73FB-4376-AE95-F6F31A37B152}
+		{A76114D7-2922-456D-A6CE-03537EA3AC6B} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
