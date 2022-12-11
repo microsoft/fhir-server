@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Store.Database
             }
         }
 
-        public void CompleteJob(byte queueType, long jobId, bool failed, long version, int? resourceCount = null)
+        public void CompleteJob(byte queueType, long jobId, bool failed, long version, int? resourceCount = null, int? totalCount = null)
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
@@ -143,7 +143,14 @@ namespace Microsoft.Health.Fhir.Store.Database
                 command.Parameters.AddWithValue("@Data", DBNull.Value);
             }
 
-            command.Parameters.AddWithValue("@FinalResult", DBNull.Value);
+            if (totalCount.HasValue)
+            {
+                command.Parameters.AddWithValue("@FinalResult", $"total={totalCount.Value}");
+            }
+            else
+            {
+                command.Parameters.AddWithValue("@FinalResult", DBNull.Value);
+            }
 
             command.ExecuteNonQuery();
         }
