@@ -148,7 +148,7 @@ EXECUTE dbo.EnqueueJobs @QueueType = @QueueType, @Definitions = @Strings, @Force
             { CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@QueueType", SqlService.CopyQueueType);
             var stringListParam = new SqlParameter { ParameterName = "@Strings" };
-            stringListParam.AddStringList(strings);
+            stringListParam.AddCopyStringList(strings);
             cmd.Parameters.Add(stringListParam);
 
             using var reader = cmd.ExecuteReader();

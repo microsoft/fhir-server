@@ -45,7 +45,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\tools\Fhir.Store.Copy\Fhir.Store.Copy.csproj" />
+    <ProjectReference Include="..\..\Microsoft.Health.Fhir.Store.Database\Microsoft.Health.Fhir.Store.Database.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Store.Sharding\Microsoft.Health.Fhir.Store.Sharding.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Store.SqlUtils\Microsoft.Health.Fhir.Store.SqlUtils.csproj" />

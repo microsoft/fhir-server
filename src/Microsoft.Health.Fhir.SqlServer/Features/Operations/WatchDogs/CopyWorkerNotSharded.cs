@@ -2,6 +2,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
+#pragma warning disable SA1107 // Code should not contain multiple statements on one line
 
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Store.Copy;
+using Microsoft.Health.Fhir.Store.Database;
 using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.WatchDogs
@@ -21,6 +22,9 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         private bool _writesEnabled = false;
         private int _maxRetries = 10;
         private string _sourceConnectionString = string.Empty;
+        private byte _queueType = 3;
+        private bool _identifiersOnly = false;
+        private HashSet<int> _identifiers = new HashSet<int>();
 
         public CopyWorkerNotSharded(string connectionString)
         {
@@ -33,6 +37,11 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
             _workers = GetWorkers();
             _writesEnabled = GetWritesEnabled();
+            _identifiersOnly = GetIdentifiersOnly();
+            if (_identifiersOnly)
+            {
+                _identifiers = GetIdentifiers();
+            }
 
             var tasks = new List<Task>();
             var workingTasks = 0L;
@@ -64,7 +73,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             retry:
                 try
                 {
-                    Target.DequeueJob(out _, out jobId, out version, out var definition);
+                    Target.DequeueJob(_queueType, out _, out jobId, out version, out var definition);
                     if (jobId != -1)
                     {
                         var resourceTypeId = (short)0;
@@ -77,7 +86,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                         var suffix = split.Length > 3 ? split[3] : null;
                         (resourceCount, totalCount) = Copy(worker, resourceTypeId, jobId, minId, maxId);
 
-                        Target.CompleteJob(jobId, false, version, resourceCount);
+                        Target.CompleteJob(_queueType, jobId, false, version, resourceCount);
                     }
                     else
                     {
@@ -102,7 +111,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
                     if (jobId != -1)
                     {
-                        Target.CompleteJob(jobId, true, version, null);
+                        Target.CompleteJob(_queueType, jobId, true, version, null);
                     }
                 }
             }
@@ -111,63 +120,73 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         private (int resourceCnt, int totalCnt) Copy(int thread, short resourceTypeId, long jobId, long minId, long maxId)
         {
             var sw = Stopwatch.StartNew();
-            var resources = GetData(_ => new Resource(_), resourceTypeId, minId, maxId).ToList();
-            var referenceSearchParams = GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            var resources = Target.GetData(_ => new Resource(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly)
+            {
+                resources = resources.Select(_ => { _.RawResource = new[] { (byte)1, (byte)1 }; return _; }).ToList();
+            }
+
+            var referenceSearchParams = Target.GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId).ToList();
             if (referenceSearchParams.Count == 0)
             {
                 referenceSearchParams = null;
             }
 
-            var tokenSearchParams = GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            var tokenSearchParams = Target.GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly)
+            {
+                tokenSearchParams = tokenSearchParams.Where(_ => _identifiers.Contains(_.SearchParamId)).ToList();
+            }
+
             if (tokenSearchParams.Count == 0)
             {
                 tokenSearchParams = null;
             }
 
-            var compartmentAssignments = GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId).ToList();
-            if (compartmentAssignments.Count == 0)
+            var compartmentAssignments = Target.GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly || compartmentAssignments.Count == 0)
             {
                 compartmentAssignments = null;
             }
 
-            var tokenTexts = GetData(_ => new TokenText(_), resourceTypeId, minId, maxId).ToList();
-            if (tokenTexts.Count == 0)
+            var tokenTexts = Target.GetData(_ => new TokenText(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly || tokenTexts.Count == 0)
             {
                 tokenTexts = null;
             }
 
-            var dateTimeSearchParams = GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-            if (dateTimeSearchParams.Count == 0)
+            var dateTimeSearchParams = Target.GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly || dateTimeSearchParams.Count == 0)
             {
                 dateTimeSearchParams = null;
             }
 
-            var tokenQuantityCompositeSearchParams = GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-            if (tokenQuantityCompositeSearchParams.Count == 0)
+            var tokenQuantityCompositeSearchParams = Target.GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly || tokenQuantityCompositeSearchParams.Count == 0)
             {
                 tokenQuantityCompositeSearchParams = null;
             }
 
-            var quantitySearchParams = GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId).ToList();
-            if (quantitySearchParams.Count == 0)
+            var quantitySearchParams = Target.GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly || quantitySearchParams.Count == 0)
             {
                 quantitySearchParams = null;
             }
 
-            var stringSearchParams = GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId).ToList();
-            if (stringSearchParams.Count == 0)
+            var stringSearchParams = Target.GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly || stringSearchParams.Count == 0)
             {
                 stringSearchParams = null;
             }
 
-            var tokenTokenCompositeSearchParams = GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-            if (tokenTokenCompositeSearchParams.Count == 0)
+            var tokenTokenCompositeSearchParams = Target.GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly || tokenTokenCompositeSearchParams.Count == 0)
             {
                 tokenTokenCompositeSearchParams = null;
             }
 
-            var tokenStringCompositeSearchParams = GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
-            if (tokenStringCompositeSearchParams.Count == 0)
+            var tokenStringCompositeSearchParams = Target.GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            if (_identifiersOnly || tokenStringCompositeSearchParams.Count == 0)
             {
                 tokenTokenCompositeSearchParams = null;
             }
@@ -175,36 +194,11 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             var rows = 0;
             if (_writesEnabled)
             {
-                rows = Target.InsertResources(true, resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams, false);
+                rows = Target.MergeResources(resources, referenceSearchParams, tokenSearchParams, compartmentAssignments, tokenTexts, dateTimeSearchParams, tokenQuantityCompositeSearchParams, quantitySearchParams, stringSearchParams, tokenTokenCompositeSearchParams, tokenStringCompositeSearchParams, false);
             }
 
             Console.WriteLine($"Copy.{thread}.{jobId}.{resourceTypeId}.{minId}: completed at {DateTime.Now:s}, elapsed={sw.Elapsed.TotalSeconds:N0} sec.");
             return (resources.Count, rows);
-        }
-
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
-        private IList<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
-        {
-            List<T> results = null;
-            using var cmd = new SqlCommand($"SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId ORDER BY ResourceSurrogateId") { CommandTimeout = 600 };
-            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
-            cmd.Parameters.AddWithValue("@MinId", minId);
-            cmd.Parameters.AddWithValue("@MaxId", maxId);
-            SqlUtils.SqlService.ExecuteSqlWithRetries(
-                _sourceConnectionString,
-                cmd,
-                cmdInt =>
-                {
-                    results = new List<T>();
-                    using var reader = cmdInt.ExecuteReader();
-                    while (reader.Read())
-                    {
-                        results.Add(toT(reader));
-                    }
-
-                    reader.NextResult();
-                });
-            return results;
         }
 
         private string GetSourceConnectionString()
@@ -229,6 +223,28 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             using var cmd = new SqlCommand("SELECT convert(bit,Number) FROM dbo.Parameters WHERE Id = 'Copy.WritesEnabled'", conn);
             var flag = cmd.ExecuteScalar();
             return flag != null && (bool)flag;
+        }
+
+        private bool GetIdentifiersOnly()
+        {
+            using var conn = Target.GetConnection();
+            using var cmd = new SqlCommand("SELECT convert(bit,Number) FROM dbo.Parameters WHERE Id = 'Copy.IdentifiersOnly'", conn);
+            var flag = cmd.ExecuteScalar();
+            return flag != null && (bool)flag;
+        }
+
+        private HashSet<int> GetIdentifiers()
+        {
+            var results = new HashSet<int>();
+            using var conn = Target.GetConnection();
+            using var cmd = new SqlCommand("SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identi%'", conn);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                results.Add(reader.GetInt32(0));
+            }
+
+            return results;
         }
     }
 }
