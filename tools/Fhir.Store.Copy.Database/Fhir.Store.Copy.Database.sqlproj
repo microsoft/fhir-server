@@ -28,6 +28,7 @@
     <TreatTSqlWarningsAsErrors>True</TreatTSqlWarningsAsErrors>
     <GenerateCreateScript>True</GenerateCreateScript>
     <DbScopedConfigMaxDOP>8</DbScopedConfigMaxDOP>
+    <AutoUpdateStatisticsAsynchronously>True</AutoUpdateStatisticsAsynchronously>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release\</OutputPath>
