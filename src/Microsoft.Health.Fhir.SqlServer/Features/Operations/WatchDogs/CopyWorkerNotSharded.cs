@@ -123,19 +123,31 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         private (int resourceCnt, int totalCnt) Copy(int thread, short resourceTypeId, long jobId, long minId, long maxId)
         {
             var sw = Stopwatch.StartNew();
+            var surrIdToSequence = new Dictionary<long, int>();
+            var count = 0;
             var resources = Source.GetData(_ => new Resource(_), resourceTypeId, minId, maxId).ToList();
+            foreach (var resource in resources)
+            {
+                count++;
+                surrIdToSequence.Add(resource.ResourceSurrogateId, count);
+            }
+
+            resources = resources.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
+
             if (_identifiersOnly)
             {
                 resources = resources.Select(_ => { _.RawResource = new[] { (byte)1, (byte)1 }; return _; }).ToList();
             }
 
             var referenceSearchParams = Source.GetData(_ => new ReferenceSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            referenceSearchParams = referenceSearchParams.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (referenceSearchParams.Count == 0)
             {
                 referenceSearchParams = null;
             }
 
             var tokenSearchParams = Source.GetData(_ => new TokenSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            tokenSearchParams = tokenSearchParams.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (_identifiersOnly)
             {
                 tokenSearchParams = tokenSearchParams.Where(_ => _identifiers.Contains(_.SearchParamId)).ToList();
@@ -147,48 +159,56 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             }
 
             var compartmentAssignments = _identifiersOnly ? new List<CompartmentAssignment>() : Source.GetData(_ => new CompartmentAssignment(_), resourceTypeId, minId, maxId).ToList();
+            compartmentAssignments = compartmentAssignments.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (compartmentAssignments.Count == 0)
             {
                 compartmentAssignments = null;
             }
 
             var tokenTexts = _identifiersOnly ? new List<TokenText>() : Source.GetData(_ => new TokenText(_), resourceTypeId, minId, maxId).ToList();
+            tokenTexts = tokenTexts.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (tokenTexts.Count == 0)
             {
                 tokenTexts = null;
             }
 
             var dateTimeSearchParams = _identifiersOnly ? new List<DateTimeSearchParam>() : Source.GetData(_ => new DateTimeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            dateTimeSearchParams = dateTimeSearchParams.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (dateTimeSearchParams.Count == 0)
             {
                 dateTimeSearchParams = null;
             }
 
             var tokenQuantityCompositeSearchParams = _identifiersOnly ? new List<TokenQuantityCompositeSearchParam>() : Source.GetData(_ => new TokenQuantityCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            tokenQuantityCompositeSearchParams = tokenQuantityCompositeSearchParams.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (tokenQuantityCompositeSearchParams.Count == 0)
             {
                 tokenQuantityCompositeSearchParams = null;
             }
 
             var quantitySearchParams = _identifiersOnly ? new List<QuantitySearchParam>() : Source.GetData(_ => new QuantitySearchParam(_), resourceTypeId, minId, maxId).ToList();
+            quantitySearchParams = quantitySearchParams.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (quantitySearchParams.Count == 0)
             {
                 quantitySearchParams = null;
             }
 
             var stringSearchParams = _identifiersOnly ? new List<StringSearchParam>() : Source.GetData(_ => new StringSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            stringSearchParams = stringSearchParams.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (stringSearchParams.Count == 0)
             {
                 stringSearchParams = null;
             }
 
             var tokenTokenCompositeSearchParams = _identifiersOnly ? new List<TokenTokenCompositeSearchParam>() : Source.GetData(_ => new TokenTokenCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            tokenTokenCompositeSearchParams = tokenTokenCompositeSearchParams.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (tokenTokenCompositeSearchParams.Count == 0)
             {
                 tokenTokenCompositeSearchParams = null;
             }
 
             var tokenStringCompositeSearchParams = _identifiersOnly ? new List<TokenStringCompositeSearchParam>() : Source.GetData(_ => new TokenStringCompositeSearchParam(_), resourceTypeId, minId, maxId).ToList();
+            tokenStringCompositeSearchParams = tokenStringCompositeSearchParams.Select(_ => { _.ResourceSurrogateId = surrIdToSequence[_.ResourceSurrogateId]; return _; }).ToList();
             if (tokenStringCompositeSearchParams.Count == 0)
             {
                 tokenStringCompositeSearchParams = null;
