@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             ServiceProvider provider = collection.BuildServiceProvider();
             context.HttpContext.RequestServices = provider;
 
-            result.Headers.Add("testKey1", "2");
+            result.Headers.Add("testKey1", "3");
             result.Headers.Add("testKey2", "2");
             context.HttpContext.Response.Headers.Add("testKey2", "1");
 
@@ -102,8 +102,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             Assert.True(context.HttpContext.Response.Headers.ContainsKey("testKey2"));
             Assert.True(context.HttpContext.Response.Headers.ContainsKey("testKey1"));
             Assert.Equal(2, context.HttpContext.Response.Headers.Count);
-            Assert.True(context.HttpContext.Response.Headers.TryGetValue("testKey2", out StringValues value));
-            Assert.Equal(new StringValues("2"), value);
+            Assert.True(context.HttpContext.Response.Headers.TryGetValue("testKey1", out StringValues testKey1));
+            Assert.True(context.HttpContext.Response.Headers.TryGetValue("testKey2", out StringValues testKey2));
+            Assert.Equal(new StringValues("3"), testKey1);
+            Assert.Equal(new StringValues("2"), testKey2);
         }
     }
 }
