@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -89,15 +90,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             ServiceProvider provider = collection.BuildServiceProvider();
             context.HttpContext.RequestServices = provider;
 
-            result.Headers.Add("testKey", "1");
-            context.HttpContext.Response.Headers.Add("testKey", "1");
+            result.Headers.Add("testKey1", "2");
+            result.Headers.Add("testKey2", "2");
+            context.HttpContext.Response.Headers.Add("testKey2", "1");
 
             result.ExecuteResultAsync(context);
 
             Assert.Null(result.Result);
             Assert.Equal(HttpStatusCode.Gone, result.StatusCode.GetValueOrDefault());
-            Assert.True(context.HttpContext.Response.Headers.ContainsKey("testKey"));
-            Assert.Equal(1, context.HttpContext.Response.Headers.Count);
+
+            Assert.True(context.HttpContext.Response.Headers.ContainsKey("testKey2"));
+            Assert.True(context.HttpContext.Response.Headers.ContainsKey("testKey1"));
+            Assert.Equal(2, context.HttpContext.Response.Headers.Count);
+            Assert.True(context.HttpContext.Response.Headers.TryGetValue("testKey2", out StringValues value));
+            Assert.Equal(new StringValues("2"), value);
         }
     }
 }
