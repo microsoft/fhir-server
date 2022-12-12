@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -20,6 +22,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public StringSearchTests(StringSearchTestFixture fixture)
             : base(fixture)
         {
+        }
+
+        /// <summary>
+        /// This can have two successful outcomes. We're not looking for results to come back but
+        /// rather a 422 or 200 result. If we get one of those then that indicates the
+        /// generated sql for a membermatch has been correctly handled by sql. Prior to the
+        /// revision, we would get a 8623 error that sql can't create a sql query plan.
+        /// This membermatch json will create up to 24 CTEs.
+        /// </summary>
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async void GivenAComplexSqlStatement_FromMemberMatch_SucceedsWhenExecuted()
+        {
+            HttpStatusCode httpStatusCode = HttpStatusCode.OK;
+            string body = Samples.GetJson("MemberMatch");
+            try
+            {
+                await Client.PostAsync("Patient/$member-match", body, CancellationToken.None);
+            }
+            catch (Microsoft.Health.Fhir.Client.FhirException ex)
+            {
+                httpStatusCode = ex.StatusCode;
+            }
+
+            Assert.True(httpStatusCode == System.Net.HttpStatusCode.UnprocessableEntity || httpStatusCode == System.Net.HttpStatusCode.OK);
         }
 
         [Theory]
@@ -67,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("", StringSearchTestFixture.LongString, true)]
         [InlineData("", "Not" + StringSearchTestFixture.LongString, false)]
         [InlineData(":exact", StringSearchTestFixture.LongString, true)]
-        [InlineData(":exact",  StringSearchTestFixture.LongString + "Not", false)]
+        [InlineData(":exact", StringSearchTestFixture.LongString + "Not", false)]
         [InlineData(":contains", StringSearchTestFixture.LongString, true)]
         [InlineData(":contains", StringSearchTestFixture.LongString + "Not", false)]
         [InlineData(":contains", "Vestibulum", true)]
