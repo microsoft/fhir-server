@@ -89,17 +89,24 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw;
             }
 
-            openIdConfigurationResponse.EnsureSuccessStatusCode();
-
-            var openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
-
-            _aadTokenEndpoint = openIdConfiguration["token_endpoint"]?.Value<string>();
-            _aadAuthorizeEndpoint = openIdConfiguration["authorization_endpoint"]?.Value<string>();
-
-            if (_aadTokenEndpoint == null || _aadAuthorizeEndpoint == null)
+            try
             {
-                logger.LogError("There was an error attempting to read the endpoints from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
-                throw new OpenIdConfigurationException();
+                openIdConfigurationResponse.EnsureSuccessStatusCode();
+
+                var openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+                _aadTokenEndpoint = openIdConfiguration["token_endpoint"]?.Value<string>();
+                _aadAuthorizeEndpoint = openIdConfiguration["authorization_endpoint"]?.Value<string>();
+
+                if (_aadTokenEndpoint == null || _aadAuthorizeEndpoint == null)
+                {
+                    logger.LogError("There was an error attempting to read the endpoints from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
+                    throw new OpenIdConfigurationException();
+                }
+            }
+            finally
+            {
+                openIdConfigurationResponse.Dispose();
             }
         }
 
