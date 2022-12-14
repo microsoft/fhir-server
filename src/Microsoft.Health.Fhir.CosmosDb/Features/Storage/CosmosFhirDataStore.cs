@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     // If the format is not XML, IsMetaSet will remain false and we will update the version when the resource is read.
 
-                    using MemoryStream memoryStream = _recyclableMemoryStreamManager.GetStream();
+                    using MemoryStream memoryStream = _recyclableMemoryStreamManager.GetStream(tag: nameof(CosmosFhirDataStore));
                     await new RawResourceElement(cosmosWrapper).SerializeToStreamAsUtf8Json(memoryStream);
                     memoryStream.Position = 0;
                     using var reader = new StreamReader(memoryStream, Encoding.UTF8);

@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             public override Stream ToStream<T>(T input)
             {
-                MemoryStream stream = _manager.GetStream();
+                MemoryStream stream = _manager.GetStream(tag: nameof(FhirCosmosSerializer));
                 using var writer = new StreamWriter(stream, leaveOpen: true);
                 using var jsonWriter = new JsonTextWriter(writer);
                 _serializer.Serialize(jsonWriter, input);

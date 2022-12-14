@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private async Task<Stream> DownloadDataFunc(long offset, long length)
         {
-            var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
+            var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager, tag: nameof(AzureBlobSourceStream));
             await _blobClient.DownloadRangeToStreamAsync(stream, offset, length);
             stream.Position = 0;
 

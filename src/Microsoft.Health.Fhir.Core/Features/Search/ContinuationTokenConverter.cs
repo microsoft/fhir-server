@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 try
                 {
-                    using MemoryStream memoryStream = StreamManager.GetStream(continuationTokenBytes);
+                    using MemoryStream memoryStream = StreamManager.GetStream(nameof(ContinuationTokenConverter), continuationTokenBytes, 0, continuationTokenBytes.Length);
                     using var deflate = new DeflateStream(memoryStream, CompressionMode.Decompress);
                     using var reader = new StreamReader(deflate, Encoding.UTF8);
 
