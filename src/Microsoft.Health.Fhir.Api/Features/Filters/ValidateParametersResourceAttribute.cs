@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             context.ActionArguments?.TryGetValue("inputParams", out inputResource);
             if (inputResource == null)
             {
-                throw new InvalidProgramException("Controller method does not contain parameter named 'inputParams'");
+                throw new MissingMethodException("Controller method does not contain parameter named 'inputParams'");
             }
 
             if (inputResource is not Parameters)
