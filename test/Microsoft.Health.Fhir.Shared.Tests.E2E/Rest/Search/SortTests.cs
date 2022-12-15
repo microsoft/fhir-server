@@ -42,7 +42,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Cast<Resource>().ToArray());
+            // Due to multiple service instances lastUpdated time could vary, and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.OrderBy(p => p.Meta.LastUpdated).Cast<Resource>().ToArray());
         }
 
         [Fact]
@@ -52,7 +53,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
+            // Due to multiple service instances lastUpdated time could vary, and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.OrderByDescending(p => p.Meta.LastUpdated).Cast<Resource>().ToArray());
         }
 
         [SkippableTheory]
@@ -62,6 +64,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
+
+            if (sortParameterName.Equals("birthdate", StringComparison.OrdinalIgnoreCase))
+            {
+                patients = patients.OrderBy(p => p.BirthDate).ToArray();
+            }
+            else if (sortParameterName.Equals("_lastUpdated", StringComparison.OrdinalIgnoreCase))
+            {
+                // Due to multiple service instances lastUpdated time could vary and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
+                patients = patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            }
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}", false, patients.Cast<Resource>().ToArray());
         }
@@ -73,6 +85,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
+            if (sortParameterName.Equals("birthdate"))
+            {
+                patients = patients.OrderBy(p => p.BirthDate).ToArray();
+            }
+            else if (sortParameterName.Equals("_lastUpdated"))
+            {
+                // Due to multiple service instances lastUpdated time could vary and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
+                patients = patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            }
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-{sortParameterName}", false, patients.Reverse().Cast<Resource>().ToArray());
         }
@@ -136,6 +157,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 $"Patient?_tag={tag}&_sort=family",
                 false,
                 patients.OrderBy(x => x.Name.Min(n => n.Family)).Cast<Resource>().ToArray());
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatients_WhenSearchedWithFamilySortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatients(tag);
+
+            await ExecuteAndValidateBundle(
+                $"Patient?_tag={tag}&_sort=-family",
+                false,
+                patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
         }
 
         [Fact]
@@ -217,19 +251,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatients_WhenSearchedWithFamilySortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
-        {
-            var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePatients(tag);
-
-            await ExecuteAndValidateBundle(
-                $"Patient?_tag={tag}&_sort=-family",
-                false,
-                patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
-        }
-
-        [SkippableFact]
         public async Task GivenQueryWithDatetimeFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -250,7 +271,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             // sort and filter are based on same type (datetime)
             string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
-            await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate&_tag={tag}", false, patients.Cast<Resource>().ToArray());
+
+            // CreatePatients - Creates patients with birthdates in Ascending order
+            await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate&_tag={tag}", false, patients.OrderBy(x => x.BirthDate).Cast<Resource>().ToArray());
         }
 
         [SkippableFact]
@@ -274,6 +297,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             // sort and filter are based on same type (datetime)
             string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
+
+            // CreatePatients - Creates patients with birthdates in Ascending order
             await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=-birthdate&_tag={tag}", false, patients.OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
         }
 
@@ -287,7 +312,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate", false, patients.Cast<Resource>().ToArray());
+
+            // CreatePatients - Creates patients with birthdates in Ascending order
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate", false, patients.OrderBy(x => x.BirthDate).Cast<Resource>().ToArray());
         }
 
         [SkippableFact]
@@ -300,6 +327,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
+
+            // CreatePatients - Creates patients with birthdates in Ascending order
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate", false, patients.OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
         }
 
@@ -340,6 +369,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
+            // CreatePatients - Creates patients with birthdates in Ascending order
+            patients = patients.OrderBy(x => x.BirthDate).ToArray();
             resources.AddRange(patients);
 
             foreach (Patient p in patients)
@@ -355,6 +386,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnDatetimeWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            var resources = new List<Resource>();
+
+            // create the resources which will have an timestamp bigger than the 'now' var
+            var patients = await CreatePatients(tag);
+
+            // CreatePatients - Creates patients with birthdates in Ascending order
+            patients = patients.OrderBy(x => x.BirthDate).ToArray();
+
+            var observations = new List<Observation>();
+            for (int i = 0; i < patients.Length; i++)
+            {
+                var obs = await AddObservationToPatient(patients[i], "1990-01-01", tag);
+                observations.Add(obs.First());
+            }
+
+            resources.AddRange(patients.Reverse());
+            resources.AddRange(observations);
+
+            // Ask to get all patient with specific tag order by birthdate (timestamp)
+            // filter and sort are different based on different types
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_revinclude=Observation:subject", false, resources.ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnLastupdated_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -363,6 +423,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
+
+            // CreatePatients - Creates patients in Ascending order but due to multiple instances lastUpdated time could vary
+            patients = patients.OrderBy(x => x.Meta.LastUpdated).ToArray();
 
             var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
@@ -390,6 +453,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
+            // CreatePatients - Creates patients in Ascending order but due to multiple instances lastUpdated time could vary
+            patients = patients.OrderBy(x => x.Meta.LastUpdated).ToArray();
+
             var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
             {
@@ -404,32 +470,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated&_revinclude=Observation:subject", false, resources.ToArray());
-        }
-
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnDatetimeWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
-        {
-            var tag = Guid.NewGuid().ToString();
-
-            var resources = new List<Resource>();
-
-            // create the resources which will have an timestamp bigger than the 'now' var
-            var patients = await CreatePatients(tag);
-
-            var observations = new List<Observation>();
-            for (int i = 0; i < patients.Length; i++)
-            {
-                var obs = await AddObservationToPatient(patients[i], "1990-01-01", tag);
-                observations.Add(obs.First());
-            }
-
-            resources.AddRange(patients.Reverse());
-            resources.AddRange(observations);
-
-            // Ask to get all patient with specific tag order by birthdate (timestamp)
-            // filter and sort are different based on different types
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_revinclude=Observation:subject", false, resources.ToArray());
         }
 
         [Fact]
@@ -852,7 +892,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "New York", "Williamas", tag, DateTime.Now.Subtract(TimeSpan.FromDays(40))),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, DateTime.Now.Subtract(TimeSpan.FromDays(30))));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private async Task<Patient[]> CreatePaginatedPatients(string tag)
@@ -872,7 +912,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private async Task<Patient[]> CreatePatientsWithSameBirthdate(string tag)
@@ -885,7 +925,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Seattle", "Alex", tag),
                 p => SetPatientInfo(p, "Portland", "Rock", tag));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
@@ -899,7 +939,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
@@ -914,7 +954,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
