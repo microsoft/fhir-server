@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
     public class AzureBlobSourceStream : Stream
     {
+        private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
         private const int DefaultConcurrentCount = 3;
         public const int DefaultBlockBufferSize = 8 * 1024 * 1024;
 
@@ -172,9 +173,19 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private async Task<Stream> DownloadDataFunc(long offset, long length)
         {
+            // Stream is returned to the method caller, unable to dispose it under the current scope.
             var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager, tag: nameof(AzureBlobSourceStream));
             await _blobClient.DownloadRangeToStreamAsync(stream, offset, length);
             stream.Position = 0;
+
+            if (stream.Length >= BlobSizeThresholdWarningInBytes)
+            {
+                _logger.LogInformation(
+                    "{Origin} - MemoryWatch - Heavy blob downloaded. Blob size: {BlobSize}. Current memory in use: {MemoryInUse}.",
+                    nameof(AzureBlobSourceStream),
+                    stream.Length,
+                    GC.GetTotalMemory(forceFullCollection: false));
+            }
 
             return stream;
         }

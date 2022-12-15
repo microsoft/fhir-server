@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
+        private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
+
         /// <summary>
         /// The fraction of <see cref="QueryRequestOptions.MaxItemCount"/> to attempt to fill before giving up.
         /// </summary>
@@ -235,6 +237,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     using MemoryStream memoryStream = _recyclableMemoryStreamManager.GetStream(tag: nameof(CosmosFhirDataStore));
                     await new RawResourceElement(cosmosWrapper).SerializeToStreamAsUtf8Json(memoryStream);
+
+                    if (memoryStream.Length >= BlobSizeThresholdWarningInBytes)
+                    {
+                        _logger.LogInformation(
+                            "{Origin} - MemoryWatch - Heavy serialization in memory. Stream size: {StreamSize}. Current memory in use: {MemoryInUse}.",
+                            nameof(CosmosFhirDataStore),
+                            memoryStream.Length,
+                            GC.GetTotalMemory(forceFullCollection: false));
+                    }
+
                     memoryStream.Position = 0;
                     using var reader = new StreamReader(memoryStream, Encoding.UTF8);
                     cosmosWrapper.RawResource = new RawResource(await reader.ReadToEndAsync(), FhirResourceFormat.Json, isMetaSet: true);

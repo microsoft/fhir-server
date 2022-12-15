@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(minimumLength),
-                    $"The size of the array attempted to be rent is greater or equal than 100MB. Value {minimumLength}.");
+                    $"{nameof(JsonArrayPool)} - MemoryWatch - The size of the array attempted to be rent is greater or equal than 100MB. Value {minimumLength}.");
             }
 
             return _inner.Rent(minimumLength);

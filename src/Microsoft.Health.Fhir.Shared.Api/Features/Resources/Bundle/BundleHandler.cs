@@ -626,14 +626,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private void RunGarbageCollection()
         {
-            _logger.LogTrace("Memory used before collection: {MemoryInUse:N0}", GC.GetTotalMemory(forceFullCollection: false));
+            try
+            {
+                _logger.LogTrace("{Origin} - MemoryWatch - Memory used before collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
 
-            // Collecting memory up to Generation 2 using default collection mode.
-            // No blocking, allowing a collection to be performed as soon as possible, if another collection is not in progress.
-            // SOH compacting is set to true.
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
+                // Collecting memory up to Generation 2 using default collection mode.
+                // No blocking, allowing a collection to be performed as soon as possible, if another collection is not in progress.
+                // SOH compacting is set to true.
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
 
-            _logger.LogTrace("Memory used after full collection: {MemoryInUse:N0}", GC.GetTotalMemory(forceFullCollection: false));
+                _logger.LogTrace("{Origin} - MemoryWatch - Memory used after full collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Origin} - MemoryWatch - Error running garbage collection.", nameof(BundleHandler));
+            }
         }
 
         private static OperationOutcome CreateOperationOutcome(OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, string diagnostics)
