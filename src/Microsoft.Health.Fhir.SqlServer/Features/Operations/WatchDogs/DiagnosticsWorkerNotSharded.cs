@@ -13,9 +13,9 @@ using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.WatchDogs
 {
-    public class DiagnosticsWorker
+    public class DiagnosticsWorkerNotSharded
     {
-        public DiagnosticsWorker(string connStr)
+        public DiagnosticsWorkerNotSharded(string connStr)
         {
             SqlService = new SqlService(connStr);
             BatchExtensions.StartTask(() =>
@@ -55,7 +55,9 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
 
         private void LogDiagnostics()
         {
-            var cmd = @"
+            if (IsEnabled())
+            {
+                using var cmd = new SqlCommand(@"
 INSERT INTO dbo.SG_PAGEIOLATCH
   SELECT wait_type, wait_resource, wait_time, Date=getUTCdate()
     --INTO SG_PAGEIOLATCH
@@ -65,11 +67,8 @@ INSERT INTO dbo.SG_PAGEIOLATCH
       AND wait_time > 10000
   UNION ALL 
   SELECT 'KeepAlive','',0,getUTCdate()
-                ";
-
-            if (IsEnabled())
-            {
-                SqlService.ExecuteSqlWithRetries(SqlService.ConnectionString, cmd, ExecuteNonQuery);
+                ");
+                SqlService.ExecuteSqlWithRetries(SqlService.ConnectionString, cmd, cmdInt => cmdInt.ExecuteNonQuery());
             }
         }
     }
