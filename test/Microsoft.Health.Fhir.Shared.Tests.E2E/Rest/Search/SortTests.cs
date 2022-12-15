@@ -107,7 +107,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients);
+            // For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order)
+            // Since sort is based on BirthDate which is same hence the order in which resources will be returned depends on their creation time
+            // Above patients array could be out of sync due to inconsistent system time across multiple server instances so sort the expected patients array
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.OrderBy(p => p.Meta.LastUpdated).ToArray());
         }
 
         [SkippableFact]
