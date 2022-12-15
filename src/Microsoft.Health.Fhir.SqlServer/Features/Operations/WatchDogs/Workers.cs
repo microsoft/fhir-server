@@ -19,23 +19,24 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
             _connectionString = SqlUtils.SqlService.GetCanonicalConnectionString(connectionString);
             _configService = new SqlUtils.SqlService(_connectionString);
             _targetConnectionString = GetTargetConnectionString();
-            if (IsSharded(_targetConnectionString, _configService))
+            try
             {
-                try
+                if (IsSharded(_targetConnectionString, _configService))
                 {
-                    _ = new CopyWorker(_targetConnectionString);
-                    _ = new IndexRebuildWorker(_targetConnectionString);
-                    _ = new QueryWorker(_targetConnectionString);
+                        _ = new CopyWorker(_targetConnectionString);
+                        _ = new IndexRebuildWorker(_targetConnectionString);
+                        _ = new QueryWorker(_targetConnectionString);
                 }
-                catch (Exception e)
+                else
                 {
-                    _configService.LogEvent("Workers", "Error", "Create Workers", text: e.ToString());
+                    _ = new CopyWorkerNotSharded(_targetConnectionString);
+                    _ = new IndexRebuildWorkerNotSharded(_targetConnectionString);
+                    _ = new DiagnosticsWorkerNotSharded(_targetConnectionString);
                 }
             }
-            else
+            catch (Exception e)
             {
-                _ = new CopyWorkerNotSharded(_targetConnectionString);
-                _ = new IndexRebuildWorkerNotSharded(_targetConnectionString);
+                _configService.LogEvent("Workers", "Error", "Create Workers", text: e.ToString());
             }
         }
 
