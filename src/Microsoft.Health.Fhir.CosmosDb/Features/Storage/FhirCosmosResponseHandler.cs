@@ -60,7 +60,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             finally
             {
-                // FERNFE - Evaluate the impact of this change.
                 request.Dispose();
             }
 
