@@ -7,14 +7,14 @@ namespace Microsoft.Health.JobManagement
 {
     public static class Constants
     {
-        public const int DefaultPollingFrequencyInSeconds = 10;
+        public const int DefaultPollingFrequencyInSeconds = 30;
 
-        public const short DefaultMaxRunningJobCount = 1;
+        public const short DefaultMaxRunningJobCount = 2;
 
         public const short DefaultMaxRetryCount = 3;
 
-        public const int DefaultJobHeartbeatTimeoutThresholdInSeconds = 600;
+        public const int DefaultJobHeartbeatTimeoutThresholdInSeconds = 300;
 
-        public const int DefaultJobHeartbeatIntervalInSeconds = 60;
+        public const int DefaultJobHeartbeatIntervalInSeconds = 30;
     }
 }

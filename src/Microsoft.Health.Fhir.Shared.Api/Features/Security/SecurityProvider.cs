@@ -150,6 +150,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                     _logger.LogWarning(ex, "There was an exception while attempting to read the endpoints from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
                     throw new OpenIdConfigurationException();
                 }
+                finally
+                {
+                    openIdConfigurationResponse.Dispose();
+                }
 
                 var smartExtension = new
                 {
@@ -174,6 +178,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             else
             {
                 _logger.LogWarning("The OpenId Configuration request from \"{OpenIdConfigurationUrl}\" returned an {StatusCode} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
+                openIdConfigurationResponse.Dispose();
                 throw new OpenIdConfigurationException();
             }
 

@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -12,9 +14,10 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 {
@@ -32,7 +35,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
         private readonly OperationsConfiguration _operationsConfiguration;
+        private readonly Func<IExportJobTask> _exportJobTaskFactory;
+        private readonly ISearchService _searchService;
         private readonly ILoggerFactory _loggerFactory;
+        private readonly Dictionary<int, Func<IJob>> _jobFactoryLookup;
 
         public JobFactory(
             IImportResourceLoader importResourceLoader,
@@ -44,6 +50,9 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IOptions<OperationsConfiguration> operationsConfig,
             IMediator mediator,
+            Func<IExportJobTask> exportJobTaskFactory,
+            ISearchService searchService,
+            IEnumerable<Func<IJob>> jobFactories,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
@@ -54,6 +63,9 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
+            EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(jobFactories, nameof(jobFactories));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _importResourceLoader = importResourceLoader;
@@ -65,76 +77,36 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             _contextAccessor = contextAccessor;
             _mediator = mediator;
             _operationsConfiguration = operationsConfig.Value;
+            _exportJobTaskFactory = exportJobTaskFactory;
+            _searchService = searchService;
             _loggerFactory = loggerFactory;
+
+            _jobFactoryLookup = new Dictionary<int, Func<IJob>>();
+
+            foreach (Func<IJob> jobFunc in jobFactories)
+            {
+                var instance = jobFunc.Invoke();
+                if (instance.GetType().GetCustomAttribute(typeof(JobTypeIdAttribute), false) is JobTypeIdAttribute jobTypeAttr)
+                {
+                    _jobFactoryLookup.Add(jobTypeAttr.JobTypeId, jobFunc);
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Job type {instance.GetType().Name} does not have {nameof(JobTypeIdAttribute)}.");
+                }
+            }
         }
 
         public IJob Create(JobInfo jobInfo)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
-            Func<JobInfo, IJob>[] taskFactoryFuncs =
-                new Func<JobInfo, IJob>[] { CreateProcessingTask, CreateOrchestratorTask };
-
-            foreach (Func<JobInfo, IJob> factoryFunc in taskFactoryFuncs)
+            if (_jobFactoryLookup.TryGetValue(jobInfo.GetJobTypeId() ?? int.MinValue, out Func<IJob> jobFactory))
             {
-                IJob task = factoryFunc(jobInfo);
-                if (task != null)
-                {
-                    return task;
-                }
+                return jobFactory.Invoke();
             }
 
             throw new NotSupportedException($"Unknown task definition. ID: {jobInfo?.Id ?? -1}");
-        }
-
-        private IJob CreateOrchestratorTask(JobInfo taskInfo)
-        {
-            EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
-
-            ImportOrchestratorJobInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorJobInputData>(taskInfo.Definition);
-            if (inputData.TypeId == ImportOrchestratorJob.ImportOrchestratorTypeId)
-            {
-                ImportOrchestratorJobResult currentResult = string.IsNullOrEmpty(taskInfo.Result) ? new ImportOrchestratorJobResult() : JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(taskInfo.Result);
-
-                return new ImportOrchestratorJob(
-                    _mediator,
-                    inputData,
-                    currentResult,
-                    _contextAccessor,
-                    _importOrchestratorTaskDataStoreOperation,
-                    _integrationDataStoreClient,
-                    _queueClient,
-                    taskInfo,
-                    _operationsConfiguration.Import,
-                    _loggerFactory);
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        private IJob CreateProcessingTask(JobInfo taskInfo)
-        {
-            EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
-
-            ImportProcessingJobInputData inputData = JsonConvert.DeserializeObject<ImportProcessingJobInputData>(taskInfo.Definition);
-            if (inputData.TypeId == ImportProcessingJob.ImportProcessingJobTypeId)
-            {
-                ImportProcessingJobResult currentResult = string.IsNullOrEmpty(taskInfo.Result) ? new ImportProcessingJobResult() : JsonConvert.DeserializeObject<ImportProcessingJobResult>(taskInfo.Result);
-                return new ImportProcessingJob(
-                    inputData,
-                    currentResult,
-                    _importResourceLoader,
-                    _resourceBulkImporter,
-                    _importErrorStoreFactory,
-                    _contextAccessor,
-                    _loggerFactory);
-            }
-            else
-            {
-                return null;
-            }
         }
     }
 }
