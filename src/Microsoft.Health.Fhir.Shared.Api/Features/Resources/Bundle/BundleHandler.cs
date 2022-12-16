@@ -297,6 +297,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 using (var transaction = _transactionHandler.BeginTransaction())
                 {
+                    // FHIBF - Transactions are still executed in parallel. We should change that.
                     await ExecuteAllRequestsAsync(responseBundle, cancellationToken);
 
                     transaction.Complete();
