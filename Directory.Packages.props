@@ -84,7 +84,7 @@
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.3.0" />
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="2.0.0" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.435" />
-    <PackageVersion Include="System.Collections.Immutable" Version="6.0.0" />
+    <PackageVersion Include="System.Collections.Immutable" Version="7.0.0" />
     <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.Configuration.Configuration" Version="6.0.1" />
