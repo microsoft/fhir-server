@@ -414,8 +414,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
         {
+            const int GCCollectTrigger = 150;
+
             foreach ((RouteContext request, int entryIndex, string persistedId) in _requests[httpVerb])
             {
+                if (entryIndex % GCCollectTrigger == 0)
+                {
+                    RunGarbageCollection();
+                }
+
                 EntryComponent entryComponent;
 
                 if (request.Handler != null)
@@ -614,6 +621,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         break;
                 }
+            }
+        }
+
+        private void RunGarbageCollection()
+        {
+            try
+            {
+                _logger.LogTrace("{Origin} - MemoryWatch - Memory used before collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
+
+                // Collecting memory up to Generation 2 using default collection mode.
+                // No blocking, allowing a collection to be performed as soon as possible, if another collection is not in progress.
+                // SOH compacting is set to true.
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
+
+                _logger.LogTrace("{Origin} - MemoryWatch - Memory used after full collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Origin} - MemoryWatch - Error running garbage collection.", nameof(BundleHandler));
             }
         }
 

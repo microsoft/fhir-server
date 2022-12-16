@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
             {
                 // Make a non-invasive query to make sure we can reach the data store.
 
-                await _testProvider.PerformTest(_container.Value, _configuration, _cosmosCollectionConfiguration);
+                await _testProvider.PerformTestAsync(_container.Value, _configuration, _cosmosCollectionConfiguration, cancellationToken);
 
                 return HealthCheckResult.Healthy("Successfully connected to the data store.");
             }

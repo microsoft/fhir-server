@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
+                using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager, tag: nameof(ImportErrorStore));
                 using StreamWriter writer = new StreamWriter(stream);
 
                 foreach (string error in importErrors)

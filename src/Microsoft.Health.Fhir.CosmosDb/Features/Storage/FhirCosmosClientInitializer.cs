@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var builder = new CosmosClientBuilder(host, key)
                 .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
-                .WithCustomSerializer(new FhirCosmosSerializer())
+                .WithCustomSerializer(new FhirCosmosSerializer(_logger))
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
                 .AddCustomHandlers(requestHandlers.ToArray());
 
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(async () =>
-                    await _testProvider.PerformTest(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
+                    await _testProvider.PerformTestAsync(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
 
                 _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             }
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         /// <inheritdoc />
-        public async Task InitializeDataStore(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers)
+        public async Task InitializeDataStoreAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -129,12 +130,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         async () =>
                             await client.CreateDatabaseIfNotExistsAsync(
                                 cosmosDataStoreConfiguration.DatabaseId,
-                                cosmosDataStoreConfiguration.InitialDatabaseThroughput.HasValue ? ThroughputProperties.CreateManualThroughput(cosmosDataStoreConfiguration.InitialDatabaseThroughput.Value) : null));
+                                cosmosDataStoreConfiguration.InitialDatabaseThroughput.HasValue ? ThroughputProperties.CreateManualThroughput(cosmosDataStoreConfiguration.InitialDatabaseThroughput.Value) : null,
+                                cancellationToken: cancellationToken));
                 }
 
                 foreach (var collectionInitializer in collectionInitializers)
                 {
-                    await collectionInitializer.InitializeCollection(client);
+                    await collectionInitializer.InitializeCollectionAsync(client, cancellationToken);
                 }
 
                 _logger.LogInformation("Cosmos DB Database {DatabaseId} and collections successfully initialized", cosmosDataStoreConfiguration.DatabaseId);
@@ -149,8 +151,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private class FhirCosmosSerializer : CosmosSerializer
         {
-            private readonly JsonSerializer _serializer = CreateSerializer();
+            private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
+
             private static readonly RecyclableMemoryStreamManager _manager = new RecyclableMemoryStreamManager();
+
+            private readonly ILogger<FhirCosmosClientInitializer> _logger;
+            private readonly JsonSerializer _serializer;
+
+            public FhirCosmosSerializer(ILogger<FhirCosmosClientInitializer> logger)
+            {
+                _logger = logger;
+                _serializer = CreateSerializer();
+            }
 
             private static JsonSerializer CreateSerializer()
             {
@@ -178,19 +190,52 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             public override T FromStream<T>(Stream stream)
             {
-                using var textReader = new StreamReader(stream);
-                using var reader = new JsonTextReader(textReader);
-                return _serializer.Deserialize<T>(reader);
+                try
+                {
+                    using var textReader = new StreamReader(stream);
+                    using var reader = new JsonTextReader(textReader);
+
+                    if (stream.Length >= BlobSizeThresholdWarningInBytes)
+                    {
+                        _logger.LogInformation(
+                            "{Origin} - MemoryWatch - Heavy deserialization in memory. Stream size: {StreamSize}. Current memory in use: {MemoryInUse}.",
+                            nameof(FhirCosmosSerializer),
+                            stream.Length,
+                            GC.GetTotalMemory(forceFullCollection: false));
+                    }
+
+                    return _serializer.Deserialize<T>(reader);
+                }
+                finally
+                {
+                    // As the documentation suggests, the implementation is responsible for Disposing of the stream, including when an exception is thrown, to avoid memory leaks.
+                    // Reference: https://learn.microsoft.com/en-us/dotnet/api/microsoft.azure.cosmos.cosmosserializer.fromstream
+                    if (stream != null)
+                    {
+                        stream.Dispose();
+                    }
+                }
             }
 
             public override Stream ToStream<T>(T input)
             {
-                MemoryStream stream = _manager.GetStream();
+                // Stream is returned to the method caller, unable to dispose it under the current scope.
+                MemoryStream stream = _manager.GetStream(tag: nameof(FhirCosmosSerializer));
                 using var writer = new StreamWriter(stream, leaveOpen: true);
                 using var jsonWriter = new JsonTextWriter(writer);
                 _serializer.Serialize(jsonWriter, input);
                 jsonWriter.Flush();
                 stream.Position = 0;
+
+                if (stream.Length >= BlobSizeThresholdWarningInBytes)
+                {
+                    _logger.LogInformation(
+                        "{Origin} - MemoryWatch - Heavy serialization in memory. Stream size: {StreamSize}. Current memory in use: {MemoryInUse}.",
+                        nameof(FhirCosmosSerializer),
+                        stream.Length,
+                        GC.GetTotalMemory(forceFullCollection: false));
+                }
+
                 return stream;
             }
         }
