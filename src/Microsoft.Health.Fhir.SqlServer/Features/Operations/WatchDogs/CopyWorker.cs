@@ -259,25 +259,11 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                     using var cmd = new SqlCommand($"SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND TransactionId = @TransactionId") { CommandTimeout = 600 };
                     cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
                     cmd.Parameters.AddWithValue("@TransactionId", transactionId.Id);
-                    ShardedSource.ExecuteSqlWithRetries(
-                        shardId,
-                        cmd,
-                        cmdInt =>
-                        {
-                            var resultsInt = new List<T>();
-                            using var reader = cmdInt.ExecuteReader();
-                            while (reader.Read())
-                            {
-                                resultsInt.Add(toT(reader));
-                            }
-
-                            reader.NextResult();
-
-                            lock (results)
-                            {
-                                results.AddRange(resultsInt);
-                            }
-                        });
+                    var resultsInt = ShardedSource.ExecuteSqlReaderWithRetries(shardId, cmd, toT);
+                    lock (results)
+                    {
+                        results.AddRange(resultsInt);
+                    }
                 },
                 null);
             if (results.Count == 0)
