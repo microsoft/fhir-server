@@ -268,17 +268,17 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.True(isDisabled);
 
-                await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
-                isDisabled = await GetIndexDisableStatus(index.indexName);
-                Assert.False(isDisabled);
+                ////await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
+                ////isDisabled = await GetIndexDisableStatus(index.indexName);
+                ////Assert.False(isDisabled);
 
-                // Can rebuild twice
-                await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
-                isDisabled = await GetIndexDisableStatus(index.indexName);
-                Assert.False(isDisabled);
+                ////// Can rebuild twice
+                ////await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
+                ////isDisabled = await GetIndexDisableStatus(index.indexName);
+                ////Assert.False(isDisabled);
 
-                string compressionAfter = await GetIndexCompression(index.indexName, index.tableName);
-                Assert.Equal($"{index.indexName}_{compressionBefore}", $"{index.indexName}_{compressionAfter}");
+                ////string compressionAfter = await GetIndexCompression(index.indexName, index.tableName);
+                ////Assert.Equal($"{index.indexName}_{compressionBefore}", $"{index.indexName}_{compressionAfter}");
             }
         }
 
@@ -330,17 +330,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 command.CommandText = query;
 
                 return (string)(await command.ExecuteScalarAsync(CancellationToken.None));
-            }
-        }
-
-        private async Task RebuildIndex(string tableName, string indexName, bool pageCompression)
-        {
-            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
-            using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName, pageCompression);
-                await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
             }
         }
 

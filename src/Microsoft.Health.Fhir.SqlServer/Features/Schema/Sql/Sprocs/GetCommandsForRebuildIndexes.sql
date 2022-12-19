@@ -1,7 +1,7 @@
 ﻿--IF object_id('GetCommandsForRebuildIndexes') IS NOT NULL DROP PROCEDURE dbo.GetCommandsForRebuildIndexes
 GO
 CREATE PROCEDURE dbo.GetCommandsForRebuildIndexes @RebuildClustered bit
-WITH EXECUTE AS SELF
+WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetCommandsForRebuildIndexes'

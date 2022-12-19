@@ -216,6 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Exclude them from the schema comparison differences.
             (string type, string name)[] deprecatedObjectToIgnore =
             {
+                ("Procedure", "[dbo].[RebuildIndex]"),
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
