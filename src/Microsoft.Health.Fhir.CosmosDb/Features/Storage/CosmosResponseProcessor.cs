@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// if the status code is 429.
         /// </summary>
         /// <param name="response">The response that has errored</param>
-        public async Task ProcessErrorResponse(ResponseMessage response)
+        public async Task ProcessErrorResponse(CosmosResponseMessage response)
         {
             if (!response.IsSuccessStatusCode)
             {
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Updates the request context with Cosmos DB info and updates response headers with the session token and request change values.
         /// </summary>
         /// <param name="responseMessage">The response message</param>
-        public async Task ProcessResponse(ResponseMessage responseMessage)
+        public async Task ProcessResponse(CosmosResponseMessage responseMessage)
         {
             var responseRequestCharge = responseMessage.Headers.RequestCharge;
 
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 // This is planted in FhirCosmosSearchService in order for us to relay the individual responses
                 // back for analysis of the selectivity of the search.
-                ((ConcurrentBag<ResponseMessage>)propertyValue).Add(responseMessage);
+                ((ConcurrentBag<CosmosResponseMessage>)propertyValue).Add(responseMessage);
             }
 
             await AddRequestChargeToFhirRequestContext(responseRequestCharge, responseMessage.StatusCode);

@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private Stream GenerateCompressedRawResource(string rawResource)
         {
-            var outputStream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
+            var outputStream = new RecyclableMemoryStream(_recyclableMemoryStreamManager, tag: nameof(ImportResourceParser));
             _compressedRawResourceConverter.WriteCompressedRawResource(outputStream, rawResource);
 
             return outputStream;

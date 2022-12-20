@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                 Content = new FormUrlEncodedContent(parameters),
             };
 
-            var refreshTokenResponse = await SendRequestAsync(request, cancellationToken);
+            using HttpResponseMessage refreshTokenResponse = await SendRequestAsync(request, cancellationToken);
             if (refreshTokenResponse.StatusCode == HttpStatusCode.Unauthorized)
             {
                 _logger.LogInformation("Failed to exchange ACR refresh token: ACR server is unauthorized.");
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                 Content = new FormUrlEncodedContent(parameters),
             };
 
-            var accessTokenResponse = await SendRequestAsync(request, cancellationToken);
+            using HttpResponseMessage accessTokenResponse = await SendRequestAsync(request, cancellationToken);
             if (accessTokenResponse.StatusCode == HttpStatusCode.Unauthorized)
             {
                 _logger.LogInformation("Failed to get ACR access token: ACR server is unauthorized.");
