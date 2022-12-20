@@ -74,7 +74,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <returns>bool if request timeout found in the body of the message</returns>
         public static bool IsServiceUnavailableDueToTimeout(this CosmosException exception)
         {
-            if (exception.StatusCode == HttpStatusCode.ServiceUnavailable)
+            if (exception.StatusCode == HttpStatusCode.ServiceUnavailable
+                || exception.StatusCode == HttpStatusCode.RequestTimeout)
             {
                 if (exception.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase) ||
                     exception.InnerException.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase))
