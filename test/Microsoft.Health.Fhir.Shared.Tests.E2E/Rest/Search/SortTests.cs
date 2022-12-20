@@ -23,7 +23,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.Sort)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class SortTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             if (sortParameterName.Equals("birthdate", StringComparison.OrdinalIgnoreCase))
             {
+                // CreatePaginatedPatients - Tries to Create Patients array in the increasing order of BirthDates so no need to Sort but still doing it to avoid failures
                 patients = patients.OrderBy(p => p.BirthDate).ToArray();
             }
             else if (sortParameterName.Equals("_lastUpdated", StringComparison.OrdinalIgnoreCase))
@@ -85,11 +86,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
-            if (sortParameterName.Equals("birthdate"))
+            if (sortParameterName.Equals("birthdate", StringComparison.OrdinalIgnoreCase))
             {
+                // CreatePaginatedPatients - Tries to Create Patients array in the increasing order of BirthDates so no need to Sort but still doing it to avoid failures
                 patients = patients.OrderBy(p => p.BirthDate).ToArray();
             }
-            else if (sortParameterName.Equals("_lastUpdated"))
+            else if (sortParameterName.Equals("_lastUpdated", StringComparison.OrdinalIgnoreCase))
             {
                 // Due to multiple service instances lastUpdated time could vary and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
                 patients = patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
@@ -108,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
             // For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order)
-            // Since sort is based on BirthDate which is same hence the order in which resources will be returned depends on their creation time
+            // Since sort is based on same BirthDate, the order in which resources will be returned depends on their creation time for both the cases
             // Above patients array could be out of sync due to inconsistent system time across multiple server instances so sort the expected patients array
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.OrderBy(p => p.Meta.LastUpdated).ToArray());
         }
@@ -120,6 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
+            // Cosmos sometimes returns the results in weird pattern
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
         }
 
@@ -130,6 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
+            // Cosmos sometimes returns the results in weird pattern
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_count=3", false, pageSize: 3, patients.Reverse().Cast<Resource>().ToArray());
         }
 
@@ -156,6 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatients(tag);
 
+            // We are ordering the patients array by Family name
             await ExecuteAndValidateBundle(
                 $"Patient?_tag={tag}&_sort=family",
                 false,
@@ -169,6 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatients(tag);
 
+            // We are ordering the patients array by Family name
             await ExecuteAndValidateBundle(
                 $"Patient?_tag={tag}&_sort=-family",
                 false,
@@ -291,11 +297,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
-            // Ask to get all patient with datetime filter
-            // Note: this might result in getting Patients that were created on other tests (concurrent tests),
-            // e.g. previous runs which were not cleaned yet, or concurrent tests.
-            // we overcome this issue by not looking for specific results, rather just make sure they are
-            // sorted.
+            // Ask to get all patient with datetime filter and specific tag
 
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             // sort and filter are based on same type (datetime)
@@ -310,7 +312,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
 
-            // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
@@ -617,6 +618,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
+            // Need to make sure that [0..5] are the Patients with R in the family name
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family", sort: false, patients[0..5]);
         }
 

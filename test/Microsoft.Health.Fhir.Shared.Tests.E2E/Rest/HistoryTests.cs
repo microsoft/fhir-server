@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Some tests have Thread.Sleep to avoid query time to fall in future
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.History)]
     [CollectionDefinition("History", DisableParallelization = true)]
     [Collection("History")]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
