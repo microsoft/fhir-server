@@ -19,7 +19,7 @@ GO
 CREATE PROCEDURE dbo.DisableIndex
     @tableName nvarchar(128),
     @indexName nvarchar(128)
-WITH EXECUTE AS SELF
+WITH EXECUTE AS 'dbo'
 AS
 DECLARE @errorTxt as varchar(1000)
        ,@sql as nvarchar (1000)
