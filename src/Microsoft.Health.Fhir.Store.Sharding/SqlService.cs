@@ -46,10 +46,16 @@ namespace Microsoft.Health.Fhir.Store.Sharding
             ExecuteSqlWithRetries(connStr, cmd, action, connectionTimeoutSec);
         }
 
-        internal void ExecuteSqlReaderWithRetries(ShardId? shardId, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600)
+        public void ExecuteSqlReaderWithRetries(ShardId? shardId, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600)
         {
             var connStr = GetConnectionSring(shardId);
             ExecuteSqlReaderWithRetries(connStr, cmd, action, connectionTimeoutSec);
+        }
+
+        public IList<T> ExecuteSqlReaderWithRetries<T>(ShardId? shardId, SqlCommand cmd, Func<SqlDataReader, T> toT, int connectionTimeoutSec = 600)
+        {
+            var connStr = GetConnectionSring(shardId);
+            return ExecuteSqlReaderWithRetries(connStr, cmd, toT, connectionTimeoutSec);
         }
 
         private IDictionary<ShardId, IList<ShardletId>> GetShardedShardletIds(IEnumerable<ShardletId> shardletIds)

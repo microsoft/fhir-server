@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
@@ -122,15 +123,36 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
         public static void ExecuteSqlReaderWithRetries(string connectionString, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600)
         {
             ExecuteSqlWithRetries(
-                    connectionString,
-                    cmd,
-                    cmdInt =>
+                connectionString,
+                cmd,
+                cmdInt =>
+                {
+                    using var reader = cmdInt.ExecuteReader();
+                    action(reader);
+                    reader.NextResult();
+                },
+                connectionTimeoutSec);
+        }
+
+        public static IList<T> ExecuteSqlReaderWithRetries<T>(string connectionString, SqlCommand cmd, Func<SqlDataReader, T> toT, int connectionTimeoutSec = 600)
+        {
+            IList<T> results = null;
+            ExecuteSqlWithRetries(
+                connectionString,
+                cmd,
+                cmdInt =>
+                {
+                    using var reader = cmdInt.ExecuteReader();
+                    results = new List<T>();
+                    while (reader.Read())
                     {
-                        using var reader = cmdInt.ExecuteReader();
-                        action(reader);
-                        reader.NextResult(); // this enables catching exception that happens after result set has been returned
-                    },
-                    connectionTimeoutSec);
+                        results.Add(toT(reader));
+                    }
+
+                    reader.NextResult();
+                },
+                connectionTimeoutSec);
+            return results;
         }
 
         public void LogEvent(string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
