@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenUnclusteredIndexes_WhenRebuildDisableIndexes_ThenIndexShouldBeChanged()
+        public async Task GivenUnclusteredIndexes_WhenDisableIndexes_ThenIndexShouldBeChanged()
         {
             List<(Table table, Index index, bool pageCompression)> indexeRecords = new List<(Table table, Index index, bool pageCompression)>();
             indexeRecords.AddRange(_sqlServerFhirDataBulkOperation.IndexesList());
@@ -267,18 +267,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 await DisableIndex(index.tableName, index.indexName);
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.True(isDisabled);
-
-                ////await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
-                ////isDisabled = await GetIndexDisableStatus(index.indexName);
-                ////Assert.False(isDisabled);
-
-                ////// Can rebuild twice
-                ////await RebuildIndex(index.tableName, index.indexName, index.pageCompression);
-                ////isDisabled = await GetIndexDisableStatus(index.indexName);
-                ////Assert.False(isDisabled);
-
-                ////string compressionAfter = await GetIndexCompression(index.indexName, index.tableName);
-                ////Assert.Equal($"{index.indexName}_{compressionBefore}", $"{index.indexName}_{compressionAfter}");
             }
         }
 
