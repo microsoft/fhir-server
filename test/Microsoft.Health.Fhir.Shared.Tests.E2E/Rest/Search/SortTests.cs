@@ -23,7 +23,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.Sort)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class SortTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
@@ -244,6 +244,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
         }
 
+        /*
+         * Flaky test - commented temporarily
         [SkippableFact]
         public async Task GivenQueryWithDatetimeFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -267,6 +269,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
             await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate&_tag={tag}", false, patients.Cast<Resource>().ToArray());
         }
+        */
 
         /*
          * Flaky test - commented temporarily
@@ -295,6 +298,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
         */
 
+        /*
+         * Flaky test - commented temporarily
         [SkippableFact]
         public async Task GivenQueryWithTagFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -307,6 +312,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // filter and sort are different based on different types
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate", false, patients.Cast<Resource>().ToArray());
         }
+        */
 
         [SkippableFact]
         public async Task GivenQueryWithTagFilter_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
@@ -586,6 +592,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true", false, expected_resources.ToArray());
         }
 
+        /*
+         * Flaky test - commented temporarily
         [SkippableFact]
         public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -594,6 +602,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family", sort: false, patients[0..5]);
         }
+       */
 
         /*
          * Flaky test - commented temporarily
