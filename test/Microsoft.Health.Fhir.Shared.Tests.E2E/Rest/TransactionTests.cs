@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAProperBundle_WhenSubmittingATransactionForCosmosDbDataStore_ThenNotSupportedIsReturned()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsync(Samples.GetDefaultTransaction().ToPoco<Bundle>()));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetDefaultTransaction().ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.MethodNotAllowed, ex.StatusCode);
         }
 
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidProcessingRoutes");
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Requested operation 'Patient?identifier=123456' is not supported using DELETE." };
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var getIdGuid = Guid.NewGuid().ToString();
             requestBundle.Entry[1].Request.Url = requestBundle.Entry[1].Request.Url + getIdGuid;
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(requestBundle));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(requestBundle));
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Transaction failed on 'GET' for the requested url '/" + requestBundle.Entry[1].Request.Url + "'.", "Resource type 'Patient' with id '12345" + getIdGuid + "' couldn't be found." };
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
             var bundle = parser.Parse<Bundle>(bundleAsString);
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(bundle));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(bundle));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { $"Bundle contains multiple entries that refers to the same resource 'Patient?identifier=http:/example.org/fhir/ids|{id}'." };
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.WrongAudienceClient);
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Authentication failed." };
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
             var requestBundle = parser.Parse<Bundle>(bundleAsString);
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.PostBundleAsync(requestBundle));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.PostBundleAsync(requestBundle));
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Transaction failed on 'POST' for the requested url '/Patient'.", "Authorization failed." };
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(bundle));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(bundle));
 
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 

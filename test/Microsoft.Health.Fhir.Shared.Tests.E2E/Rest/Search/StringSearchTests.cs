@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 await Client.PostAsync("Patient/$member-match", body, CancellationToken.None);
             }
-            catch (Microsoft.Health.Fhir.Client.FhirException ex)
+            catch (Microsoft.Health.Fhir.Client.FhirClientException ex)
             {
                 httpStatusCode = ex.StatusCode;
             }

@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreateWithIdentifier(identifier);
             await ValidateResults(identifier, 2);
 
-            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}", CancellationToken.None));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}", CancellationToken.None));
         }
 
         [InlineData(-1)]
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRanceCount_TheServerShouldReturnError(int deleteCount)
         {
             var identifier = Guid.NewGuid().ToString();
-            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
         }
 
         [InlineData(true)]

@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 await Task.WhenAll(batch.Select(_ => Client.CreateAsync(resource)));
             }
 
-            await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Observation, query));
+            await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Observation, query));
         }
 
         public class ClassFixture : HttpIntegrationTestFixture
