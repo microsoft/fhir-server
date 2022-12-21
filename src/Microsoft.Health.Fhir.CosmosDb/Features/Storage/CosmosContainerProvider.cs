@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
 
             _initializationOperation = new RetryableInitializationOperation(
-                () => cosmosClientInitializer.InitializeDataStore(_client, cosmosDataStoreConfiguration, collectionInitializers));
+                () => cosmosClientInitializer.InitializeDataStoreAsync(_client, cosmosDataStoreConfiguration, collectionInitializers));
 
             _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
                 _client,

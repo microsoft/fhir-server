@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -37,8 +38,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="client">The <see cref="CosmosClient"/> instance to use for initialization.</param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
         /// <param name="collectionInitializers">The collection of collection initializers.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A task</returns>
-        Task InitializeDataStore(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers);
+        Task InitializeDataStoreAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Creates a new Container instance for access the Cosmos API

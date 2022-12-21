@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly SqlServerFhirOperationDataStore _sqlServerFhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
         private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
@@ -112,8 +113,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, config, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
-
-            _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
@@ -195,6 +194,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // the test queue client may not be enough for these tests. will need to look back into this.
             var queueClient = new TestQueueClient();
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+
+            var sqlQueueClient = new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlQueueClient>.Instance);
+            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
@@ -292,6 +294,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IFhirOperationDataStore))
             {
                 return _fhirOperationDataStore;
+            }
+
+            if (serviceType == typeof(SqlServerFhirOperationDataStore))
+            {
+                return _sqlServerFhirOperationDataStore;
             }
 
             if (serviceType == typeof(IFhirStorageTestHelper))

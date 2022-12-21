@@ -18,7 +18,8 @@ BEGIN TRY
   IF @JobId IS NOT NULL
   BEGIN
     UPDATE dbo.JobQueue
-      SET Status = 4 -- cancelled 
+      SET Status = 4 -- cancelled
+         ,EndDate = getUTCdate()
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
       WHERE QueueType = @QueueType
         AND PartitionId = @PartitionId
@@ -41,6 +42,7 @@ BEGIN TRY
   BEGIN
     UPDATE dbo.JobQueue
       SET Status = 4 -- cancelled 
+         ,EndDate = getUTCdate()
          ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
       WHERE QueueType = @QueueType
         AND GroupId = @GroupId

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -22,6 +23,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal class SqlQueryGenerator : DefaultSqlExpressionVisitor<SearchOptions, object>
     {
+        // In the case of input search parameter being too complex, there is a possibility of a stack overflow.
+        // Stack overflow exceptions cannot be caught in .NET and will abort the process. For that reason, we enforce this stack depth limit.
+        private const int _stackOverflowLimiter = 100;
+        private int _stackDepth = 0;
+
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCteIds;
         private Dictionary<string, List<string>> _includeLimitCtesByResourceType; // ctes of each include value, by their resource type
@@ -276,63 +282,76 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override object VisitTable(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            const string referenceSourceTableAlias = "refSource";
-            const string referenceTargetResourceTableAlias = "refTarget";
-
-            switch (searchParamTableExpression.Kind)
+            try
             {
-                case SearchParamTableExpressionKind.Normal:
-                    HandleTableKindNormal(searchParamTableExpression, context);
-                    break;
+                _stackDepth++;
+                if (_stackDepth > _stackOverflowLimiter)
+                {
+                    throw new SearchParameterTooComplexException();
+                }
 
-                case SearchParamTableExpressionKind.Concatenation:
-                    StringBuilder.Append("SELECT * FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
-                    StringBuilder.AppendLine("UNION ALL");
+                const string referenceSourceTableAlias = "refSource";
+                const string referenceTargetResourceTableAlias = "refTarget";
 
-                    goto case SearchParamTableExpressionKind.Normal;
+                switch (searchParamTableExpression.Kind)
+                {
+                    case SearchParamTableExpressionKind.Normal:
+                        HandleTableKindNormal(searchParamTableExpression, context);
+                        break;
 
-                case SearchParamTableExpressionKind.All:
-                    HandleTableKindAll(searchParamTableExpression);
-                    break;
+                    case SearchParamTableExpressionKind.Concatenation:
+                        StringBuilder.Append("SELECT * FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+                        StringBuilder.AppendLine("UNION ALL");
 
-                case SearchParamTableExpressionKind.NotExists:
-                    HandleTableKindNotExists(searchParamTableExpression, context);
-                    break;
+                        goto case SearchParamTableExpressionKind.Normal;
 
-                case SearchParamTableExpressionKind.Top:
-                    HandleTableKindTop(context);
-                    break;
+                    case SearchParamTableExpressionKind.All:
+                        HandleTableKindAll(searchParamTableExpression);
+                        break;
 
-                case SearchParamTableExpressionKind.Chain:
-                    HandleTableKindChain(searchParamTableExpression, referenceSourceTableAlias, referenceTargetResourceTableAlias);
-                    break;
+                    case SearchParamTableExpressionKind.NotExists:
+                        HandleTableKindNotExists(searchParamTableExpression, context);
+                        break;
 
-                case SearchParamTableExpressionKind.Include:
-                    HandleTableKindInclude(searchParamTableExpression, context, referenceSourceTableAlias, referenceTargetResourceTableAlias);
-                    break;
+                    case SearchParamTableExpressionKind.Top:
+                        HandleTableKindTop(context);
+                        break;
 
-                case SearchParamTableExpressionKind.IncludeLimit:
-                    HandleTableKindIncludeLimit(context);
-                    break;
+                    case SearchParamTableExpressionKind.Chain:
+                        HandleTableKindChain(searchParamTableExpression, referenceSourceTableAlias, referenceTargetResourceTableAlias);
+                        break;
 
-                case SearchParamTableExpressionKind.IncludeUnionAll:
-                    HandleTableKindIncludeUnionAll(context);
-                    break;
+                    case SearchParamTableExpressionKind.Include:
+                        HandleTableKindInclude(searchParamTableExpression, context, referenceSourceTableAlias, referenceTargetResourceTableAlias);
+                        break;
 
-                case SearchParamTableExpressionKind.Sort:
-                    HandleTableKindSort(searchParamTableExpression, context);
-                    break;
+                    case SearchParamTableExpressionKind.IncludeLimit:
+                        HandleTableKindIncludeLimit(context);
+                        break;
 
-                case SearchParamTableExpressionKind.SortWithFilter:
-                    HandleTableKindSortWithFilter(searchParamTableExpression, context);
-                    break;
+                    case SearchParamTableExpressionKind.IncludeUnionAll:
+                        HandleTableKindIncludeUnionAll(context);
+                        break;
 
-                case SearchParamTableExpressionKind.Union:
-                    HandleParamTableUnion(searchParamTableExpression);
-                    break;
+                    case SearchParamTableExpressionKind.Sort:
+                        HandleTableKindSort(searchParamTableExpression, context);
+                        break;
 
-                default:
-                    throw new ArgumentOutOfRangeException(searchParamTableExpression.Kind.ToString());
+                    case SearchParamTableExpressionKind.SortWithFilter:
+                        HandleTableKindSortWithFilter(searchParamTableExpression, context);
+                        break;
+
+                    case SearchParamTableExpressionKind.Union:
+                        HandleParamTableUnion(searchParamTableExpression);
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException(searchParamTableExpression.Kind.ToString());
+                }
+            }
+            finally
+            {
+                _stackDepth--;
             }
 
             return null;
@@ -448,15 +467,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
+            if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
+            {
+                // if chainLevel > 0 or if in sort mode, the intersection is already handled in the JOIN
+                AppendIntersectionWithPredecessor(StringBuilder, searchParamTableExpression);
+            }
+
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
                 AppendHistoryClause(delimited);
-
-                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
-                {
-                    // if chainLevel > 0 or if in sort mode, the intersection is already handled in the JOIN
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
-                }
 
                 if (searchParamTableExpression.Predicate != null)
                 {
@@ -666,6 +685,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("Sid2");
                 }
             }
+            else if (searchParamTableExpression.ChainLevel == 1)
+            {
+                // if > 1, the intersection is handled by the JOIN
+                AppendIntersectionWithPredecessor(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
+            }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
@@ -684,12 +708,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" IN (")
                     .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
-
-                if (searchParamTableExpression.ChainLevel == 1)
-                {
-                    // if > 1, the intersection is handled by the JOIN
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
-                }
 
                 if (chainedExpression.ExpressionOnTarget != null && !expressionOnTargetHandledBySecondJoin)
                 {
@@ -865,6 +883,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // Update target reference cte dictionary
             var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
 
+            // Take the count before AddIncludeLimitCte because _includeFromCteIds?.Count will be incremented differently depending on the resource type.
+            int count = _includeFromCteIds?.Count ?? 0;
+
             // Add current cte limit to the dictionary
             if (includeExpression.Reversed)
             {
@@ -884,12 +905,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // Handle Multiple Results sets to include from
-            if (_includeFromCteIds?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCteIds.Count - 1)
+            if (count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < count - 1)
             {
                 StringBuilder.AppendLine("),");
 
                 // If it's not the last result set, append a new IncludeLimit cte, since IncludeLimitCte was not created for the current cte
-                if (_curFromCteIndex < _includeFromCteIds?.Count - 1)
+                if (_curFromCteIndex < count - 1)
                 {
                     var cteToLimit = TableExpressionName(_tableExpressionCounter);
                     WriteIncludeLimitCte(cteToLimit, context);
@@ -997,6 +1018,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
+                AppendIntersectionWithPredecessor(StringBuilder, searchParamTableExpression);
+
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
                     AppendHistoryClause(delimited);
@@ -1018,8 +1041,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
-
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                 }
             }
 
@@ -1038,6 +1059,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
+                AppendIntersectionWithPredecessor(StringBuilder, searchParamTableExpression);
+
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
                     AppendHistoryClause(delimited);
@@ -1059,8 +1082,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
-
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                 }
             }
 
@@ -1143,20 +1164,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             sb.Append(")");
         }
 
-        private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
+        private void AppendIntersectionWithPredecessor(IndentedStringBuilder sb, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
         {
             int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
 
             if (predecessorIndex >= 0)
             {
-                delimited.BeginDelimitedElement();
-
                 bool intersectWithFirst = (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain ? searchParamTableExpression.ChainLevel - 1 : searchParamTableExpression.ChainLevel) == 0;
-
-                StringBuilder.Append("EXISTS(SELECT * FROM ").Append(TableExpressionName(predecessorIndex))
-                    .Append(" WHERE ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
-                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
-                    .Append(')');
+                sb.AppendLine("INNER JOIN " + TableExpressionName(predecessorIndex - 0));
+                using (sb.BeginDelimitedOnClause())
+                {
+                    sb.Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
+                        .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
+                        .AppendLine();
+                }
             }
         }
 
