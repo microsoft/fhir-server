@@ -2,6 +2,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
+#pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
+
 using System.Data;
 using System.Data.SqlClient;
 
@@ -84,51 +86,32 @@ namespace Microsoft.Health.Fhir.Store.Database
             return (int)rows.Value;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "No user input")]
-        public IEnumerable<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
+        public IList<T> GetData<T>(Func<SqlDataReader, T> toT, short resourceTypeId, long minId, long maxId)
         {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var cmd = new SqlCommand($"SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId ORDER BY ResourceSurrogateId", conn)
-            { CommandTimeout = 600 };
+            using var cmd = new SqlCommand($"SELECT * FROM dbo.{typeof(T).Name} WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @MinId AND @MaxId ORDER BY ResourceSurrogateId") { CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@MinId", minId);
             cmd.Parameters.AddWithValue("@MaxId", maxId);
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-            {
-                yield return toT(reader);
-            }
+            return ExecuteSqlReaderWithRetries(cmd, reader => toT(reader));
         }
 
-        public void DequeueJob(byte queueType, out long groupId, out long jobId, out long version, out string definition)
+        public (long JobId, string Definition, long Version) DequeueJob(byte queueType)
         {
-            definition = string.Empty;
-            groupId = -1L;
-            jobId = -1L;
-            version = 0;
-
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var command = new SqlCommand("dbo.DequeueJob", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            using var command = new SqlCommand("dbo.DequeueJob") { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             command.Parameters.AddWithValue("@QueueType", queueType);
             command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
             command.Parameters.AddWithValue("@HeartbeatTimeoutSec", 600);
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
+            var results = ExecuteSqlReaderWithRetries(command, reader =>
             {
-                groupId = reader.GetInt64(0);
-                jobId = reader.GetInt64(1);
-                definition = reader.GetString(2);
-                version = reader.GetInt64(3);
-            }
+                return (reader.GetInt64(1), reader.GetString(2), reader.GetInt64(3));
+            });
+
+            return results.Count > 0 ? (results[0].Item1, results[0].Item2, results[0].Item3) : (-1L, string.Empty, 0L);
         }
 
         public void CompleteJob(byte queueType, long jobId, bool failed, long version, int? resourceCount = null, int? totalCount = null)
         {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var command = new SqlCommand("dbo.PutJobStatus", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            using var command = new SqlCommand("dbo.PutJobStatus") { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             command.Parameters.AddWithValue("@QueueType", queueType);
             command.Parameters.AddWithValue("@JobId", jobId);
             command.Parameters.AddWithValue("@Version", version);
@@ -152,7 +135,7 @@ namespace Microsoft.Health.Fhir.Store.Database
                 command.Parameters.AddWithValue("@FinalResult", DBNull.Value);
             }
 
-            command.ExecuteNonQuery();
+            ExecuteSqlWithRetries(command, cmd => cmd.ExecuteNonQuery());
         }
     }
 }
