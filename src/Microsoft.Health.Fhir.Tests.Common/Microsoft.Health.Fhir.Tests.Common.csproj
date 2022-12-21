@@ -7,9 +7,6 @@
     <IsTestProject>false</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="TestFiles\Normative\SearchDataBatch.json" />
-  </ItemGroup>
-  <ItemGroup>
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />
