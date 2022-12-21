@@ -30,9 +30,7 @@ namespace Microsoft.Health.Fhir.Store.Database
                         IEnumerable<TokenStringCompositeSearchParam> tokenStringCompositeSearchParams,
                         bool singleTransaction)
         {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var cmd = new SqlCommand("dbo.MergeResources", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 3600 };
+            using var cmd = new SqlCommand("dbo.MergeResources") { CommandType = CommandType.StoredProcedure, CommandTimeout = 3600 };
 
             var resourcesParam = new SqlParameter { ParameterName = "@Resources" };
             resourcesParam.AddResourceList(resources);
@@ -82,7 +80,7 @@ namespace Microsoft.Health.Fhir.Store.Database
 
             var rows = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(rows);
-            cmd.ExecuteNonQuery();
+            ExecuteSqlWithRetries(cmd, c => c.ExecuteNonQuery());
             return (int)rows.Value;
         }
 
