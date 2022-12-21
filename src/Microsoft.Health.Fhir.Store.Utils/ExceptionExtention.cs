@@ -76,6 +76,7 @@ namespace Microsoft.Health.Fhir.Store.Utils
                     || str.Contains("connections to this database are no longer allowed", StringComparison.OrdinalIgnoreCase) // happened on SLO update from HS_Gen5_16 to HS_Gen4_1
                     || str.Contains("database is in emergency mode", StringComparison.OrdinalIgnoreCase)
                     || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase))
+                    || str.Contains("timeout period elapsed prior to obtaining a connection from the pool", StringComparison.OrdinalIgnoreCase)
                     //// TODO: This is just a shortcut for now. Replce by permanent logic
                     || str.Contains("timeout period elapsed prior to completion of the operation or the server is not responding", StringComparison.OrdinalIgnoreCase);
 
