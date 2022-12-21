@@ -953,7 +953,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var mediator = new Mediator(type => services.GetService(type));
 
             _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, () => _searchService, NullLogger<SearchParameterDefinitionManager>.Instance);
-            await _searchParameterDefinitionManager2.StartAsync(CancellationToken.None);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 
