@@ -120,6 +120,11 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
             }
         }
 
+        public void ExecuteSqlWithRetries(SqlCommand cmd, Action<SqlCommand> action, int connectionTimeoutSec = 600)
+        {
+            ExecuteSqlWithRetries(_connectionString, cmd, action, connectionTimeoutSec);
+        }
+
         public static void ExecuteSqlReaderWithRetries(string connectionString, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600)
         {
             ExecuteSqlWithRetries(
@@ -153,6 +158,11 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
                 },
                 connectionTimeoutSec);
             return results;
+        }
+
+        public IList<T> ExecuteSqlReaderWithRetries<T>(SqlCommand cmd, Func<SqlDataReader, T> toT, int connectionTimeoutSec = 600)
+        {
+            return ExecuteSqlReaderWithRetries(_connectionString, cmd, toT, connectionTimeoutSec);
         }
 
         public void LogEvent(string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
