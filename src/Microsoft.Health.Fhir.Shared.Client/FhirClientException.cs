@@ -13,7 +13,7 @@ using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Client
 {
-    public class FhirClientException: Exception, IDisposable
+    public class FhirClientException : Exception, IDisposable
     {
         public FhirClientException(FhirResponse<OperationOutcome> response, HttpStatusCode healthCheck)
         {
