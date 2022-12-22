@@ -29,10 +29,10 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
 
         public SqlConnection GetConnection()
         {
-            return GetConnection(ConnectionString);
+            return GetConnection(_connectionString, 600, _secondaryConnectionString);
         }
 
-        public static SqlConnection GetConnection(string connectionString, int connectionTimeoutSec = 600)
+        public static SqlConnection GetConnection(string connectionString, int connectionTimeoutSec = 600, string logConnStr = null)
         {
             var retriesSql = 0;
             var sw = Stopwatch.StartNew();
@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
                     // We have to retry the connection even if the exception is "Login failed", because
                     // SQL Azure can throw this exception when a database changes scale or physical location.
                     var prefix = $"GetConnection.[server={connection.DataSource};database={connection.Database}]: RetriesSQL={retriesSql++}: ";
+                    TryLogEvent(logConnStr, prefix, e.ToString());
                     connection.Dispose();
                     if (e.IsRetryable() || e.ToString().Contains("login failed", StringComparison.OrdinalIgnoreCase))
                     {
@@ -63,6 +64,8 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
                 }
                 catch (InvalidOperationException e)
                 {
+                    var prefix = $"GetConnection.[server={connection.DataSource};database={connection.Database}]: RetriesSQL={retriesSql++}: ";
+                    TryLogEvent(logConnStr, prefix, e.ToString());
                     connection.Dispose();
                     if (!e.IsRetryable()) // not retriable
                     {
@@ -96,7 +99,7 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
             }
         }
 
-        public static void ExecuteSqlWithRetries(string connectionString, SqlCommand cmd, Action<SqlCommand> action, int connectionTimeoutSec = 600)
+        public static void ExecuteSqlWithRetries(string connectionString, SqlCommand cmd, Action<SqlCommand> action, int connectionTimeoutSec = 600, string logConnStr = null)
         {
             while (true)
             {
@@ -109,6 +112,7 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
                 }
                 catch (SqlException e)
                 {
+                    TryLogEvent(logConnStr, "SQL", e.ToString());
                     if (e.IsRetryable())
                     {
                         Thread.Sleep(ExceptionExtention.RetryWaitMillisecond);
@@ -122,7 +126,7 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
 
         public void ExecuteSqlWithRetries(SqlCommand cmd, Action<SqlCommand> action, int connectionTimeoutSec = 600)
         {
-            ExecuteSqlWithRetries(_connectionString, cmd, action, connectionTimeoutSec);
+            ExecuteSqlWithRetries(_connectionString, cmd, action, connectionTimeoutSec, _secondaryConnectionString);
         }
 
         public static void ExecuteSqlReaderWithRetries(string connectionString, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600)
@@ -139,7 +143,7 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
                 connectionTimeoutSec);
         }
 
-        public static IList<T> ExecuteSqlReaderWithRetries<T>(string connectionString, SqlCommand cmd, Func<SqlDataReader, T> toT, int connectionTimeoutSec = 600)
+        public static IList<T> ExecuteSqlReaderWithRetries<T>(string connectionString, SqlCommand cmd, Func<SqlDataReader, T> toT, int connectionTimeoutSec = 600, string logConnStr = null)
         {
             IList<T> results = null;
             ExecuteSqlWithRetries(
@@ -156,7 +160,8 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
 
                     reader.NextResult();
                 },
-                connectionTimeoutSec);
+                connectionTimeoutSec,
+                logConnStr);
             return results;
         }
 
@@ -165,9 +170,31 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
             return ExecuteSqlReaderWithRetries(_connectionString, cmd, toT, connectionTimeoutSec);
         }
 
+        public static void TryLogEvent(string connStr, string process, string text)
+        {
+            if (connStr == null)
+            {
+                return;
+            }
+
+            try
+            {
+                LogEvent(connStr, process, "Warn", null, null, null, null, null, text);
+            }
+            catch
+            {
+            }
+        }
+
         public void LogEvent(string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
         {
-            using var conn = GetConnection(ConnectionString);
+            LogEvent(_connectionString, process, status, mode, target, action, rows, startTime, text);
+        }
+
+        public static void LogEvent(string connectionString, string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
+        {
+            using var conn = new SqlConnection(connectionString);
+            conn.Open();
             using var command = new SqlCommand("dbo.LogEvent", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
             command.Parameters.AddWithValue("@Process", process);
             command.Parameters.AddWithValue("@Status", status);

@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
         {
             SqlService = new SqlService(connStr);
             _shardIds = GetShardIds();
-            SqlService.LogEvent("Query", "Warn", string.Empty, "ShardIds", text: $"{string.Join(',', _shardIds)}.");
+            SqlService.LogEvent(process: "Query", "Warn", string.Empty, "ShardIds", text: $"{string.Join(',', _shardIds)}.");
             BatchExtensions.StartTask(() =>
             {
                 if (IsEnabled())
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                 }
                 else
                 {
-                    SqlService.LogEvent($"Query", "Warn", string.Empty, "IsEnabled=false");
+                    SqlService.LogEvent(process: $"Query", "Warn", string.Empty, "IsEnabled=false");
                 }
             });
         }

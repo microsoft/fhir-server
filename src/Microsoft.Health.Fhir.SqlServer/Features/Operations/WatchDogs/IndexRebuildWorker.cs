@@ -32,19 +32,19 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                 if (IsEnabled())
                 {
                     _threads = GetThreads();
-                    SqlService.LogEvent($"RebuildIndexes", "Warn", string.Empty, $"Threads={_threads}");
+                    SqlService.LogEvent(process: $"RebuildIndexes", "Warn", string.Empty, $"Threads={_threads}");
                     SqlService.ParallelForEachShard(
                         shardId =>
                         {
                             var connStr = SqlService.ShardletMap.Shards[shardId].ConnectionString;
-                            SqlService.LogEvent($"RebuildIndexes.Start", "Warn", string.Empty, SqlService.ShowConnectionString(connStr));
+                            SqlService.LogEvent(process: $"RebuildIndexes.Start", "Warn", string.Empty, SqlService.ShowConnectionString(connStr));
                             RebuildIndexes(connStr);
                         },
                         null);
                 }
                 else
                 {
-                    SqlService.LogEvent($"RebuildIndexes", "Warn", string.Empty, "IsEnabled=false");
+                    SqlService.LogEvent(process: $"RebuildIndexes", "Warn", string.Empty, "IsEnabled=false");
                     Thread.Sleep(60000);
                 }
             }

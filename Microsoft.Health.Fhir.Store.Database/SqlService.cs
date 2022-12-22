@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
 
 using System.Data;
 using System.Data.SqlClient;
@@ -11,8 +12,8 @@ namespace Microsoft.Health.Fhir.Store.Database
 {
     public class SqlService : SqlUtils.SqlService
     {
-        public SqlService(string connectionString)
-            : base(connectionString, null)
+        public SqlService(string connectionString, string logConnectionString = null)
+            : base(connectionString, logConnectionString)
         {
         }
 
