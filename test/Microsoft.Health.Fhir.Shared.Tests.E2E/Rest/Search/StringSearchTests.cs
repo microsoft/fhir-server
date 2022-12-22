@@ -1,9 +1,14 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
+using System.Threading;
 using Hl7.Fhir.Model;
+using IdentityServer4.Models;
+using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -20,6 +25,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public StringSearchTests(StringSearchTestFixture fixture)
             : base(fixture)
         {
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenChainedSearchQuery_WhenSearchedWithEqualsAndContains_ThenCorrectBundleShouldBeReturned()
+        {
+            var requestBundle = Samples.GetJsonSample("SearchDataBatch").ToPoco<Bundle>();
+            using FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+            string queryEquals = "_total=accurate&general-practitioner:Practitioner.name=Sarah&general-practitioner:Practitioner.address-state=Wa";
+            string queryContains = "_total=accurate&general-practitioner:Practitioner.name=Sarah&general-practitioner:Practitioner.address-state:contains=Wa";
+
+            Bundle bundleEquals = await Client.SearchAsync(ResourceType.Patient, queryEquals);
+            Bundle bundleContains = await Client.SearchAsync(ResourceType.Patient, queryContains);
+
+            Assert.NotNull(bundleEquals);
+            Assert.NotNull(bundleContains);
+            Assert.True(bundleEquals.Total <= bundleContains.Total);
+            Assert.True(bundleEquals.Total > 0 && bundleContains.Total > 0);
+        }
+
+        /// <summary>
+        /// This can have two successful outcomes. We're not looking for results to come back but
+        /// rather a 422 or 200 result. If we get one of those then that indicates the
+        /// generated sql for a membermatch has been correctly handled by sql. Prior to the
+        /// revision, we would get a 8623 error that sql can't create a sql query plan.
+        /// This membermatch json will create up to 24 CTEs.
+        /// </summary>
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async void GivenAComplexSqlStatement_FromMemberMatch_SucceedsWhenExecuted()
+        {
+            HttpStatusCode httpStatusCode = HttpStatusCode.OK;
+            string body = Samples.GetJson("MemberMatch");
+            try
+            {
+                await Client.PostAsync("Patient/$member-match", body, CancellationToken.None);
+            }
+            catch (Microsoft.Health.Fhir.Client.FhirException ex)
+            {
+                httpStatusCode = ex.StatusCode;
+            }
+
+            Assert.True(httpStatusCode == System.Net.HttpStatusCode.UnprocessableEntity || httpStatusCode == System.Net.HttpStatusCode.OK);
         }
 
         [Theory]
@@ -67,7 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("", StringSearchTestFixture.LongString, true)]
         [InlineData("", "Not" + StringSearchTestFixture.LongString, false)]
         [InlineData(":exact", StringSearchTestFixture.LongString, true)]
-        [InlineData(":exact",  StringSearchTestFixture.LongString + "Not", false)]
+        [InlineData(":exact", StringSearchTestFixture.LongString + "Not", false)]
         [InlineData(":contains", StringSearchTestFixture.LongString, true)]
         [InlineData(":contains", StringSearchTestFixture.LongString + "Not", false)]
         [InlineData(":contains", "Vestibulum", true)]

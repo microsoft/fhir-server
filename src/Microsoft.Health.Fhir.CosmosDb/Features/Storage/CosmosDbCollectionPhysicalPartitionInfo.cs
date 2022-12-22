@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 },
             };
 
-            HttpResponseMessage httpResponseMessage = await client.SendAsync(httpRequestMessage, cancellationToken);
+            using HttpResponseMessage httpResponseMessage = await client.SendAsync(httpRequestMessage, cancellationToken);
             if (httpResponseMessage.IsSuccessStatusCode)
             {
                 var partitionKeyRangesResponse = await httpResponseMessage.Content.ReadFromJsonAsync<PartitionKeyRangesResponse>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true }, cancellationToken);

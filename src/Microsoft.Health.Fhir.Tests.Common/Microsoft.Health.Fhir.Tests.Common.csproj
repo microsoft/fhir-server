@@ -43,11 +43,14 @@
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
+    <EmbeddedResource Include="TestFiles\Normative\MemberMatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noidentifier.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noGender.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchDataBatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
+    <EmbeddedResource Include="TestFiles\Normative\sql_8623_script.sql" />
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowChargeItem.json" />
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowPatient.json" />
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowRiskAssessment.json" />
@@ -220,6 +223,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\Immunization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\InvalidObservation.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Location-example-hq.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\MemberMatch.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith20MinuteApgarScore.json" />
