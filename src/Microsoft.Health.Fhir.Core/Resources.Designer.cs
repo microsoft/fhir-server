@@ -250,6 +250,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The id field for {0} is required when using a PUT operation..
+        /// </summary>
+        internal static string ConditionalOperationMissingParameters {
+            get {
+                return ResourceManager.GetString("ConditionalOperationMissingParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
         /// </summary>
         internal static string ConditionalOperationNotSelectiveEnough {
@@ -1574,7 +1583,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}&apos; for validation: {1}.
+        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}/{1}&apos; for validation: {2}.
         /// </summary>
         internal static string USCoreDeserializationError {
             get {

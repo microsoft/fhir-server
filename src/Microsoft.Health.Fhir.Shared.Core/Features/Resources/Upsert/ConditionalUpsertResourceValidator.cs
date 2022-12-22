@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Globalization;
 using FluentValidation;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -14,7 +15,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
         public ConditionalUpsertResourceValidator()
         {
             RuleFor(x => x.ConditionalParameters)
-                .NotEmpty().WithMessage(Core.Resources.ConditionalOperationNotSelectiveEnough);
+                .Custom((conditionalParameters, context) =>
+                {
+                    if (conditionalParameters.Count == 0)
+                    {
+                        context.AddFailure(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationMissingParameters, nameof(context.InstanceToValidate.ResourceType) + " " + context.InstanceToValidate.ResourceType));
+                    }
+                });
         }
     }
 }

@@ -30,6 +30,7 @@
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-FhirPatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-BinaryPatch.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-MissingIdentifier.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
     <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />

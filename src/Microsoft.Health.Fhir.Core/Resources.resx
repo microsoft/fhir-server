@@ -687,7 +687,7 @@
   <data name="FhirUserClaimIsNotAValidResource" xml:space="preserve">
     <value>Provided fhirUser claim {0} is not a valid resource in this fhir server.</value>
     <comment>{0} is a url of a fhir resource.</comment>
-  </data>  
+  </data>
   <data name="InternalServerError" xml:space="preserve">
     <value>An internal error has occurred. If this problem persists, please contact Customer Support.</value>
   </data>
@@ -698,5 +698,9 @@
   <data name="USCoreMissingDataRequirement" xml:space="preserve">
     <value>Status code is missing for the resource '{0}/{1}'.</value>
     <comment>The resource does not contain the expected status code following US Core requirements. {0} is the resource type of a FHIR resource. {1} is the ID of a FHIR resource.</comment>
+  </data>
+  <data name="ConditionalOperationMissingParameters" xml:space="preserve">
+    <value>The id field for {0} is required when using a PUT operation.</value>
+    <comment>{0} should be a ResourceType</comment>
   </data>
 </root>
