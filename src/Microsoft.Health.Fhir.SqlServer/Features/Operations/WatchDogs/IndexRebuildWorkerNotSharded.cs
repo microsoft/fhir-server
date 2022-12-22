@@ -32,12 +32,12 @@ namespace Microsoft.Health.Fhir.Store.WatchDogs
                 if (IsEnabled())
                 {
                     _threads = GetThreads();
-                    SqlService.LogEvent($"RebuildIndexes", "Warn", string.Empty, $"Threads={_threads}");
+                    SqlService.LogEvent(process: $"RebuildIndexes", "Warn", string.Empty, $"Threads={_threads}");
                     RebuildIndexes(SqlService.ConnectionString);
                 }
                 else
                 {
-                    SqlService.LogEvent($"RebuildIndexes", "Warn", string.Empty, "IsEnabled=false");
+                    SqlService.LogEvent(process: $"RebuildIndexes", "Warn", string.Empty, "IsEnabled=false");
                     Thread.Sleep(60000);
                 }
             }
