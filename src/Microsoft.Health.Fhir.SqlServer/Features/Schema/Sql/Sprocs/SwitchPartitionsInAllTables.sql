@@ -1,7 +1,6 @@
 ﻿--IF object_id('SwitchPartitionsInAllTables') IS NOT NULL DROP PROCEDURE dbo.SwitchPartitionsInAllTables
 GO
 CREATE PROCEDURE dbo.SwitchPartitionsInAllTables
-WITH EXECUTE AS SELF
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsInAllTables'

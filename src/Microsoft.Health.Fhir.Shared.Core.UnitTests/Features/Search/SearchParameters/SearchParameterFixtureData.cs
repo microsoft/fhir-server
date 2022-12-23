@@ -81,7 +81,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var searchService = Substitute.For<ISearchService>();
             var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
-            await definitionManager.StartAsync(CancellationToken.None);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(

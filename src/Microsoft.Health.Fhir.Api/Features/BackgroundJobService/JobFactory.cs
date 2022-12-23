@@ -7,16 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using EnsureThat;
-using MediatR;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
@@ -26,60 +16,11 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     /// </summary>
     public class JobFactory : IJobFactory
     {
-        private readonly IImportResourceLoader _importResourceLoader;
-        private readonly IResourceBulkImporter _resourceBulkImporter;
-        private readonly IImportErrorStoreFactory _importErrorStoreFactory;
-        private readonly IImportOrchestratorJobDataStoreOperation _importOrchestratorTaskDataStoreOperation;
-        private readonly IIntegrationDataStoreClient _integrationDataStoreClient;
-        private readonly IQueueClient _queueClient;
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IMediator _mediator;
-        private readonly OperationsConfiguration _operationsConfiguration;
-        private readonly Func<IExportJobTask> _exportJobTaskFactory;
-        private readonly ISearchService _searchService;
-        private readonly ILoggerFactory _loggerFactory;
         private readonly Dictionary<int, Func<IJob>> _jobFactoryLookup;
 
-        public JobFactory(
-            IImportResourceLoader importResourceLoader,
-            IResourceBulkImporter resourceBulkImporter,
-            IImportErrorStoreFactory importErrorStoreFactory,
-            IImportOrchestratorJobDataStoreOperation importOrchestratorTaskDataStoreOperation,
-            IQueueClient queueClient,
-            IIntegrationDataStoreClient integrationDataStoreClient,
-            RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            IOptions<OperationsConfiguration> operationsConfig,
-            IMediator mediator,
-            Func<IExportJobTask> exportJobTaskFactory,
-            ISearchService searchService,
-            IEnumerable<Func<IJob>> jobFactories,
-            ILoggerFactory loggerFactory)
+        public JobFactory(IEnumerable<Func<IJob>> jobFactories)
         {
-            EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
-            EnsureArg.IsNotNull(resourceBulkImporter, nameof(resourceBulkImporter));
-            EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
-            EnsureArg.IsNotNull(importOrchestratorTaskDataStoreOperation, nameof(importOrchestratorTaskDataStoreOperation));
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
-            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(exportJobTaskFactory, nameof(exportJobTaskFactory));
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(jobFactories, nameof(jobFactories));
-            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
-
-            _importResourceLoader = importResourceLoader;
-            _resourceBulkImporter = resourceBulkImporter;
-            _importErrorStoreFactory = importErrorStoreFactory;
-            _importOrchestratorTaskDataStoreOperation = importOrchestratorTaskDataStoreOperation;
-            _integrationDataStoreClient = integrationDataStoreClient;
-            _queueClient = queueClient;
-            _contextAccessor = contextAccessor;
-            _mediator = mediator;
-            _operationsConfiguration = operationsConfig.Value;
-            _exportJobTaskFactory = exportJobTaskFactory;
-            _searchService = searchService;
-            _loggerFactory = loggerFactory;
 
             _jobFactoryLookup = new Dictionary<int, Func<IJob>>();
 

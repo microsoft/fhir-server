@@ -81,7 +81,7 @@
     <PackageVersion Include="NSubstitute" Version="4.4.0" />
     <PackageVersion Include="Polly" Version="7.2.3" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="6.0.0" />
-    <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.3.0" />
+    <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.0" />
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="2.0.0" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.435" />
     <PackageVersion Include="System.Collections.Immutable" Version="7.0.0" />
