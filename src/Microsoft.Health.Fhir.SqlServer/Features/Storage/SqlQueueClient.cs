@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly SchemaInformation _schemaInformation;
         private readonly ILogger<SqlQueueClient> _logger;
+        private readonly object _sqlLoggerLocker = new object();
 
         public SqlQueueClient(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -40,7 +41,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _schemaInformation = schemaInformation;
             _logger = logger;
+
+            lock (_sqlLoggerLocker)
+            {
+                SqlLogger ??= new SqlLogger(_sqlConnectionWrapperFactory);
+            }
         }
+
+        internal static SqlLogger SqlLogger { get; private set; }
 
         public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
         {

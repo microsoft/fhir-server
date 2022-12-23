@@ -74,20 +74,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || (str.Contains("failed to update database", StringComparison.OrdinalIgnoreCase) && str.Contains("database is read-only", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("connections to this database are no longer allowed", StringComparison.OrdinalIgnoreCase) // happened on SLO update from HS_Gen5_16 to HS_Gen4_1
                     || str.Contains("database is in emergency mode", StringComparison.OrdinalIgnoreCase)
-                    || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase));
+                    || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase))
+                    || str.Contains("timeout period elapsed prior to obtaining a connection from the pool", StringComparison.OrdinalIgnoreCase);
 
-            ////Unable to access database 'VS_Prod_008_v1' because it lacks a quorum of nodes for high availability. Try the operation again later.
+            ////Unable to access database XXX because it lacks a quorum of nodes for high availability. Try the operation again later.
             ////A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.)
             ////The connection is broken and recovery is not possible. The connection is marked by the server as unrecoverable. No attempt was made to restore the connection.
-            ////Database 'VS_TLN_Prod_004_v0' on server 'tln-sql' is not currently available.  Please retry the connection later.
+            ////Database XXX on server XXX is not currently available.  Please retry the connection later.
             ////The transaction was terminated because of the availability replica config/state change or because ghost records are being deleted on the primary and the secondary availability replica
-            ////The definition of object 'SelectPrimitivesByPrimitiveIds' has changed since it was compiled. - this happens on store setup
-            ////Error 3961: Snapshot isolation transaction failed in database 'VS_Prod_007_v5' because the object accessed by the statement has been modified by a DDL statement in another concurrent transaction since the start of this transaction.It is disallowed because the metadata is not versioned.A concurrent update to metadata can lead to inconsistency if mixed with snapshot isolation.
-            ////The transaction log for database '7bc46349-b716-46df-b0f4-f1c1a39163b9' is full due to 'AVAILABILITY_REPLICA'
-            ////The database 'VS_SG_009_v0' has reached its size quota.Partition or delete data, drop indexes, or consult the documentation for possible resolutions.
-            ////Error 3908: Could not run BEGIN TRANSACTION in database 'VS_SG_015_v0' because the database is in emergency mode or is damaged and must be restarted.
-            ////Error 3906: Failed to update database XXX because the database is read-only. TODO: Remove when HS team fixes the problem
-            ////The transaction log for database '0c7fbc7e-651f-4b64-938f-96efe8ae20ce' is full due to 'ACTIVE_BACKUP_OR_RESTORE'
+            ////The definition of object XXX has changed since it was compiled. - this happens on store setup
+            ////Error 3961: Snapshot isolation transaction failed in database XXX because the object accessed by the statement has been modified by a DDL statement in another concurrent transaction since the start of this transaction.It is disallowed because the metadata is not versioned.A concurrent update to metadata can lead to inconsistency if mixed with snapshot isolation.
+            ////The transaction log for database XXX is full due to 'AVAILABILITY_REPLICA'
+            ////The database XXX has reached its size quota.Partition or delete data, drop indexes, or consult the documentation for possible resolutions.
+            ////Error 3908: Could not run BEGIN TRANSACTION in database XXX because the database is in emergency mode or is damaged and must be restarted.
+            ////The transaction log for database XXX is full due to 'ACTIVE_BACKUP_OR_RESTORE'
         }
 
         private static bool HasDatabaseOverloadPattern(string str)

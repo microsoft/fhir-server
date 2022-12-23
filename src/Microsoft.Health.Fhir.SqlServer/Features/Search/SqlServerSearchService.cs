@@ -493,29 +493,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
             catch (Exception ex)
             {
-                await TryLogEvent(ex.ToString());
-
                 if (ex.IsRetryable())
                 {
-                    await Task.Delay(1000, cancellationToken);
+                    SqlQueueClient.SqlLogger.TryLogEvent("Search", "Warn", ex.ToString());
+                    await Task.Delay(5000, cancellationToken);
                     goto retryOnSqlError;
                 }
 
-                throw;
-            }
-        }
+                SqlQueueClient.SqlLogger.TryLogEvent("Search", "Error", ex.ToString());
 
-        private async Task TryLogEvent(string ex)
-        {
-            try
-            {
-                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-                using var cmd = conn.CreateRetrySqlCommand();
-                VLatest.LogEvent.PopulateCommand(cmd, "Search", "Warn", null, null, null, null, null, ex, null, null);
-                await cmd.ExecuteNonQueryAsync(CancellationToken.None);
-            }
-            catch
-            {
+                throw;
             }
         }
 
