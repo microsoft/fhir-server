@@ -120,6 +120,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static SqlLogger SqlLogger { get; private set; }
 
+        internal static Task ExecuteWithRetries(string process, Action action)
+        {
+            while (true)
+            {
+                try
+                {
+                    action();
+                    return Task.CompletedTask;
+                }
+                catch (Exception e)
+                {
+                    if (e.IsRetryable())
+                    {
+                        SqlLogger.TryLogEvent(process, "Warn", e.ToString());
+                        Thread.Sleep(5000);
+                        continue;
+                    }
+
+                    SqlLogger.TryLogEvent(process, "Error", e.ToString());
+                    throw;
+                }
+            }
+        }
+
         public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
