@@ -395,11 +395,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                             }
 
-                        if (string.IsNullOrEmpty(rawResource))
-                        {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
+                            if (string.IsNullOrEmpty(rawResource))
+                            {
+                                rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                            }
 
                             // See if this resource is a continuation token candidate and increase the count
                             if (isMatch)
@@ -493,12 +493,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (ex.IsRetryable())
                 {
-                    SqlQueueClient.SqlLogger.TryLogEvent("Search", "Warn", ex.ToString());
+                    SqlServerFhirDataStore.SqlLogger.TryLogEvent("Search", "Warn", ex.ToString());
                     await Task.Delay(5000, cancellationToken);
                     goto retryOnSqlError;
                 }
 
-                SqlQueueClient.SqlLogger.TryLogEvent("Search", "Error", ex.ToString());
+                SqlServerFhirDataStore.SqlLogger.TryLogEvent("Search", "Error", ex.ToString());
 
                 throw;
             }

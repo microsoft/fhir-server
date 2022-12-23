@@ -12,13 +12,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlLogger
     {
-        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly string _sqlLoggerConnectionString;
 
         internal SqlLogger(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
         {
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _sqlLoggerConnectionString = GetConnectionStringAsync(CancellationToken.None).Result;
+            _sqlLoggerConnectionString = GetConnectionStringAsync(sqlConnectionWrapperFactory).Result;
         }
 
         internal void TryLogEvent(string process, string status, string text)
@@ -44,14 +42,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<string> GetConnectionStringAsync(CancellationToken cancellationToken)
+        private static async Task<string> GetConnectionStringAsync(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
         {
-            using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using var conn = await sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
             using var cmd = conn.CreateRetrySqlCommand();
-
             cmd.CommandText = "SELECT Char FROM dbo.Parameters WHERE Id = @Id";
             cmd.Parameters.AddWithValue("@Id", "SqlLoggerConnectionString");
-            var value = await cmd.ExecuteScalarAsync(cancellationToken);
+            var value = await cmd.ExecuteScalarAsync(CancellationToken.None);
             return value == null ? null : (string)value;
         }
     }

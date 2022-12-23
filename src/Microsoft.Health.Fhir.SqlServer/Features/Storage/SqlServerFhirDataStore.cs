@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly object _sqlLoggerLocker = new object();
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -110,7 +111,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
+
+            lock (_sqlLoggerLocker)
+            {
+                SqlLogger ??= new SqlLogger(sqlConnectionWrapperFactory);
+            }
         }
+
+        internal static SqlLogger SqlLogger { get; private set; }
 
         public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
