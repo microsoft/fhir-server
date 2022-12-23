@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
             ExecuteSqlWithRetries(_connectionString, cmd, action, connectionTimeoutSec, _secondaryConnectionString);
         }
 
-        public static void ExecuteSqlReaderWithRetries(string connectionString, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600)
+        public static void ExecuteSqlReaderWithRetries(string connectionString, SqlCommand cmd, Action<SqlDataReader> action, int connectionTimeoutSec = 600, string logConnStr = null)
         {
             ExecuteSqlWithRetries(
                 connectionString,
@@ -140,7 +140,8 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
                     action(reader);
                     reader.NextResult();
                 },
-                connectionTimeoutSec);
+                connectionTimeoutSec,
+                logConnStr);
         }
 
         public static IList<T> ExecuteSqlReaderWithRetries<T>(string connectionString, SqlCommand cmd, Func<SqlDataReader, T> toT, int connectionTimeoutSec = 600, string logConnStr = null)
@@ -167,7 +168,7 @@ namespace Microsoft.Health.Fhir.Store.SqlUtils
 
         public IList<T> ExecuteSqlReaderWithRetries<T>(SqlCommand cmd, Func<SqlDataReader, T> toT, int connectionTimeoutSec = 600)
         {
-            return ExecuteSqlReaderWithRetries(_connectionString, cmd, toT, connectionTimeoutSec);
+            return ExecuteSqlReaderWithRetries(_connectionString, cmd, toT, connectionTimeoutSec, _secondaryConnectionString);
         }
 
         public static void TryLogEvent(string connStr, string process, string text)
