@@ -6,15 +6,16 @@
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 {
     public interface ICosmosResponseProcessor
     {
-        Task ProcessErrorResponse(ResponseMessage response);
+        Task ProcessErrorResponse(CosmosResponseMessage response);
 
         Task ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage);
 
-        Task ProcessResponse(ResponseMessage responseMessage);
+        Task ProcessResponse(CosmosResponseMessage responseMessage);
     }
 }

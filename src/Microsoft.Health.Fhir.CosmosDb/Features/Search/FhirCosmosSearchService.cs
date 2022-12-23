@@ -408,7 +408,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             QueryPartitionStatistics queryPartitionStatistics = null;
             IFhirRequestContext fhirRequestContext = null;
-            ConcurrentBag<ResponseMessage> messagesList = null;
+            ConcurrentBag<CosmosResponseMessage> messagesList = null;
             if (_physicalPartitionInfo.PhysicalPartitionCount > 1 && queryRequestOptionsOverride == null)
             {
                 if (searchOptions.Sort?.Count > 0)
@@ -435,7 +435,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         fhirRequestContext = _requestContextAccessor.RequestContext;
                         if (fhirRequestContext != null)
                         {
-                            messagesList = new ConcurrentBag<ResponseMessage>();
+                            messagesList = new ConcurrentBag<CosmosResponseMessage>();
                             fhirRequestContext.Properties[Constants.CosmosDbResponseMessagesProperty] = messagesList;
                         }
                     }

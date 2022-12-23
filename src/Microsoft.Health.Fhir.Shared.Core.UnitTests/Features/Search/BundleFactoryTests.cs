@@ -116,10 +116,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 var raw = actualEntry as RawBundleEntryComponent;
 
+                Assert.NotNull(raw);
+                Assert.NotNull(raw.ResourceElement);
+
                 using (var ms = new MemoryStream())
                 using (var sr = new StreamReader(ms))
                 {
-                    await raw?.ResourceElement?.SerializeToStreamAsUtf8Json(ms);
+                    await raw.ResourceElement.SerializeToStreamAsUtf8Json(ms);
                     ms.Seek(0, SeekOrigin.Begin);
                     var resourceData = await sr.ReadToEndAsync();
                     Assert.NotNull(resourceData);
