@@ -114,20 +114,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             lock (_sqlLoggerLocker)
             {
-                SqlLogger ??= new SqlLogger(sqlConnectionWrapperFactory);
+                try
+                {
+                    SqlLogger ??= new SqlLogger(sqlConnectionWrapperFactory);
+                }
+                catch (Exception e)
+                {
+                    if (e.Message.Contains("login failed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // do nothing
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
             }
         }
 
         internal static SqlLogger SqlLogger { get; private set; }
 
-        internal static Task ExecuteWithRetries(string process, Action action)
+        internal static async Task ExecuteWithRetries(string process, Func<Task> action)
         {
             while (true)
             {
                 try
                 {
-                    action();
-                    return Task.CompletedTask;
+                    await action();
+                    break;
                 }
                 catch (Exception e)
                 {
