@@ -114,19 +114,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             lock (_sqlLoggerLocker)
             {
-                try
+                if (SqlLogger == null)
                 {
-                    SqlLogger ??= new SqlLogger(sqlConnectionWrapperFactory);
-                }
-                catch (Exception e)
-                {
-                    if (e.Message.Contains("login failed", StringComparison.OrdinalIgnoreCase))
+                    try
+                    {
+                        var logConnStr = SqlLogger.GetConnectionStringAsync(sqlConnectionWrapperFactory).Result;
+                        SqlLogger = new SqlLogger(logConnStr);
+                        SqlLogger.TryLogEvent("SqlServerFhirDataStore", "Warn", "Init");
+                    }
+                    catch
                     {
                         // do nothing
-                    }
-                    else
-                    {
-                        throw;
                     }
                 }
             }

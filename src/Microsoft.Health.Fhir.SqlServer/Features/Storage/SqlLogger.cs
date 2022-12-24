@@ -14,9 +14,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly string _sqlLoggerConnectionString;
 
-        internal SqlLogger(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+        internal SqlLogger(string sqlLoggerConnectionString)
         {
-            _sqlLoggerConnectionString = GetConnectionStringAsync(sqlConnectionWrapperFactory).Result;
+            _sqlLoggerConnectionString = sqlLoggerConnectionString;
         }
 
         internal void TryLogEvent(string process, string status, string text)
@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             try
             {
                 using var cmd = new SqlCommand("dbo.LogEvent");
+                cmd.CommandType = System.Data.CommandType.StoredProcedure;
                 cmd.Parameters.AddWithValue("@Process", process);
                 cmd.Parameters.AddWithValue("@Status", status);
                 cmd.Parameters.AddWithValue("@Text", text);
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private static async Task<string> GetConnectionStringAsync(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+        internal static async Task<string> GetConnectionStringAsync(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
         {
             using var conn = await sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
             using var cmd = conn.CreateRetrySqlCommand();
