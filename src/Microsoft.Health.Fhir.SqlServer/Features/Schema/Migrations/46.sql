@@ -2055,7 +2055,7 @@ IF @isDisabled = 0
 
 GO
 CREATE PROCEDURE dbo.EnqueueJobs
-@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT, @IsCompleted BIT=NULL
+@QueueType TINYINT, @Definitions StringList READONLY, @GroupId BIGINT=NULL, @ForceOneActiveJobGroup BIT=1, @IsCompleted BIT=NULL, @ReturnJobs BIT=1
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'EnqueueJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' D=' + CONVERT (VARCHAR, (SELECT count(*)
@@ -2114,7 +2114,8 @@ BEGIN TRY
             SET @Rows = @@rowcount;
             COMMIT TRANSACTION;
         END
-    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds;
+    IF @ReturnJobs = 1
+        EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH
