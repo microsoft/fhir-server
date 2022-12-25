@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.PutJobStatus
 GO
-CREATE PROCEDURE dbo.PutJobStatus @QueueType tinyint, @JobId bigint, @Version bigint, @Failed bit, @Data bigint, @FinalResult varchar(max), @RequestCancellationOnFailure bit
+CREATE OR ALTER PROCEDURE dbo.PutJobStatus @QueueType tinyint, @JobId bigint, @Version bigint, @Failed bit, @Data bigint, @FinalResult varchar(max), @RequestCancellationOnFailure bit
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobStatus'
