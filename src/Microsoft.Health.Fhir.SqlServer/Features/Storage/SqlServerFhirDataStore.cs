@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -86,7 +87,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
             IModelInfoProvider modelInfoProvider,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            IOptions<SqlServerDataStoreConfiguration> config)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -112,6 +114,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
+            ConnectionString = config.Value.ConnectionString;
+
             lock (_sqlLoggerLocker)
             {
                 if (SqlLogger == null)
@@ -121,18 +125,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var logConnStr = SqlLogger.GetConnectionStringAsync(sqlConnectionWrapperFactory).Result;
                         SqlLogger = new SqlLogger(logConnStr);
                         SqlLogger.TryLogEvent("SqlServerFhirDataStore", "Warn", "Init");
-                    }
-                    catch
-                    {
-                        // do nothing
-                    }
-                }
-
-                if (ConnectionString == null)
-                {
-                    try
-                    {
-                        ConnectionString = SqlLogger.GetStoreConnectionStringAsync(sqlConnectionWrapperFactory).Result;
                     }
                     catch
                     {

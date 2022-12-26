@@ -189,7 +189,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
                 ModelInfoProvider.Instance,
-                _fhirRequestContextAccessor);
+                _fhirRequestContextAccessor,
+                config);
 
             // the test queue client may not be enough for these tests. will need to look back into this.
             var queueClient = new TestQueueClient();
