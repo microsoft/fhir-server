@@ -127,10 +127,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // do nothing
                     }
                 }
+
+                if (ConnectionString == null)
+                {
+                    try
+                    {
+                        ConnectionString = SqlLogger.GetStoreConnectionStringAsync(sqlConnectionWrapperFactory).Result;
+                    }
+                    catch
+                    {
+                        // do nothing
+                    }
+                }
             }
         }
 
         internal static SqlLogger SqlLogger { get; private set; }
+
+        internal static string ConnectionString { get; private set; }
 
         internal static async Task ExecuteWithRetries(string process, Func<Task> action)
         {

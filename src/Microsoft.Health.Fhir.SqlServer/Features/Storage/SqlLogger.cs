@@ -45,6 +45,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static async Task<string> GetConnectionStringAsync(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
         {
+            return await GetConnectionString(sqlConnectionWrapperFactory, "SqlLoggerConnectionString");
+        }
+
+        internal static async Task<string> GetStoreConnectionStringAsync(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+        {
+            return await GetConnectionString(sqlConnectionWrapperFactory, "TargetConnectionString");
+        }
+
+        internal static async Task<string> GetConnectionString(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, string id)
+        {
             using var conn = await sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
             using var cmd = conn.CreateRetrySqlCommand();
             cmd.CommandText = "SELECT Char FROM dbo.Parameters WHERE Id = @Id";

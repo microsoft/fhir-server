@@ -298,9 +298,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 "SearchImpl",
                 async () =>
                 {
-                    using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                    using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                    ////using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                    ////using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                    using (var sqlConnectionWrapper = new SqlConnection(SqlServerFhirDataStore.ConnectionString))
+                    using (var sqlCommandWrapper = new SqlCommand())
                     {
+                        await sqlConnectionWrapper.OpenAsync();
+                        sqlCommandWrapper.Connection = sqlConnectionWrapper;
                         var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
                         if (exportTimeTravel)
                         {
@@ -311,7 +315,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
-                            EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
+                            ////EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
@@ -325,10 +329,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
 
+                            #pragma warning disable CA2100
                             sqlCommandWrapper.CommandText = stringBuilder.ToString();
                         }
 
-                        LogSqlCommand(sqlCommandWrapper);
+                        ////LogSqlCommand(sqlCommandWrapper);
 
                         using (var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                         {
@@ -493,6 +498,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
                 });
             return result;
+        }
+
+        private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommand command)
+        {
+            var hints = options.QueryHints;
+            var type = _model.GetResourceTypeId(hints.First(_ => _.Param == KnownQueryParameterNames.Type).Value);
+            var startId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            var endId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
+            var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
+            command.CommandType = System.Data.CommandType.StoredProcedure;
+            command.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
+            command.Parameters.AddWithValue("@ResourceTypeId", type);
+            command.Parameters.AddWithValue("@StartId", startId);
+            command.Parameters.AddWithValue("@EndId", endId);
+            command.Parameters.AddWithValue("@GlobalStartId", globalStartId);
+            command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
         }
 
         private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommandWrapper cmd)
