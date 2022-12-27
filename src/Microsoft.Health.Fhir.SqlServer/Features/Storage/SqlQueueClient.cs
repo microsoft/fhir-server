@@ -198,7 +198,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                VLatest.EnqueueJobs.PopulateCommand(sqlCommandWrapper, queueType, definitions.Select(d => new StringListRow(d)), groupId, forceOneActiveJobGroup, isCompleted);
+                // cannot use VLatest as it does not understand optional parameters
+                sqlCommandWrapper.CommandType = System.Data.CommandType.StoredProcedure;
+                sqlCommandWrapper.CommandText = "dbo.EnqueueJobs";
+                sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
+                new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommandWrapper.Parameters, definitions.Select(d => new StringListRow(d)));
+                if (groupId.HasValue)
+                {
+                    sqlCommandWrapper.Parameters.AddWithValue("@GroupId", groupId.Value);
+                }
+
+                sqlCommandWrapper.Parameters.AddWithValue("@ForceOneActiveJobGroup", forceOneActiveJobGroup);
+                sqlCommandWrapper.Parameters.AddWithValue("@IsCompleted", isCompleted);
+
                 try
                 {
                     await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
