@@ -298,18 +298,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 "SearchImpl",
                 async () =>
                 {
-                    ////using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                    ////using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                    using (var sqlConnectionWrapper = new SqlConnection(SqlServerFhirDataStore.ConnectionString))
-                    using (var sqlCommandWrapper = new SqlCommand())
+                    using (var conn = new SqlConnection(SqlServerFhirDataStore.ConnectionString))
+                    using (var cmd = new SqlCommand())
                     {
-                        await sqlConnectionWrapper.OpenAsync();
-                        sqlCommandWrapper.Connection = sqlConnectionWrapper;
+                        await conn.OpenAsync();
+                        cmd.Connection = conn;
                         var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
                         if (exportTimeTravel)
                         {
-                            PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommandWrapper);
-                            sqlCommandWrapper.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
+                            PopulateSqlCommandFromQueryHints(clonedSearchOptions, cmd);
+                            cmd.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
                         }
                         else
                         {
@@ -319,7 +317,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             var queryGenerator = new SqlQueryGenerator(
                                 stringBuilder,
-                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters)),
+                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(cmd.Parameters)),
                                 _model,
                                 searchType,
                                 _schemaInformation,
@@ -327,15 +325,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
-                            SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
+                            SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, cmd.Parameters, _logger);
 
                             #pragma warning disable CA2100
-                            sqlCommandWrapper.CommandText = stringBuilder.ToString();
+                            cmd.CommandText = stringBuilder.ToString();
                         }
 
                         ////LogSqlCommand(sqlCommandWrapper);
 
-                        using (var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                        using (var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                         {
                             if (clonedSearchOptions.CountOnly)
                             {
@@ -508,7 +506,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var endId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
             var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
-            command.CommandType = System.Data.CommandType.StoredProcedure;
+            command.CommandType = CommandType.StoredProcedure;
             command.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
             command.Parameters.AddWithValue("@ResourceTypeId", type);
             command.Parameters.AddWithValue("@StartId", startId);
