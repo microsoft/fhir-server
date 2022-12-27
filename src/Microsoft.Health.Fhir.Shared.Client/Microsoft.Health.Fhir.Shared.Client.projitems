@@ -11,7 +11,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)FhirClient.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirClientExtensions.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Client\FhirClientException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FhirClientException.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirResponse.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirResponse{T}.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IFhirClient.cs" />
