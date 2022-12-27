@@ -3319,22 +3319,23 @@ BEGIN TRY
            AND Version = @Version;
     SET @Rows = @@rowcount;
     IF @Rows = 0
-       AND NOT EXISTS (SELECT *
-                       FROM   dbo.JobQueue
-                       WHERE  QueueType = @QueueType
-                              AND PartitionId = @PartitionId
-                              AND JobId = @JobId
-                              AND Version = @Version
-                              AND Status IN (2, 3, 4))
         BEGIN
-            IF EXISTS (SELECT *
-                       FROM   dbo.JobQueue
-                       WHERE  QueueType = @QueueType
-                              AND PartitionId = @PartitionId
-                              AND JobId = @JobId)
-                THROW 50412, 'Precondition failed', 1;
-            ELSE
-                THROW 50404, 'Job record not found', 1;
+            SET @GroupId = (SELECT GroupId
+                            FROM   dbo.JobQueue
+                            WHERE  QueueType = @QueueType
+                                   AND PartitionId = @PartitionId
+                                   AND JobId = @JobId
+                                   AND Version = @Version
+                                   AND Status IN (2, 3, 4));
+            IF @GroupId IS NULL
+                IF EXISTS (SELECT *
+                           FROM   dbo.JobQueue
+                           WHERE  QueueType = @QueueType
+                                  AND PartitionId = @PartitionId
+                                  AND JobId = @JobId)
+                    THROW 50412, 'Precondition failed', 1;
+                ELSE
+                    THROW 50404, 'Job record not found', 1;
         END
     IF @Failed = 1
        AND @RequestCancellationOnFailure = 1
