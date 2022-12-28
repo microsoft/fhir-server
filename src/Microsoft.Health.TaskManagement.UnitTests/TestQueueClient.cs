@@ -200,18 +200,28 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         private Task<bool> PutJobHeartbeat(JobInfo jobInfo, CancellationToken cancellationToken)
         {
-            HeartbeatFaultAction?.Invoke();
-
-            JobInfo job = jobInfos.FirstOrDefault(t => t.Id == jobInfo.Id);
-            if (job == null)
+            var cancel = false;
+            try
             {
-                throw new JobNotExistException("not exist");
+                HeartbeatFaultAction?.Invoke();
+
+                JobInfo job = jobInfos.FirstOrDefault(t => t.Id == jobInfo.Id);
+                if (job == null)
+                {
+                    throw new JobNotExistException("not exist");
+                }
+
+                job.HeartbeatDateTime = DateTime.Now;
+                job.Result = jobInfo.Result;
+
+                cancel = job.CancelRequested;
+            }
+            catch
+            {
+                // do nothing
             }
 
-            job.HeartbeatDateTime = DateTime.Now;
-            job.Result = jobInfo.Result;
-
-            return Task.FromResult(job.CancelRequested);
+            return Task.FromResult(cancel);
         }
     }
 }
