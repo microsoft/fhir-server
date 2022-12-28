@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -113,82 +114,78 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                try
+                if (jobInfo.CancelRequested && !jobCancellationToken.IsCancellationRequested)
                 {
-                    if (jobInfo.CancelRequested && !jobCancellationToken.IsCancellationRequested)
-                    {
-                        // For cancelled job, try to execute it for potential cleanup.
-                        jobCancellationToken.Cancel();
-                    }
-
-                    var progress = new Progress<string>((result) =>
-                    {
-                        jobInfo.Result = result;
-                    });
-
-                    var runningJob = Task.Run(() => job.ExecuteAsync(jobInfo, progress, jobCancellationToken.Token));
-                    _activeJobsNeedKeepAlive[jobInfo.Id] = () => KeepAliveSingleJobAsync(jobInfo, jobCancellationToken);
-
-                    jobInfo.Result = await runningJob;
+                    // For cancelled job, try to execute it for potential cleanup.
+                    jobCancellationToken.Cancel();
                 }
-                catch (RetriableJobException ex)
+
+                var progress = new Progress<string>((result) =>
                 {
-                    _logger.LogError(ex, "Job {JobId} failed with retriable exception.", jobInfo.Id);
+                    jobInfo.Result = result;
+                });
 
-                    // Not complete the job for retriable exception.
-                    return;
-                }
-                catch (JobExecutionException ex)
-                {
-                    _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
-                    jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
-                    jobInfo.Status = JobStatus.Failed;
+                var runningJob = Task.Run(() => job.ExecuteAsync(jobInfo, progress, jobCancellationToken.Token));
+                _activeJobsNeedKeepAlive[jobInfo.Id] = () => KeepAliveSingleJobAsync(jobInfo, jobCancellationToken);
 
-                    try
-                    {
-                        await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
-                    }
-                    catch (Exception completeEx)
-                    {
-                        _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
-                    }
+                jobInfo.Result = await runningJob;
+            }
+            catch (RetriableJobException ex)
+            {
+                _logger.LogError(ex, "Job {JobId} failed with retriable exception.", jobInfo.Id);
 
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
-
-                    object error = new { message = ex.Message };
-                    jobInfo.Result = JsonConvert.SerializeObject(error);
-                    jobInfo.Status = JobStatus.Failed;
-
-                    try
-                    {
-                        await _queueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
-                    }
-                    catch (Exception completeEx)
-                    {
-                        _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
-                    }
-
-                    return;
-                }
+                // Not complete the job for retriable exception.
+                return;
+            }
+            catch (JobExecutionException ex)
+            {
+                _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
+                jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
+                jobInfo.Status = JobStatus.Failed;
 
                 try
                 {
-                    jobInfo.Status = JobStatus.Completed;
-                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
-                    _logger.LogInformation("Job {JobId} completed.", jobInfo.Id);
+                    _activeJobsNeedKeepAlive.Remove(jobInfo.Id, out _);
+                    await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
                 }
                 catch (Exception completeEx)
                 {
                     _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
                 }
+
+                return;
             }
-            finally
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
+
+                object error = new { message = ex.Message };
+                jobInfo.Result = JsonConvert.SerializeObject(error);
+                jobInfo.Status = JobStatus.Failed;
+
+                try
+                {
+                    _activeJobsNeedKeepAlive.Remove(jobInfo.Id, out _);
+                    await _queueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
+                }
+
+                return;
+            }
+
+            try
             {
                 _activeJobsNeedKeepAlive.Remove(jobInfo.Id, out _);
+                jobInfo.Status = JobStatus.Completed;
+                await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
+                _logger.LogInformation("Job {JobId} completed.", jobInfo.Id);
+            }
+            catch (Exception completeEx)
+            {
+                _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
             }
         }
 
@@ -225,22 +222,22 @@ namespace Microsoft.Health.JobManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                var intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds), CancellationToken.None);
-                KeyValuePair<long, Func<Task>>[] activeJobRecords = _activeJobsNeedKeepAlive.ToArray();
-
-                foreach ((long jobId, Func<Task> keepAliveFunc) in activeJobRecords)
+                foreach (var jobId in _activeJobsNeedKeepAlive.Keys.ToList())
                 {
-                    try
+                    if (_activeJobsNeedKeepAlive.TryGetValue(jobId, out var keepAliveFunc)) // check current state
                     {
-                        await keepAliveFunc();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to keep alive on job {JobId}", jobId);
+                        try
+                        {
+                            await keepAliveFunc();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to keep alive on job {JobId}", jobId);
+                        }
                     }
                 }
 
-                await intervalDelayTask;
+                await Task.Delay(TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds), CancellationToken.None);
             }
 
             _logger.LogInformation("Stop to keep alive job message.");
