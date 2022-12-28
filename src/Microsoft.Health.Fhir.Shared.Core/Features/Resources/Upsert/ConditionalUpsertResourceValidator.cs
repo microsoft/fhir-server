@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 {
                     if (conditionalParameters.Count == 0)
                     {
-                        context.AddFailure(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationMissingParameters, nameof(context.InstanceToValidate.ResourceType) + " " + context.InstanceToValidate.ResourceType));
+                        context.AddFailure(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, context.InstanceToValidate.ResourceType));
                     }
                 });
         }

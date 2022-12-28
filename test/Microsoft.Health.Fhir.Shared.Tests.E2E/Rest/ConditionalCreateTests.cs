@@ -32,6 +32,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnObservationWithIncompleteReference_WhenCreatingConditionally_TheServerRespondsWithCorrectMessage()
+        {
+            Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = Guid.NewGuid().ToString();
+            observation.Subject.Reference = "Patient/";
+
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(observation.TypeName, observation, Core.Features.KnownHeaders.IfNoneExist));
+
+            Assert.Equal(HttpStatusCode.PreconditionFailed, ex.StatusCode);
+            Assert.True(ex.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, observation.TypeName)));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenCreatingConditionallyWithNoIdAndNoExisting_TheServerShouldReturnTheResourceSuccessfully()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
