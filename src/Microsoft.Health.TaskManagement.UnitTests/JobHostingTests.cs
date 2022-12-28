@@ -261,6 +261,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
+            jobHosting.JobHeartbeatIntervalInSeconds = 1;
             jobHosting.MaxRunningJobCount = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();

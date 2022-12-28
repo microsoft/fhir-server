@@ -197,9 +197,21 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult(job.CancelRequested);
         }
 
-        public Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
+        public async Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
         {
-            return action(cancellationTokenSource);
+            await using (new Timer(_ => PutJobHeartbeatHeavy(jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
+            {
+                return await action(cancellationTokenSource);
+            }
+        }
+
+        private void PutJobHeartbeatHeavy(JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
+        {
+            var cancel = KeepAliveJobAsync(jobInfo, cancellationTokenSource.Token).Result;
+            if (cancel)
+            {
+                cancellationTokenSource.Cancel();
+            }
         }
     }
 }
