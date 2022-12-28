@@ -369,21 +369,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
-
-                if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
-                {
-                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
-
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
-                }
-                else
-                {
-                    V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    cancel = (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
-                }
+                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
             }
             catch (Exception ex)
             {
