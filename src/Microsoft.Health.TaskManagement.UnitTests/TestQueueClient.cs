@@ -181,7 +181,24 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return true;
         }
 
-        public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public async Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
+        {
+            await using (new Timer(_ => PutJobHeartbeatHeavy(jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
+            {
+                return await action(cancellationTokenSource);
+            }
+        }
+
+        private void PutJobHeartbeatHeavy(JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
+        {
+            var cancel = PutJobHeartbeat(jobInfo, cancellationTokenSource.Token).Result;
+            if (cancel)
+            {
+                cancellationTokenSource.Cancel();
+            }
+        }
+
+        private Task<bool> PutJobHeartbeat(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             HeartbeatFaultAction?.Invoke();
 
@@ -195,23 +212,6 @@ namespace Microsoft.Health.JobManagement.UnitTests
             job.Result = jobInfo.Result;
 
             return Task.FromResult(job.CancelRequested);
-        }
-
-        public async Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            await using (new Timer(_ => PutJobHeartbeatHeavy(jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
-        private void PutJobHeartbeatHeavy(JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
-        {
-            var cancel = KeepAliveJobAsync(jobInfo, cancellationTokenSource.Token).Result;
-            if (cancel)
-            {
-                cancellationTokenSource.Cancel();
-            }
         }
     }
 }

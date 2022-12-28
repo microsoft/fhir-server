@@ -328,6 +328,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     await Task.Delay(TimeSpan.FromSeconds(10));
                     execDate = DateTime.UtcNow;
+                    return "Test";
                 },
                 TimeSpan.FromSeconds(1),
                 cancel);

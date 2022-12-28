@@ -108,6 +108,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         {
                             _logger.LogInformation("Group={GroupId} Job={JobId}: No defrag items found.", job.groupId, job.jobId);
                         }
+
+                        return null;
                     }
                     catch (Exception e)
                     {
@@ -154,6 +156,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     {
                         var split = job.definition.Split(";");
                         await DefragAsync(split[0], split[1], int.Parse(split[2]), byte.Parse(split[3]) == 1, cancellationSource.Token);
+                        return null;
                     },
                     TimeSpan.FromSeconds(_heartbeatPeriodSec),
                     cancellationTokenSource);

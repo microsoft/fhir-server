@@ -323,13 +323,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        public async Task ExecuteJobWithHeartbeats(byte queueType, long jobId, long version, Func<CancellationTokenSource, Task> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
+        public async Task<string> ExecuteJobWithHeartbeats(byte queueType, long jobId, long version, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
             await using (new Timer(_ => PutJobHeartbeat(queueType, jobId, version, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
-                await action(cancellationTokenSource);
+                return await action(cancellationTokenSource);
             }
         }
 
