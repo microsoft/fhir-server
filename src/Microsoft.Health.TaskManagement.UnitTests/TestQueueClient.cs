@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -194,6 +195,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
             job.Result = jobInfo.Result;
 
             return Task.FromResult(job.CancelRequested);
+        }
+
+        public Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
+        {
+            return action(cancellationTokenSource);
         }
     }
 }

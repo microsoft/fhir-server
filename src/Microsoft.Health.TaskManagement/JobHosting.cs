@@ -20,7 +20,6 @@ namespace Microsoft.Health.JobManagement
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
-        private readonly ConcurrentDictionary<long, Func<Task>> _activeJobsNeedKeepAlive = new();
 
         public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
         {
@@ -43,13 +42,7 @@ namespace Microsoft.Health.JobManagement
 
         public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationToken)
         {
-            using var keepAliveCancellationToken = new CancellationTokenSource();
-            Task keepAliveTask = KeepAliveJobsAsync(keepAliveCancellationToken.Token);
-
             await PullAndProcessJobsAsync(queueType, workerName, cancellationToken.Token);
-
-            keepAliveCancellationToken.Cancel();
-            await keepAliveTask;
         }
 
         private async Task PullAndProcessJobsAsync(byte queueType, string workerName, CancellationToken cancellationToken)
@@ -58,8 +51,6 @@ namespace Microsoft.Health.JobManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                var intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), CancellationToken.None);
-
                 if (runningJobs.Count >= MaxRunningJobCount)
                 {
                     _ = await Task.WhenAny(runningJobs.ToArray());
@@ -85,7 +76,7 @@ namespace Microsoft.Health.JobManagement
                 }
                 else
                 {
-                    await intervalDelayTask;
+                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), CancellationToken.None);
                 }
             }
 
@@ -114,19 +105,19 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                if (jobInfo.CancelRequested && !jobCancellationToken.IsCancellationRequested)
+                if (jobInfo.CancelRequested)
                 {
                     // For cancelled job, try to execute it for potential cleanup.
                     jobCancellationToken.Cancel();
                 }
 
-                var progress = new Progress<string>((result) =>
-                {
-                    jobInfo.Result = result;
-                });
+                var progress = new Progress<string>((result) => { jobInfo.Result = result; });
 
-                var runningJob = Task.Run(() => job.ExecuteAsync(jobInfo, progress, jobCancellationToken.Token));
-                _activeJobsNeedKeepAlive[jobInfo.Id] = () => KeepAliveSingleJobAsync(jobInfo, jobCancellationToken);
+                var runningJob = _queueClient.ExecuteJobWithHeartbeats(
+                    jobInfo,
+                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
+                    TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
+                    jobCancellationToken);
 
                 jobInfo.Result = await runningJob;
             }
@@ -145,7 +136,6 @@ namespace Microsoft.Health.JobManagement
 
                 try
                 {
-                    _activeJobsNeedKeepAlive.Remove(jobInfo.Id, out _);
                     await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
                 }
                 catch (Exception completeEx)
@@ -165,7 +155,6 @@ namespace Microsoft.Health.JobManagement
 
                 try
                 {
-                    _activeJobsNeedKeepAlive.Remove(jobInfo.Id, out _);
                     await _queueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
                 }
                 catch (Exception completeEx)
@@ -178,7 +167,6 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                _activeJobsNeedKeepAlive.Remove(jobInfo.Id, out _);
                 jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 _logger.LogInformation("Job {JobId} completed.", jobInfo.Id);
@@ -187,60 +175,6 @@ namespace Microsoft.Health.JobManagement
             {
                 _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
             }
-        }
-
-        private async Task KeepAliveSingleJobAsync(JobInfo jobInfo, CancellationTokenSource jobCancellationToken)
-        {
-            try
-            {
-                bool shouldCancel = false;
-                try
-                {
-                    bool cancelRequested = await _queueClient.KeepAliveJobAsync(jobInfo, CancellationToken.None);
-                    shouldCancel |= cancelRequested;
-                }
-                catch (JobNotExistException notExistEx)
-                {
-                    _logger.LogError(notExistEx, "Job {JobId} not exist or {RunId} not match.", jobInfo.Id, jobInfo.Version);
-                    shouldCancel = true;
-                }
-
-                if (shouldCancel && !jobCancellationToken.IsCancellationRequested)
-                {
-                    jobCancellationToken.Cancel();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to keep alive on job {JobId}", jobInfo.Id);
-            }
-        }
-
-        private async Task KeepAliveJobsAsync(CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("Start to keep alive job message.");
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                foreach (var jobId in _activeJobsNeedKeepAlive.Keys.ToList())
-                {
-                    if (_activeJobsNeedKeepAlive.TryGetValue(jobId, out var keepAliveFunc)) // check current state
-                    {
-                        try
-                        {
-                            await keepAliveFunc();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to keep alive on job {JobId}", jobId);
-                        }
-                    }
-                }
-
-                await Task.Delay(TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds), CancellationToken.None);
-            }
-
-            _logger.LogInformation("Stop to keep alive job message.");
         }
     }
 }

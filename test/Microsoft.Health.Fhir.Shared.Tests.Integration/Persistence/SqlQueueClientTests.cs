@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     execDate = DateTime.UtcNow;
                 },
                 TimeSpan.FromSeconds(1),
-                cancel.Token);
+                cancel);
             var jobInt = (JobInfo)null;
             var dequeueTask = Task.Run(
                 async () =>

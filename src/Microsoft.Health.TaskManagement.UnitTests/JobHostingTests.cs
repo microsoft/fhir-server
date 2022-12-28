@@ -278,8 +278,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         [Fact]
         public async Task GivenJobRunning_WhenUpdateCurrentResult_ThenCurrentResultShouldBePersisted()
         {
-            AutoResetEvent autoResetEvent1 = new AutoResetEvent(false);
-            AutoResetEvent autoResetEvent2 = new AutoResetEvent(false);
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
             TestJobFactory factory = new TestJobFactory(t =>
             {
                 return new TestJob(
@@ -287,7 +286,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         {
                             progress.Report("Progress");
                             await Task.Delay(TimeSpan.FromSeconds(2));
-                            autoResetEvent1.Set();
+                            autoResetEvent.Set();
                             await Task.Delay(TimeSpan.FromSeconds(1));
 
                             return t.Definition;
@@ -306,7 +305,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
             Task hostingTask = jobHosting.StartAsync(0, "test", tokenSource);
 
-            autoResetEvent1.WaitOne();
+            autoResetEvent.WaitOne();
             Assert.Equal("Progress", job1.Result);
 
             await hostingTask;

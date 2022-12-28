@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -106,5 +107,15 @@ namespace Microsoft.Health.JobManagement
         /// <param name="requestCancellationOnFailure">Cancel other jobs with same group id if this job failed.</param>
         /// <param name="cancellationToken">Cancellation token</param>
         public Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Executes job with heartbeats
+        /// </summary>
+        /// <param name="jobInfo"> Job Info</param>
+        /// <param name="action">job action</param>
+        /// <param name="heartbeatPeriod">heartbeat period in seconds</param>
+        /// <param name="cancellationTokenSource">cancellationTokenSource</param>
+        /// <returns>result</returns>
+        public Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource);
     }
 }

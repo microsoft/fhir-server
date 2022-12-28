@@ -12,12 +12,14 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
+using SemVer;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -318,35 +320,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
-            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
+            var cancel = false;
             try
             {
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
+
                 if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
                 {
                     VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
 
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    return VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
+                    cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
                 }
                 else
                 {
                     V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
 
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    return (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
+                    cancel = (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
                 }
             }
-            catch (SqlException sqlEx)
+            catch (Exception ex)
             {
-                if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
-                {
-                    throw new JobNotExistException(sqlEx.Message);
-                }
-
-                throw;
+                _logger.LogError(ex, "Failed to put job heartbeat.");
             }
+
+            return cancel;
         }
 
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)
@@ -357,37 +357,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        public async Task ExecuteJobWithHeartbeatAsync(byte queueType, long jobId, long version, Func<CancellationToken, Task> action, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        public async Task ExecuteJobWithHeartbeatAsync(byte queueType, long jobId, long version, Func<CancellationTokenSource, Task> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
-            await using (new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
+            await using (new Timer(_ => PutJobHeartbeat(queueType, jobId, version, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
-                await action(cancellationToken);
+                await action(cancellationTokenSource);
             }
         }
 
-        private void PutJobHeartbeatFireAndForget(byte queueType, long jobId, long version, CancellationToken cancellationToken)
+        public Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
         {
-            try
+            EnsureArg.IsNotNull(action, nameof(action));
+
+            using (new Timer(_ => PutJobHeartbeatHeavy(jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
-                KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationToken).Wait(cancellationToken);
+                return action(cancellationTokenSource);
             }
-            catch (AggregateException ex) when (ex.InnerExceptions?.All(x => x is TaskCanceledException || x is OperationCanceledException) == true)
+        }
+
+        private void PutJobHeartbeat(byte queueType, long jobId, long version, CancellationTokenSource cancellationTokenSource)
+        {
+            var cancel = KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationTokenSource.Token).Result;
+            if (cancel)
             {
-                // ignore task cancellation exceptions
+                cancellationTokenSource.Cancel();
             }
-            catch (TaskCanceledException)
+        }
+
+        private void PutJobHeartbeatHeavy(JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
+        {
+            var cancel = KeepAliveJobAsync(jobInfo, cancellationTokenSource.Token).Result;
+            if (cancel)
             {
-                // ignore task cancellation exceptions
-            }
-            catch (OperationCanceledException)
-            {
-                // ignore task cancellation exceptions
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to put job heartbeat.");
+                cancellationTokenSource.Cancel();
             }
         }
     }
