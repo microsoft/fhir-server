@@ -9,6 +9,7 @@ using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -248,6 +249,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             services.AddHostedService<WatchdogsBackgroundService>();
+
+            services.AddSingleton(x => new SqlRetryServiceOptions() { RemoveTransientErrors = new System.Collections.Generic.HashSet<int>() { 1204 }, AddTransientErrors = new System.Collections.Generic.HashSet<int>() { 55555 } }); // TODO: Example, remove later.
+            services.AddSingleton<ISqlRetryService, SqlRetryService>();
 
             return fhirServerBuilder;
         }

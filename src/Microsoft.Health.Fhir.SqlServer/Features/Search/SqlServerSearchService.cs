@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly ISqlRetryService _sqlRetryService;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
@@ -73,6 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            ISqlRetryService sqlRetryService,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
@@ -82,6 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
@@ -97,6 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _sqlRetryService = sqlRetryService;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -292,6 +296,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(TopRewriter.Instance, clonedSearchOptions)
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithResourceTableExpressions();
+
+            bool t = false;
+            if (t)
+            {
+                /*using (SqlCommand sqlCommand = new SqlCommand("RAISERROR (49918, 15, 1, N'ABCDERROR');"))
+                {
+                    await _sqlRetryService.ExecuteSqlWithRetries(sqlCommand, async (sqlCommand, cancellationToken) => { await sqlCommand.ExecuteNonQueryAsync(cancellationToken); }, cancellationToken);
+                }*/
+
+                // using (SqlCommand sqlCommand = new SqlCommand("RAISERROR (49918, 15, 1, N'ABCDERROR');"))
+                using (SqlCommand sqlCommand = new SqlCommand("SELECT TOP 10 * FROM sys.objects;"))
+                {
+                    var r = await _sqlRetryService.ExecuteSqlReaderWithRetries<List<object>>(
+                        sqlCommand,
+                        (sqlDataReader) =>
+                        {
+                            List<object> ret = new List<object>();
+                            for (int i = 0; i < sqlDataReader.FieldCount; i++)
+                            {
+                                ret.Add(sqlDataReader[i]);
+                            }
+
+                            return ret;
+                        },
+                        cancellationToken);
+                }
+            }
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
