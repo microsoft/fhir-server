@@ -103,7 +103,7 @@ namespace Microsoft.Health.JobManagement
         /// <summary>
         /// Executes job with heartbeats
         /// </summary>
-        /// <param name="jobInfo"> Job Info</param>
+        /// <param name="jobInfo">Job Info</param>
         /// <param name="action">job action</param>
         /// <param name="heartbeatPeriod">heartbeat period in seconds</param>
         /// <param name="cancellationTokenSource">cancellationTokenSource</param>

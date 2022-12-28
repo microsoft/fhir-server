@@ -38,16 +38,11 @@ namespace Microsoft.Health.JobManagement
 
         public int JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationToken)
-        {
-            await PullAndProcessJobsAsync(queueType, workerName, cancellationToken.Token);
-        }
-
-        private async Task PullAndProcessJobsAsync(byte queueType, string workerName, CancellationToken cancellationToken)
+        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var runningJobs = new List<Task>();
 
-            while (!cancellationToken.IsCancellationRequested)
+            while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
                 if (runningJobs.Count >= MaxRunningJobCount)
                 {
@@ -60,7 +55,7 @@ namespace Microsoft.Health.JobManagement
                 {
                     try
                     {
-                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationToken);
+                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
                     }
                     catch (Exception ex)
                     {
