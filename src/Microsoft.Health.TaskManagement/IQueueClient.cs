@@ -76,13 +76,13 @@ namespace Microsoft.Health.JobManagement
         /// <param name="cancellationToken">Cancellation token</param>
         public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken);
 
-        /// <summary>
-        /// Send heart beat to keep alive job
-        /// </summary>
-        /// <param name="jobInfo">Job Info to keep alive</param>
-        /// <param name="cancellationToken">Cancellation Token</param>
-        /// <returns>CancelRequested</returns>
-        public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken);
+        /////// <summary>
+        /////// Send heart beat to keep alive job
+        /////// </summary>
+        /////// <param name="jobInfo">Job Info to keep alive</param>
+        /////// <param name="cancellationToken">Cancellation Token</param>
+        /////// <returns>CancelRequested</returns>
+        ////public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken);
 
         /// <summary>
         /// Cancel jobs by group id

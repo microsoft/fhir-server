@@ -316,37 +316,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
-        public async Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
-        {
-            var cancel = false;
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
-
-                if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
-                {
-                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
-
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
-                }
-                else
-                {
-                    V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    cancel = (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to put job heartbeat.");
-            }
-
-            return cancel;
-        }
-
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
@@ -377,7 +346,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void PutJobHeartbeat(byte queueType, long jobId, long version, CancellationTokenSource cancellationTokenSource)
         {
-            var cancel = KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationTokenSource.Token).Result;
+            var cancel = PutJobHeartbeat(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationTokenSource.Token).Result;
             if (cancel)
             {
                 cancellationTokenSource.Cancel();
@@ -386,11 +355,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void PutJobHeartbeatHeavy(JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
         {
-            var cancel = KeepAliveJobAsync(jobInfo, cancellationTokenSource.Token).Result;
+            var cancel = PutJobHeartbeat(jobInfo, cancellationTokenSource.Token).Result;
             if (cancel)
             {
                 cancellationTokenSource.Cancel();
             }
+        }
+
+        private async Task<bool> PutJobHeartbeat(JobInfo jobInfo, CancellationToken cancellationToken)
+        {
+            var cancel = false;
+            try
+            {
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
+
+                if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
+                {
+                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
+
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
+                }
+                else
+                {
+                    V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
+
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    cancel = (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to put job heartbeat.");
+            }
+
+            return cancel;
         }
     }
 }
