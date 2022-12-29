@@ -15,6 +15,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
 using static Microsoft.Health.Fhir.SqlServer.Features.Storage.SqlRetryService;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in fhir-shared?
