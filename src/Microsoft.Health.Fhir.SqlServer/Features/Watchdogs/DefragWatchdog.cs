@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger.LogInformation("Group={GroupId} Job={JobId}: ActiveDefragItems={ActiveDefragItems}, executing...", job.groupId, job.jobId, job.activeDefragItems);
 
             using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-            await JobHosting.ExecuteJobWithHeartbeats(
+            await JobHosting.ExecuteJobWithHeartbeatsAsync(
                 scopedQueueClient.Value,
                 QueueType,
                 job.jobId,
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 }
 
                 using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-                await JobHosting.ExecuteJobWithHeartbeats(
+                await JobHosting.ExecuteJobWithHeartbeatsAsync(
                     scopedQueueClient.Value,
                     QueueType,
                     jobId,
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     {
                         var split = job.definition.Split(";");
                         await DefragAsync(split[0], split[1], int.Parse(split[2]), byte.Parse(split[3]) == 1, cancellationSource.Token);
-                        return null;
+                        return await Task.FromResult((string)null);
                     },
                     TimeSpan.FromSeconds(_heartbeatPeriodSec),
                     cancellationTokenSource);
