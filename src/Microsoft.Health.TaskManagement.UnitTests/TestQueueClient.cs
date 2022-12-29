@@ -6,8 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -182,32 +180,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return true;
         }
 
-        public async Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            await using (new Timer(_ => PutJobHeartbeatHeavy(jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
-        public async Task<string> ExecuteJobWithHeartbeats(byte queueType, long jobId, long version, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            await using (new Timer(_ => PutJobHeartbeatHeavy(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
-        private void PutJobHeartbeatHeavy(JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
-        {
-            var cancel = PutJobHeartbeat(jobInfo, cancellationTokenSource.Token).Result;
-            if (cancel)
-            {
-                cancellationTokenSource.Cancel();
-            }
-        }
-
-        private Task<bool> PutJobHeartbeat(JobInfo jobInfo, CancellationToken cancellationToken)
+        public Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             var cancel = false;
             try
