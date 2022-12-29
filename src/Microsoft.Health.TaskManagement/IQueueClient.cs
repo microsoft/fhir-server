@@ -102,7 +102,7 @@ namespace Microsoft.Health.JobManagement
 
         /// <summary>
         /// Executes job with heartbeats. Put heartbeat logic saves Data and Result from provided jobInfo.
-        /// Usage of this method should be discouraged.
+        /// Usage of this method should be discouraged. Please use method with lightweight heartbeats.
         /// </summary>
         /// <param name="jobInfo">job info</param>
         /// <param name="action">job action</param>
@@ -112,7 +112,7 @@ namespace Microsoft.Health.JobManagement
         public Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource);
 
         /// <summary>
-        /// Executes job with light weight heartbeats.
+        /// Executes job with lightweight heartbeats.
         /// </summary>
         /// <param name="queueType">queue type</param>
         /// <param name="jobId">job id</param>
