@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             _fhirRequestContextAccessor.RequestContext = fhirRequestContext;
         }
 
-        [Fact(Skip = "TODO: Investigate intermittent failures")]
+        [Fact]
         public async Task GivenATargetRUConsumption_WhenConsumedRUsIsTooHigh_QueryDelayIsIncreased()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             }
 
             _output.WriteLine($"Final throttle based delay is: {throttleController.GetThrottleBasedDelay()}");
-            Assert.True(throttleController.GetThrottleBasedDelay() > 0);
+            Assert.True(throttleController.GetThrottleBasedDelay() > 0, "Asserting that the value is > 0");
         }
 
         [Fact]

@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             CreateReindexResponse response = await SetUpForReindexing();
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -450,7 +450,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var createReindexRequest = new CreateReindexRequest(new List<string>(), 1, 1, 500);
             CreateReindexResponse response = await SetUpForReindexing(createReindexRequest);
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -520,7 +520,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             CreateReindexResponse response = await SetUpForReindexing();
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -590,7 +590,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             CreateReindexResponse response = await SetUpForReindexing();
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -654,7 +654,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _scopedDataStore.Value.UpsertAsync(searchParamWrapper, null, true, true, CancellationToken.None);
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -726,7 +726,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             CreateReindexResponse response = await SetUpForReindexing();
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -871,7 +871,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             Patient patientResource = Samples.GetDefaultPatient().ToPoco<Patient>();
 
-            patientResource.Name = new List<HumanName> { new() { Family = patientName }};
+            patientResource.Name = new List<HumanName> { new() { Family = patientName } };
             patientResource.Id = patientId;
             patientResource.VersionId = "1";
 
