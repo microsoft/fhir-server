@@ -304,7 +304,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource);
+            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource, true);
 
             autoResetEvent.WaitOne();
             Assert.Equal("Progress", job1.Result);
