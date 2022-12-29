@@ -38,7 +38,7 @@ namespace Microsoft.Health.JobManagement
 
         public int JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource)
+        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
         {
             var runningJobs = new List<Task>();
 
@@ -65,7 +65,7 @@ namespace Microsoft.Health.JobManagement
 
                 if (nextJob != null)
                 {
-                    runningJobs.Add(ExecuteJobAsync(nextJob));
+                    runningJobs.Add(ExecuteJobAsync(nextJob, useHeavyHeartbeats));
                 }
                 else
                 {
@@ -83,7 +83,7 @@ namespace Microsoft.Health.JobManagement
             }
         }
 
-        private async Task ExecuteJobAsync(JobInfo jobInfo)
+        private async Task ExecuteJobAsync(JobInfo jobInfo, bool useHeavyHeartbeats)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
@@ -106,11 +106,19 @@ namespace Microsoft.Health.JobManagement
 
                 var progress = new Progress<string>((result) => { jobInfo.Result = result; });
 
-                var runningJob = _queueClient.ExecuteJobWithHeartbeats(
-                    jobInfo,
-                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
-                    TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
-                    jobCancellationToken);
+                var runningJob = useHeavyHeartbeats
+                               ? _queueClient.ExecuteJobWithHeartbeats(
+                                    jobInfo,
+                                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
+                                    TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
+                                    jobCancellationToken)
+                               : _queueClient.ExecuteJobWithHeartbeats(
+                                    jobInfo.QueueType,
+                                    jobInfo.Id,
+                                    jobInfo.Version,
+                                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
+                                    TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
+                                    jobCancellationToken);
 
                 jobInfo.Result = await runningJob;
             }

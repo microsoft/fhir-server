@@ -189,6 +189,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
         }
 
+        public Task<string> ExecuteJobWithHeartbeats(byte queueType, long jobId, long version, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
+        {
+            throw new NotImplementedException();
+        }
+
         private void PutJobHeartbeatHeavy(JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
         {
             var cancel = PutJobHeartbeat(jobInfo, cancellationTokenSource.Token).Result;

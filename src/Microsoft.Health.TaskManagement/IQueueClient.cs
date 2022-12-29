@@ -101,13 +101,26 @@ namespace Microsoft.Health.JobManagement
         public Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Executes job with heartbeats
+        /// Executes job with heartbeats. Put heartbeat logic saves Data and Result from provided jobInfo.
+        /// Usage of this method should be discouraged.
         /// </summary>
-        /// <param name="jobInfo">Job Info</param>
+        /// <param name="jobInfo">job info</param>
         /// <param name="action">job action</param>
         /// <param name="heartbeatPeriod">heartbeat period in seconds</param>
         /// <param name="cancellationTokenSource">cancellationTokenSource</param>
         /// <returns>result</returns>
         public Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource);
+
+        /// <summary>
+        /// Executes job with light weight heartbeats.
+        /// </summary>
+        /// <param name="queueType">queue type</param>
+        /// <param name="jobId">job id</param>
+        /// <param name="version">job version</param>
+        /// <param name="action">job action</param>
+        /// <param name="heartbeatPeriod">heartbeat period</param>
+        /// <param name="cancellationTokenSource">cancellationTokenSource</param>
+        /// <returns>result</returns>
+        public Task<string> ExecuteJobWithHeartbeats(byte queueType, long jobId, long version, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource);
     }
 }

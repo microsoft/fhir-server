@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 var jobQueues = new[]
                 {
-                    jobHostingValue.ExecuteAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource),
+                    jobHostingValue.ExecuteAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource, true),
                     jobHostingValue.ExecuteAsync((byte)QueueType.Export, Environment.MachineName, cancellationTokenSource),
                 };
                 await Task.WhenAll(jobQueues);
