@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -323,45 +322,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        public async Task<string> ExecuteJobWithHeartbeats(byte queueType, long jobId, long version, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            EnsureArg.IsNotNull(action, nameof(action));
-
-            await using (new Timer(_ => PutJobHeartbeat(queueType, jobId, version, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
-        public async Task<string> ExecuteJobWithHeartbeats(JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            EnsureArg.IsNotNull(action, nameof(action));
-
-            await using (new Timer(_ => PutJobHeartbeatHeavy(jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
-        private void PutJobHeartbeat(byte queueType, long jobId, long version, CancellationTokenSource cancellationTokenSource)
-        {
-            var cancel = PutJobHeartbeat(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationTokenSource.Token).Result;
-            if (cancel)
-            {
-                cancellationTokenSource.Cancel();
-            }
-        }
-
-        private void PutJobHeartbeatHeavy(JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
-        {
-            var cancel = PutJobHeartbeat(jobInfo, cancellationTokenSource.Token).Result;
-            if (cancel)
-            {
-                cancellationTokenSource.Cancel();
-            }
-        }
-
-        private async Task<bool> PutJobHeartbeat(JobInfo jobInfo, CancellationToken cancellationToken)
+        public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             var cancel = false;
             try
