@@ -208,7 +208,16 @@ namespace Microsoft.Health.JobManagement
 
         private static async Task PutJobHeartbeatAsync(IQueueClient queueClient, JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
         {
-            var cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
+            var cancel = false;
+            try
+            {
+                cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
+            }
+            catch
+            {
+                // do nothing
+            }
+
             if (cancel)
             {
                 cancellationTokenSource.Cancel();
