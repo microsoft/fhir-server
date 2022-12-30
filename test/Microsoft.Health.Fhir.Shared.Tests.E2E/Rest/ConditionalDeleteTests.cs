@@ -130,8 +130,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await Task.WhenAll(Enumerable.Range(1, create).Select(_ => CreateWithIdentifier(identifier)));
 
-            // await GetResourceCount(identifier);
-
             FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count={delete}", CancellationToken.None);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
