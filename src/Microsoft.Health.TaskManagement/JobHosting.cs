@@ -208,19 +208,17 @@ namespace Microsoft.Health.JobManagement
 
         private static async Task PutJobHeartbeatAsync(IQueueClient queueClient, JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
         {
-            var cancel = false;
             try // this try/catch is redundant with try/catch in queueClient.PutJobHeartbeatAsync, but it is extra guarantee
             {
-                cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
+                var cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
+                if (cancel)
+                {
+                    cancellationTokenSource.Cancel();
+                }
             }
             catch
             {
                 // do nothing
-            }
-
-            if (cancel)
-            {
-                cancellationTokenSource.Cancel();
             }
         }
     }
