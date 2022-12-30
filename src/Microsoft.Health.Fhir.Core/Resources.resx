@@ -169,7 +169,8 @@
     <value>The composite separator cannot be found.</value>
   </data>
   <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
-    <value>Operation was not attempted because search criteria was not selective enough.</value>
+    <value>Conditional operation on {0} was not attempted because search criteria was not selective enough.</value>
+    <comment>{0} should be a ResourceType</comment>
   </data>
   <data name="ConditionalUpdateMismatchedIds" xml:space="preserve">
     <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
@@ -698,9 +699,5 @@
   <data name="USCoreMissingDataRequirement" xml:space="preserve">
     <value>Status code is missing for the resource '{0}/{1}'.</value>
     <comment>The resource does not contain the expected status code following US Core requirements. {0} is the resource type of a FHIR resource. {1} is the ID of a FHIR resource.</comment>
-  </data>
-  <data name="ConditionalOperationMissingParameters" xml:space="preserve">
-    <value>The id field for {0} is required when using a PUT operation.</value>
-    <comment>{0} should be a ResourceType</comment>
   </data>
 </root>
