@@ -269,8 +269,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
-            // For this test to work we want to make sure since is earlier than the any resource that is created in above edits
+            // For this test to work we want to make sure that 'since' is earlier than the resources created in above edits
             Assert.True(since < updatedObservationResource.Meta.LastUpdated);
+            Assert.True(since < newResources.OrderBy(r => r.Meta.LastUpdated).First().Meta.LastUpdated);
 
             // Query all the recent changes
             List<Bundle.EntryComponent> allChangesWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
@@ -338,6 +339,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var lastUpdatedTimes = newResources.Select(e => e.Meta.LastUpdated).OrderBy(d => d.Value);
 
             // For this test to work 'since' value should be earlier than the first resource created in the above 11 edits
+            Assert.True(since < observationResource.Meta.LastUpdated);
             Assert.True(since < lastUpdatedTimes.First());
 
             var before = lastUpdatedTimes.Last().Value.AddMilliseconds(100);
@@ -396,7 +398,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Wait a little bit before creating a Patient as request could go to different instance with different time
             Thread.Sleep(500);
 
-            // Now create another patient and get the LastUpdated value = since ensure that the server has fully processed the PUT
+            // Now create another patient and get the LastUpdated value as since, ensure that the server has fully processed the PUT
             var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
 
             // We want to make sure before < since for this test to work
