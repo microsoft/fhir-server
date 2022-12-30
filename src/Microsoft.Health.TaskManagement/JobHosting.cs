@@ -186,7 +186,9 @@ namespace Microsoft.Health.JobManagement
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(action, nameof(action));
 
-            await using (new Timer(async _ => await PutJobHeartbeat(queueClient, queueType, jobId, version, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
+            var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // ignore other data points from job info
+
+            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 return await action(cancellationTokenSource);
             }
@@ -198,22 +200,13 @@ namespace Microsoft.Health.JobManagement
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(action, nameof(action));
 
-            await using (new Timer(async _ => await PutJobHeartbeatHeavy(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
+            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 return await action(cancellationTokenSource);
             }
         }
 
-        private static async Task PutJobHeartbeat(IQueueClient queueClient, byte queueType, long jobId, long version, CancellationTokenSource cancellationTokenSource)
-        {
-            var cancel = await queueClient.PutJobHeartbeatAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationTokenSource.Token);
-            if (cancel)
-            {
-                cancellationTokenSource.Cancel();
-            }
-        }
-
-        private static async Task PutJobHeartbeatHeavy(IQueueClient queueClient, JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
+        private static async Task PutJobHeartbeatAsync(IQueueClient queueClient, JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
         {
             var cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
             if (cancel)
