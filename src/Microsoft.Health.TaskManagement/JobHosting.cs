@@ -186,7 +186,7 @@ namespace Microsoft.Health.JobManagement
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(action, nameof(action));
 
-            var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // ignore other data points from job info
+            var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // not other data points
 
             await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
@@ -209,7 +209,7 @@ namespace Microsoft.Health.JobManagement
         private static async Task PutJobHeartbeatAsync(IQueueClient queueClient, JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
         {
             var cancel = false;
-            try
+            try // this try/catch is redundant with try/catch in queueClient.PutJobHeartbeatAsync, but it is extra guarantee
             {
                 cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
             }
