@@ -15,7 +15,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
-using Microsoft.Health.SqlServer.Features.Client;
 using static Microsoft.Health.Fhir.SqlServer.Features.Storage.SqlRetryService;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in fhir-shared?
@@ -29,10 +28,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 
     public class SqlRetryServiceOptions
     {
-        public HashSet<int> RemoveTransientErrors { get; init; }
+        public const string SqlServer = "SqlServer";
 
-        public HashSet<int> AddTransientErrors { get; init; }
+        public int MaxRetries { get; set; } = 5;
 
+        public int RetryMillisecondsDelay { get; set; } = 5000;
+
+#pragma warning disable CA1002 // Do not expose generic lists
+        public List<int> RemoveTransientErrors { get; } = new List<int>();
+#pragma warning restore CA1002 // Do not expose generic lists
+
+#pragma warning disable CA1002 // Do not expose generic lists
+        public List<int> AddTransientErrors { get; } = new List<int>();
+#pragma warning restore CA1002 // Do not expose generic lists
+
+        /*
+        #pragma warning disable CA2227 // Collection properties should be read only
+                public HashSet<int> RemoveTransientErrors { get; set; }
+        #pragma warning restore CA2227 // Collection properties should be read only
+
+        #pragma warning disable CA2227 // Collection properties should be read only
+                public HashSet<int> AddTransientErrors { get; set; }
+        #pragma warning restore CA2227 // Collection properties should be read only*/
+    }
+
+    public class SqlRetryServiceDelegateOptions
+    {
         public bool DefaultIsExceptionRetriableOff { get; init; }
 
         public IsExceptionRetriable CustomIsExceptionRetriable { get; init; }
@@ -73,42 +94,57 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                     8623,   // The query processor ran out of internal resources and could not produce a query plan.
                 };
 
-        private IsExceptionRetriable defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
-        private bool defaultIsExceptionRetriableOff;
-        private IsExceptionRetriable customIsExceptionRetriable;
+        private readonly IsExceptionRetriable defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
+        private readonly bool defaultIsExceptionRetriableOff;
+        private readonly IsExceptionRetriable customIsExceptionRetriable;
+        private readonly int maxRetries;
+        private readonly int retryMillisecondsDelay;
 
         public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
-            SqlRetryServiceOptions sqlRetryServiceOptions)
+            IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
+            SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions)
         {
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
             _sqlConnectionBuilder = sqlConnectionBuilder;
 
-            EnsureArg.IsNotNull(sqlRetryServiceOptions, nameof(sqlRetryServiceOptions));
-            defaultIsExceptionRetriableOff = sqlRetryServiceOptions.DefaultIsExceptionRetriableOff;
-            customIsExceptionRetriable = sqlRetryServiceOptions.CustomIsExceptionRetriable;
-            if (sqlRetryServiceOptions.RemoveTransientErrors != null)
+            EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
+            if (sqlRetryServiceOptions.Value.RemoveTransientErrors != null)
             {
-                transientErrors.ExceptWith(sqlRetryServiceOptions.RemoveTransientErrors);
+                transientErrors.ExceptWith(sqlRetryServiceOptions.Value.RemoveTransientErrors);
             }
 
-            if (sqlRetryServiceOptions.AddTransientErrors != null)
+            if (sqlRetryServiceOptions.Value.AddTransientErrors != null)
             {
-                transientErrors.UnionWith(sqlRetryServiceOptions.AddTransientErrors);
+                transientErrors.UnionWith(sqlRetryServiceOptions.Value.AddTransientErrors);
             }
+
+            maxRetries = sqlRetryServiceOptions.Value.MaxRetries;
+            retryMillisecondsDelay = sqlRetryServiceOptions.Value.RetryMillisecondsDelay;
+
+            EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
+            defaultIsExceptionRetriableOff = sqlRetryServiceDelegateOptions.DefaultIsExceptionRetriableOff;
+            customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
         }
 
         public delegate bool IsExceptionRetriable(Exception ex);
 
         public delegate Task ExecuteSqlWithRetriesAction(SqlCommand sqlCommand, CancellationToken cancellationToken);
 
+        // TODO also define toT action delegate.
+
         private static bool DefaultIsExceptionRetriable(Exception ex)
         {
             if (ex is SqlException sqlEx)
             {
                 if (sqlEx.Number == 121 && sqlEx.Message.Contains("an error occurred during the pre-login handshake", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (sqlEx.ToString().Contains("login failed", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -134,6 +170,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                 return true;
             }
 
+            if (ex.IsRetryable())
+            {
+                return true;
+            }
+
             return false;
         }
 
@@ -141,6 +182,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
+
+            sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
             int retry = 0;
             while (true)
@@ -155,13 +198,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                 }
                 catch (Exception ex)
                 {
-                    if (!RetryTest(ex) || ++retry >= 5)
+                    if (!RetryTest(ex) || ++retry >= maxRetries)
                     {
                         throw;
                     }
                 }
 
-                await Task.Delay(1000, cancellationToken);
+                await Task.Delay(retryMillisecondsDelay, cancellationToken);
             }
         }
 

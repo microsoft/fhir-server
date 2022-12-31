@@ -250,7 +250,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddHostedService<WatchdogsBackgroundService>();
 
-            services.AddSingleton(x => new SqlRetryServiceOptions() { RemoveTransientErrors = new System.Collections.Generic.HashSet<int>() { 1204 }, AddTransientErrors = new System.Collections.Generic.HashSet<int>() { 55555 } }); // TODO: Example, remove later.
+            // services.AddSingleton(x => new SqlRetryServiceOptions() { RemoveTransientErrors = new System.Collections.Generic.HashSet<int>() { 1204 }, AddTransientErrors = new System.Collections.Generic.HashSet<int>() { 55555 } }); // TODO: Example, remove later.
+            services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // TODO: Example, remove later.
             services.AddSingleton<ISqlRetryService, SqlRetryService>();
 
             return fhirServerBuilder;

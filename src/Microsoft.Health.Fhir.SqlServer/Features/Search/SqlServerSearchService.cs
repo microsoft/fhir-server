@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -325,6 +326,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            {
+            }
+
             using (SqlCommand sqlCommandWrapper = new SqlCommand())
             /*using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())*/
@@ -335,7 +341,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sqlCommand.RetryLogicProvider = _sqlRetryLogicBaseProvider;
                 TODO: get timeout
                 */
-                sqlCommandWrapper.CommandTimeout = 600; // TODO: get timeout from _sqlServerDataStoreConfiguration.
 
                 var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
                 if (exportTimeTravel)
@@ -363,6 +368,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
                     sqlCommandWrapper.CommandText = stringBuilder.ToString();
+                    bool tst = false;
+                    if (tst)
+                    {
+                        sqlCommandWrapper.CommandText = "RAISERROR (49918, 15, 1, N'ABCDERROR');";
+                    }
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                 }
 
