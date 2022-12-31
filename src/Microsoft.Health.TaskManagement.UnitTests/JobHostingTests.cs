@@ -394,12 +394,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
             tokenSource.Cancel();
             host.Wait();
 
-            Assert.Empty(jobs.Where(t => t.Status == JobStatus.Failed));
-            Assert.Empty(jobs.Where(t => t.Status == JobStatus.Cancelled));
-            Assert.True(jobs.Where(t => t.Status == JobStatus.Completed).Count() == numberOfJobs, $"completed={jobs.Where(t => t.Status == JobStatus.Completed).Count()}");
-            Assert.True(completeErrorNumber > 5, $"completeErrorNumber={completeErrorNumber}");
-            Assert.True(dequeueErrorNumber > 5, $"dequeueErrorNumber={dequeueErrorNumber}");
-            Assert.True(heartbeatErrorNumber > 5, $"heartbeatErrorNumber={heartbeatErrorNumber}");
+            Assert.Equal(numberOfJobs, jobs.Where(t => t.Status == JobStatus.Completed).Count());
+            Assert.True(completeErrorNumber > 5, $"completeErrorNumber={completeErrorNumber} > 5");
+            Assert.True(dequeueErrorNumber > 5, $"dequeueErrorNumber={dequeueErrorNumber} > 5");
+            Assert.True(heartbeatErrorNumber > 5, $"heartbeatErrorNumber={heartbeatErrorNumber} > 5");
         }
     }
 }
