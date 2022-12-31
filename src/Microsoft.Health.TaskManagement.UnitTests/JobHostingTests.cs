@@ -367,28 +367,36 @@ namespace Microsoft.Health.JobManagement.UnitTests
             queueClient.HeartbeatFaultAction = heartbeatFaultAction;
 
             var definitions = new List<string>();
-            for (int i = 0; i < 100; ++i)
+            var numberOfJobs = 50;
+            for (var i = 0; i < numberOfJobs; ++i)
             {
                 definitions.Add(i.ToString());
             }
 
             var jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
-            Assert.Equal(100, jobs.Count);
+            Assert.Equal(numberOfJobs, jobs.Count);
             Assert.True(jobs.All(t => t.Status == JobStatus.Created));
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            var jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.MaxRunningJobCount = 10;
             jobHosting.JobHeartbeatIntervalInSeconds = 0.001;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await jobHosting.ExecuteAsync(0, "test", tokenSource);
+            var tokenSource = new CancellationTokenSource();
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(60));
+            var host = Task.Run(async () => await jobHosting.ExecuteAsync(0, "test", tokenSource));
+            while (jobs.Where(t => t.Status == JobStatus.Completed).Count() < numberOfJobs || tokenSource.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+
+            tokenSource.Cancel();
+            host.Wait();
 
             Assert.Empty(jobs.Where(t => t.Status == JobStatus.Failed));
             Assert.Empty(jobs.Where(t => t.Status == JobStatus.Cancelled));
-            Assert.True(jobs.Where(t => t.Status == JobStatus.Completed).Count() > 5, $"completed={jobs.Where(t => t.Status == JobStatus.Completed).Count()}");
+            Assert.True(jobs.Where(t => t.Status == JobStatus.Completed).Count() == numberOfJobs, $"completed={jobs.Where(t => t.Status == JobStatus.Completed).Count()}");
             Assert.True(completeErrorNumber > 5, $"completeErrorNumber={completeErrorNumber}");
             Assert.True(dequeueErrorNumber > 5, $"dequeueErrorNumber={dequeueErrorNumber}");
             Assert.True(heartbeatErrorNumber > 5, $"heartbeatErrorNumber={heartbeatErrorNumber}");
