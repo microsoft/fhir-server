@@ -386,7 +386,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             var tokenSource = new CancellationTokenSource();
             tokenSource.CancelAfter(TimeSpan.FromSeconds(60));
             var host = Task.Run(async () => await jobHosting.ExecuteAsync(0, "test", tokenSource));
-            while (jobs.Where(t => t.Status == JobStatus.Completed).Count() < numberOfJobs || tokenSource.IsCancellationRequested)
+            while (jobs.Where(t => t.Status == JobStatus.Completed).Count() < numberOfJobs && !tokenSource.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1));
             }
