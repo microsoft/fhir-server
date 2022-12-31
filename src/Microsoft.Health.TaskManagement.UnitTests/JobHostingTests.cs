@@ -383,15 +383,15 @@ namespace Microsoft.Health.JobManagement.UnitTests
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(3));
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
             await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.Empty(jobs.Where(t => t.Status == JobStatus.Failed));
             Assert.Empty(jobs.Where(t => t.Status == JobStatus.Cancelled));
-            Assert.True(jobs.Where(t => t.Status == JobStatus.Completed).Count() > 10, $"completed={jobs.Where(t => t.Status == JobStatus.Completed).Count()}");
-            Assert.True(completeErrorNumber > 10, $"completeErrorNumber={completeErrorNumber} > 10");
-            Assert.True(dequeueErrorNumber > 10, $"dequeueErrorNumber={dequeueErrorNumber} > 10");
-            Assert.True(heartbeatErrorNumber > 10, $"heartbeatErrorNumber={heartbeatErrorNumber} > 10");
+            Assert.True(jobs.Where(t => t.Status == JobStatus.Completed).Count() > 5, $"completed={jobs.Where(t => t.Status == JobStatus.Completed).Count()}");
+            Assert.True(completeErrorNumber > 5, $"completeErrorNumber={completeErrorNumber}");
+            Assert.True(dequeueErrorNumber > 5, $"dequeueErrorNumber={dequeueErrorNumber}");
+            Assert.True(heartbeatErrorNumber > 5, $"heartbeatErrorNumber={heartbeatErrorNumber}");
         }
     }
 }
