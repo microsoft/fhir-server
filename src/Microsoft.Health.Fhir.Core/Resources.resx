@@ -169,7 +169,8 @@
     <value>The composite separator cannot be found.</value>
   </data>
   <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
-    <value>Operation was not attempted because search criteria was not selective enough.</value>
+    <value>Conditional operation on {0} was not attempted because search criteria was not selective enough.</value>
+    <comment>{0} should be a ResourceType</comment>
   </data>
   <data name="ConditionalUpdateMismatchedIds" xml:space="preserve">
     <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
@@ -514,6 +515,9 @@
   <data name="ElementsAndSummaryParametersAreIncompatible" xml:space="preserve">
     <value>The '_elements' parameter is supported only when '_summary' is SummaryType.False or '_summary' is not specified at all.</value>
   </data>
+  <data name="SearchParameterTooComplex" xml:space="preserve">
+    <value>A search parameter is too complex.</value>
+  </data>
   <data name="SearchParameterUnknownNotSupported" xml:space="preserve">
     <value>A search parameter is no longer supported.</value>
   </data>
@@ -684,7 +688,7 @@
   <data name="FhirUserClaimIsNotAValidResource" xml:space="preserve">
     <value>Provided fhirUser claim {0} is not a valid resource in this fhir server.</value>
     <comment>{0} is a url of a fhir resource.</comment>
-  </data>  
+  </data>
   <data name="InternalServerError" xml:space="preserve">
     <value>An internal error has occurred. If this problem persists, please contact Customer Support.</value>
   </data>

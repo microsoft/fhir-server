@@ -63,7 +63,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<ISearchParameterDefinitionManager>()
-                .AsService<IHostedService>()
                 .AsService<INotificationHandler<SearchParametersUpdatedNotification>>()
                 .AsService<INotificationHandler<StorageInitializedNotification>>();
 

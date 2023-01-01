@@ -61,7 +61,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.True(jobCount == executedJobCount);
             foreach (JobInfo job in jobs)
@@ -117,7 +117,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(1));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.Equal(2, executeCount);
 
@@ -155,7 +155,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.Equal(JobStatus.Completed, job1.Status);
             Assert.Equal(1, executeCount0);
@@ -189,7 +189,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            Task hostingTask = jobHosting.StartAsync(0, "test", tokenSource);
+            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource);
             autoResetEvent.WaitOne();
             tokenSource.Cancel();
 
@@ -230,7 +230,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.Equal(JobStatus.Completed, job1.Status);
             Assert.Equal(2, executeCount0);
@@ -261,11 +261,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
+            jobHosting.JobHeartbeatIntervalInSeconds = 1;
             jobHosting.MaxRunningJobCount = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            Task hostingTask = jobHosting.StartAsync(0, "test", tokenSource);
+            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             autoResetEvent.WaitOne();
             await queueClient.CancelJobByGroupIdAsync(0, job1.GroupId, CancellationToken.None);
@@ -278,8 +279,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         [Fact]
         public async Task GivenJobRunning_WhenUpdateCurrentResult_ThenCurrentResultShouldBePersisted()
         {
-            AutoResetEvent autoResetEvent1 = new AutoResetEvent(false);
-            AutoResetEvent autoResetEvent2 = new AutoResetEvent(false);
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
             TestJobFactory factory = new TestJobFactory(t =>
             {
                 return new TestJob(
@@ -287,7 +287,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         {
                             progress.Report("Progress");
                             await Task.Delay(TimeSpan.FromSeconds(2));
-                            autoResetEvent1.Set();
+                            autoResetEvent.Set();
                             await Task.Delay(TimeSpan.FromSeconds(1));
 
                             return t.Definition;
@@ -304,9 +304,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            Task hostingTask = jobHosting.StartAsync(0, "test", tokenSource);
+            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource, true);
 
-            autoResetEvent1.WaitOne();
+            autoResetEvent.WaitOne();
             Assert.Equal("Progress", job1.Result);
 
             await hostingTask;
@@ -361,7 +361,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.True(jobs.All(t => t.Status == JobStatus.Completed));
             Assert.True(errorNumber > 0);

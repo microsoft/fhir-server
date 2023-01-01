@@ -76,8 +76,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await testHelper1?.DeleteDatabase(snapshotDatabaseName);
-                await testHelper2?.DeleteDatabase(diffDatabaseName);
+                await (testHelper1?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
+                await (testHelper2?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
             }
         }
 
@@ -216,6 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Exclude them from the schema comparison differences.
             (string type, string name)[] deprecatedObjectToIgnore =
             {
+                ("Procedure", "[dbo].[RebuildIndex]"),
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
@@ -286,8 +287,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 else
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
-                    //// Skipping queue objects
-                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus", "GetActiveJobs", "Defrag", "DefragChangeDatabaseSettings", "InitDefrag", "ArchiveJobs", "GetUsedResourceTypes" };
+                    //// Skipping some objects
+                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus", "GetActiveJobs", "Defrag", "DefragChangeDatabaseSettings", "InitDefrag", "ArchiveJobs", "GetUsedResourceTypes", "ExecuteCommandForRebuildIndexes", "GetCommandsForRebuildIndexes", "GetIndexCommands", "GetPartitionedTables", "SwitchPartitionsIn", "SwitchPartitionsInAllTables", "SwitchPartitionsOut", "SwitchPartitionsOutAllTables" };
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
                         continue;

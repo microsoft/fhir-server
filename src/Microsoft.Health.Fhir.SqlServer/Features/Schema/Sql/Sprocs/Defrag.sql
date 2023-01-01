@@ -1,7 +1,7 @@
 ﻿--DROP PROCEDURE dbo.Defrag
 GO
 CREATE PROCEDURE dbo.Defrag @TableName varchar(100), @IndexName varchar(200), @PartitionNumber int, @IsPartitioned bit
-WITH EXECUTE AS SELF
+WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'Defrag'
