@@ -253,8 +253,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 apiCallResults[status].Add(new BundleSubCallMetricData()
                 {
-                    FhirOperation = string.Concat(entry?.Request?.Method, entry?.Request?.Url),
-                    ResourceType = entry?.Request?.TypeName,
+                    FhirOperation = "Bundle Sub Call",
+                    ResourceType = entry.Resource.TypeName,
                 });
             }
 
