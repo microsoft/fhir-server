@@ -288,8 +288,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
                     //// Skipping some objects
-                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus", "GetActiveJobs", "Defrag", "DefragChangeDatabaseSettings", "InitDefrag", "ArchiveJobs", "GetUsedResourceTypes", "ExecuteCommandForRebuildIndexes", "GetCommandsForRebuildIndexes", "GetIndexCommands", "GetPartitionedTables", "SwitchPartitionsIn", "SwitchPartitionsInAllTables", "SwitchPartitionsOut", "SwitchPartitionsOutAllTables" };
+                    ////var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus", "GetActiveJobs", "Defrag", "DefragChangeDatabaseSettings", "InitDefrag", "ArchiveJobs", "GetUsedResourceTypes", "ExecuteCommandForRebuildIndexes", "GetCommandsForRebuildIndexes", "GetIndexCommands", "GetPartitionedTables", "SwitchPartitionsIn", "SwitchPartitionsInAllTables", "SwitchPartitionsOut", "SwitchPartitionsOutAllTables" };
+                    var objectsToSkip = new[] { "EnqueueJobs",                                                                                                                                         "PutJobHeartbeat", "PutJobStatus", "GetActiveJobs", "Defrag", "DefragChangeDatabaseSettings", "InitDefrag", "ArchiveJobs", "GetUsedResourceTypes", "ExecuteCommandForRebuildIndexes", "GetCommandsForRebuildIndexes", "GetIndexCommands", "GetPartitionedTables", "SwitchPartitionsIn", "SwitchPartitionsInAllTables", "SwitchPartitionsOut", "SwitchPartitionsOutAllTables" };
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
+                    {
+                        continue;
+                    }
+
+                    if (schemaDifference.SourceObject != null
+                        && schemaDifference.TargetObject != null
+                        && schemaDifference.SourceObject.ObjectType.Name == "Procedure"
+                        && await IsStoredProcedureTextEqual(testConnectionString1, testConnectionString2, schemaDifference.SourceObject.Name.ToString()))
                     {
                         continue;
                     }
@@ -308,6 +317,54 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             return unexpectedDifference.ToString();
+        }
+
+        private async Task<bool> IsStoredProcedureTextEqual(string connStr1, string connStr2, string storedProcedureName)
+        {
+            var text1 = await GetStoredProcedureText(connStr1, storedProcedureName);
+            var text2 = await GetStoredProcedureText(connStr2, storedProcedureName);
+
+            text1 = Normalize(text1);
+            text2 = Normalize(text2);
+
+            Assert.Equal(text1, text2);
+
+            return true;
+        }
+
+        private string Normalize(string text)
+        {
+            // remove inline comments
+            while (text.IndexOf("--") > 0)
+            {
+                var indexStart = text.IndexOf("--");
+                var indexEnd = text.IndexOf(Environment.NewLine, indexStart);
+                text = text.Substring(0, indexStart) + text.Substring(indexEnd, text.Length - indexEnd);
+            }
+
+            return text.ToLowerInvariant()
+                       .Replace("\t", " ")
+                       .Replace(" as ", " ")
+                       .Replace(";", string.Empty)
+                       .Replace(" ", string.Empty)
+                       .Replace(Environment.NewLine, string.Empty);
+        }
+
+        private async Task<string> GetStoredProcedureText(string connStr, string storedProcedureName)
+        {
+            using var conn = new SqlConnection(connStr);
+            await conn.OpenAsync();
+            using var cmd = new SqlCommand("dbo.sp_helptext", conn);
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@objname", storedProcedureName);
+            using var reader = cmd.ExecuteReader();
+            var text = string.Empty;
+            while (reader.Read())
+            {
+                text += reader.GetString(0);
+            }
+
+            return text;
         }
 
         public async Task<bool> SchemaVersionInStartedState(string connectionString)
