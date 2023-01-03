@@ -42,7 +42,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Cast<Resource>().ToArray());
+            // Due to multiple service instances lastUpdated time could vary, and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.OrderBy(p => p.Meta.LastUpdated).Cast<Resource>().ToArray());
         }
 
         [Fact]
@@ -52,36 +53,54 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
+            // Due to multiple service instances lastUpdated time could vary, and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.OrderByDescending(p => p.Meta.LastUpdated).Cast<Resource>().ToArray());
         }
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableTheory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder(string sortParameterName)
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
 
+            if (sortParameterName.Equals("birthdate", StringComparison.OrdinalIgnoreCase))
+            {
+                // CreatePaginatedPatients - Creates Patients array in the increasing order of BirthDates. Sorting to avoid failures
+                patients = patients.OrderBy(p => p.BirthDate).ToArray();
+            }
+            else if (sortParameterName.Equals("_lastUpdated", StringComparison.OrdinalIgnoreCase))
+            {
+                // Due to multiple service instances lastUpdated time could vary and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
+                patients = patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            }
+
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}", false, patients.Cast<Resource>().ToArray());
         }
-        */
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableTheory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder(string sortParameterName)
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
+            if (sortParameterName.Equals("birthdate", StringComparison.OrdinalIgnoreCase))
+            {
+                // CreatePaginatedPatients - Creates Patients array in the increasing order of BirthDates. Sorting to avoid failures
+                patients = patients.OrderBy(p => p.BirthDate).ToArray();
+            }
+            else if (sortParameterName.Equals("_lastUpdated", StringComparison.OrdinalIgnoreCase))
+            {
+                // Due to multiple service instances lastUpdated time could vary and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
+                patients = patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            }
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-{sortParameterName}", false, patients.Reverse().Cast<Resource>().ToArray());
         }
-        */
 
         [Theory]
         [InlineData("birthdate")]
@@ -92,34 +111,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients);
+            // For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order)
+            // Since sort is based on same BirthDate, the order in which resources will be returned depends on their creation time for both sortParameterName
+            // Above patients array could be out of sync due to inconsistent system time across multiple server instances so sort the expected patients array
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.OrderBy(p => p.Meta.LastUpdated).ToArray());
         }
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInAscendingOrder()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
         }
-        */
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdateWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_count=3", false, pageSize: 3, patients.Reverse().Cast<Resource>().ToArray());
         }
-        */
 
         // uncomment only when db cleanup happens on each run, otherwise the paging might cause expected resources to not arrive
         /*[Fact]
@@ -137,21 +155,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_sort=birthdate", false, patients.Cast<Resource>().ToArray());
         }*/
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithFamilySortParams_ThenPatientsAreReturnedInTheAscendingOrder()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatients(tag);
 
+            // We are ordering the patients array by Family name
             await ExecuteAndValidateBundle(
                 $"Patient?_tag={tag}&_sort=family",
                 false,
                 patients.OrderBy(x => x.Name.Min(n => n.Family)).Cast<Resource>().ToArray());
         }
-        */
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatients_WhenSearchedWithFamilySortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
+        {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatients(tag);
+
+            // We are ordering the patients array by Family name
+            await ExecuteAndValidateBundle(
+                $"Patient?_tag={tag}&_sort=-family",
+                false,
+                patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
+        }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -232,91 +264,64 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [SkippableFact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatients_WhenSearchedWithFamilySortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
-        {
-            var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePatients(tag);
-
-            await ExecuteAndValidateBundle(
-                $"Patient?_tag={tag}&_sort=-family",
-                false,
-                patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
-        }
-
-        /*
-         * Flaky test - commented temporarily
-        [SkippableFact]
         public async Task GivenQueryWithDatetimeFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
 
             // save the timestamp prior to creating the resources
-            var now = DateTime.Now;
-            var time = now.AddSeconds(-10);
+            var since = DateTime.Now.AddSeconds(-10);
 
-            // create the resources which will have an timestamp bigger than the 'now' var
+            // create the resources which will have an timestamp bigger than the 'since' var
             var patients = await CreatePatients(tag);
-
-            // Ask to get all patient with datetime filter
-            // Note: this might result in getting Patients that were created on other tests (concurrent tests),
-            // e.g. previous runs which were not cleaned yet, or concurrent tests.
-            // we overcome this issue by not looking for specific results, rather just make sure they are
-            // sorted.
 
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             // sort and filter are based on same type (datetime)
-            string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
-            await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate&_tag={tag}", false, patients.Cast<Resource>().ToArray());
-        }
-        */
+            string lastUpdated = HttpUtility.UrlEncode($"{since:o}");
 
-        /*
-         * Flaky test - commented temporarily
+            // CreatePatients - Creates patients with birthdates in Ascending order, sort to avoid failures
+            await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate&_tag={tag}", false, patients.OrderBy(x => x.BirthDate).Cast<Resource>().ToArray());
+        }
+
         [SkippableFact]
         public async Task GivenQueryWitDatetimeFilter_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
 
             // save the timestamp prior to creating the resources
-            var now = DateTime.Now;
-            var time = now.AddSeconds(-10);
+            var since = DateTime.Now.AddSeconds(-10);
 
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
-            // Ask to get all patient with datetime filter
-            // Note: this might result in getting Patients that were created on other tests (concurrent tests),
-            // e.g. previous runs which were not cleaned yet, or concurrent tests.
-            // we overcome this issue by not looking for specific results, rather just make sure they are
-            // sorted.
-
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             // sort and filter are based on same type (datetime)
-            string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
+            string lastUpdated = HttpUtility.UrlEncode($"{since:o}");
+
+            // CreatePatients - Creates patients with birthdates in Ascending order, sort to avoid failures
             await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=-birthdate&_tag={tag}", false, patients.OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
         }
-        */
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableFact]
         public async Task GivenQueryWithTagFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
 
-            // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate", false, patients.Cast<Resource>().ToArray());
+
+            // CreatePatients - Creates patients with birthdates in Ascending order, sort to avoid failures
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate", false, patients.OrderBy(x => x.BirthDate).Cast<Resource>().ToArray());
         }
-        */
 
         [SkippableFact]
         public async Task GivenQueryWithTagFilter_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
 
             // create the resources which will have an timestamp bigger than the 'now' var
@@ -324,6 +329,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
+
+            // CreatePatients - Creates patients with birthdates in Ascending order, sort to avoid failures
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate", false, patients.OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
         }
 
@@ -364,6 +371,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
+            // CreatePatients - Creates patients with birthdates in Ascending order, sort to avoid failures
+            patients = patients.OrderBy(x => x.BirthDate).ToArray();
             resources.AddRange(patients);
 
             foreach (Patient p in patients)
@@ -379,6 +388,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnDatetimeWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            var resources = new List<Resource>();
+
+            // create the resources which will have an timestamp bigger than the 'now' var
+            var patients = await CreatePatients(tag);
+
+            // CreatePatients - Creates patients with birthdates in Ascending order, sort to avoid failures
+            patients = patients.OrderBy(x => x.BirthDate).ToArray();
+
+            var observations = new List<Observation>();
+            for (int i = 0; i < patients.Length; i++)
+            {
+                var obs = await AddObservationToPatient(patients[i], "1990-01-01", tag);
+                observations.Add(obs.First());
+            }
+
+            resources.AddRange(patients.Reverse());
+            resources.AddRange(observations);
+
+            // Ask to get all patient with specific tag order by birthdate (timestamp)
+            // filter and sort are different based on different types
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_revinclude=Observation:subject", false, resources.ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnLastupdated_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -387,6 +425,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
+
+            // CreatePatients - Creates patients in Ascending order but due to multiple instances lastUpdated time could vary
+            patients = patients.OrderBy(x => x.Meta.LastUpdated).ToArray();
 
             var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
@@ -414,6 +455,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
+            // CreatePatients - Creates patients in Ascending order but due to multiple instances lastUpdated time could vary
+            patients = patients.OrderBy(x => x.Meta.LastUpdated).ToArray();
+
             var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
             {
@@ -428,32 +472,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated&_revinclude=Observation:subject", false, resources.ToArray());
-        }
-
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenQueryWithRevinclude_WhenSearchedWithSortParamOnDatetimeWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
-        {
-            var tag = Guid.NewGuid().ToString();
-
-            var resources = new List<Resource>();
-
-            // create the resources which will have an timestamp bigger than the 'now' var
-            var patients = await CreatePatients(tag);
-
-            var observations = new List<Observation>();
-            for (int i = 0; i < patients.Length; i++)
-            {
-                var obs = await AddObservationToPatient(patients[i], "1990-01-01", tag);
-                observations.Add(obs.First());
-            }
-
-            resources.AddRange(patients.Reverse());
-            resources.AddRange(observations);
-
-            // Ask to get all patient with specific tag order by birthdate (timestamp)
-            // filter and sort are different based on different types
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_revinclude=Observation:subject", false, resources.ToArray());
         }
 
         [Fact]
@@ -592,46 +610,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true", false, expected_resources.ToArray());
         }
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableFact]
         public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
+            // Make sure that [0..5] are the Patients with R in the family name
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family", sort: false, patients[0..5]);
         }
-       */
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
         public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder(int count)
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
+            // Make sure that [0..5] are the Patients with R in the family name
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family&_count={count}", sort: false, pageSize: count, patients[0..5]);
         }
-        */
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithMultipleNamesForCosmos_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
         {
+            // Make sure that [0..5] are the Patients with R in the family name
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
+            // Make sure that [0..5] are the Patients with R in the family name
             List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[3], patients[2], patients[0], };
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
         }
-        */
 
         [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -664,8 +679,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
          * For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order).
          * Hence we see a difference when sorting by Descending order.
         */
-        /*
-         * Flaky test - commented temporarily
         [SkippableTheory]
         [InlineData(2)]
         [InlineData(3)]
@@ -673,17 +686,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithMultipleNamesAndPaginatedForCosmos_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder(int count)
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
             List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[3], patients[2], patients[0], };
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients.ToArray());
         }
-        */
 
         [SkippableFact]
         public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult()
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
 
@@ -691,21 +705,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family", sort: false, expectedPatients);
         }
 
-        /*
-         * Flaky test - commented temporarily
         [SkippableTheory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
         public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult(int count)
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
 
             var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).ToArray();
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family&_count={count}", sort: false, pageSize: count, expectedPatients);
         }
-        */
 
         [SkippableTheory]
         [InlineData(2)]
@@ -737,8 +749,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
          * For SQL, we always choose the oldest resource (irrespective of overall sort order).
          * Hence we see a difference when sorting by Descending order.
          * */
-        /*
-         * Flaky test - commented temporarily
+
         [SkippableTheory]
         [InlineData(2)]
         [InlineData(3)]
@@ -746,13 +757,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithFamilyNameMissingAndPaginatedForCosmos_WhenSortingByFamilyNameWithHyphen_ThenThosePatientsAreIncludedInResult(int count)
         {
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
 
             var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).Reverse().ToArray();
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients);
         }
-        */
 
         [SkippableTheory]
         [InlineData(2)]
@@ -894,7 +905,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "New York", "Williamas", tag, DateTime.Now.Subtract(TimeSpan.FromDays(40))),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, DateTime.Now.Subtract(TimeSpan.FromDays(30))));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private async Task<Patient[]> CreatePaginatedPatients(string tag)
@@ -914,7 +925,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private async Task<Patient[]> CreatePatientsWithSameBirthdate(string tag)
@@ -927,7 +938,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Seattle", "Alex", tag),
                 p => SetPatientInfo(p, "Portland", "Rock", tag));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
@@ -941,7 +952,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
@@ -956,7 +967,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            return patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
+            return patients;
         }
 
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
