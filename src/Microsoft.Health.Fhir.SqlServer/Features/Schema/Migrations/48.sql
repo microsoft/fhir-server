@@ -4166,13 +4166,11 @@ ELSE
             WHERE  ResourceTypeId = @resourceTypeId
                    AND ResourceSurrogateId = @previousResourceSurrogateId;
         ELSE
-            BEGIN
-                DELETE dbo.Resource
-                WHERE  ResourceTypeId = @resourceTypeId
-                       AND ResourceSurrogateId = @previousResourceSurrogateId;
-                DELETE dbo.ResourceWriteClaim
-                WHERE  ResourceSurrogateId = @previousResourceSurrogateId;
-            END
+            DELETE dbo.Resource
+            WHERE  ResourceTypeId = @resourceTypeId
+                   AND ResourceSurrogateId = @previousResourceSurrogateId;
+        DELETE dbo.ResourceWriteClaim
+        WHERE  ResourceSurrogateId = @previousResourceSurrogateId;
         DELETE dbo.CompartmentAssignment
         WHERE  ResourceTypeId = @resourceTypeId
                AND ResourceSurrogateId = @previousResourceSurrogateId;

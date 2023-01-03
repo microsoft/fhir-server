@@ -69,12 +69,10 @@ BEGIN -- There is a previous version so @previousVersion will not be null
   IF @keepHistory = 1
     UPDATE dbo.Resource SET IsHistory = 1 WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId -- Set the existing resource as history
   ELSE
-  BEGIN 
     DELETE dbo.Resource WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-    DELETE dbo.ResourceWriteClaim WHERE ResourceSurrogateId = @previousResourceSurrogateId
-  END
 
   -- delete history from index tables because we do not search on them
+  DELETE dbo.ResourceWriteClaim WHERE ResourceSurrogateId = @previousResourceSurrogateId
   DELETE dbo.CompartmentAssignment WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
   DELETE dbo.ReferenceSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
   DELETE dbo.TokenSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
