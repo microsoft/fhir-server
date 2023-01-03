@@ -6,13 +6,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -316,39 +314,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
-        public async Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
-        {
-            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-            try
-            {
-                if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
-                {
-                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
-
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    return VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
-                }
-                else
-                {
-                    V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    return (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
-                }
-            }
-            catch (SqlException sqlEx)
-            {
-                if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
-                {
-                    throw new JobNotExistException(sqlEx.Message);
-                }
-
-                throw;
-            }
-        }
-
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
@@ -357,38 +322,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        public async Task ExecuteJobWithHeartbeatAsync(byte queueType, long jobId, long version, Func<CancellationToken, Task> action, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(action, nameof(action));
-
-            await using (new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                await action(cancellationToken);
-            }
-        }
-
-        private void PutJobHeartbeatFireAndForget(byte queueType, long jobId, long version, CancellationToken cancellationToken)
-        {
+            var cancel = false;
             try
             {
-                KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationToken).Wait(cancellationToken);
-            }
-            catch (AggregateException ex) when (ex.InnerExceptions?.All(x => x is TaskCanceledException || x is OperationCanceledException) == true)
-            {
-                // ignore task cancellation exceptions
-            }
-            catch (TaskCanceledException)
-            {
-                // ignore task cancellation exceptions
-            }
-            catch (OperationCanceledException)
-            {
-                // ignore task cancellation exceptions
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
+                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to put job heartbeat.");
+                _logger.LogWarning(ex, "Failed to put job heartbeat.");
             }
+
+            return cancel;
         }
     }
 }

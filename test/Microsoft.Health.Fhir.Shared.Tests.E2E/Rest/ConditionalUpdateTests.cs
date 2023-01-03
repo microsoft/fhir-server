@@ -32,6 +32,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenABundledResourceTypeWithMissingId_WhenCreatingConditionally_TheServerRespondsWithCorrectMessage()
+        {
+            Bundle bundle = Samples.GetJsonSample("Bundle-MissingIdentifier").ToPoco<Bundle>();
+            FhirException exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(bundle, string.Empty));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            Assert.True(exception.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, bundle.TypeName)));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenUpsertingConditionallyWithNoIdAndNoExisting_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
