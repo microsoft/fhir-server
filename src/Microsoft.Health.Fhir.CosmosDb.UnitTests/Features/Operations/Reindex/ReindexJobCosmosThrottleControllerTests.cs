@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
 
             int loopCount = 0;
 
-            while (loopCount < 16)
+            while (loopCount < 25)
             {
                 _output.WriteLine($"Current throttle based delay is: {throttleController.GetThrottleBasedDelay()}");
                 _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "100.0");
