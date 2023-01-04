@@ -2054,6 +2054,7 @@ BEGIN TRY
                 END
             DELETE @Types
             WHERE  ResourceTypeId = @ResourceTypeId;
+            SET @MinSurrogateId = 0;
         END
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY

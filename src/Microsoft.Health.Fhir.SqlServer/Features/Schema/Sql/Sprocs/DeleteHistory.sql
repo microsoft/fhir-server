@@ -127,6 +127,8 @@ BEGIN TRY
     END
 
     DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
+
+    SET @MinSurrogateId = 0
   END
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows

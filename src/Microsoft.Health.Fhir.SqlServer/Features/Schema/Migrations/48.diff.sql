@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.DeleteHistory
 GO
-CREATE PROCEDURE dbo.DeleteHistory @DeleteResources bit = 0
+CREATE OR ALTER PROCEDURE dbo.DeleteHistory @DeleteResources bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DeleteHistory'
@@ -127,6 +127,8 @@ BEGIN TRY
     END
 
     DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
+
+    SET @MinSurrogateId = 0
   END
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
