@@ -342,11 +342,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             return text.ToLowerInvariant()
-                       .Replace("\t", " ")
-                       .Replace(" as ", " ")
+                       .Replace("\t", string.Empty)
+                       .Replace(" as ", string.Empty)
                        .Replace(";", string.Empty)
                        .Replace(" ", string.Empty)
-                       .Replace(Environment.NewLine, string.Empty);
+                       .Replace(Environment.NewLine, string.Empty)
+                       .Replace("\r", string.Empty);
         }
 
         private async Task<string> GetStoredProcedureText(string connStr, string storedProcedureName)
