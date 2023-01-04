@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
         Task ExecuteSqlWithRetries(SqlCommand sqlCommand, ExecuteSqlWithRetriesAction action, CancellationToken cancellationToken);
 
         Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken);
+
+        Task<T> ProcessSqlDataReaderRowsWithRetries<T>(SqlCommand sqlCommand, InitializeRowProcessor<T> initializer, ExecuteRowProcessor<T> processRow, CancellationToken cancellationToken);
     }
 
     public class SqlRetryServiceOptions
@@ -133,6 +135,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 
         public delegate Task ExecuteSqlWithRetriesAction(SqlCommand sqlCommand, CancellationToken cancellationToken);
 
+        public delegate void ExecuteRowProcessor<T>(SqlDataReader reader, T result, CancellationToken cancellationToken);
+
+        public delegate T InitializeRowProcessor<T>();
+
         // TODO also define toT action delegate.
 
         private static bool DefaultIsExceptionRetriable(Exception ex)
@@ -226,7 +232,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                 },
                 cancellationToken);
 
-                // connectionTimeoutSec);// TODO: different timeout?
+            // connectionTimeoutSec);// TODO: different timeout?
+
+            return results;
+        }
+
+        public async Task<T> ProcessSqlDataReaderRowsWithRetries<T>(SqlCommand sqlCommand, InitializeRowProcessor<T> initializer, ExecuteRowProcessor<T> processRow, CancellationToken cancellationToken)
+        {
+            var results = default(T);
+            await ExecuteSqlWithRetries(
+                sqlCommand,
+                async (sqlCommandInt, cancellationToken) =>
+                {
+                    using SqlDataReader reader = await sqlCommandInt.ExecuteReaderAsync(cancellationToken);
+                    T results = initializer();
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        processRow(reader, results, cancellationToken);
+                    }
+
+                    await reader.NextResultAsync(cancellationToken);
+                },
+                cancellationToken);
+
+            // connectionTimeoutSec);// TODO: different timeout?
 
             return results;
         }
