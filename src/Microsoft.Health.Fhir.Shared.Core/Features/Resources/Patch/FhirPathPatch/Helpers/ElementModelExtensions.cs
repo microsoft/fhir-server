@@ -52,6 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
         // Given an input note list, throw an exception if there are multiple elements that aren't in the same collection.
         internal static IEnumerable<ITypedElement> RequireMultipleElementsInSameCollection(this IEnumerable<ITypedElement> nodeList)
         {
+            nodeList = nodeList.ToList();
+
             // If multiple elements or collection.
             if (nodeList.Count() > 1)
             {

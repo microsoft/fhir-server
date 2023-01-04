@@ -9,14 +9,10 @@ using System.Text;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
-    internal class CompressedRawResourceConverterCopy
+    internal static class CompressedRawResourceConverterCopy
     {
         internal static readonly Encoding LegacyResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
         internal static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
-
-        public CompressedRawResourceConverterCopy()
-        {
-        }
 
         public static string ReadCompressedRawResource(Stream compressedResourceStream)
         {
