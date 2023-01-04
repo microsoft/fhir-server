@@ -20,7 +20,7 @@
     <Otherwise>
       <PropertyGroup>
         <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
-        <AspNetPackageVersion>6.0.11</AspNetPackageVersion>
+        <AspNetPackageVersion>6.0.12</AspNetPackageVersion>
       </PropertyGroup>
       <ItemGroup>
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
