@@ -144,25 +144,25 @@ BEGIN -- There is a previous version so @previousVersion will not be null
   IF @keepHistory = 1
     UPDATE dbo.Resource SET IsHistory = 1 WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId -- Set the existing resource as history
   ELSE
-    DELETE dbo.Resource WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+    DELETE FROM dbo.Resource WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
   -- delete history from index tables because we do not search on them
-  DELETE dbo.ResourceWriteClaim WHERE ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.CompartmentAssignment WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.ReferenceSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.TokenSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.TokenText WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.StringSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.UriSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.NumberSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.QuantitySearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.DateTimeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.ReferenceTokenCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.TokenTokenCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.TokenDateTimeCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.TokenQuantityCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.TokenStringCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
-  DELETE dbo.TokenNumberNumberCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.ResourceWriteClaim WHERE ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.CompartmentAssignment WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.ReferenceSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.TokenSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.TokenText WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.StringSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.UriSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.NumberSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.QuantitySearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.DateTimeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.ReferenceTokenCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.TokenTokenCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.TokenDateTimeCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.TokenQuantityCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.TokenStringCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
+  DELETE FROM dbo.TokenNumberNumberCompositeSearchParam WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 END
 
 SET @resourceSurrogateId = @baseResourceSurrogateId + (NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence)
