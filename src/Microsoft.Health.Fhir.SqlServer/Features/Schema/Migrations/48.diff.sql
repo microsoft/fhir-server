@@ -45,6 +45,8 @@ BEGIN TRY
     SET @RowsToProcess = 1
     WHILE @RowsToProcess > 0
     BEGIN
+      SET @Rows = 0
+
       DELETE FROM @SurrogateIds
 
       INSERT INTO @SurrogateIds

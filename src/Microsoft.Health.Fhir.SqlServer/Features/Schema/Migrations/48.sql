@@ -1941,6 +1941,7 @@ BEGIN TRY
             SET @RowsToProcess = 1;
             WHILE @RowsToProcess > 0
                 BEGIN
+                    SET @Rows = 0;
                     DELETE @SurrogateIds;
                     INSERT INTO @SurrogateIds
                     SELECT   TOP 10000 ResourceSurrogateId,
