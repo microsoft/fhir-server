@@ -288,7 +288,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
                     //// Skipping some objects
-                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus", "GetActiveJobs", "Defrag", "DefragChangeDatabaseSettings", "InitDefrag", "ArchiveJobs", "GetUsedResourceTypes", "ExecuteCommandForRebuildIndexes", "GetCommandsForRebuildIndexes", "GetIndexCommands", "GetPartitionedTables", "SwitchPartitionsIn", "SwitchPartitionsInAllTables", "SwitchPartitionsOut", "SwitchPartitionsOutAllTables" };
+                    var objectsToSkip = new[] { "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" };
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
                         continue;
@@ -342,12 +342,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             return text.ToLowerInvariant()
-                       .Replace("\t", string.Empty)
+                       .Replace(Environment.NewLine, " ")
+                       .Replace("\r", " ")
+                       .Replace("\t", " ")
+                       .Replace(" output ", " out ")
+                       .Replace(" inner join ", " join ")
                        .Replace(" as ", string.Empty)
                        .Replace(";", string.Empty)
-                       .Replace(" ", string.Empty)
-                       .Replace(Environment.NewLine, string.Empty)
-                       .Replace("\r", string.Empty);
+                       .Replace(" ", string.Empty);
         }
 
         private async Task<string> GetStoredProcedureText(string connStr, string storedProcedureName)
