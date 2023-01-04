@@ -1897,6 +1897,174 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE PROCEDURE dbo.DeleteHistory
+@DeleteResources BIT=0
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'DeleteHistory', @Mode AS VARCHAR (100) = 'DR=' + isnull(CONVERT (VARCHAR, @DeleteResources), 'NULL'), @msg AS VARCHAR (100), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @ResourceTypeId AS SMALLINT, @MinSurrogateId AS BIGINT = 0, @MinResourceTypeId AS SMALLINT = 0, @RowsToProcess AS INT, @Id AS VARCHAR (100) = 'DeleteHistory.LastProcessed.TypeId.SurrogateId';
+DECLARE @LastProcessed AS VARCHAR (100) = (SELECT Char
+                                           FROM   dbo.Parameters
+                                           WHERE  Id = @Id);
+BEGIN TRY
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
+    IF @LastProcessed IS NULL
+        INSERT INTO dbo.Parameters (Id, Char)
+        SELECT @Id,
+               '0.0';
+    DECLARE @Types TABLE (
+        ResourceTypeId SMALLINT      PRIMARY KEY,
+        Name           VARCHAR (100));
+    DECLARE @SurrogateIds TABLE (
+        ResourceSurrogateId BIGINT PRIMARY KEY,
+        IsHistory           BIT   );
+    INSERT INTO @Types
+    EXECUTE dbo.GetUsedResourceTypes ;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = '@Types', @Action = 'Insert', @Rows = @@rowcount;
+    IF @LastProcessed IS NOT NULL
+        BEGIN
+            SET @MinResourceTypeId = (SELECT value
+                                      FROM   string_split (@LastProcessed, '.', 1)
+                                      WHERE  ordinal = 1);
+            SET @MinSurrogateId = (SELECT value
+                                   FROM   string_split (@LastProcessed, '.', 1)
+                                   WHERE  ordinal = 2);
+        END
+    DELETE @Types
+    WHERE  ResourceTypeId < @MinResourceTypeId;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = '@Types', @Action = 'Delete', @Rows = @@rowcount;
+    WHILE EXISTS (SELECT *
+                  FROM   @Types)
+        BEGIN
+            SET @ResourceTypeId = (SELECT   TOP 1 ResourceTypeId
+                                   FROM     @Types
+                                   ORDER BY ResourceTypeId);
+            SET @RowsToProcess = 1;
+            WHILE @RowsToProcess > 0
+                BEGIN
+                    DELETE @SurrogateIds;
+                    INSERT INTO @SurrogateIds
+                    SELECT   TOP 10000 ResourceSurrogateId,
+                                       IsHistory
+                    FROM     dbo.Resource
+                    WHERE    ResourceTypeId = @ResourceTypeId
+                             AND ResourceSurrogateId > @MinSurrogateId
+                    ORDER BY ResourceSurrogateId;
+                    SET @RowsToProcess = @@rowcount;
+                    IF @RowsToProcess > 0
+                        SET @MinSurrogateId = (SELECT max(ResourceSurrogateId)
+                                               FROM   @SurrogateIds);
+                    DELETE @SurrogateIds
+                    WHERE  IsHistory = 0;
+                    IF EXISTS (SELECT *
+                               FROM   @SurrogateIds)
+                        BEGIN
+                            DELETE dbo.ResourceWriteClaim
+                            WHERE  ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                           FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.CompartmentAssignment
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.ReferenceSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.TokenSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.TokenText
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.StringSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.UriSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.NumberSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.QuantitySearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.DateTimeSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.ReferenceTokenCompositeSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.TokenTokenCompositeSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.TokenDateTimeCompositeSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.TokenQuantityCompositeSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.TokenStringCompositeSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            DELETE dbo.TokenNumberNumberCompositeSearchParam
+                            WHERE  ResourceTypeId = @ResourceTypeId
+                                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                               FROM   @SurrogateIds);
+                            SET @Rows += @@rowcount;
+                            IF @DeleteResources = 1
+                                BEGIN
+                                    DELETE dbo.Resource
+                                    WHERE  ResourceTypeId = @ResourceTypeId
+                                           AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                                                       FROM   @SurrogateIds);
+                                    SET @Rows += @@rowcount;
+                                END
+                        END
+                    SET @msg = CONVERT (VARCHAR, @ResourceTypeId) + '.' + CONVERT (VARCHAR, @MinSurrogateId);
+                    UPDATE dbo.Parameters
+                    SET    Char = @msg
+                    WHERE  Id = @Id;
+                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Action = 'Delete', @Rows = @Rows, @Text = @msg;
+                END
+            DELETE @Types
+            WHERE  ResourceTypeId = @ResourceTypeId;
+        END
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.DequeueJob
 @QueueType TINYINT, @Worker VARCHAR (100), @HeartbeatTimeoutSec INT, @InputJobId BIGINT=NULL
 AS
