@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourcePatientAdapter : ResourceAdapterBase<Patient.Rootobject, ResourcePatientAdapter.PatientSibling>
+    internal sealed class ResourcePatientAdapter : ResourceAdapterBase<Patient.Rootobject, ResourcePatientAdapter.PatientSibling>
     {
         public override PatientSibling CreateOriginal(ResourceGroupProcessor processor, Patient.Rootobject json)
         {

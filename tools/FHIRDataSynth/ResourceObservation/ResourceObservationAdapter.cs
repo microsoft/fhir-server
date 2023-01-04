@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceObservationAdapter : ResourceAdapterBase<Observation.Rootobject, ResourceObservationAdapter.ObservationSibling>
+    internal sealed class ResourceObservationAdapter : ResourceAdapterBase<Observation.Rootobject, ResourceObservationAdapter.ObservationSibling>
     {
         public override ObservationSibling CreateOriginal(ResourceGroupProcessor processor, Observation.Rootobject json)
         {

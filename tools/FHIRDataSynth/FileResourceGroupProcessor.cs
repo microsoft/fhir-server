@@ -11,7 +11,7 @@ using ResourceProcessorNamespace;
 
 namespace FHIRDataSynth
 {
-    internal class FileResourceGroupProcessor : ResourceGroupProcessor
+    internal sealed class FileResourceGroupProcessor : ResourceGroupProcessor
     {
         private readonly string storePath;
         private readonly string resourceGroupDir;

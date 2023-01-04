@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceExplanationOfBenefitAdapter : ResourceAdapterBase<ExplanationOfBenefit.Rootobject, ResourceExplanationOfBenefitAdapter.ExplanationOfBenefitSibling>
+    internal sealed class ResourceExplanationOfBenefitAdapter : ResourceAdapterBase<ExplanationOfBenefit.Rootobject, ResourceExplanationOfBenefitAdapter.ExplanationOfBenefitSibling>
     {
         public override ExplanationOfBenefitSibling CreateOriginal(ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject json)
         {

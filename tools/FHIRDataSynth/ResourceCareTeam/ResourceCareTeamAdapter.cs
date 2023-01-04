@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceCareTeamAdapter : ResourceAdapterBase<CareTeam.Rootobject, ResourceCareTeamAdapter.CareTeamSibling>
+    internal sealed class ResourceCareTeamAdapter : ResourceAdapterBase<CareTeam.Rootobject, ResourceCareTeamAdapter.CareTeamSibling>
     {
         public override CareTeamSibling CreateOriginal(ResourceGroupProcessor processor, CareTeam.Rootobject json)
         {
