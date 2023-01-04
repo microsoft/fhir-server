@@ -11,7 +11,7 @@
     <When Condition="'$(TargetFramework)' == 'net7.0'">
       <PropertyGroup>
         <RuntimePackageVersion>7.0.0</RuntimePackageVersion>
-        <AspNetPackageVersion>7.0.0</AspNetPackageVersion>
+        <AspNetPackageVersion>7.0.1</AspNetPackageVersion>
       </PropertyGroup>
       <ItemGroup>
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(AspNetPackageVersion)" />
@@ -23,7 +23,7 @@
         <AspNetPackageVersion>6.0.12</AspNetPackageVersion>
       </PropertyGroup>
       <ItemGroup>
-        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1" />
       </ItemGroup>
     </Otherwise>
   </Choose>
