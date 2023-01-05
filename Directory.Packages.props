@@ -2,7 +2,7 @@
 
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>6.2.0</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.2.1</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
 
@@ -14,7 +14,7 @@
         <AspNetPackageVersion>7.0.1</AspNetPackageVersion>
       </PropertyGroup>
       <ItemGroup>
-        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(AspNetPackageVersion)" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
       </ItemGroup>
     </When>
     <Otherwise>
