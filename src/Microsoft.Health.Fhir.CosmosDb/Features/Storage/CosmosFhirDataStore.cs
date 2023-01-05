@@ -563,6 +563,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             else
             {
                 cosmosWrapper.SortValues?.Clear();
+                if (cosmosWrapper.ResourceTypeName.Contains("Patient", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    throw new SearchParameterAndSortIndicesException("Resource type Patient have " + _supportedSearchParameters.Value.GetSearchParameters(cosmosWrapper.ResourceTypeName).Count().ToString() + " search parameter but none of them have sort status as enabled.");
+                }
             }
         }
 

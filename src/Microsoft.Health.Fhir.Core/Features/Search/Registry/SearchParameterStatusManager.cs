@@ -12,6 +12,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly IMediator _mediator;
         private readonly ILogger<SearchParameterStatusManager> _logger;
         private DateTimeOffset _latestSearchParams;
+        private readonly List<string> patientSortIndices = new List<string>() { "given", "family", "birthdate" };
 
         public SearchParameterStatusManager(
             ISearchParameterStatusDataStore searchParameterStatusDataStore,
@@ -96,6 +98,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     updated.Add(p);
                 }
+            }
+
+            if (updated.Where(u => patientSortIndices.Contains(u.Code) && u.SortStatus == SortParameterStatus.Disabled).Any())
+            {
+                throw new SearchParameterAndSortIndicesException("Sort parameter for patient have sort status disabled");
             }
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
