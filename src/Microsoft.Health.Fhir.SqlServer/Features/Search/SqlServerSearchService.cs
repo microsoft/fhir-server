@@ -18,6 +18,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -37,6 +38,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using static Microsoft.Health.Fhir.SqlServer.Features.Storage.SqlRetryService;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -334,11 +336,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     var countResult = await _sqlRetryService.ProcessSqlDataReaderRowsWithRetries(
                         sqlCommand,
-#if DEBUG
-                        (sqlConnection) => sqlConnection.InfoMessage += (sender, args) => _logger.LogInformation("SQL message: {Message}", args.Message),
-#else
-                        null,
-#endif
+                        GetSqlConnectionInitializer(),
                         () => new CountResult(),
                         (SqlDataReader reader, CountResult result, CancellationToken cancellationToken) =>
                         {
@@ -363,11 +361,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 RowProcessorResult result = await _sqlRetryService.ProcessSqlDataReaderRowsWithRetries(
                     sqlCommand,
-#if DEBUG
-                    (sqlConnection) => sqlConnection.InfoMessage += (sender, args) => _logger.LogInformation("SQL message: {Message}", args.Message),
-#else
-                    null,
-#endif
+                    GetSqlConnectionInitializer(),
                     () =>
                     {
                         var r = new RowProcessorResult();
@@ -798,6 +792,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     VLatest.Resource.IsRawResourceMetaSet,
                     VLatest.Resource.RawResource);
             }
+        }
+
+        private SqlConnectionInitializer GetSqlConnectionInitializer()
+        {
+#if DEBUG
+            return (sqlConnection) => sqlConnection.InfoMessage += (sender, args) => _logger.LogInformation("SQL message: {Message}", args.Message);
+#else
+            null;
+#endif
         }
 
         [Conditional("DEBUG")]
