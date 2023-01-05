@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             };
 
             var remainingDifferences = result.Differences.Where(
-                d => !deprecatedObjectToIgnore.Any(
+                d => d != null && !deprecatedObjectToIgnore.Any(
                     i =>
                         (d.SourceObject?.ObjectType.Name == i.type && d.SourceObject?.Name?.ToString() == i.name) ||
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
@@ -347,6 +347,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                        .Replace("\t", " ")
                        .Replace(" output ", " out ")
                        .Replace(" inner join ", " join ")
+                       .Replace(" delete from ", " delete ")
+                       .Replace(" insert into ", " insert ")
                        .Replace(" as ", string.Empty)
                        .Replace(";", string.Empty)
                        .Replace(" ", string.Empty);

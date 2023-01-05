@@ -50,7 +50,7 @@ BEGIN TRY
       DELETE FROM @SurrogateIds
 
       INSERT INTO @SurrogateIds
-        SELECT TOP 10000
+        SELECT TOP 1000000
                ResourceSurrogateId
               ,IsHistory
           FROM dbo.Resource
