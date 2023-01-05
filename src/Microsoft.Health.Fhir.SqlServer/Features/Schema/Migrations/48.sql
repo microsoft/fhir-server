@@ -1952,8 +1952,8 @@ BEGIN TRY
                 BEGIN
                     DELETE @SurrogateIds;
                     INSERT INTO @SurrogateIds
-                    SELECT   TOP 1000000 ResourceSurrogateId,
-                                         IsHistory
+                    SELECT   TOP 10000 ResourceSurrogateId,
+                                       IsHistory
                     FROM     dbo.Resource
                     WHERE    ResourceTypeId = @ResourceTypeId
                              AND ResourceSurrogateId > @SurrogateId
