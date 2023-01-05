@@ -1898,19 +1898,21 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.DeleteHistory
-@DeleteResources BIT=0
+@DeleteResources BIT=0, @Reset BIT=0
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'DeleteHistory', @Mode AS VARCHAR (100) = 'DR=' + isnull(CONVERT (VARCHAR, @DeleteResources), 'NULL'), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @ResourceTypeId AS SMALLINT, @MinSurrogateId AS BIGINT = 0, @MinResourceTypeId AS SMALLINT = 0, @RowsToProcess AS INT, @Id AS VARCHAR (100) = 'DeleteHistory.LastProcessed.TypeId.SurrogateId';
-DECLARE @LastProcessed AS VARCHAR (100) = (SELECT Char
-                                           FROM   dbo.Parameters
-                                           WHERE  Id = @Id);
+DECLARE @SP AS VARCHAR (100) = 'DeleteHistory', @Mode AS VARCHAR (100) = 'D=' + isnull(CONVERT (VARCHAR, @DeleteResources), 'NULL') + ' R=' + isnull(CONVERT (VARCHAR, @Reset), 'NULL'), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @ResourceRows AS INT = 0, @ResourceTypeId AS SMALLINT, @SurrogateId AS BIGINT, @RowsToProcess AS INT, @Id AS VARCHAR (100) = 'DeleteHistory.LastProcessed.TypeId.SurrogateId';
 BEGIN TRY
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
-    IF @LastProcessed IS NULL
-        INSERT INTO dbo.Parameters (Id, Char)
-        SELECT @Id,
-               '0.0';
+    INSERT INTO dbo.Parameters (Id, Char)
+    SELECT @Id,
+           '0.0'
+    WHERE  NOT EXISTS (SELECT *
+                       FROM   dbo.Parameters
+                       WHERE  Id = @Id);
+    DECLARE @LastProcessed AS VARCHAR (100) = CASE WHEN @Reset = 0 THEN (SELECT Char
+                                                                         FROM   dbo.Parameters
+                                                                         WHERE  Id = @Id) ELSE '0.0' END;
     DECLARE @Types TABLE (
         ResourceTypeId SMALLINT      PRIMARY KEY,
         Name           VARCHAR (100));
@@ -1920,17 +1922,14 @@ BEGIN TRY
     INSERT INTO @Types
     EXECUTE dbo.GetUsedResourceTypes ;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = '@Types', @Action = 'Insert', @Rows = @@rowcount;
-    IF @LastProcessed IS NOT NULL
-        BEGIN
-            SET @MinResourceTypeId = (SELECT value
-                                      FROM   string_split (@LastProcessed, '.', 1)
-                                      WHERE  ordinal = 1);
-            SET @MinSurrogateId = (SELECT value
-                                   FROM   string_split (@LastProcessed, '.', 1)
-                                   WHERE  ordinal = 2);
-        END
+    SET @ResourceTypeId = (SELECT value
+                           FROM   string_split (@LastProcessed, '.', 1)
+                           WHERE  ordinal = 1);
+    SET @SurrogateId = (SELECT value
+                        FROM   string_split (@LastProcessed, '.', 1)
+                        WHERE  ordinal = 2);
     DELETE @Types
-    WHERE  ResourceTypeId < @MinResourceTypeId;
+    WHERE  ResourceTypeId < @ResourceTypeId;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = '@Types', @Action = 'Delete', @Rows = @@rowcount;
     WHILE EXISTS (SELECT *
                   FROM   @Types)
@@ -1941,22 +1940,22 @@ BEGIN TRY
             SET @RowsToProcess = 1;
             WHILE @RowsToProcess > 0
                 BEGIN
-                    SET @Rows = 0;
                     DELETE @SurrogateIds;
                     INSERT INTO @SurrogateIds
                     SELECT   TOP 1000000 ResourceSurrogateId,
                                          IsHistory
                     FROM     dbo.Resource
                     WHERE    ResourceTypeId = @ResourceTypeId
-                             AND ResourceSurrogateId > @MinSurrogateId
+                             AND ResourceSurrogateId > @SurrogateId
                     ORDER BY ResourceSurrogateId;
                     SET @RowsToProcess = @@rowcount;
                     IF @RowsToProcess > 0
-                        SET @MinSurrogateId = (SELECT max(ResourceSurrogateId)
-                                               FROM   @SurrogateIds);
-                    SET @LastProcessed = CONVERT (VARCHAR, @ResourceTypeId) + '.' + CONVERT (VARCHAR, @MinSurrogateId);
+                        SET @SurrogateId = (SELECT max(ResourceSurrogateId)
+                                            FROM   @SurrogateIds);
+                    SET @LastProcessed = CONVERT (VARCHAR, @ResourceTypeId) + '.' + CONVERT (VARCHAR, @SurrogateId);
                     DELETE @SurrogateIds
                     WHERE  IsHistory = 0;
+                    SET @Rows = 0;
                     IF EXISTS (SELECT *
                                FROM   @SurrogateIds)
                         BEGIN
@@ -2046,16 +2045,19 @@ BEGIN TRY
                                     WHERE  ResourceTypeId = @ResourceTypeId
                                            AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
                                                                        FROM   @SurrogateIds);
-                                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'Resource', @Action = 'Delete', @Rows = @@rowcount, @Text = @LastProcessed;
+                                    SET @ResourceRows = @@rowcount;
+                                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'Resource', @Action = 'Delete', @Rows = @ResourceRows, @Text = @LastProcessed;
                                 END
                         END
+                    SET @Rows += @ResourceRows;
+                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'Total', @Action = 'Delete', @Rows = @Rows, @Text = @LastProcessed;
                     UPDATE dbo.Parameters
                     SET    Char = @LastProcessed
                     WHERE  Id = @Id;
                 END
             DELETE @Types
             WHERE  ResourceTypeId = @ResourceTypeId;
-            SET @MinSurrogateId = 0;
+            SET @SurrogateId = 0;
         END
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
