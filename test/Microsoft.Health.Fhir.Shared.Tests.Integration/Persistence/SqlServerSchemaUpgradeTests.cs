@@ -259,8 +259,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var remainingDifferences = result.Differences.Where(
                 d => d != null && !deprecatedObjectToIgnore.Any(
                     i =>
-                        (d.SourceObject?.ObjectType.Name == i.type && d.SourceObject?.Name?.ToString() == i.name) ||
-                        (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
+                        (d.SourceObject?.ObjectType?.Name == i.type && d.SourceObject?.Name?.ToString() == i.name) ||
+                        (d.TargetObject?.ObjectType?.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
             var unexpectedDifference = new StringBuilder();
