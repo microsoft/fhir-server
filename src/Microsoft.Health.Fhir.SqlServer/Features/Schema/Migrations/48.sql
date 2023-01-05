@@ -1944,8 +1944,8 @@ BEGIN TRY
                     SET @Rows = 0;
                     DELETE @SurrogateIds;
                     INSERT INTO @SurrogateIds
-                    SELECT   TOP 10000 ResourceSurrogateId,
-                                       IsHistory
+                    SELECT   TOP 1000000 ResourceSurrogateId,
+                                         IsHistory
                     FROM     dbo.Resource
                     WHERE    ResourceTypeId = @ResourceTypeId
                              AND ResourceSurrogateId > @MinSurrogateId
