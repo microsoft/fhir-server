@@ -80,7 +80,7 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                await Task.WhenAll(workers.ToArray());
+                await Task.WhenAny(workers.ToArray()); // if any worker crashes exit
             }
             catch (Exception ex)
             {
