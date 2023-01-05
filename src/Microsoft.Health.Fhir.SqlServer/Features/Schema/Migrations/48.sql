@@ -1901,7 +1901,7 @@ CREATE PROCEDURE dbo.DeleteHistory
 @DeleteResources BIT=0, @Reset BIT=0
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'DeleteHistory', @Mode AS VARCHAR (100) = 'D=' + isnull(CONVERT (VARCHAR, @DeleteResources), 'NULL') + ' R=' + isnull(CONVERT (VARCHAR, @Reset), 'NULL'), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @ResourceRows AS INT = 0, @ResourceTypeId AS SMALLINT, @SurrogateId AS BIGINT, @RowsToProcess AS INT, @Id AS VARCHAR (100) = 'DeleteHistory.LastProcessed.TypeId.SurrogateId';
+DECLARE @SP AS VARCHAR (100) = 'DeleteHistory', @Mode AS VARCHAR (100) = 'D=' + isnull(CONVERT (VARCHAR, @DeleteResources), 'NULL') + ' R=' + isnull(CONVERT (VARCHAR, @Reset), 'NULL'), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @ResourceTypeId AS SMALLINT, @SurrogateId AS BIGINT, @RowsToProcess AS INT, @Id AS VARCHAR (100) = 'DeleteHistory.LastProcessed.TypeId.SurrogateId';
 BEGIN TRY
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Start';
     INSERT INTO dbo.Parameters (Id, Char)
@@ -1955,10 +1955,10 @@ BEGIN TRY
                     SET @LastProcessed = CONVERT (VARCHAR, @ResourceTypeId) + '.' + CONVERT (VARCHAR, @SurrogateId);
                     DELETE @SurrogateIds
                     WHERE  IsHistory = 0;
-                    SET @Rows = 0;
                     IF EXISTS (SELECT *
                                FROM   @SurrogateIds)
                         BEGIN
+                            SET @Rows = 0;
                             DELETE dbo.ResourceWriteClaim
                             WHERE  ResourceSurrogateId IN (SELECT ResourceSurrogateId
                                                            FROM   @SurrogateIds);
@@ -2045,12 +2045,11 @@ BEGIN TRY
                                     WHERE  ResourceTypeId = @ResourceTypeId
                                            AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
                                                                        FROM   @SurrogateIds);
-                                    SET @ResourceRows = @@rowcount;
-                                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'Resource', @Action = 'Delete', @Rows = @ResourceRows, @Text = @LastProcessed;
+                                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'Resource', @Action = 'Delete', @Rows = @@rowcount, @Text = @LastProcessed;
                                 END
                         END
-                    SET @Rows += @ResourceRows;
-                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'Total', @Action = 'Delete', @Rows = @Rows, @Text = @LastProcessed;
+                    ELSE
+                        EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'Total', @Action = 'Delete', @Rows = 0, @Text = @LastProcessed;
                     UPDATE dbo.Parameters
                     SET    Char = @LastProcessed
                     WHERE  Id = @Id;

@@ -7,7 +7,6 @@ DECLARE @SP varchar(100) = 'DeleteHistory'
        ,@Mode varchar(100) = 'D='+isnull(convert(varchar,@DeleteResources),'NULL')+' R='+isnull(convert(varchar,@Reset),'NULL')
        ,@st datetime = getUTCdate()
        ,@Rows int = 0
-       ,@ResourceRows int = 0
        ,@ResourceTypeId smallint
        ,@SurrogateId bigint
        ,@RowsToProcess int
@@ -60,9 +59,10 @@ BEGIN TRY
 
       DELETE FROM @SurrogateIds WHERE IsHistory = 0
       
-      SET @Rows = 0
       IF EXISTS (SELECT * FROM @SurrogateIds)
       BEGIN
+        SET @Rows = 0
+
         DELETE FROM dbo.ResourceWriteClaim WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
         SET @Rows += @@rowcount
 
@@ -116,13 +116,11 @@ BEGIN TRY
         IF @DeleteResources = 1
         BEGIN
           DELETE FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
-          SET @ResourceRows = @@rowcount
-          EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Rows=@ResourceRows,@Text=@LastProcessed
+          EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Rows=@@rowcount,@Text=@LastProcessed
         END
       END
-      
-      SET @Rows += @ResourceRows
-      EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Total',@Action='Delete',@Rows=@Rows,@Text=@LastProcessed
+      ELSE
+        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Total',@Action='Delete',@Rows=0,@Text=@LastProcessed
 
       UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
     END
