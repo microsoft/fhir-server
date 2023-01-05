@@ -1901,7 +1901,7 @@ CREATE PROCEDURE dbo.DeleteHistory
 @DeleteResources BIT=0
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'DeleteHistory', @Mode AS VARCHAR (100) = 'DR=' + isnull(CONVERT (VARCHAR, @DeleteResources), 'NULL'), @msg AS VARCHAR (100), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @ResourceTypeId AS SMALLINT, @MinSurrogateId AS BIGINT = 0, @MinResourceTypeId AS SMALLINT = 0, @RowsToProcess AS INT, @Id AS VARCHAR (100) = 'DeleteHistory.LastProcessed.TypeId.SurrogateId';
+DECLARE @SP AS VARCHAR (100) = 'DeleteHistory', @Mode AS VARCHAR (100) = 'DR=' + isnull(CONVERT (VARCHAR, @DeleteResources), 'NULL'), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @ResourceTypeId AS SMALLINT, @MinSurrogateId AS BIGINT = 0, @MinResourceTypeId AS SMALLINT = 0, @RowsToProcess AS INT, @Id AS VARCHAR (100) = 'DeleteHistory.LastProcessed.TypeId.SurrogateId';
 DECLARE @LastProcessed AS VARCHAR (100) = (SELECT Char
                                            FROM   dbo.Parameters
                                            WHERE  Id = @Id);
@@ -1954,6 +1954,7 @@ BEGIN TRY
                     IF @RowsToProcess > 0
                         SET @MinSurrogateId = (SELECT max(ResourceSurrogateId)
                                                FROM   @SurrogateIds);
+                    SET @LastProcessed = CONVERT (VARCHAR, @ResourceTypeId) + '.' + CONVERT (VARCHAR, @MinSurrogateId);
                     DELETE @SurrogateIds
                     WHERE  IsHistory = 0;
                     IF EXISTS (SELECT *
@@ -2038,20 +2039,19 @@ BEGIN TRY
                                    AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
                                                                FROM   @SurrogateIds);
                             SET @Rows += @@rowcount;
+                            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = '*SearchParam', @Action = 'Delete', @Rows = @Rows, @Text = @LastProcessed;
                             IF @DeleteResources = 1
                                 BEGIN
                                     DELETE dbo.Resource
                                     WHERE  ResourceTypeId = @ResourceTypeId
                                            AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
                                                                        FROM   @SurrogateIds);
-                                    SET @Rows += @@rowcount;
+                                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = 'Resource', @Action = 'Delete', @Rows = @@rowcount, @Text = @LastProcessed;
                                 END
                         END
-                    SET @msg = CONVERT (VARCHAR, @ResourceTypeId) + '.' + CONVERT (VARCHAR, @MinSurrogateId);
                     UPDATE dbo.Parameters
-                    SET    Char = @msg
+                    SET    Char = @LastProcessed
                     WHERE  Id = @Id;
-                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Action = 'Delete', @Rows = @Rows, @Text = @msg;
                 END
             DELETE @Types
             WHERE  ResourceTypeId = @ResourceTypeId;

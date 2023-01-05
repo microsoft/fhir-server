@@ -5,7 +5,6 @@ AS
 set nocount on
 DECLARE @SP varchar(100) = 'DeleteHistory'
        ,@Mode varchar(100) = 'DR='+isnull(convert(varchar,@DeleteResources),'NULL')
-       ,@msg varchar(100)
        ,@st datetime = getUTCdate()
        ,@Rows int = 0
        ,@ResourceTypeId smallint
@@ -63,6 +62,8 @@ BEGIN TRY
       IF @RowsToProcess > 0
         SET @MinSurrogateId = (SELECT max(ResourceSurrogateId) FROM @SurrogateIds)
 
+      SET @LastProcessed = convert(varchar,@ResourceTypeId)+'.'+convert(varchar,@MinSurrogateId)
+
       DELETE FROM @SurrogateIds WHERE IsHistory = 0
       
       IF EXISTS (SELECT * FROM @SurrogateIds)
@@ -115,17 +116,16 @@ BEGIN TRY
         DELETE FROM dbo.TokenNumberNumberCompositeSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
         SET @Rows += @@rowcount
 
+        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='*SearchParam',@Action='Delete',@Rows=@Rows,@Text=@LastProcessed
+
         IF @DeleteResources = 1
         BEGIN
           DELETE FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
-          SET @Rows += @@rowcount
+          EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Rows=@@rowcount,@Text=@LastProcessed
         END
       END
       
-      SET @msg = convert(varchar,@ResourceTypeId)+'.'+convert(varchar,@MinSurrogateId)
-      UPDATE dbo.Parameters SET Char = @msg WHERE Id = @Id
-
-      EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Action='Delete',@Rows=@Rows,@Text=@msg
+      UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
     END
 
     DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
