@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
             {
                 try
                 {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false); // TODO: change GetSqlConnection, this still uses old retry?, also set timeout.
+                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false); // TODO: change GetSqlConnection, this still uses old retry? Also, set connection timeout.
                     sqlConnectionInitializer?.Invoke(connection);
                     await connection.OpenAsync(cancellationToken);
                     sqlCommand.Connection = connection;
@@ -238,8 +238,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                 },
                 cancellationToken);
 
-            // connectionTimeoutSec);// TODO: different timeout?
-
             return results;
         }*/
 
@@ -267,7 +265,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                 async (sqlCommandInt, cancellationToken) =>
                 {
                     using SqlDataReader reader = await sqlCommandInt.ExecuteReaderAsync(cancellationToken);
-                    T results = initializer();
+                    results = initializer();
                     while (await reader.ReadAsync(cancellationToken) && await processRow(reader, results, cancellationToken))
                     {
                     }
@@ -275,8 +273,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                     await reader.NextResultAsync(cancellationToken);
                 },
                 cancellationToken);
-
-            // connectionTimeoutSec);// TODO: different timeout?
 
             return results;
         }
