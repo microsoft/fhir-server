@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
             }
 
-            allowedResourceTypesByScope = allowedResourceTypesByScope.ToList();
+            allowedResourceTypesByScope = allowedResourceTypesByScope?.ToList();
             if (allowedResourceTypesByScope != null && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
             {
                 resourceTypes = resourceTypes.Intersect(allowedResourceTypesByScope).ToArray();

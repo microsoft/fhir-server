@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}",
                     },
                 };
-                ((DefaultOptionHashSet<string>)resourceComponent.Versioning).DefaultOption = _configuration.Versioning.ResourceTypeOverrides.TryGetValue(resourceType, out string value) ? _configuration.Versioning.ResourceTypeOverrides[resourceType] : _configuration.Versioning.Default;
+                ((DefaultOptionHashSet<string>)resourceComponent.Versioning).DefaultOption = _configuration.Versioning.ResourceTypeOverrides.TryGetValue(resourceType, out string overrideValue) ? overrideValue : _configuration.Versioning.Default;
                 listedRestComponent.Resource.Add(resourceComponent);
             }
 

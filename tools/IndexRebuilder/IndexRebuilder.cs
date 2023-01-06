@@ -92,7 +92,7 @@ namespace Microsoft.Health.Internal.IndexRebuilder
                     var sql = reader.GetString(1);
                     if (resultsDic.TryGetValue(table, out List<string> value))
                     {
-                        resultsDic[table].Add(sql);
+                        value.Add(sql);
                     }
                     else
                     {
