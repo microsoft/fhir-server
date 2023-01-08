@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// version has not been upgraded. This test does a sanity check to make sure "old" _sort
         /// still works in such a scenario.
         /// </summary>
-        [Fact]
+        [SkippableFact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful()
         {
             string databaseName = $"FHIRCOMPATIBILITYTEST_SORT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
