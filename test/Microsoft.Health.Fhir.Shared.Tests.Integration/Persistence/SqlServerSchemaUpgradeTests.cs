@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Parallel.ForEach(versions, async version =>
             {
                 // The schema upgrade scripts starting from v7 were made idempotent.
-                if (version >= 7)
+                if (version >= 7 && version >= SchemaVersionConstants.Min) // no sense in checking not supported versions
                 {
                     var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
 
