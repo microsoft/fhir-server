@@ -121,6 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// changing the way _sort works. There might be a situation where code has been upgraded but schema
         /// version has not been upgraded. This test does a sanity check to make sure "old" _sort
         /// still works in such a scenario.
+        /// This test is not valid anymore as we support versions >= 43
         /// </summary>
         [SkippableFact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful()
