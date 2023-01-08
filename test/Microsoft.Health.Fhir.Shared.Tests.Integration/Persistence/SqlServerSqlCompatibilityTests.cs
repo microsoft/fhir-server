@@ -121,11 +121,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// changing the way _sort works. There might be a situation where code has been upgraded but schema
         /// version has not been upgraded. This test does a sanity check to make sure "old" _sort
         /// still works in such a scenario.
-        /// This test is not valid anymore as we support versions >= 43
         /// </summary>
         [SkippableFact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful()
         {
+            Skip.If(SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion < SchemaVersionConstants.Min, "Schema version required for this test is not supported");
+
             string databaseName = $"FHIRCOMPATIBILITYTEST_SORT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
             int schemaVersion = SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion - 1;
             var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(
