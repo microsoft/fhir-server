@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             if (updated.Where(u => patientSortIndices.Contains(u.Code) && u.SortStatus == SortParameterStatus.Disabled).Any())
             {
-                throw new SearchParameterAndSortIndicesException("Sort parameter for patient have sort status disabled");
+                throw new MissingSortIndicesException("Sort parameter for patient have sort status disabled");
             }
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
