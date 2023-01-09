@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
+        private readonly VLatest.MergeResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _mergeResourcesTvpGeneratorVLatest;
         private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
         private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
@@ -59,6 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ISqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
+            VLatest.MergeResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> mergeResourcesTvpGeneratorVLatest,
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
             VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
@@ -72,6 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             _upsertResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
+            _mergeResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(mergeResourcesTvpGeneratorVLatest, nameof(mergeResourcesTvpGeneratorVLatest));
             _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
             _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
@@ -205,11 +208,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         throw new ServiceUnavailableException();
                     }
 
-                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
-
                     try
                     {
-                        var newVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                        var newVersion = (int?)null;
+                        if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
+                        {
+                            VLatest.MergeResources.PopulateCommand(
+                                sqlCommandWrapper,
+                                keepHistory,
+                                _coreFeatures.SupportsResourceChangeCapture,
+                                0,
+                                tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
+                            using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+                            while (await reader.ReadAsync())
+                            {
+                                newVersion = reader.GetInt32(2);
+                            }
+
+                            await reader.NextResultAsync(cancellationToken);
+                        }
+                        else
+                        {
+                            PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
+                            newVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                        }
+
                         if (newVersion == null)
                         {
                             // indicates a redundant delete
