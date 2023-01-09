@@ -2,7 +2,7 @@
 
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <AspNetPackageVersion>6.0.10</AspNetPackageVersion>
+    <AspNetPackageVersion>7.0.1</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>6.2.14</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
