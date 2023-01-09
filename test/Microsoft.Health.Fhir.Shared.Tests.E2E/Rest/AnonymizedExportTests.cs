@@ -350,7 +350,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = string.Empty;
-            await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName));
+            await Assert.ThrowsAsync<FhirClientException>(() => _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName));
         }
 
         private async Task<(string name, string eTag)> UploadConfigurationAsync(string configurationContent, string blobName = null)

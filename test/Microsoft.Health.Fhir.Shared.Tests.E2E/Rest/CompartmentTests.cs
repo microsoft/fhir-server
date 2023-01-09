@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/foo";
 
-            FhirException exception = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(searchUrl));
+            FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(searchUrl));
             Assert.Equal(HttpStatusCode.NotFound, exception.Response.StatusCode);
         }
 
