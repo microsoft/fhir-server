@@ -126,11 +126,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 throw new MissingSearchIndicesException("Search indices are missing for resource type : " + cosmosWrapper.ResourceTypeName);
             }
 
-            if (cosmosWrapper.ResourceTypeName.Equals("Patient", StringComparison.OrdinalIgnoreCase) && cosmosWrapper.SortValues.Count == 0)
-            {
-                throw new MissingSortIndicesException("Sort indices are missing for resource type : Patient");
-            }
-
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
@@ -573,10 +568,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             else
             {
                 cosmosWrapper.SortValues?.Clear();
-                if (cosmosWrapper.ResourceTypeName.Contains("Patient", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    throw new MissingSortIndicesException("Sort indices are missing for resource type : Patient");
-                }
             }
         }
 

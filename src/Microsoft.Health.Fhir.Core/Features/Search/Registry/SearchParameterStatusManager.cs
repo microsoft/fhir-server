@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly IMediator _mediator;
         private readonly ILogger<SearchParameterStatusManager> _logger;
         private DateTimeOffset _latestSearchParams;
-        private readonly List<string> patientSortIndices = new List<string>() { "given", "family", "birthdate" };
 
         public SearchParameterStatusManager(
             ISearchParameterStatusDataStore searchParameterStatusDataStore,
@@ -98,11 +97,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     updated.Add(p);
                 }
-            }
-
-            if (updated.Where(u => patientSortIndices.Contains(u.Code) && u.SortStatus == SortParameterStatus.Disabled).Any())
-            {
-                throw new MissingSortIndicesException("Sort parameter for patient have sort status disabled");
             }
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
