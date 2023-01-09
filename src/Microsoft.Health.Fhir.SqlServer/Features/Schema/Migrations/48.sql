@@ -1929,12 +1929,8 @@ BEGIN TRY
     INSERT INTO @Types
     EXECUTE dbo.GetUsedResourceTypes ;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = '@Types', @Action = 'Insert', @Rows = @@rowcount;
-    SET @ResourceTypeId = (SELECT value
-                           FROM   string_split (@LastProcessed, '.', 1)
-                           WHERE  ordinal = 1);
-    SET @SurrogateId = (SELECT value
-                        FROM   string_split (@LastProcessed, '.', 1)
-                        WHERE  ordinal = 2);
+    SET @ResourceTypeId = substring(@LastProcessed, 1, charindex('.', @LastProcessed) - 1);
+    SET @SurrogateId = substring(@LastProcessed, charindex('.', @LastProcessed) + 1, 255);
     DELETE @Types
     WHERE  ResourceTypeId < @ResourceTypeId;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Run', @Target = '@Types', @Action = 'Delete', @Rows = @@rowcount;
