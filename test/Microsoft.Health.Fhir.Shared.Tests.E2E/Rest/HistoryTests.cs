@@ -418,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var before = DateTime.UtcNow.AddSeconds(300);
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
-            var ex = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("_history?_before=" + beforeUriString));
+            var ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.SearchAsync("_history?_before=" + beforeUriString));
 
             Assert.Contains("Parameter _before cannot a be a value in the future", ex.Message);
         }
@@ -426,7 +426,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAnInvalidSortValue_WhenGettingSystemHistory_AnErrorIsReturned()
         {
-            var ex = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("_history?_sort=_id"));
+            var ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.SearchAsync("_history?_sort=_id"));
 
             Assert.Contains("Sorting by the '_id' parameter is not supported.", ex.Message);
         }

@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             string searchUrl = "Observation/bar/$everything";
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync(searchUrl));
 
             Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?ct={continuationToken}";
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync(searchUrl));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -309,7 +309,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             string searchUrl = $"Patient/{Fixture.PatientWithReplacedByLink.Id}/$everything";
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl, Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync(searchUrl, Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
 
             // Confirm header location contains url for the correct request
             string id = Fixture.PatientReferencedByReplacedByLink.Id;
