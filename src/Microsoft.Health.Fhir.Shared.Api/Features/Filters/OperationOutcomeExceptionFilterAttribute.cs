@@ -87,6 +87,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         break;
                     case ResourceNotFoundException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.NotFound;
+                        if (((ResourceNotFoundException)fhirException).GroupNotFound)
+                        {
+                            // Special case, if group not found then just log info.
+                            context.Result = operationOutcomeResult;
+                            context.ExceptionHandled = true;
+                            _logger.LogInformation($"{operationOutcomeResult.StatusCode} error returned. {fhirException.Message}");
+                            return;
+                        }
+
+                        break;
                     case JobNotFoundException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.NotFound;
                         break;
