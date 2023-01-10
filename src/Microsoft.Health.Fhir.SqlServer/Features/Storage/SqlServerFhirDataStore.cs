@@ -156,6 +156,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                         }
+
+                        resource.Version = "1";
                     }
                     else
                     {
