@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Bundle
 {
     public class BundleMetricsNotification : IMetricsNotification
     {
-        public BundleMetricsNotification(IDictionary<string, int> apiCallResults, string bundleType)
+        public BundleMetricsNotification(IDictionary<string, List<BundleSubCallMetricData>> apiCallResults, string bundleType)
         {
             FhirOperation = bundleType;
             ResourceType = KnownResourceTypes.Bundle;
@@ -22,6 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Bundle
 
         public string ResourceType { get; }
 
-        public IDictionary<string, int> ApiCallResults { get; }
+        public IDictionary<string, List<BundleSubCallMetricData>> ApiCallResults { get; }
     }
 }

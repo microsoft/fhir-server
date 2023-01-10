@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Parameters observationFhirPatchRequest = new Parameters().AddReplacePatchParameter("subject.reference", new FhirString("Patient/"));
 
-            FhirException exceptionFhir = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalFhirPatchAsync<Observation>(
+            FhirClientException exceptionFhir = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalFhirPatchAsync<Observation>(
                 "Observation",
                 $"id={response.Resource.Id}",
                 observationFhirPatchRequest));
