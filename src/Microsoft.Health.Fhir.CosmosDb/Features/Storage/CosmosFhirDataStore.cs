@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (cosmosWrapper.SearchIndices.Count == 0)
             {
-                throw new MissingSearchIndicesException("Search indices are missing for resource type : " + cosmosWrapper.ResourceTypeName);
+                throw new MissingSearchIndicesException(string.Format(Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
             }
 
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
