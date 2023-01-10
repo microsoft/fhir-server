@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(AdministrativeGender.Male, response.Resource.Gender);
             Assert.NotNull(response.Resource.Address);
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             var responseObject = exception.Response.ToT();
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var patchRequest = new Parameters().AddAddPatchParameter("Patient", "dummyProperty", new FhirString("dummy"));
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(
                 response.Resource,
                 patchRequest));
 
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(
                 response.Resource,
                 patchRequest));
 
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var patchRequest = new Parameters().AddReplacePatchParameter(patchPath, patchValue)
 ;
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(
                 response.Resource,
                 patchRequest));
 
@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var patchRequest = new Parameters().AddAddPatchParameter("Patient", "deceased", new FhirDateTime("2015-02-14T13:42:00+10:00"));
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(
                 poco,
                 patchRequest));
 
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var patchRequest = new Parameters().AddAddPatchParameter("Patient", "deceased", new FhirDateTime("2015-02-14T13:42:00+10:00"));
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(
                 response.Resource,
                 patchRequest));
 
@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var patchRequest = new Parameters().AddAddPatchParameter("Patient", "deceased", new FhirDateTime("2015-02-14T13:42:00+10:00"));
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(
                 response.Resource,
                 patchRequest,
                 "5"));
@@ -330,7 +330,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 new Parameters.ParameterComponent { Name = "value", Value = versionSpecificResourceReference },
             });
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(
                 response.Resource,
                 patchRequest));
 
@@ -437,13 +437,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patchRequest = new Parameters().AddAddPatchParameter("ActivityDefinition", "approvalDate", new FhirDateTime(dateTimeString));
 
             // DateTime without offset
-            await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
 
             string dateTimeOffsetString = "2022-05-02T14:00:00+02:00";
             patchRequest = new Parameters().AddAddPatchParameter("ActivityDefinition", "approvalDate", new FhirDateTime(dateTimeOffsetString));
 
             // DateTime with offset
-            await Assert.ThrowsAsync<FhirException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.FhirPatchAsync(response.Resource, patchRequest));
         }
     }
 }

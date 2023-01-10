@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenInvalidFormatParameter_WhenGettingMetadata_TheServerShouldReturnNotAcceptable()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<CapabilityStatement>("metadata?_format=blah"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ReadAsync<CapabilityStatement>("metadata?_format=blah"));
             Assert.Equal(HttpStatusCode.NotAcceptable, ex.StatusCode);
         }
 
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenInvalidPrettyParameter_WhenGettingMetadata_TheServerShouldReturnBadRequest(string value)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<CapabilityStatement>($"metadata?_pretty={value}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ReadAsync<CapabilityStatement>($"metadata?_pretty={value}"));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenInvalidSummaryParameter_WhenGettingMetadata_TheServerShouldReturnBadRequest(string value)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<CapabilityStatement>($"metadata?_summary={value}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ReadAsync<CapabilityStatement>($"metadata?_summary={value}"));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenInvalidElementsParameter_WhenGettingMetadata_TheServerShouldReturnBadRequest(string value)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<CapabilityStatement>($"metadata?_elements={value}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ReadAsync<CapabilityStatement>($"metadata?_elements={value}"));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 

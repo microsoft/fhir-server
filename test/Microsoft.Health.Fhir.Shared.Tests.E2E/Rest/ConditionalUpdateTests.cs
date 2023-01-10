@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
                 observation,
                 string.Empty));
 
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
 
             var weakETag = "W/\"Jibberish\"";
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
                 observation,
                 null,
                 weakETag));
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = Guid.NewGuid().ToString();
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
                 observation2,
                 $"identifier={identifier}"));
 
@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = null;
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
                 observation2,
                 $"identifier={identifier}"));
 

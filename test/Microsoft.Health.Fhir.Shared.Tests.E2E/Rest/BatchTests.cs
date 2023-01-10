@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenANonBundleResource_WhenSubmittingABatch_ThenBadRequestIsReturned()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenBundleTypeIsMissing_WhenSubmittingABundle_ThenMethodNotAllowedExceptionIsReturned()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>()));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>()));
             ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
         }
 
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (profileValidation)
             {
-                using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation));
+                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation));
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             }
             else

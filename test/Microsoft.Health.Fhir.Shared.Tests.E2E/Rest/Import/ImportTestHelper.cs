@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                     Uri checkLocation = await testFhirClient.ImportAsync(request.ToParameters());
                     return checkLocation;
                 }
-                catch (FhirException fhirException)
+                catch (FhirClientException fhirException)
                 {
                     if (!HttpStatusCode.Conflict.Equals(fhirException.StatusCode))
                     {
