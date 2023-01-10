@@ -39,6 +39,13 @@ namespace Microsoft.Health.JobManagement
 
         public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
+        // TODO: Temporary method to prevent build breaks within Health PaaS. Will be removed after code is updated in Health PaaS
+
+        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
+        {
+            await ExecuteAsync(queueType, workerName, cancellationTokenSource, useHeavyHeartbeats);
+        }
+
         public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
         {
             var workers = new List<Task>();
