@@ -22,13 +22,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 {
     public interface ISqlRetryService
     {
-        void ExecuteWithRetries(Action action);
+        Task ExecuteWithRetries(Func<Task> action);
 
         Task ExecuteSqlWithRetries(SqlCommand sqlCommand, SqlConnectionInitializer sqlConnectionInitializer, ExecuteSqlWithRetriesAction action, CancellationToken cancellationToken);
 
         Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken);
-
-        Task<T> ProcessSqlDataReaderRowsWithRetries<T>(SqlCommand sqlCommand, SqlConnectionInitializer sqlConnectionInitializer, InitializeRowProcessor<T> initializer, ExecuteRowProcessor<T> processRow, CancellationToken cancellationToken);
     }
 
     public class SqlRetryServiceOptions
@@ -189,14 +187,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
             return false;
         }
 
-        public void ExecuteWithRetries(Action action)
+        public async Task ExecuteWithRetries(Func<Task> action)
         {
             int retry = 0;
             while (true)
             {
                 try
                 {
-                    action();
+                    await action();
                 }
                 catch (Exception ex)
                 {
@@ -206,7 +204,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                     }
                 }
 
-                Task.Delay(retryMillisecondsDelay);
+                await Task.Delay(retryMillisecondsDelay);
             }
         }
 
@@ -218,6 +216,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 
             sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
+            // TODO: Replace looping/retry logic with call to generic ExecuteWithRetries
             int retry = 0;
             while (true)
             {
@@ -242,7 +241,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
             }
         }
 
-        /*public async Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken)
+        public async Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken)
         {
             IList<T> results = null;
             await ExecuteSqlWithRetries(
@@ -255,42 +254,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         results.Add(toT(reader));
-                    }
-
-                    await reader.NextResultAsync(cancellationToken);
-                },
-                cancellationToken);
-
-            return results;
-        }*/
-
-        public async Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken)
-        {
-            return await ProcessSqlDataReaderRowsWithRetries<IList<T>>(
-                sqlCommand,
-                null,
-                () => new List<T>(),
-                (reader, result, cancellationToken) =>
-                {
-                    result.Add(toT(reader));
-                    return Task.FromResult(true);
-                },
-                cancellationToken);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public async Task<T> ProcessSqlDataReaderRowsWithRetries<T>(SqlCommand sqlCommand, SqlConnectionInitializer sqlConnectionInitializer, InitializeRowProcessor<T> initializer, ExecuteRowProcessor<T> processRow, CancellationToken cancellationToken)
-        {
-            var results = default(T);
-            await ExecuteSqlWithRetries(
-                sqlCommand,
-                sqlConnectionInitializer,
-                async (sqlCommandInt, cancellationToken) =>
-                {
-                    using SqlDataReader reader = await sqlCommandInt.ExecuteReaderAsync(cancellationToken);
-                    results = initializer();
-                    while (await reader.ReadAsync(cancellationToken) && await processRow(reader, results, cancellationToken))
-                    {
                     }
 
                     await reader.NextResultAsync(cancellationToken);
