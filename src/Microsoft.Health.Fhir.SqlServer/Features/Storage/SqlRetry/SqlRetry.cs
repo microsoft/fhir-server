@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 {
     public interface ISqlRetryService
     {
+        void ExecuteWithRetries(Action action);
+
         Task ExecuteSqlWithRetries(SqlCommand sqlCommand, SqlConnectionInitializer sqlConnectionInitializer, ExecuteSqlWithRetriesAction action, CancellationToken cancellationToken);
 
         Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken);
@@ -185,6 +187,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
             }
 
             return false;
+        }
+
+        public void ExecuteWithRetries(Action action)
+        {
+            int retry = 0;
+            while (true)
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    if (!RetryTest(ex) || ++retry >= maxRetries)
+                    {
+                        throw;
+                    }
+                }
+
+                Task.Delay(retryMillisecondsDelay);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
