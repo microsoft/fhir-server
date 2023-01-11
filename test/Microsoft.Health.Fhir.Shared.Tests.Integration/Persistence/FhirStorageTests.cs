@@ -820,7 +820,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(upsertResult);
 
             var createResource = new RawResourceElement(createResult.Wrapper);
-            var updatedeResource = new RawResourceElement(upsertResult.Wrapper);
+            var updateResource = new RawResourceElement(upsertResult.Wrapper);
 
             Assert.Equal(createResult.Wrapper.ResourceId, upsertResult.Wrapper.ResourceId);
             Assert.Equal(createResult.Wrapper.Version, upsertResult.Wrapper.Version);
@@ -829,8 +829,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // CreateResult.LastUpdated has date as 2008-10-31T17:04:32:3210000
             // upsertResult.lastUpdated will return what is stored in DB 2008-10-31T17:04:32:321 mismatching the milliseconds value
             // Hence comparing milliseconds separately. s Format Specifier 2008-10-31T17:04:32
-            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updatedeResource.LastUpdated.Value.ToString("s"));
-            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updatedeResource.LastUpdated.Value.Millisecond);
+            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updateResource.LastUpdated.Value.ToString("s"));
+            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updateResource.LastUpdated.Value.Millisecond);
             Assert.Equal(createResult.Wrapper.LastModified.ToString("s"), createResult.Wrapper.LastModified.ToString("s"));
             Assert.Equal(createResult.Wrapper.LastModified.Millisecond, createResult.Wrapper.LastModified.Millisecond);
         }

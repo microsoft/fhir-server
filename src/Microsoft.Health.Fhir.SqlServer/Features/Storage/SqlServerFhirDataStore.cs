@@ -212,7 +212,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     try
                     {
-                        var newVersion = (int?)null;
                         if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
                         {
                             VLatest.MergeResources.PopulateCommand(
@@ -226,7 +225,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
                             while (await reader.ReadAsync())
                             {
-                                newVersion = reader.GetInt32(0);
+                                var surrId = reader.GetInt64(1);
+                                resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
                             }
 
                             await reader.NextResultAsync(cancellationToken);
@@ -234,26 +234,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         else
                         {
                             PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
-                            newVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                            var newVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                            resource.Version = newVersion.ToString();
                         }
-
-                        if (newVersion == null)
-                        {
-                            // indicates a redundant delete
-                            return null;
-                        }
-
-                        if (newVersion == -1)
-                        {
-                            // indicates that resource content is same - no new version was created
-                            // We need to send the existing resource in the response matching the correct versionId and lastUpdated as the one stored in DB
-                            return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
-                        }
-
-                        resource.Version = newVersion.ToString();
 
                         SaveOutcomeType saveOutcomeType;
-                        if (newVersion == 1)
+                        if (resource.Version == "1")
                         {
                             saveOutcomeType = SaveOutcomeType.Created;
                         }

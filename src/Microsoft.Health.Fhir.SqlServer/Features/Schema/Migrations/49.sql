@@ -3454,34 +3454,26 @@ BEGIN TRY
             SET @SurrBase = @MaxSequence - @InputRows;
         END
     DECLARE @TrueResources AS TABLE (
-        ResourceRecordId    BIGINT          NOT NULL PRIMARY KEY,
-        PreviousSurrogateId BIGINT          NULL,
-        ResourceTypeId      SMALLINT        NOT NULL,
-        ResourceId          VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
-        Version             INT             NOT NULL,
-        HasVersionToCompare BIT             NOT NULL,
-        IsDeleted           BIT             NOT NULL,
-        RequestMethod       VARCHAR (10)    NULL,
-        RawResource         VARBINARY (MAX) NOT NULL,
-        SearchParamHash     VARCHAR (64)    NULL,
-        ExistingVersion     INT             NULL);
+        ResourceTypeId      SMALLINT NOT NULL,
+        ResourceRecordId    BIGINT   NOT NULL,
+        Version             INT      NOT NULL,
+        HasVersionToCompare BIT      NOT NULL,
+        IsDeleted           BIT      NOT NULL,
+        ExistingVersion     INT      NULL,
+        PreviousSurrogateId BIGINT   NULL PRIMARY KEY (ResourceTypeId, ResourceRecordId));
     DECLARE @PreviousSurrogateIds AS TABLE (
         TypeId      SMALLINT NOT NULL,
         SurrogateId BIGINT   NOT NULL PRIMARY KEY (TypeId, SurrogateId));
     IF @InitialTranCount = 0
         BEGIN TRANSACTION;
-    INSERT INTO @TrueResources (ResourceRecordId, PreviousSurrogateId, ResourceTypeId, ResourceId, Version, HasVersionToCompare, IsDeleted, RequestMethod, RawResource, SearchParamHash, ExistingVersion)
-    SELECT A.ResourceRecordId,
-           B.ResourceSurrogateId AS PreviousSurrogateId,
-           A.ResourceTypeId,
-           A.ResourceId,
+    INSERT INTO @TrueResources (ResourceTypeId, ResourceRecordId, Version, HasVersionToCompare, IsDeleted, ExistingVersion, PreviousSurrogateId)
+    SELECT A.ResourceTypeId,
+           A.ResourceRecordId,
            A.Version,
            A.HasVersionToCompare,
            A.IsDeleted,
-           A.RequestMethod,
-           A.RawResource,
-           A.SearchParamHash,
-           B.Version
+           B.Version,
+           B.ResourceSurrogateId
     FROM   (SELECT TOP (@DummyTop) *
             FROM   @Resources) AS A
            LEFT OUTER JOIN
@@ -3625,7 +3617,7 @@ BEGIN TRY
            RawResource,
            CASE WHEN Version = 1 THEN 1 ELSE 0 END,
            SearchParamHash
-    FROM   @TrueResources;
+    FROM   @Resources;
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
     SELECT DISTINCT @SurrBase + Offset,
@@ -3635,7 +3627,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.CompartmentAssignment (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     CompartmentTypeId,
                     ReferenceResourceId,
                     0
@@ -3648,7 +3640,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     BaseUri,
                     ReferenceResourceTypeId,
@@ -3664,7 +3656,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     SystemId,
                     Code,
@@ -3679,7 +3671,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     Text,
                     0
@@ -3692,7 +3684,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     Text,
                     TextOverflow,
@@ -3708,7 +3700,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     Uri,
                     0
@@ -3721,7 +3713,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     SingleValue,
                     LowValue,
@@ -3736,7 +3728,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     SystemId,
                     QuantityCodeId,
@@ -3753,7 +3745,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     StartDateTime,
                     EndDateTime,
@@ -3770,7 +3762,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     BaseUri1,
                     ReferenceResourceTypeId1,
@@ -3789,7 +3781,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     SystemId1,
                     Code1,
@@ -3807,7 +3799,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     SystemId1,
                     Code1,
@@ -3825,7 +3817,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     SystemId1,
                     Code1,
@@ -3845,7 +3837,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     SystemId1,
                     Code1,
@@ -3862,7 +3854,7 @@ BEGIN TRY
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
     SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + Offset,
+                    @SurrBase + ResourceRecordId,
                     SearchParamId,
                     SystemId1,
                     Code1,
@@ -3882,11 +3874,10 @@ BEGIN TRY
             FROM   @Resources) AS B
            ON B.ResourceRecordId = Offset;
     SET @AffectedRows += @@rowcount;
-    SELECT Version,
-           ResourceTypeId,
-           ResourceRecordId,
+    SELECT ResourceTypeId,
+           @SurrBase + ResourceRecordId,
            ResourceId
-    FROM   @TrueResources;
+    FROM   @Resources;
     IF @IsResourceChangeCaptureEnabled = 1
         BEGIN
             DECLARE @Ids AS dbo.ResourceIdForChangesList;
@@ -3895,7 +3886,7 @@ BEGIN TRY
                    ResourceId,
                    Version,
                    IsDeleted
-            FROM   @TrueResources;
+            FROM   @Resources;
             EXECUTE dbo.CaptureResourceIdsForChanges @Ids;
         END
     IF @InitialTranCount = 0
