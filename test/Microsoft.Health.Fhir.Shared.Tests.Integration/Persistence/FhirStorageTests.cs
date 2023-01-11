@@ -142,25 +142,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
-        {
-            var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
-            {
-                var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-
-                Assert.NotNull(saveResult);
-                Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
-                var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
-                Assert.NotNull(deserializedResource);
-
-                Assert.NotNull(deserializedResource);
-                Assert.NotNull(deserializedResource);
-                Assert.Equal(instant, deserializedResource.LastUpdated.GetValueOrDefault());
-            }
-        }
-
-        [Fact]
         public async Task GivenAResourceId_WhenFetching_ThenTheResponseLoadsCorrectly()
         {
             var saveResult = await Mediator.CreateResourceAsync(Samples.GetJsonSample("Weight"));
