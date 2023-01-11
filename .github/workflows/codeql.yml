@@ -25,6 +25,14 @@ jobs:
       run: |
         git fetch --prune --unshallow
 
+    - name: Install .NET 6.0 SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '6.x'
+
+    - name: Install .NET Latest SDK
+      uses: actions/setup-dotnet@v3
+
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v2
@@ -32,8 +40,9 @@ jobs:
       # with:
       #   languages: go, javascript, csharp, python, cpp, java
 
-    # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
-    # If this step fails, then you should remove it and run the build manually (see below).
+    - name: dotnet restore
+      run: dotnet restore
+
     - name: Autobuild
       uses: github/codeql-action/autobuild@v2
 

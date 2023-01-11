@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Importer
             return ((string)jsonObject["resourceType"], (string)jsonObject["id"]);
         }
 
-        internal class IndexIncrementor
+        internal sealed class IndexIncrementor
         {
             private int _currentIndex;
             private int _count;

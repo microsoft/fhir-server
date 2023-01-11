@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Web
             };
         }
 
-        private class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource
+        private sealed class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource
         {
             private readonly string _filePath;
             private readonly IConfigurationRoot _existingConfiguration;
@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Web
                 return new Provider(jsonConfigurationSource, _existingConfiguration);
             }
 
-            private class Provider : JsonConfigurationProvider
+            private sealed class Provider : JsonConfigurationProvider
             {
                 private const string AuthorityKey = "FhirServer:Security:Authentication:Authority";
                 private const string AudienceKey = "FhirServer:Security:Authentication:Audience";

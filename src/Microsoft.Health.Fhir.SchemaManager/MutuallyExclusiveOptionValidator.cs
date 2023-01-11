@@ -17,7 +17,6 @@ public static class MutuallyExclusiveOptionValidator
     /// <param name="commandResult">The result of the command being run</param>
     /// <param name="mutuallyExclusiveOptions">The list of mutually exclusive options</param>
     /// <param name="validationErrorMessage">The message to show if only one of the option is not present</param>
-    /// <returns>A string to show the users if there is a validation error</returns>
     public static void Validate(CommandResult commandResult, IEnumerable<Option> mutuallyExclusiveOptions, string validationErrorMessage)
     {
         EnsureArg.IsNotNull(commandResult, nameof(commandResult));

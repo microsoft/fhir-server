@@ -224,7 +224,7 @@ namespace ResourceProcessorNamespace
             throw new NotImplementedException();
         }
 
-        public class EnumeratorItem
+        public sealed class EnumeratorItem
         {
             public int Size { get; set; }
 

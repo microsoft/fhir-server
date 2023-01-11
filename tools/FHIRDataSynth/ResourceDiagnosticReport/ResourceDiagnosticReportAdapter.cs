@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceDiagnosticReportAdapter : ResourceAdapterBase<DiagnosticReport.Rootobject, ResourceDiagnosticReportAdapter.DiagnosticReportSibling>
+    internal sealed class ResourceDiagnosticReportAdapter : ResourceAdapterBase<DiagnosticReport.Rootobject, ResourceDiagnosticReportAdapter.DiagnosticReportSibling>
     {
         public override DiagnosticReportSibling CreateOriginal(ResourceGroupProcessor processor, DiagnosticReport.Rootobject json)
         {

@@ -33,20 +33,6 @@ steps:
       overrideParameters: '-serviceName "$(appServicePlanName)"'
       deploymentMode: 'Validation'
       deploymentName: 'ValidateFhirDocker$(prName)'
-      
-  - task: AzureResourceManagerTemplateDeployment@3
-    displayName: 'Validate ARM Template (Web deploy)'
-    inputs:
-      deploymentScope: 'Resource Group'
-      azureResourceManagerConnection: '$(ConnectedServiceName)'
-      action: 'Create Or Update Resource Group'
-      resourceGroupName: '$(ResourceGroupName)'
-      location: '$(ResourceGroupRegion)'
-      templateLocation: 'Linked artifact'
-      csmFile: '$(Build.Repository.LocalPath)/samples/templates/default-azuredeploy.json'
-      overrideParameters: '-serviceName "$(appServicePlanName)"'
-      deploymentMode: 'Validation'
-      deploymentName: 'ValidateFhirWebDeploy$(prName)'
 
   - template: ./jobs/analyze.yml
     parameters:

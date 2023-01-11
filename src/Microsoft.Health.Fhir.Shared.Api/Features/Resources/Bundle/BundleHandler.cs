@@ -246,7 +246,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             foreach (var entry in responseBundle.Entry)
             {
                 var status = entry.Response.Status;
-                if (!apiCallResults.ContainsKey(status))
+                if (!apiCallResults.TryGetValue(status, out List<BundleSubCallMetricData> val))
                 {
                     apiCallResults[status] = new List<BundleSubCallMetricData>();
                 }
