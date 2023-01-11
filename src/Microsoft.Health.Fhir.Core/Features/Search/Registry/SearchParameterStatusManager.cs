@@ -57,6 +57,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
             _latestSearchParams = parameters.Values.Select(p => p.LastUpdated).Max();
 
+            EnsureArg.IsNotNull(_searchParameterDefinitionManager.AllSearchParameters);
+            EnsureArg.IsTrue(_searchParameterDefinitionManager.AllSearchParameters.Any());
+            EnsureArg.IsTrue(parameters.Any());
+
             // Set states of known parameters
             foreach (SearchParameterInfo p in _searchParameterDefinitionManager.AllSearchParameters)
             {
@@ -96,6 +100,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     updated.Add(p);
                 }
+            }
+
+            if (updated.Any())
+            {
+                _logger.LogInformation("SearchParameterStatusManager: Updated Search Parameters {Environment.NewLine} {Message}", Environment.NewLine, string.Join($"{Environment.NewLine}    ", updated.Select(u => "Url : " + u.Url.ToString() + ", Sort status : " + u.SortStatus.ToString())));
             }
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
