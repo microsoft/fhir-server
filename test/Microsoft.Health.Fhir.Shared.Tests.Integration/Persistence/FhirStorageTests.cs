@@ -1013,6 +1013,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var resourceKey = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
 
                 originalWrapper = await _dataStore.GetAsync(resourceKey, CancellationToken.None);
+                originalWrapper.SearchIndices = searchIndices;
             }
 
             // Add new search index entry to existing wrapper
@@ -1123,7 +1124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
-            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("code", "code", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Observation-code")) { SortStatus = SortParameterStatus.Disabled }, new StringSearchValue("alpha")) };
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
             wrapper.SearchParameterHash = "hash";
 
@@ -1136,7 +1137,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
-            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name")) { SortStatus = SortParameterStatus.Enabled }, new StringSearchValue("alpha")) };
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
             wrapper.SearchParameterHash = "hash";
 
