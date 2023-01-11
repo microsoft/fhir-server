@@ -217,14 +217,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             VLatest.MergeResources.PopulateCommand(
                                 sqlCommandWrapper,
-                                keepHistory,
-                                _coreFeatures.SupportsResourceChangeCapture,
-                                0,
+                                KeepHistory: keepHistory,
+                                AffectedRows: 0,
+                                RaiseExceptionOnConflict: true,
+                                UseResourceRecordIdAsSurrogateId: false,
+                                IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
                                 tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
                             using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
                             while (await reader.ReadAsync())
                             {
-                                newVersion = reader.GetInt32(2);
+                                newVersion = reader.GetInt32(0);
                             }
 
                             await reader.NextResultAsync(cancellationToken);

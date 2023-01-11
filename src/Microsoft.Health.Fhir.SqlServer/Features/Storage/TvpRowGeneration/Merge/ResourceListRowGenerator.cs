@@ -26,13 +26,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         public IEnumerable<ResourceListRow> GenerateRows(IReadOnlyList<ResourceWrapper> resources)
         {
+            // This logic currently works only for single resource version and it does not preserve surrogate id
             var offset = 0L;
             foreach (var resource in resources)
             {
                 var stream = new MemoryStream();
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
                 stream.Seek(0, 0);
-                yield return new ResourceListRow(offset, _model.GetResourceTypeId(resource.ResourceTypeName), resource.ResourceId, int.Parse(resource.Version), resource.IsDeleted, resource.IsHistory, stream, resource.Request.Method, resource.SearchParameterHash);
+                yield return new ResourceListRow(_model.GetResourceTypeId(resource.ResourceTypeName), offset, resource.ResourceId, int.Parse(resource.Version), true, resource.IsDeleted, resource.IsHistory, stream, resource.Request.Method, resource.SearchParameterHash);
                 offset++;
             }
         }
