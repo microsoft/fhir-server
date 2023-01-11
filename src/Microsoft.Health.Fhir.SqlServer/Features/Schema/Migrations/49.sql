@@ -3091,7 +3091,7 @@ CREATE PROCEDURE dbo.GetResourceSurrogateIdMaxSequence
 @Count INT, @MaxSequence BIGINT OUTPUT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'GetResourceSurrogateIdMaxSequence', @Mode AS VARCHAR (100) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME2 = sysdatetime(), @LastValueVar AS SQL_VARIANT;
+DECLARE @SP AS VARCHAR (100) = 'GetResourceSurrogateIdMaxSequence', @Mode AS VARCHAR (100) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME2 = sysUTCdatetime(), @LastValueVar AS SQL_VARIANT;
 BEGIN TRY
     EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = NULL, @range_last_value = @LastValueVar OUTPUT;
     SET @MaxSequence = datediff_big(millisecond, '0001-01-01', @st) * 80000 + CONVERT (INT, @LastValueVar);

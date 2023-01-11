@@ -5,7 +5,7 @@ AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourceSurrogateIdMaxSequence'
        ,@Mode varchar(100) = 'Cnt='+convert(varchar,@Count)
-       ,@st datetime2 = sysdatetime()
+       ,@st datetime2 = sysUTCdatetime()
        ,@LastValueVar sql_variant
 
 BEGIN TRY
