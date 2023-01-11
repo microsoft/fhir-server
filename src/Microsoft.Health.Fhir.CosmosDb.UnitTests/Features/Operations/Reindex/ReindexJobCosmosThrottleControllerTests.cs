@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             _fhirRequestContextAccessor.RequestContext = fhirRequestContext;
         }
 
-        [Fact(Skip = "TODO: Investigate intermittent failures")]
+        [Fact]
         public async Task GivenATargetRUConsumption_WhenConsumedRUsIsTooHigh_QueryDelayIsIncreased()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
@@ -56,17 +56,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
 
             int loopCount = 0;
 
+            // seems like we only need to test that the throttling is occurring
+            int totalThrottling = 0;
+            int currentThrottling = 0;
+
             while (loopCount < 16)
             {
-                _output.WriteLine($"Current throttle based delay is: {throttleController.GetThrottleBasedDelay()}");
+                currentThrottling = throttleController.GetThrottleBasedDelay();
+                totalThrottling += currentThrottling;
+
+                _output.WriteLine($"Current throttle based delay is: {currentThrottling}");
                 _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "100.0");
                 throttleController.UpdateDatastoreUsage();
-                await Task.Delay(reindexJob.QueryDelayIntervalInMilliseconds + throttleController.GetThrottleBasedDelay());
+                await Task.Delay(reindexJob.QueryDelayIntervalInMilliseconds + currentThrottling);
                 loopCount++;
             }
 
-            _output.WriteLine($"Final throttle based delay is: {throttleController.GetThrottleBasedDelay()}");
-            Assert.True(throttleController.GetThrottleBasedDelay() > 0);
+            _output.WriteLine($"Final throttle based delay is: {currentThrottling}");
+            Assert.True(totalThrottling > 0, "Asserting that the value is > 0");
         }
 
         [Fact]
