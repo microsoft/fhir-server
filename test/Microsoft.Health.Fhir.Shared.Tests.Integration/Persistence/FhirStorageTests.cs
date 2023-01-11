@@ -1124,7 +1124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
-            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("code", "code", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Observation-code")) { SortStatus = SortParameterStatus.Disabled }, new StringSearchValue("alpha")) };
+            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("status", "status", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Observation-code")) { SortStatus = SortParameterStatus.Disabled }, new StringSearchValue("final")) };
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
             wrapper.SearchParameterHash = "hash";
 
