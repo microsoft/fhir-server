@@ -234,8 +234,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         else
                         {
                             PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
-                            var newVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-                            resource.Version = newVersion.ToString();
+                            await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken); // resource.Version has been set already
                         }
 
                         SaveOutcomeType saveOutcomeType;
