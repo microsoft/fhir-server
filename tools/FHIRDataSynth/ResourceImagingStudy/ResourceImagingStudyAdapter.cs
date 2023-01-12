@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceImagingStudyAdapter : ResourceAdapterBase<ImagingStudy.Rootobject, ResourceImagingStudyAdapter.ImagingStudySibling>
+    internal sealed class ResourceImagingStudyAdapter : ResourceAdapterBase<ImagingStudy.Rootobject, ResourceImagingStudyAdapter.ImagingStudySibling>
     {
         public override ImagingStudySibling CreateOriginal(ResourceGroupProcessor processor, ImagingStudy.Rootobject json)
         {

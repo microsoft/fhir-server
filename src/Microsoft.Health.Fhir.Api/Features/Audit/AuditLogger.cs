@@ -10,7 +10,7 @@ using System.Net;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit

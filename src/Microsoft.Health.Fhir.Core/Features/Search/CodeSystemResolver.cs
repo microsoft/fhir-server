@@ -50,7 +50,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             using Stream file = _modelInfoProvider.OpenVersionedFileStream("resourcepath-codesystem-mappings.json");
             using var reader = new StreamReader(file);
+#pragma warning disable CA2016
             var content = await reader.ReadToEndAsync();
+#pragma warning restore CA2016
             _dictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
         }
 

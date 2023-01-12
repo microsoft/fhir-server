@@ -274,9 +274,9 @@ namespace ResourceProcessorNamespace
             where T : class
             where TS : struct
         {
-            if (targetProfile.ratios.ContainsKey(resourceName) && jsonList.Count > 0)
+            if (targetProfile.ratios.TryGetValue(resourceName, out double value) && jsonList.Count > 0)
             {
-                double ratio = targetProfile.ratios[resourceName] * ((double)result.InputResourcesCount / jsonList.Count);
+                double ratio = value * ((double)result.InputResourcesCount / jsonList.Count);
                 int requiredOutputCount = (int)(jsonList.Count * ratio);
                 if (requiredOutputCount <= jsonList.Count)
                 {
@@ -529,7 +529,7 @@ namespace ResourceProcessorNamespace
             return ret;
         }
 
-        public class ResourcesResult
+        public sealed class ResourcesResult
         {
             public ResourcesResult()
             {

@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourcePractitionerAdapter : ResourceAdapterBase<Practitioner.Rootobject, ResourcePractitionerAdapter.PractitionerSibling>
+    internal sealed class ResourcePractitionerAdapter : ResourceAdapterBase<Practitioner.Rootobject, ResourcePractitionerAdapter.PractitionerSibling>
     {
         public override PractitionerSibling CreateOriginal(ResourceGroupProcessor processor, Practitioner.Rootobject json)
         {

@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                         "sso-openid-connect",
                         "permission-offline",
                         "permission-patient",
+                        "permission-user",
                     });
         }
 

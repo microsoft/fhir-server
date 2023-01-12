@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceXCommunicationAdapter : ResourceAdapterBase<Communication.Rootobject, ResourceXCommunicationAdapter.CommunicationSibling>
+    internal sealed class ResourceXCommunicationAdapter : ResourceAdapterBase<Communication.Rootobject, ResourceXCommunicationAdapter.CommunicationSibling>
     {
         public override CommunicationSibling CreateOriginal(ResourceGroupProcessor processor, Communication.Rootobject json)
         {
@@ -66,7 +66,7 @@ namespace ResourceProcessorNamespace
         {
         }
 
-        public class Enumerator : EnumeratorBase<ResourcePatientAdapter.PatientSibling>
+        public sealed class Enumerator : EnumeratorBase<ResourcePatientAdapter.PatientSibling>
         {
             private Dictionary<string, ResourceSiblingsContainer<ResourcePatientAdapter.PatientSibling>>.Enumerator enumerator;
 

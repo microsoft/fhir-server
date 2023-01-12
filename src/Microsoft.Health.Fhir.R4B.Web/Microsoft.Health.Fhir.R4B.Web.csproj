@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
     <UserSecretsId>29a71f18-2146-4ff0-a511-da3cf615d951</UserSecretsId>
     <RootNamespace>Microsoft.Health.Fhir.Web</RootNamespace>
   </PropertyGroup>

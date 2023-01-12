@@ -11,7 +11,7 @@ using ResourceProcessorNamespace;
 
 namespace FHIRDataSynth
 {
-    internal class Program
+    internal sealed class Program
     {
         private static void ValidateTaskCount(string s, out int tasksCount)
         {

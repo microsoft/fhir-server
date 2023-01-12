@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceImmunizationAdapter : ResourceAdapterBase<Immunization.Rootobject, ResourceImmunizationAdapter.ImmunizationSibling>
+    internal sealed class ResourceImmunizationAdapter : ResourceAdapterBase<Immunization.Rootobject, ResourceImmunizationAdapter.ImmunizationSibling>
     {
         public override ImmunizationSibling CreateOriginal(ResourceGroupProcessor processor, Immunization.Rootobject json)
         {

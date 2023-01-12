@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         "sso-openid-connect",
                         "permission-offline",
                         "permission-patient",
+                        "permission-user",
                     };
 
                     return new GetSmartConfigurationResponse(authorizationEndpoint, tokenEndpoint, capabilities);

@@ -37,46 +37,56 @@ namespace Microsoft.Health.JobManagement
 
         public int JobHeartbeatTimeoutThresholdInSeconds { get; set; } = Constants.DefaultJobHeartbeatTimeoutThresholdInSeconds;
 
-        public int JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
+        public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
+
+        [Obsolete("Temporary method to prevent build breaks within Health PaaS. Will be removed after code is updated in Health PaaS")]
+        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
+        {
+            await ExecuteAsync(queueType, workerName, cancellationTokenSource, useHeavyHeartbeats);
+        }
 
         public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
         {
-            var runningJobs = new List<Task>();
+            var workers = new List<Task>();
 
-            while (!cancellationTokenSource.Token.IsCancellationRequested)
+            // parallel dequeue
+            for (var thread = 0; thread < MaxRunningJobCount; thread++)
             {
-                if (runningJobs.Count >= MaxRunningJobCount)
+                workers.Add(Task.Run(async () =>
                 {
-                    _ = await Task.WhenAny(runningJobs.ToArray());
-                    runningJobs.RemoveAll(t => t.IsCompleted);
-                }
+                    // random delay to avoid convoys
+                    await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds));
 
-                JobInfo nextJob = null;
-                if (_queueClient.IsInitialized())
-                {
-                    try
+                    while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
-                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to pull new jobs.");
-                    }
-                }
+                        JobInfo nextJob = null;
+                        if (_queueClient.IsInitialized())
+                        {
+                            try
+                            {
+                                nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to dequeue new job.");
+                            }
+                        }
 
-                if (nextJob != null)
-                {
-                    runningJobs.Add(ExecuteJobAsync(nextJob, useHeavyHeartbeats));
-                }
-                else
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), CancellationToken.None);
-                }
+                        if (nextJob != null)
+                        {
+                            await ExecuteJobAsync(nextJob, useHeavyHeartbeats);
+                        }
+                        else
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                        }
+                    }
+                }));
             }
 
             try
             {
-                await Task.WhenAll(runningJobs.ToArray());
+                await Task.WhenAny(workers.ToArray()); // if any worker crashes exit
             }
             catch (Exception ex)
             {

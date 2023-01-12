@@ -545,9 +545,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)
         {
-            IEnumerable<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value
-                .GetSearchParameters(cosmosWrapper.ResourceTypeName)
-                .Where(x => x.SortStatus != SortParameterStatus.Disabled);
+            List<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value.GetSearchParameters(cosmosWrapper.ResourceTypeName).Where(x => x.SortStatus != SortParameterStatus.Disabled).ToList();
 
             if (searchParameters.Any())
             {

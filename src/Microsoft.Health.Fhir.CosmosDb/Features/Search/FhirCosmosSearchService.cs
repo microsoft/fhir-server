@@ -300,21 +300,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // e.g. Patient?_has:Group:member:_id=group1. In this case we would have run the query there Group.id = group1
                 // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
 
-                IEnumerable<ResourceTypeAndId> resourceTypeAndIds = chainedResults.SelectMany(x => x.ReferencesToInclude.Select(y => y)).Distinct();
+                List<ResourceTypeAndId> resourceTypeAndIds = chainedResults.SelectMany(x => x.ReferencesToInclude.Select(y => y)).Distinct().ToList();
 
                 if (!resourceTypeAndIds.Any())
                 {
                     return null;
                 }
 
-                IEnumerable<MultiaryExpression> typeAndResourceExpressions = resourceTypeAndIds
+                List<MultiaryExpression> typeAndResourceExpressions = resourceTypeAndIds
                     .GroupBy(x => x.ResourceTypeName)
                     .Select(g =>
                         Expression.And(
                             Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, g.Key)),
-                            Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId)))));
+                            Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId))))).ToList();
 
-                return typeAndResourceExpressions.Count() == 1 ? typeAndResourceExpressions.First() : Expression.Or(typeAndResourceExpressions.ToArray());
+                return typeAndResourceExpressions.Count == 1 ? typeAndResourceExpressions.First() : Expression.Or(typeAndResourceExpressions.ToArray());
             }
 
             // When normal chained expression we can filter using references in the parent object. e.g. Observation.subject
@@ -636,7 +636,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
                     SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
 
-                    IEnumerable<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName);
+                    List<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName).ToList();
 
                     Expression referenceExpression = Expression.And(
                         Expression.SearchParameter(

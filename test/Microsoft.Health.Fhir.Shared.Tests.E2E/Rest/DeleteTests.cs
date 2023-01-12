@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await _client.DeleteAsync(response.Resource);
 
             // Subsequent read on the resource should return Gone.
-            using FhirException ex = await ExecuteAndValidateGoneStatus(() => _client.ReadAsync<Observation>(ResourceType.Observation, resourceId));
+            using FhirClientException ex = await ExecuteAndValidateGoneStatus(() => _client.ReadAsync<Observation>(ResourceType.Observation, resourceId));
 
             string eTag = ex.Headers.ETag.ToString();
 
@@ -61,9 +61,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Subsequent read on the deleted version should return Gone.
             await ExecuteAndValidateGoneStatus(() => _client.VReadAsync<Observation>(ResourceType.Observation, resourceId, deleteVersionId));
 
-            async Task<FhirException> ExecuteAndValidateGoneStatus(Func<Task> action)
+            async Task<FhirClientException> ExecuteAndValidateGoneStatus(Func<Task> action)
             {
-                using FhirException exception = await Assert.ThrowsAsync<FhirException>(action);
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(action);
 
                 Assert.Equal(HttpStatusCode.Gone, exception.StatusCode);
 
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             async Task ExecuteAndValidateNotFoundStatus(Func<Task> action)
             {
-                using FhirException exception = await Assert.ThrowsAsync<FhirException>(action);
+                using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(action);
 
                 Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
             }
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task GivenExecuteAndValidateNotFoundStatus(Func<Task> action)
         {
-            FhirException exception = null;
+            FhirClientException exception = null;
 
             do
             {
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     await Task.Delay(500);
                 }
 
-                exception = await Assert.ThrowsAsync<FhirException>(action);
+                exception = await Assert.ThrowsAsync<FhirClientException>(action);
             }
             while (exception.StatusCode == (HttpStatusCode)429);
 

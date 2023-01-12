@@ -15,7 +15,7 @@ using Azure.Storage.Blobs.Models;
 
 namespace FHIRDataSynth
 {
-    internal class RDUtility
+    internal static class RDUtility
     {
         public static string ResourcesExtension { get; } = ".ndjson";
 
@@ -260,7 +260,7 @@ namespace FHIRDataSynth
             }
         }
 
-        private class BlobInfo
+        private sealed class BlobInfo
         {
             public HashSet<string> Ids { get; set; } = new HashSet<string>();
 
@@ -298,7 +298,7 @@ namespace FHIRDataSynth
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
 #pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
-        public class RDResourceJSON
+        public sealed class RDResourceJSON
         {
             public string resourceType { get; set; }
 
