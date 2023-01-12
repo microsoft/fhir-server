@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             List<Bundle.EntryComponent> readResponseWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            AssertCount(2, readResponseWithMatchingTag);
+            AssertCount(2, readResponseWithMatchingTag, since, before);
 
             Patient patientHistory;
             var obsHistory = readResponseWithMatchingTag[0].Resource as Observation;
@@ -493,7 +493,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return await _client.CreateByUpdateAsync(resource);
         }
 
-        private void AssertCount<TBase>(int expected, ICollection<TBase> collection)
+        private void AssertCount<TBase>(int expected, ICollection<TBase> collection, DateTimeOffset? since = null, DateTimeOffset? before = null)
             where TBase : Base
         {
             if (collection.Count == expected)
@@ -508,6 +508,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             foreach (TBase element in collection)
             {
                 sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
+            }
+
+            if (since.HasValue)
+            {
+                sb.AppendLine($"since={since.Value.ToString("o")}");
+            }
+
+            if (before.HasValue)
+            {
+                sb.AppendLine($"before={before.Value.ToString("o")}");
             }
 
             throw new XunitException(sb.ToString());
