@@ -237,16 +237,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken); // resource.Version has been set already
                         }
 
-                        SaveOutcomeType saveOutcomeType;
-                        if (resource.Version == "1")
-                        {
-                            saveOutcomeType = SaveOutcomeType.Created;
-                        }
-                        else
-                        {
-                            saveOutcomeType = SaveOutcomeType.Updated;
-                            resource.RawResource.IsMetaSet = false;
-                        }
+                        var saveOutcomeType = resource.Version == "1" ? SaveOutcomeType.Created : SaveOutcomeType.Updated;
+                        resource.RawResource.IsMetaSet = false;
 
                         return new UpsertOutcome(resource, saveOutcomeType);
                     }
