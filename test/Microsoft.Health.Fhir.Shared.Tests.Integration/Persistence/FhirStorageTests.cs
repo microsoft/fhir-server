@@ -142,6 +142,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
+        {
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            Assert.NotNull(saveResult);
+            Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
+            var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+            Assert.NotNull(deserializedResource);
+            Assert.True((DateTimeOffset.UtcNow - deserializedResource.LastUpdated.GetValueOrDefault()).TotalSeconds < 60);
+        }
+
+        [Fact]
         public async Task GivenAResourceId_WhenFetching_ThenTheResponseLoadsCorrectly()
         {
             var saveResult = await Mediator.CreateResourceAsync(Samples.GetJsonSample("Weight"));
