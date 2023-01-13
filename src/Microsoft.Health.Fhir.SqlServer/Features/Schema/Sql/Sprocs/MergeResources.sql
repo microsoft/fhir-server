@@ -13,7 +13,7 @@ CREATE PROCEDURE dbo.MergeResources
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY
    ,@CompartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY
-   ,@ReferenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY
+   ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY
    ,@TokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY
    ,@StringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY
@@ -166,8 +166,8 @@ BEGIN TRY
 
   INSERT INTO dbo.ReferenceSearchParam 
          ( ResourceTypeId,          ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory )
-    SELECT DISTINCT ResourceTypeId, @SurrBase + ResourceRecordId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion,         0
-      FROM @ReferenceSearchParams A JOIN (SELECT ResourceTypeId, ResourceRecordId FROM @Resources) B ON B.ResourceRecordId = Offset
+    SELECT ResourceTypeId, @SurrBase + ResourceRecordId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion,         0
+      FROM @ReferenceSearchParams
   SET @AffectedRows += @@rowcount
 
   INSERT INTO dbo.TokenSearchParam 

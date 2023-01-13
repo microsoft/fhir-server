@@ -3439,7 +3439,7 @@ VALUES                                  (@message);
 
 GO
 CREATE PROCEDURE dbo.MergeResources
-@KeepHistory BIT=1, @AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @UseResourceRecordIdAsSurrogateId BIT=0, @IsResourceChangeCaptureEnabled BIT=0, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @CompartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @ReferenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @TokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @TokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @StringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @NumberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @QuantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @UriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @DateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @ReferenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @TokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @TokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @TokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @TokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @TokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
+@KeepHistory BIT=1, @AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @UseResourceRecordIdAsSurrogateId BIT=0, @IsResourceChangeCaptureEnabled BIT=0, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @CompartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @TokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @StringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY, @NumberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @QuantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @UriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @DateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @ReferenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @TokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @TokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @TokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @TokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @TokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'MergeResources', @MaxSequence AS BIGINT, @SurrBase AS BIGINT, @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @InputRows AS INT = (SELECT count(*)
@@ -3639,20 +3639,15 @@ BEGIN TRY
            ON B.ResourceRecordId = Offset;
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
-    SELECT DISTINCT ResourceTypeId,
-                    @SurrBase + ResourceRecordId,
-                    SearchParamId,
-                    BaseUri,
-                    ReferenceResourceTypeId,
-                    ReferenceResourceId,
-                    ReferenceResourceVersion,
-                    0
-    FROM   @ReferenceSearchParams AS A
-           INNER JOIN
-           (SELECT ResourceTypeId,
-                   ResourceRecordId
-            FROM   @Resources) AS B
-           ON B.ResourceRecordId = Offset;
+    SELECT ResourceTypeId,
+           @SurrBase + ResourceRecordId,
+           SearchParamId,
+           BaseUri,
+           ReferenceResourceTypeId,
+           ReferenceResourceId,
+           ReferenceResourceVersion,
+           0
+    FROM   @ReferenceSearchParams;
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
     SELECT DISTINCT ResourceTypeId,

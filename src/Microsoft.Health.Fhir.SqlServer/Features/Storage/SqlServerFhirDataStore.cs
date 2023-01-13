@@ -196,20 +196,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         resource.Version = (existingVersion + 1).Value.ToString(CultureInfo.InvariantCulture);
                     }
 
-                    _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
-
-                    stream.Seek(0, 0);
-
-                    _logger.LogInformation("Upserting {ResourceTypeName} with a stream length of {StreamLength}", resource.ResourceTypeName, stream.Length);
-
-                    // throwing ServiceUnavailableException in order to send a 503 error message to the client
-                    // indicating the server has a transient error, and the client can try again
-                    if (stream.Length < 31) // rather than error on a length of 0, a stream with a small number of bytes should still throw an error. RawResource.Data = null, still results in a stream of 29 bytes
-                    {
-                        _logger.LogCritical("Stream size for resource of type: {ResourceTypeName} is less than 50 bytes, request method: {RequestMethod}", resource.ResourceTypeName, resource.Request.Method);
-                        throw new ServiceUnavailableException();
-                    }
-
                     try
                     {
                         if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
@@ -233,14 +219,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                         else
                         {
+                            _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
+                            stream.Seek(0, 0);
+                            _logger.LogInformation("Upserting {ResourceTypeName} with a stream length of {StreamLength}", resource.ResourceTypeName, stream.Length);
+
+                            // throwing ServiceUnavailableException in order to send a 503 error message to the client
+                            // indicating the server has a transient error, and the client can try again
+                            if (stream.Length < 31) // rather than error on a length of 0, a stream with a small number of bytes should still throw an error. RawResource.Data = null, still results in a stream of 29 bytes
+                            {
+                                _logger.LogCritical("Stream size for resource of type: {ResourceTypeName} is less than 50 bytes, request method: {RequestMethod}", resource.ResourceTypeName, resource.Request.Method);
+                                throw new ServiceUnavailableException();
+                            }
+
                             PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
                             await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken); // resource.Version has been set already
                         }
 
-                        var saveOutcomeType = resource.Version == "1" ? SaveOutcomeType.Created : SaveOutcomeType.Updated;
-                        resource.RawResource.IsMetaSet = false;
+                        resource.RawResource.IsMetaSet = false; // this will guarantee that LastModified from wrapper is propagated to Meta.
 
-                        return new UpsertOutcome(resource, saveOutcomeType);
+                        return new UpsertOutcome(resource, resource.Version == "1" ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
                     }
                     catch (SqlException e)
                     {

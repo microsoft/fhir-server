@@ -11,6 +11,7 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -527,6 +528,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=-date&_include=Observation:subject", false, resources.ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task SimpleTestWithCoreLogicToUnderstandHowThingsWork()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var written = (await AddObservationToPatient(null, "1990-01-01", tag))[0];
+            var read = (await Client.SearchAsync($"Observation?_tag={tag}", null)).Resource.Entry[0].Resource;
+            Assert.Equal(written.Id, read.Id);
+            Assert.Equal(written.Meta.LastUpdated, read.Meta.LastUpdated);
         }
 
         [Fact]
