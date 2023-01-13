@@ -973,7 +973,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Not valid test in Merge Resources design.")]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()
         {

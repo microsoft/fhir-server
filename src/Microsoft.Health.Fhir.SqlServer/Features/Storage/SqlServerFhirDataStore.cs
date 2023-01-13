@@ -221,16 +221,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
                             stream.Seek(0, 0);
-                            _logger.LogInformation("Upserting {ResourceTypeName} with a stream length of {StreamLength}", resource.ResourceTypeName, stream.Length);
-
-                            // throwing ServiceUnavailableException in order to send a 503 error message to the client
-                            // indicating the server has a transient error, and the client can try again
-                            if (stream.Length < 31) // rather than error on a length of 0, a stream with a small number of bytes should still throw an error. RawResource.Data = null, still results in a stream of 29 bytes
-                            {
-                                _logger.LogCritical("Stream size for resource of type: {ResourceTypeName} is less than 50 bytes, request method: {RequestMethod}", resource.ResourceTypeName, resource.Request.Method);
-                                throw new ServiceUnavailableException();
-                            }
-
                             PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
                             await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken); // resource.Version has been set already
                         }
@@ -356,7 +346,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: false),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,
@@ -441,11 +431,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
         }
 
-        private static string RemoveVersionIdAndLastUpdatedFromMeta(ResourceWrapper resourceWrapper)
+        private string RemoveVersionIdAndLastUpdatedFromMeta(ResourceWrapper resourceWrapper)
         {
-            var versionToReplace = resourceWrapper.RawResource.IsMetaSet ? resourceWrapper.Version : "1";
-            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{versionToReplace}\"", string.Empty, StringComparison.Ordinal);
-            return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
+            var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId");
+            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated");
+            var rawResource = resourceWrapper.RawResource.Data
+                                .Replace($"\"versionId\":\"{version}\"", string.Empty, StringComparison.Ordinal)
+                                .Replace($"\"lastUpdated\":\"{date}\"", string.Empty, StringComparison.Ordinal);
+            return rawResource;
+        }
+
+        private string GetJsonValue(string json, string propName)
+        {
+            var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.OrdinalIgnoreCase);
+            if (startIndex == -1)
+            {
+                _logger.LogError($"Cannot parse {propName} from {json}");
+                return string.Empty;
+            }
+
+            startIndex = startIndex + propName.Length + 4;
+            var endIndex = json.IndexOf("\"", startIndex, StringComparison.OrdinalIgnoreCase);
+            if (endIndex == -1)
+            {
+                _logger.LogError($"Cannot parse {propName} value from {json}");
+                return string.Empty;
+            }
+
+            var value = json.Substring(startIndex, endIndex - startIndex);
+
+            return value;
         }
 
         public void Build(ICapabilityStatementBuilder builder)
