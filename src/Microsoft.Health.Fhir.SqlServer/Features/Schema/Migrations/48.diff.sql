@@ -1,79 +1,169 @@
-﻿
-/*************************************************************
-    Stored procedure for creating and deleting
-**************************************************************/
---
--- STORED PROCEDURE
---     UpsertResource_7
---
--- DESCRIPTION
---     Creates or updates (including marking deleted) a FHIR resource
---
--- PARAMETERS
---     @baseResourceSurrogateId
---         * A bigint to which a value between [0, 80000) is added, forming a unique ResourceSurrogateId.
---         * This value should be the current UTC datetime, truncated to millisecond precision, with its 100ns ticks component bitshifted left by 3.
---     @resourceTypeId
---         * The ID of the resource type (See ResourceType table)
---     @resourceId
---         * The resource ID (must be the same as the in the resource itself)
---     @etag
---         * If specified, the version of the resource to update
---     @allowCreate
---         * If false, an error is thrown if the resource does not already exist
---     @isDeleted
---         * Whether this resource marks the resource as deleted
---     @keepHistory
---         * Whether the existing version of the resource should be preserved
---     @requireETagOnUpdate
---         * True if this is a versioned update and an etag must be provided
---     @requestMethod
---         * The HTTP method/verb used for the request
---     @searchParamHash
---          * A hash of the resource's latest indexed search parameters
---     @rawResource
---         * A compressed UTF16-encoded JSON document
---     @resourceWriteClaims
---         * Claims on the principal that performed the write
---     @compartmentAssignments
---         * Compartments that the resource is part of
---     @referenceSearchParams
---         * Extracted reference search params
---     @tokenSearchParams
---         * Extracted token search params
---     @tokenTextSearchParams
---         * The text representation of extracted token search params
---     @stringSearchParams
---         * Extracted string search params
---     @numberSearchParams
---         * Extracted number search params
---     @quantitySearchParams
---         * Extracted quantity search params
---     @uriSearchParams
---         * Extracted URI search params
---     @dateTimeSearchParms
---         * Extracted datetime search params
---     @referenceTokenCompositeSearchParams
---         * Extracted reference$token search params
---     @tokenTokenCompositeSearchParams
---         * Extracted token$token tokensearch params
---     @tokenDateTimeCompositeSearchParams
---         * Extracted token$datetime search params
---     @tokenQuantityCompositeSearchParams
---         * Extracted token$quantity search params
---     @tokenStringCompositeSearchParams
---         * Extracted token$string search params
---     @tokenNumberNumberCompositeSearchParams
---         * Extracted token$number$number search params
---     @isResourceChangeCaptureEnabled
---         * Whether capturing resource change data
---     @comparedVersion
---         *  If specified, the version of the resource that was compared in the code
---
--- RETURN VALUE
---     The version of the resource as a result set. Will be empty if no insertion was done.
+﻿--DROP PROCEDURE dbo.DeleteHistory
 GO
-CREATE PROCEDURE dbo.UpsertResource_7
+CREATE OR ALTER PROCEDURE dbo.DeleteHistory @DeleteResources bit = 0, @Reset bit = 0, @DisableLogEvent bit = 0
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'DeleteHistory'
+       ,@Mode varchar(100) = 'D='+isnull(convert(varchar,@DeleteResources),'NULL')+' R='+isnull(convert(varchar,@Reset),'NULL')
+       ,@st datetime = getUTCdate()
+       ,@Id varchar(100) = 'DeleteHistory.LastProcessed.TypeId.SurrogateId'
+       ,@ResourceTypeId smallint
+       ,@SurrogateId bigint
+       ,@RowsToProcess int
+       ,@ProcessedResources int = 0
+       ,@DeletedResources int = 0
+       ,@DeletedSearchParams int = 0
+       ,@ReportDate datetime = getUTCdate()
+
+BEGIN TRY
+  IF @DisableLogEvent = 0 
+    INSERT INTO dbo.Parameters (Id, Char) SELECT @SP, 'LogEvent'
+  ELSE 
+    DELETE FROM dbo.Parameters WHERE Id = @SP
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
+
+  INSERT INTO dbo.Parameters (Id, Char) SELECT @Id, '0.0' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @Id)
+
+  DECLARE @LastProcessed varchar(100) = CASE WHEN @Reset = 0 THEN (SELECT Char FROM dbo.Parameters WHERE Id = @Id) ELSE '0.0' END
+
+  DECLARE @Types TABLE (ResourceTypeId smallint PRIMARY KEY, Name varchar(100))
+  DECLARE @SurrogateIds TABLE (ResourceSurrogateId bigint PRIMARY KEY, IsHistory bit)
+  
+  INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='@Types',@Action='Insert',@Rows=@@rowcount
+
+  SET @ResourceTypeId = substring(@LastProcessed, 1, charindex('.', @LastProcessed) - 1) -- (SELECT value FROM string_split(@LastProcessed, '.', 1) WHERE ordinal = 1)
+  SET @SurrogateId = substring(@LastProcessed, charindex('.', @LastProcessed) + 1, 255) -- (SELECT value FROM string_split(@LastProcessed, '.', 1) WHERE ordinal = 2)
+
+  DELETE FROM @Types WHERE ResourceTypeId < @ResourceTypeId
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='@Types',@Action='Delete',@Rows=@@rowcount
+
+  WHILE EXISTS (SELECT * FROM @Types) -- Processing in ASC order
+  BEGIN
+    SET @ResourceTypeId = (SELECT TOP 1 ResourceTypeId FROM @Types ORDER BY ResourceTypeId)
+
+    SET @ProcessedResources = 0
+    SET @DeletedResources = 0
+    SET @DeletedSearchParams = 0
+    SET @RowsToProcess = 1
+    WHILE @RowsToProcess > 0
+    BEGIN
+      DELETE FROM @SurrogateIds
+
+      INSERT INTO @SurrogateIds
+        SELECT TOP 10000
+               ResourceSurrogateId
+              ,IsHistory
+          FROM dbo.Resource
+          WHERE ResourceTypeId = @ResourceTypeId
+            AND ResourceSurrogateId > @SurrogateId
+          ORDER BY
+               ResourceSurrogateId
+      SET @RowsToProcess = @@rowcount
+      SET @ProcessedResources += @RowsToProcess
+
+      IF @RowsToProcess > 0
+        SET @SurrogateId = (SELECT max(ResourceSurrogateId) FROM @SurrogateIds)
+
+      SET @LastProcessed = convert(varchar,@ResourceTypeId)+'.'+convert(varchar,@SurrogateId)
+
+      DELETE FROM @SurrogateIds WHERE IsHistory = 0
+      
+      IF EXISTS (SELECT * FROM @SurrogateIds)
+      BEGIN
+        DELETE FROM dbo.ResourceWriteClaim WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.CompartmentAssignment WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.ReferenceSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.TokenSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.TokenText WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.StringSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.UriSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.NumberSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.QuantitySearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.DateTimeSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.ReferenceTokenCompositeSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.TokenTokenCompositeSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.TokenDateTimeCompositeSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.TokenQuantityCompositeSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.TokenStringCompositeSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        DELETE FROM dbo.TokenNumberNumberCompositeSearchParam WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+        SET @DeletedSearchParams += @@rowcount
+
+        IF @DeleteResources = 1
+        BEGIN
+          DELETE FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @SurrogateIds)
+          SET @DeletedResources += @@rowcount
+        END
+      END
+
+      UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
+
+      IF datediff(second, @ReportDate, getUTCdate()) > 60
+      BEGIN
+        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Select',@Rows=@ProcessedResources,@Text=@LastProcessed
+        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='*SearchParam',@Action='Delete',@Rows=@DeletedSearchParams,@Text=@LastProcessed
+        IF @DeleteResources = 1 EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Rows=@DeletedResources,@Text=@LastProcessed
+        SET @ReportDate = getUTCdate()
+        SET @ProcessedResources = 0
+        SET @DeletedSearchParams = 0
+        SET @DeletedResources = 0
+      END
+    END
+
+    DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
+
+    SET @SurrogateId = 0
+  END
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Select',@Rows=@ProcessedResources,@Text=@LastProcessed
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='*SearchParam',@Action='Delete',@Rows=@DeletedSearchParams,@Text=@LastProcessed
+  IF @DeleteResources = 1 EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='Resource',@Action='Delete',@Rows=@DeletedResources,@Text=@LastProcessed
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+--EXECUTE dbo.DeleteHistory 1
+--SELECT * FROM Parameters WHERE Id = 'DeleteHistory.LastProcessed.TypeId.SurrogateId'
+--SELECT TOP 100 * FROM EventLog WHERE EventDate > dateadd(minute,-10,getUTCdate()) AND Process = 'DeleteHistory' ORDER BY EventDate DESC
+--INSERT INTO Parameters (Id, Char) SELECT 'DeleteHistory','LogEvent'
+GO
+CREATE OR ALTER PROCEDURE dbo.UpsertResource_7
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),

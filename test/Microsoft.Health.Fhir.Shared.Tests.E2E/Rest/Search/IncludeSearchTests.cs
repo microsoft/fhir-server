@@ -1177,7 +1177,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Multiple result sets: MedicationDispense:performer;Practitioner and MedicationRequest:requester:Practitioner
             string query = $"_include=MedicationDispense:performer:Practitioner&_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:requester:Practitioner&_revinclude:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.MedicationDispense, query));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.MedicationDispense, query));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, "Patient:general-practitioner") };
@@ -1364,7 +1364,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"{include}=Observation:subject:NotAResourceType";
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { string.Format(Core.Resources.ResourceNotSupported, "NotAResourceType") };
@@ -1383,7 +1383,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"{include}=Observation:subject:{target}";
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType) };

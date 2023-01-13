@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _fixture.SetPatient(searchPatient, city, name, birthDate: date);
             var searchCoverage = new Coverage();
             _fixture.SetCoverage(searchCoverage, searchPatient, type, subPlan);
-            var ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.MemberMatch(searchPatient, searchCoverage));
+            var ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.MemberMatch(searchPatient, searchCoverage));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, ex.StatusCode);
             Assert.Equal(Core.Resources.MemberMatchMultipleMatchesFound, ex.OperationOutcome.Issue.First().Diagnostics);
         }
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _fixture.SetPatient(searchPatient, city, name, birthDate: date);
             var searchCoverage = new Coverage();
             _fixture.SetCoverage(searchCoverage, searchPatient, type, subPlan);
-            var ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.MemberMatch(searchPatient, searchCoverage));
+            var ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.MemberMatch(searchPatient, searchCoverage));
             Assert.Equal(HttpStatusCode.UnprocessableEntity, ex.StatusCode);
             Assert.Equal(Core.Resources.MemberMatchNoMatchFound, ex.OperationOutcome.Issue.First().Diagnostics);
         }
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenNonParametersRequestBody_WhenMemberMatchSent_ThenBadRequest()
         {
             string body = Samples.GetJson("PatientWithMinimalData");
-            var ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostAsync("Patient/$member-match", body));
+            var ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostAsync("Patient/$member-match", body));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
     }

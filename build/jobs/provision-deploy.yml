@@ -104,7 +104,14 @@ jobs:
         Write-Host "Provisioning Resource Group"
         Write-Host $webAppName
         Write-Host "${{ parameters.resourceGroup }}"
+        try {
         New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+        }catch {
+          if("${{ parameters.sql }}" -eq "true"){
+            $templateParameters["sqlServerNewOrExisting"] = "new"
+            New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+          }
+        }
         
         Write-Host "Setting Key Vault access"
         Set-AzKeyVaultAccessPolicy -VaultName $webAppName -ObjectId b542f965-4eec-4682-8999-78dd501df864 -PermissionsToSecrets list,get

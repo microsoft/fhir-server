@@ -6,6 +6,12 @@
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <IsTestProject>false</IsTestProject>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>$(NoWarn);NU5104;NU5100</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>$(NoWarn);NU5104;NU5100</NoWarn>
+  </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
@@ -30,6 +36,7 @@
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-FhirPatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-BinaryPatch.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-MissingIdentifier.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
     <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />

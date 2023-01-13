@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceAndMalformedProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), provenanceHeader: "Jibberish"));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), provenanceHeader: "Jibberish"));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             poco.Text.Div = $"<div>{largeStringBuilder.ToString()}</div>";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(poco));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(poco));
             Assert.Equal(HttpStatusCode.RequestEntityTooLarge, exception.StatusCode);
         }
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUnsupportedResourceType_WhenPostingToHttp_TheServerShouldRespondWithANotFoundResponse()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync("NotObservation", Samples.GetDefaultObservation().ToPoco<Observation>()));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync("NotObservation", Samples.GetDefaultObservation().ToPoco<Observation>()));
 
             Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAnInvalidResource_WhenPostingToHttp_TheServerShouldRespondWithBadRequestResponse()
         {
             // An empty observation is invalid because it is missing fields that have a minimum cardinality of 1
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(new Observation()));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(new Observation()));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Effective = new FhirDateTime("2021-10-13+02:00");
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(observation));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(observation));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             Assert.Contains("format", ex.Message);
         }
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UpdateId("' SELECT name FROM syscolumns WHERE id = (SELECT id FROM sysobjects WHERE name = tablename')--")
                 .ToPoco<Observation>();
 
-            var exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.UpdateAsync(observation));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.UpdateAsync(observation));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Xml can't even serialize these broken fragments
             if (_client.Format != ResourceFormat.Xml)
             {
-                var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(observation));
+                var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(observation));
                 Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
             }
         }
