@@ -121,6 +121,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
 
+            if (cosmosWrapper.SearchIndices.Count == 0)
+            {
+                throw new MissingSearchIndicesException(string.Format(Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
+            }
+
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
@@ -561,10 +566,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             else
             {
                 cosmosWrapper.SortValues?.Clear();
-                if (cosmosWrapper.ResourceTypeName.Contains("Patient", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    throw new SearchParameterAndSortIndicesException("Resource type Patient have " + _supportedSearchParameters.Value.GetSearchParameters(cosmosWrapper.ResourceTypeName).Count().ToString() + " search parameter but none of them have sort status as enabled.");
-                }
             }
         }
 

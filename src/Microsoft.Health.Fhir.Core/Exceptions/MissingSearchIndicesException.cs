@@ -7,9 +7,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public class SearchParameterAndSortIndicesException : FhirException
+    public class MissingSearchIndicesException : FhirException
     {
-        public SearchParameterAndSortIndicesException(string message)
+        public MissingSearchIndicesException(string message)
             : base(message)
         {
             Issues.Add(new OperationOutcomeIssue(
