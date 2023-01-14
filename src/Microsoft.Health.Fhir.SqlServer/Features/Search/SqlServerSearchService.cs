@@ -399,6 +399,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     }
 
                                     rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                    var current = GetJsonValue(rawResource, "lastUpdated");
+                                    var correct = ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId);
+                                    rawResource = rawResource.Replace($"\"lastUpdated\":\"{current}\"", $"\"lastUpdated\":\"{correct}\"", StringComparison.Ordinal);
                                 }
 
                                 if (string.IsNullOrEmpty(rawResource))
@@ -496,6 +499,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
                 });
             return result;
+        }
+
+        private string GetJsonValue(string json, string propName)
+        {
+            var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.OrdinalIgnoreCase);
+            if (startIndex == -1)
+            {
+                _logger.LogError($"Cannot parse {propName} from {json}");
+                return string.Empty;
+            }
+
+            startIndex = startIndex + propName.Length + 4;
+            var endIndex = json.IndexOf("\"", startIndex, StringComparison.OrdinalIgnoreCase);
+            if (endIndex == -1)
+            {
+                _logger.LogError($"Cannot parse {propName} value from {json}");
+                return string.Empty;
+            }
+
+            var value = json.Substring(startIndex, endIndex - startIndex);
+
+            return value;
         }
 
         private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommand command)
