@@ -7,13 +7,12 @@ using System.Collections.Generic;
 using System.IO;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class ResourceListRowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, ResourceListRow>
+    internal class ResourceListRowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<MergeResourceWrapper>, ResourceListRow>
     {
         private readonly ISqlServerFhirModel _model;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
@@ -24,17 +23,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
         }
 
-        public IEnumerable<ResourceListRow> GenerateRows(IReadOnlyList<ResourceWrapper> resources)
+        public IEnumerable<ResourceListRow> GenerateRows(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
         {
-            // This logic currently works only for single resource version and it does not preserve surrogate id
-            var resourceRecordId = 0L;
-            foreach (var resource in resources)
+            foreach (var merge in mergeWrappers)
             {
+                var wrapper = merge.ResourceWrapper;
                 var stream = new MemoryStream();
-                _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
+                _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
-                yield return new ResourceListRow(_model.GetResourceTypeId(resource.ResourceTypeName), resourceRecordId, resource.ResourceId, int.Parse(resource.Version), true, resource.IsDeleted, resource.IsHistory, stream, resource.Request.Method, resource.SearchParameterHash);
-                resourceRecordId++;
+                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request.Method, wrapper.SearchParameterHash);
             }
         }
     }

@@ -15,7 +15,6 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -45,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
-        private readonly VLatest.MergeResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _mergeResourcesTvpGeneratorVLatest;
+        private readonly VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>> _mergeResourcesTvpGeneratorVLatest;
         private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
         private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
@@ -60,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ISqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
-            VLatest.MergeResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> mergeResourcesTvpGeneratorVLatest,
+            VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>> mergeResourcesTvpGeneratorVLatest,
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
             VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
@@ -200,22 +199,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
                         {
+                            var surrId = (await BeginTransactionAsync(1, cancellationToken)).MinResourceSurrogateId;
+
+                            resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                            ReplaceVersionIdAndLastUpdatedInMeta(resource);
+
                             VLatest.MergeResources.PopulateCommand(
                                 sqlCommandWrapper,
-                                KeepHistory: keepHistory,
                                 AffectedRows: 0,
                                 RaiseExceptionOnConflict: true,
-                                UseResourceRecordIdAsSurrogateId: false,
                                 IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
-                                tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
-                            using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-                            while (await reader.ReadAsync())
-                            {
-                                var surrId = reader.GetInt64(1);
-                                resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
-                            }
-
-                            await reader.NextResultAsync(cancellationToken);
+                                tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(new List<MergeResourceWrapper> { new MergeResourceWrapper(resource, surrId, keepHistory, true) }));
+                            await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                         }
                         else
                         {
@@ -223,9 +218,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             stream.Seek(0, 0);
                             PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
                             await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken); // resource.Version has been set already
+                            resource.RawResource.IsMetaSet = resource.Version == "1";
                         }
-
-                        resource.RawResource.IsMetaSet = false; // this will guarantee that LastModified from wrapper is propagated to Meta.
 
                         return new UpsertOutcome(resource, resource.Version == "1" ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
                     }
@@ -346,7 +340,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: false),
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,
@@ -431,6 +425,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
         }
 
+        private void ReplaceVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
+        {
+            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated");
+            string rawResourceData;
+            if (resourceWrapper.Version == "1") // version is already correct
+            {
+                rawResourceData = resourceWrapper.RawResource.Data
+                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+            }
+            else
+            {
+                var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId");
+                rawResourceData = resourceWrapper.RawResource.Data
+                                    .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
+                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+            }
+
+            resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
+        }
+
         private string RemoveVersionIdAndLastUpdatedFromMeta(ResourceWrapper resourceWrapper)
         {
             var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId");
@@ -483,6 +497,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Transaction supported added in listedCapability
                 builder.AddGlobalInteraction(SystemRestfulInteraction.Transaction);
             }
+        }
+
+        public async Task<(long TransactionId, long MinResourceSurrogateId)> BeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
+        {
+            using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using var cmd = conn.CreateNonRetrySqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.BeginTransaction";
+            cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
+            var surrogateIdParam = new SqlParameter("@MinResourceSurrogateId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
+            cmd.Parameters.Add(surrogateIdParam);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+            var surrogateId = (long)surrogateIdParam.Value;
+            return (surrogateId, surrogateId);
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)

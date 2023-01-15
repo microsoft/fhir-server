@@ -8,13 +8,12 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal abstract class MergeSearchParameterRowGenerator<TSearchValue, TRow> : ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, TRow>
+    internal abstract class MergeSearchParameterRowGenerator<TSearchValue, TRow> : ITableValuedParameterRowGenerator<IReadOnlyList<MergeResourceWrapper>, TRow>
         where TRow : struct
     {
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
@@ -33,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         protected SqlServerFhirModel Model { get; }
 
-        public virtual IEnumerable<TRow> GenerateRows(IReadOnlyList<ResourceWrapper> resources)
+        public virtual IEnumerable<TRow> GenerateRows(IReadOnlyList<MergeResourceWrapper> resources)
         {
             EnsureInitialized();
 
@@ -41,11 +40,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             var resourceRecordId = 0L;
             foreach (var resource in resources)
             {
-                var typeId = Model.GetResourceTypeId(resource.ResourceTypeName);
+                var typeId = Model.GetResourceTypeId(resource.ResourceWrapper.ResourceTypeName);
                 var resourceMetadata = new ResourceMetadata(
-                        resource.CompartmentIndices,
-                        resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
-                        resource.LastModifiedClaims);
+                        resource.ResourceWrapper.CompartmentIndices,
+                        resource.ResourceWrapper.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
+                        resource.ResourceWrapper.LastModifiedClaims);
 
                 foreach (SearchIndexEntry v in resourceMetadata.GetSearchIndexEntriesByType(typeof(TSearchValue)))
                 {
