@@ -10,6 +10,6 @@ CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
    ,ReferenceResourceId      varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
    ,ReferenceResourceVersion int      NULL
 
-   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
+   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
 )
 GO

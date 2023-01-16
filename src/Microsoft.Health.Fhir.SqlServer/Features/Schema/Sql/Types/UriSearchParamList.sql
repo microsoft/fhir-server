@@ -7,6 +7,6 @@ CREATE TYPE dbo.UriSearchParamList AS TABLE
    ,SearchParamId            smallint NOT NULL
    ,Uri                      varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 
-   PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
+   --PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
 )
 GO

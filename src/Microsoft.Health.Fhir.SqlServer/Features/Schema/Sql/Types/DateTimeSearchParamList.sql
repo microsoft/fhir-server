@@ -11,6 +11,6 @@ CREATE TYPE dbo.DateTimeSearchParamList AS TABLE
    ,IsMin                    bit      NOT NULL
    ,IsMax                    bit      NOT NULL
 
-   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
+   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
 )
 GO
