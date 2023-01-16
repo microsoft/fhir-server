@@ -36,15 +36,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
             EnsureInitialized();
 
-            // This logic currently works only for single resource version and it does not preserve surrogate id
-            var resourceRecordId = 0L;
-            foreach (var resource in resources.Where(_ => !_.ResourceWrapper.IsHistory)) // only current
+            foreach (var merge in resources.Where(_ => !_.ResourceWrapper.IsHistory)) // only current
             {
-                var typeId = Model.GetResourceTypeId(resource.ResourceWrapper.ResourceTypeName);
+                var typeId = Model.GetResourceTypeId(merge.ResourceWrapper.ResourceTypeName);
                 var resourceMetadata = new ResourceMetadata(
-                        resource.ResourceWrapper.CompartmentIndices,
-                        resource.ResourceWrapper.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
-                        resource.ResourceWrapper.LastModifiedClaims);
+                        merge.ResourceWrapper.CompartmentIndices,
+                        merge.ResourceWrapper.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
+                        merge.ResourceWrapper.LastModifiedClaims);
 
                 foreach (SearchIndexEntry v in resourceMetadata.GetSearchIndexEntriesByType(typeof(TSearchValue)))
                 {
@@ -53,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     if (!_isConvertSearchValueOverridden)
                     {
                         // save an array allocation
-                        if (TryGenerateRow(typeId, resourceRecordId, searchParamId, (TSearchValue)v.Value, out TRow row))
+                        if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, (TSearchValue)v.Value, out TRow row))
                         {
                             yield return row;
                         }
@@ -62,15 +60,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     {
                         foreach (var searchValue in ConvertSearchValue(v))
                         {
-                            if (TryGenerateRow(typeId, resourceRecordId, searchParamId, searchValue, out TRow row))
+                            if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, out TRow row))
                             {
                                 yield return row;
                             }
                         }
                     }
                 }
-
-                resourceRecordId++;
             }
         }
 
