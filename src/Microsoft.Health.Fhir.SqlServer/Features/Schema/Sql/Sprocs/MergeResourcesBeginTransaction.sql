@@ -1,9 +1,9 @@
-﻿--DROP PROCEDURE dbo.BeginTransaction
+﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.BeginTransaction @Count int, @TransactionId bigint = 0 OUT, @MinResourceSurrogateId bigint = 0 OUT 
+CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @MinResourceSurrogateId bigint = 0 OUT 
 AS
 set nocount on
-DECLARE @SP varchar(100) = 'BeginTransaction'
+DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
        ,@Mode varchar(100) = 'Cnt='+convert(varchar,@Count)
        ,@st datetime2 = sysUTCdatetime()
        ,@LastValueVar sql_variant
@@ -26,5 +26,5 @@ BEGIN CATCH
 END CATCH
 GO
 --DECLARE @TransactionId bigint
---EXECUTE dbo.BeginTransaction @Count = 500, @TransactionId = @TransactionId OUT
+--EXECUTE dbo.MergeResourcesBeginTransaction @Count = 500, @TransactionId = @TransactionId OUT
 --SELECT @TransactionId

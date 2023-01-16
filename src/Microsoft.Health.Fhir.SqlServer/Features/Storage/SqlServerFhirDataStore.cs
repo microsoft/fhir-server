@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
                         {
-                            var surrId = (await BeginTransactionAsync(1, cancellationToken)).MinResourceSurrogateId;
+                            var surrId = (await MergeResourcesBeginTransactionAsync(1, cancellationToken)).MinResourceSurrogateId;
 
                             resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
                             ReplaceVersionIdAndLastUpdatedInMeta(resource);
@@ -499,12 +499,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<(long TransactionId, long MinResourceSurrogateId)> BeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
+        public async Task<(long TransactionId, long MinResourceSurrogateId)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateNonRetrySqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = "dbo.BeginTransaction";
+            cmd.CommandText = "dbo.MergeResourcesBeginTransaction";
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
             var surrogateIdParam = new SqlParameter("@MinResourceSurrogateId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(surrogateIdParam);

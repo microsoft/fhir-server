@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
             // This logic currently works only for single resource version and it does not preserve surrogate id
             var resourceRecordId = 0L;
-            foreach (var resource in resources)
+            foreach (var resource in resources.Where(_ => !_.ResourceWrapper.IsHistory)) // only current
             {
                 var typeId = Model.GetResourceTypeId(resource.ResourceWrapper.ResourceTypeName);
                 var resourceMetadata = new ResourceMetadata(
