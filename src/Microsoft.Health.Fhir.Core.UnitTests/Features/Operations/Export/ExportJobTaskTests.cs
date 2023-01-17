@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -984,6 +985,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(4, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAGroupExportJob_WhenNoGroup_ThenLogExceptionAsInfo()
+        {
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+              exportJobType: ExportJobType.Group,
+              groupId: "nogroup",
+              numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            _groupMemberExtractor.GetGroupPatientIds(
+                "nogroup",
+                Arg.Any<DateTimeOffset>(),
+                _cancellationToken).Returns<Task<HashSet<string>>>(x =>
+                {
+                    throw new ResourceNotFoundException("Group nogroup was not found.", true);
+                });
+
+            var logger = new TestLogger();
+            ExportJobTask exportJobTask = CreateExportJobTask(logger: logger);
+
+            await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(1, logger.NoGroupCount); // Log info is called exactly once.
         }
 
         [Fact]
@@ -2005,7 +2031,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private ExportJobTask CreateExportJobTask(
             ExportJobConfiguration exportJobConfiguration = null,
             IExportDestinationClient exportDestinationClient = null,
-            IScoped<IAnonymizerFactory> anonymizerFactory = null)
+            IScoped<IAnonymizerFactory> anonymizerFactory = null,
+            ILogger<ExportJobTask> logger = null)
         {
             _resourceToByteArraySerializer.StringSerialize(Arg.Any<ResourceElement>()).Returns(x => x.ArgAt<ResourceElement>(0).Instance.Value.ToString());
             _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId))));
@@ -2023,7 +2050,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 anonymizerFactory,
                 Substitute.For<IMediator>(),
                 _contextAccessor,
-                NullLogger<ExportJobTask>.Instance);
+                logger ?? NullLogger<ExportJobTask>.Instance);
         }
 
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
@@ -2081,6 +2108,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             {
                 string data = _inMemoryDestinationClient.GetExportedData(resourceType + "-" + (count + idOffset) + ".ndjson");
                 Assert.Equal(count.ToString(), data);
+            }
+        }
+
+        private class TestLogger : ILogger<ExportJobTask>
+        {
+            public int NoGroupCount { get; set; }
+
+            public IDisposable BeginScope<TState>(TState state)
+            {
+                return null;
+            }
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception exception,
+                Func<TState, Exception, string> formatter)
+            {
+                var ex = exception as ResourceNotFoundException;
+                if (logLevel == LogLevel.Information && ex?.GroupNotFound == true)
+                {
+                    NoGroupCount++;
+                }
+            }
+
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return false;
             }
         }
     }
