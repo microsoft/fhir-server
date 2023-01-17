@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private string GetJsonValue(string json, string propName)
         {
-            var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.OrdinalIgnoreCase);
+            var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.Ordinal);
             if (startIndex == -1)
             {
                 _logger.LogError($"Cannot parse {propName} from {json}");
@@ -465,7 +465,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             startIndex = startIndex + propName.Length + 4;
-            var endIndex = json.IndexOf("\"", startIndex, StringComparison.OrdinalIgnoreCase);
+            var endIndex = json.IndexOf("\"", startIndex, StringComparison.Ordinal);
             if (endIndex == -1)
             {
                 _logger.LogError($"Cannot parse {propName} value from {json}");
