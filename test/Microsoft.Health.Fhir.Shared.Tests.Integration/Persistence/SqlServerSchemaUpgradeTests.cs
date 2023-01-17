@@ -346,6 +346,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                        .Replace("\r", " ")
                        .Replace("\t", " ")
                        .Replace(";", " ")
+                       .Replace(" output,", " out,")
                        .Replace(" output ", " out ")
                        .Replace(" inner join ", " join ")
                        .Replace(" delete from ", " delete ")
