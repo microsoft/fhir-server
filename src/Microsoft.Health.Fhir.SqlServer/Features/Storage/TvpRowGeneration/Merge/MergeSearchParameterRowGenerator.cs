@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
             EnsureInitialized();
 
+            var results = new Dictionary<short, HashSet<TSearchValue>>();
+
             foreach (var merge in resources.Where(_ => !_.ResourceWrapper.IsHistory)) // only current
             {
                 var typeId = Model.GetResourceTypeId(merge.ResourceWrapper.ResourceTypeName);
@@ -47,22 +49,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 foreach (SearchIndexEntry v in resourceMetadata.GetSearchIndexEntriesByType(typeof(TSearchValue)))
                 {
                     short searchParamId = Model.GetSearchParamId(v.SearchParameter.Url);
+                    if (!results.ContainsKey(searchParamId))
+                    {
+                        results.Add(searchParamId, new HashSet<TSearchValue>());
+                    }
 
                     if (!_isConvertSearchValueOverridden)
                     {
-                        // save an array allocation
-                        if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, (TSearchValue)v.Value, out TRow row))
+                        var searchValue = (TSearchValue)v.Value;
+                        if (results[searchParamId].Add(searchValue))
                         {
-                            yield return row;
+                            // save an array allocation
+                            if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, out TRow row))
+                            {
+                                yield return row;
+                            }
                         }
                     }
                     else
                     {
                         foreach (var searchValue in ConvertSearchValue(v))
                         {
-                            if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, out TRow row))
+                            if (results[searchParamId].Add(searchValue))
                             {
-                                yield return row;
+                                if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, out TRow row))
+                                {
+                                    yield return row;
+                                }
                             }
                         }
                     }
