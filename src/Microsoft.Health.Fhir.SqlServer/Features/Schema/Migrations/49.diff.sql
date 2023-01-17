@@ -1,4 +1,7 @@
-﻿IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'UriSearchParamList')
+﻿IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_UriSearchParam_IsHistory')
+ALTER TABLE dbo.UriSearchParam ADD CONSTRAINT DF_UriSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'UriSearchParamList')
 CREATE TYPE dbo.UriSearchParamList AS TABLE
 (
     ResourceTypeId           smallint NOT NULL
