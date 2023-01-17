@@ -201,15 +201,15 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceSearchParamList')
 CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
 (
-    ResourceTypeId smallint NOT NULL
-   ,ResourceRecordId bigint NOT NULL
-   ,SearchParamId smallint NOT NULL
-   ,BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NULL
-   ,ReferenceResourceTypeId smallint NULL
-   ,ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,ReferenceResourceVersion int NULL
+    ResourceTypeId           smallint NOT NULL
+   ,ResourceSurrogateId      bigint   NOT NULL
+   ,SearchParamId            smallint NOT NULL
+   ,BaseUri                  varchar(128) COLLATE Latin1_General_100_CS_AS NULL
+   ,ReferenceResourceTypeId  smallint NULL
+   ,ReferenceResourceId      varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ReferenceResourceVersion int      NULL
 
-   --UNIQUE (ResourceTypeId, ResourceRecordId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
+   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceIdForChangesList')
@@ -226,19 +226,21 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceList')
 CREATE TYPE dbo.ResourceList AS TABLE
 (
-    ResourceTypeId      smallint            NOT NULL
-   ,ResourceRecordId    bigint              NOT NULL -- this can be offset in a batch or a surrogate id
-   ,ResourceId          varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,Version             int                 NOT NULL
-   ,HasVersionToCompare bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
-   ,IsDeleted           bit                 NOT NULL
-   ,IsHistory           bit                 NOT NULL
-   ,RawResource         varbinary(max)      NOT NULL
-   ,RequestMethod       varchar(10)         NULL
-   ,SearchParamHash     varchar(64)         NULL
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceSurrogateId  bigint              NOT NULL
+   ,ResourceId           varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version              int                 NOT NULL
+   ,HasVersionToCompare  bit                 NOT NULL -- in case of multiple versions per resource indicates that row contains (existing version + 1) value
+   ,IsDeleted            bit                 NOT NULL
+   ,IsHistory            bit                 NOT NULL
+   ,KeepHistory          bit                 NOT NULL
+   ,RawResource          varbinary(max)      NOT NULL
+   ,IsRawResourceMetaSet bit                 NOT NULL
+   ,RequestMethod        varchar(10)         NULL
+   ,SearchParamHash      varchar(64)         NULL
 
-    PRIMARY KEY (ResourceTypeId, ResourceRecordId)
-   ,UNIQUE (ResourceTypeId, ResourceId)
+    PRIMARY KEY (ResourceTypeId, ResourceSurrogateId)
+   ,UNIQUE (ResourceTypeId, ResourceId, Version)
 )
 GO
 CREATE OR ALTER PROCEDURE dbo.CaptureResourceIdsForChanges @Ids dbo.ResourceIdForChangesList READONLY
