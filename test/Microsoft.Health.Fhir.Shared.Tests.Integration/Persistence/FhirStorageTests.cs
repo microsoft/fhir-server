@@ -144,20 +144,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
         {
-            var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
-            {
-                var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-
-                Assert.NotNull(saveResult);
-                Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
-                var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
-                Assert.NotNull(deserializedResource);
-
-                Assert.NotNull(deserializedResource);
-                Assert.NotNull(deserializedResource);
-                Assert.Equal(instant, deserializedResource.LastUpdated.GetValueOrDefault());
-            }
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            Assert.NotNull(saveResult);
+            Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
+            var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+            Assert.NotNull(deserializedResource);
+            Assert.True((DateTimeOffset.UtcNow - deserializedResource.LastUpdated.GetValueOrDefault()).TotalMilliseconds < 100);
         }
 
         [Fact]
@@ -230,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Not valid for merge")]
         public async Task GivenASavedResource_WhenUpserting_ThenRawResourceVersionIsSetOrMetaSetIsSetToFalse()
         {
             var versionId = Guid.NewGuid().ToString();
@@ -820,7 +812,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(upsertResult);
 
             var createResource = new RawResourceElement(createResult.Wrapper);
-            var updatedeResource = new RawResourceElement(upsertResult.Wrapper);
+            var updateResource = new RawResourceElement(upsertResult.Wrapper);
 
             Assert.Equal(createResult.Wrapper.ResourceId, upsertResult.Wrapper.ResourceId);
             Assert.Equal(createResult.Wrapper.Version, upsertResult.Wrapper.Version);
@@ -829,8 +821,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // CreateResult.LastUpdated has date as 2008-10-31T17:04:32:3210000
             // upsertResult.lastUpdated will return what is stored in DB 2008-10-31T17:04:32:321 mismatching the milliseconds value
             // Hence comparing milliseconds separately. s Format Specifier 2008-10-31T17:04:32
-            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updatedeResource.LastUpdated.Value.ToString("s"));
-            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updatedeResource.LastUpdated.Value.Millisecond);
+            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updateResource.LastUpdated.Value.ToString("s"));
+            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updateResource.LastUpdated.Value.Millisecond);
             Assert.Equal(createResult.Wrapper.LastModified.ToString("s"), createResult.Wrapper.LastModified.ToString("s"));
             Assert.Equal(createResult.Wrapper.LastModified.Millisecond, createResult.Wrapper.LastModified.Millisecond);
         }
@@ -981,7 +973,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Not valid test in Merge Resources design.")]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()
         {

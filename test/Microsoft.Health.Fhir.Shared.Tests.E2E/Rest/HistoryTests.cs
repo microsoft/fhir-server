@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -195,6 +196,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task ChangedResourceWithinAndOutsideHistoryRange()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
+            var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
+            var response = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
+            AssertCount(0, response, since); // nothing
+            since = since.AddMilliseconds(-1);
+            sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
+            response = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
+            AssertCount(1, response, since);
+        }
+
+        [Fact]
         public async Task GivenAValueForSinceAndBeforeWithModifications_WhenGettingSystemHistory_TheServerShouldOnlyCorrectResources()
         {
             var tag = Guid.NewGuid().ToString();
@@ -216,7 +231,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             List<Bundle.EntryComponent> readResponseWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            AssertCount(2, readResponseWithMatchingTag);
+            AssertCount(2, readResponseWithMatchingTag, since, before);
 
             Patient patientHistory;
             var obsHistory = readResponseWithMatchingTag[0].Resource as Observation;
@@ -459,7 +474,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             resource.Meta.Tag.Add(new Coding(string.Empty, "startTimeResource"));
 
             using FhirResponse<Resource> response = await _client.CreateByUpdateAsync(resource);
-            return response.Resource.Meta.LastUpdated.Value.AddMilliseconds(1);
+            var lastUpdated = response.Resource.Meta.LastUpdated.Value;
+            return lastUpdated.AddMilliseconds(1);
         }
 
         /// <summary>
@@ -493,7 +509,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return await _client.CreateByUpdateAsync(resource);
         }
 
-        private void AssertCount<TBase>(int expected, ICollection<TBase> collection)
+        private void AssertCount<TBase>(int expected, ICollection<TBase> collection, DateTimeOffset? since = null, DateTimeOffset? before = null)
             where TBase : Base
         {
             if (collection.Count == expected)
@@ -508,6 +524,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             foreach (TBase element in collection)
             {
                 sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
+            }
+
+            if (since.HasValue)
+            {
+                sb.AppendLine($"since={since.Value.ToString("o")}");
+                sb.AppendLine($"sinceSurr={SqlServer.Features.Storage.ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(since.Value.DateTime)}");
+            }
+
+            if (before.HasValue)
+            {
+                sb.AppendLine($"before={before.Value.ToString("o")}");
+                sb.AppendLine($"beforeSurr={SqlServer.Features.Storage.ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(before.Value.DateTime)}");
             }
 
             throw new XunitException(sb.ToString());

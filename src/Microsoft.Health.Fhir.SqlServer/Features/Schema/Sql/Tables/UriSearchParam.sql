@@ -6,9 +6,11 @@
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL
 )
-
+GO
+ALTER TABLE dbo.UriSearchParam ADD CONSTRAINT DF_UriSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
 ALTER TABLE dbo.UriSearchParam SET ( LOCK_ESCALATION = AUTO )
-
+GO
 CREATE CLUSTERED INDEX IXC_UriSearchParam
 ON dbo.UriSearchParam
 (
@@ -18,7 +20,7 @@ ON dbo.UriSearchParam
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
 ON dbo.UriSearchParam
 (
@@ -30,3 +32,4 @@ ON dbo.UriSearchParam
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO
