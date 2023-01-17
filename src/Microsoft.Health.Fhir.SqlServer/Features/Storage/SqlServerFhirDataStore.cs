@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (!resource.IsDeleted)
                         {
                             // check if the new resource data is same as existing resource data
-                            if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingResource), RemoveVersionIdAndLastUpdatedFromMeta(resource), StringComparison.Ordinal))
+                            if (ExistingRawResourceIsEqualToInput(resource, existingResource))
                             {
                                 // Send the existing resource in the response
                                 return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
@@ -361,19 +361,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                if (_schemaInformation.Current >= SchemaVersionConstants.PurgeHistoryVersion)
-                {
-                    VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id, Convert.ToInt16(keepCurrentVersion));
-                }
-                else if (!keepCurrentVersion)
-                {
-                    V12.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
-                }
-                else
-                {
-                    throw new BadRequestException(Resources.SchemaVersionNeedsToBeUpgraded);
-                }
-
+                VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id, Convert.ToInt16(keepCurrentVersion));
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
         }
@@ -445,14 +433,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private string RemoveVersionIdAndLastUpdatedFromMeta(ResourceWrapper resourceWrapper)
+        private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing) // call is not symmetrical, it assumes version = 1 on input.
         {
-            var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId");
-            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated");
-            var rawResource = resourceWrapper.RawResource.Data
-                                .Replace($"\"versionId\":\"{version}\"", string.Empty, StringComparison.Ordinal)
-                                .Replace($"\"lastUpdated\":\"{date}\"", string.Empty, StringComparison.Ordinal);
-            return rawResource;
+            var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated");
+            var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated");
+            var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId");
+            if (existingVersion != "1")
+            {
+                return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+            }
+            else
+            {
+                return input.RawResource.Data
+                            == existing.RawResource.Data
+                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"1\"", StringComparison.Ordinal)
+                                    .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+            }
         }
 
         private string GetJsonValue(string json, string propName)
