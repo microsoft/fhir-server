@@ -351,6 +351,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                        .Replace(" inner join ", " join ")
                        .Replace(" delete from ", " delete ")
                        .Replace(" insert into ", " insert ")
+                       .Replace(" rollback transaction ", " rollback ")
                        .Replace(" as ", string.Empty)
                        .Replace(" ", string.Empty);
         }
