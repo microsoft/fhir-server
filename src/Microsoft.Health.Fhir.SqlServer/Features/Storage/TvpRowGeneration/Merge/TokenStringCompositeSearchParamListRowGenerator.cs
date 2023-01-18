@@ -37,16 +37,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 _stringRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component2, null, out var string2Row))
             {
                 row = new TokenStringCompositeSearchParamListRow(
-                    resourceTypeId,
-                    resourceSurrogateId,
-                    searchParamId,
-                    token1Row.SystemId,
-                    token1Row.Code,
-                    CodeOverflow1: token1Row.CodeOverflow,
-                    string2Row.Text?.ToLowerInvariant(),
-                    TextOverflow2: string2Row.TextOverflow?.ToLowerInvariant());
+                            resourceTypeId,
+                            resourceSurrogateId,
+                            searchParamId,
+                            token1Row.SystemId,
+                            token1Row.Code,
+                            CodeOverflow1: token1Row.CodeOverflow,
+                            string2Row.Text,
+                            TextOverflow2: string2Row.TextOverflow);
 
-                return results == null || results.Add(row);
+                return results == null || results.Add(new TokenStringCompositeSearchParamListRow(
+                                                            resourceTypeId,
+                                                            resourceSurrogateId,
+                                                            searchParamId,
+                                                            token1Row.SystemId,
+                                                            token1Row.Code,
+                                                            CodeOverflow1: token1Row.CodeOverflow,
+                                                            string2Row.Text?.ToLowerInvariant(),
+                                                            TextOverflow2: string2Row.TextOverflow?.ToLowerInvariant()));
             }
 
             row = default;

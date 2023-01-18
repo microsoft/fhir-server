@@ -25,17 +25,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             if (searchValue.String.Length > _indexedTextMaxLength)
             {
                 // TODO: this truncation can break apart grapheme clusters.
-                indexedPrefix = searchValue.String.Substring(0, _indexedTextMaxLength).ToLowerInvariant();
-                overflow = searchValue.String?.ToLowerInvariant();
+                indexedPrefix = searchValue.String.Substring(0, _indexedTextMaxLength);
+                overflow = searchValue.String;
             }
             else
             {
-                indexedPrefix = searchValue.String?.ToLowerInvariant();
+                indexedPrefix = searchValue.String;
                 overflow = null;
             }
 
             row = new StringSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, indexedPrefix, overflow, IsMin: searchValue.IsMin, IsMax: searchValue.IsMax);
-            return results == null || results.Add(row);
+            return results == null || results.Add(new StringSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, indexedPrefix?.ToLowerInvariant(), overflow?.ToLowerInvariant(), IsMin: searchValue.IsMin, IsMax: searchValue.IsMax));
         }
     }
 }
