@@ -41,7 +41,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 using Stream stream = _modelInfoProvider.OpenVersionedFileStream("unsupported-search-parameters.json");
                 using TextReader reader = new StreamReader(stream);
+#pragma warning disable CA2016
                 var content = await reader.ReadToEndAsync();
+#pragma warning restore CA2016
                 UnsupportedSearchParameters unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(content);
 
                 // Loads unsupported parameters

@@ -1,7 +1,7 @@
 ﻿--DROP PROCEDURE dbo.InitDefrag
 GO
 CREATE PROCEDURE dbo.InitDefrag @QueueType tinyint, @GroupId bigint, @DefragItems int = NULL OUT
-WITH EXECUTE AS SELF
+WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'InitDefrag'

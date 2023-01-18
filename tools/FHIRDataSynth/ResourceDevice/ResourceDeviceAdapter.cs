@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceDeviceAdapter : ResourceAdapterBase<Device.Rootobject, ResourceDeviceAdapter.DeviceSibling>
+    internal sealed class ResourceDeviceAdapter : ResourceAdapterBase<Device.Rootobject, ResourceDeviceAdapter.DeviceSibling>
     {
         public override DeviceSibling CreateOriginal(ResourceGroupProcessor processor, Device.Rootobject json)
         {

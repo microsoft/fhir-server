@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceConditionAdapter : ResourceAdapterBase<Condition.Rootobject, ResourceConditionAdapter.ConditionSibling>
+    internal sealed class ResourceConditionAdapter : ResourceAdapterBase<Condition.Rootobject, ResourceConditionAdapter.ConditionSibling>
     {
         public override ConditionSibling CreateOriginal(ResourceGroupProcessor processor, Condition.Rootobject json)
         {

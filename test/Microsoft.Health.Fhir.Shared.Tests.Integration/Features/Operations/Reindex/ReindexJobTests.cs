@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -289,7 +290,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -322,7 +323,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -371,7 +372,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             CreateReindexResponse response = await SetUpForReindexing();
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -450,7 +451,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var createReindexRequest = new CreateReindexRequest(new List<string>(), 1, 1, 500);
             CreateReindexResponse response = await SetUpForReindexing(createReindexRequest);
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -520,7 +521,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             CreateReindexResponse response = await SetUpForReindexing();
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -590,7 +591,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             CreateReindexResponse response = await SetUpForReindexing();
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -654,7 +655,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             await _scopedDataStore.Value.UpsertAsync(searchParamWrapper, null, true, true, CancellationToken.None);
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -726,7 +727,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             CreateReindexResponse response = await SetUpForReindexing();
 
-            var cancellationTokenSource = new CancellationTokenSource();
+            using var cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -781,19 +782,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             CancellationTokenSource cancellationTokenSource,
             int delay = 1000)
         {
+            const int MaxNumberOfAttempts = 120;
+
             Task reindexWorkerTask = _reindexJobWorker.ExecuteAsync(cancellationTokenSource.Token);
             ReindexJobWrapper reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
             int delayCount = 0;
 
-            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < 60)
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < MaxNumberOfAttempts)
             {
                 await Task.Delay(delay);
                 delayCount++;
                 reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
+
+                if (operationStatus == OperationStatus.Completed &&
+                    (reindexJobWrapper.JobRecord.Status == OperationStatus.Failed || reindexJobWrapper.JobRecord.Status == OperationStatus.Canceled))
+                {
+                    // Fail-fast.
+                    // If the expected status is 'Completed', and the job failed or if it was canceled, then stop the test quickly.
+                    Assert.Fail($"Fail-fast. Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {MaxNumberOfAttempts}. Time elapsed: {stopwatch.Elapsed}.");
+                }
             }
 
-            Assert.Equal(operationStatus, reindexJobWrapper.JobRecord.Status);
+            Assert.True(
+                operationStatus == reindexJobWrapper.JobRecord.Status,
+                $"Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {delayCount}. Time elapsed: {stopwatch.Elapsed}.");
 
             return reindexJobWrapper;
         }
@@ -871,7 +885,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             Patient patientResource = Samples.GetDefaultPatient().ToPoco<Patient>();
 
-            patientResource.Name = new List<HumanName> { new() { Family = patientName }};
+            patientResource.Name = new List<HumanName> { new() { Family = patientName } };
             patientResource.Id = patientId;
             patientResource.VersionId = "1";
 
@@ -953,7 +967,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var mediator = new Mediator(type => services.GetService(type));
 
             _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, () => _searchService, NullLogger<SearchParameterDefinitionManager>.Instance);
-            await _searchParameterDefinitionManager2.StartAsync(CancellationToken.None);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 

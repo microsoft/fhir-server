@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Internal.IndexRebuilder
 {
-    internal class IndexRebuilder
+    internal sealed class IndexRebuilder
     {
         private readonly string _connectionString;
         private readonly int _threads;
@@ -90,9 +90,9 @@ namespace Microsoft.Health.Internal.IndexRebuilder
                 {
                     var table = reader.GetString(0);
                     var sql = reader.GetString(1);
-                    if (resultsDic.ContainsKey(table))
+                    if (resultsDic.TryGetValue(table, out List<string> value))
                     {
-                        resultsDic[table].Add(sql);
+                        value.Add(sql);
                     }
                     else
                     {

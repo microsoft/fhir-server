@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -34,6 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// "If-Exists" headers on the API. Additional logic is used to filter parameters that don't restrict
         /// results, and also ensure that the query meets criteria requirements
         /// </summary>
+        /// <param name="searchService">searchService</param>
+        /// <param name="instanceType">The instanceType to search</param>
+        /// <param name="conditionalParameters">ConditionalParameters</param>
+        /// <param name="cancellationToken">a CancellationToken</param>
+        /// <returns>Search collection</returns>
         public static async Task<IReadOnlyCollection<SearchResultEntry>> ConditionalSearchAsync(this ISearchService searchService, string instanceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, CancellationToken cancellationToken)
         {
             // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
@@ -46,6 +50,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// "If-Exists" headers on the API. Additional logic is used to filter parameters that don't restrict
         /// results, and also ensure that the query meets criteria requirements
         /// </summary>
+        /// <param name="searchService">searchService</param>
+        /// <param name="instanceType">The instanceType to search</param>
+        /// <param name="conditionalParameters">ConditionalParameters</param>
+        /// <param name="count">the search Count</param>
+        /// <param name="cancellationToken">a CancellationToken</param>
+        /// <param name="continuationToken">a optional ContinuationToken</param>
+        /// <returns>Search collection and a continuationToken</returns>
+        /// <exception cref="PreconditionFailedException">Returns this exception when all passed in params match the search result unusedParams</exception>
         internal static async Task<(IReadOnlyCollection<SearchResultEntry> results, string continuationToken)> ConditionalSearchAsync(
             this ISearchService searchService,
             string instanceType,
@@ -74,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count;
             if (totalUnusedParameters == userProvidedParameterCount)
             {
-                throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
+                throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, instanceType));
             }
 
             SearchResultEntry[] matchedResults = results?.Results.Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToArray();

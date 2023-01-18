@@ -51,7 +51,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 using (StreamReader reader = new StreamReader(stream))
                 {
+#pragma warning disable CA2016
                     string configurationContent = await reader.ReadToEndAsync();
+#pragma warning restore CA2016
                     try
                     {
                         var engine = new AnonymizerEngine(AnonymizerConfigurationManager.CreateFromSettingsInJson(configurationContent));

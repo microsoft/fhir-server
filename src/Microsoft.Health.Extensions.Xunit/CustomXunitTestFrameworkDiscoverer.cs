@@ -15,7 +15,7 @@ namespace Microsoft.Health.Extensions.Xunit
     /// <summary>
     /// An implementation of <see cref="XunitTestFrameworkDiscoverer"/> that supports discovering tests with parameterized fixtures.
     /// </summary>
-    internal class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer, ITestFrameworkDiscoverer
+    internal sealed class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer, ITestFrameworkDiscoverer
     {
         public CustomXunitTestFrameworkDiscoverer(IAssemblyInfo assemblyInfo, ISourceInformationProvider sourceProvider, IMessageSink diagnosticMessageSink, IXunitTestCollectionFactory collectionFactory = null)
             : base(assemblyInfo, sourceProvider, diagnosticMessageSink, collectionFactory)

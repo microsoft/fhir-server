@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string ExportLongRunning = nameof(ExportLongRunning);
 
+        public const string History = nameof(History);
+
         public const string Import = nameof(Import);
 
         public const string IndexAndReindex = nameof(IndexAndReindex);
@@ -75,6 +77,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Serialization = nameof(Serialization);
 
         public const string SmartOnFhir = nameof(SmartOnFhir);
+
+        public const string Sort = nameof(Sort);
 
         public const string Transaction = nameof(Transaction);
 

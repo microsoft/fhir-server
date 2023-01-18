@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.UpdateAsync(
                 createdResource,
                 null,
                 "Jibberish"));
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Id = null;
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), $"identifier={Guid.NewGuid().ToString()}", "Jibberish"));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), $"identifier={Guid.NewGuid().ToString()}", "Jibberish"));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.UpdateAsync($"Observation/{Guid.NewGuid()}", createdResource));
 
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.UpdateAsync($"Observation/{Guid.NewGuid()}", resourceToCreate));
 
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(createdResource, invalidETag));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.UpdateAsync(createdResource, invalidETag));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Try to update the resource with some content change
             UpdateObservation(createdResource);
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(createdResource, weakETag));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.UpdateAsync(createdResource, weakETag));
 #if Stu3
             Assert.Equal(HttpStatusCode.Conflict, ex.StatusCode);
 #else

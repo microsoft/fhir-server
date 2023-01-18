@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
             EnsureArg.IsNotNull(converters, nameof(converters));
 
+            converters = converters.ToList();
             var extensions = converters.GroupBy(x => x.SearchValueType).Select(group => new ExtensionConverter(group.Key, group.ToList())).ToArray();
 
             _converterDictionary = converters.Concat(extensions)

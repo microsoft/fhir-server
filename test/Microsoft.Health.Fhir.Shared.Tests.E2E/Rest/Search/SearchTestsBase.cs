@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             HttpStatusCode expectedStatusCode,
             OperationOutcome expectedOperationOutcome)
         {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl, customHeader));
+            FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync(searchUrl, customHeader));
             Assert.Equal(expectedStatusCode, ex.StatusCode);
             ex.OperationOutcome.Id = null;
 
