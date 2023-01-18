@@ -9,6 +9,6 @@ CREATE TYPE dbo.NumberSearchParamList AS TABLE
    ,LowValue                 decimal(18,6) NULL
    ,HighValue                decimal(18,6) NULL
 
-   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
+   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
 )
 GO

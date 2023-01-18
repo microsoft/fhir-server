@@ -43,8 +43,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     token1Row.SystemId,
                     token1Row.Code,
                     CodeOverflow1: token1Row.CodeOverflow,
-                    string2Row.Text,
-                    TextOverflow2: string2Row.TextOverflow);
+                    string2Row.Text?.ToLowerInvariant(),
+                    TextOverflow2: string2Row.TextOverflow?.ToLowerInvariant());
 
                 return results == null || results.Add(row);
             }

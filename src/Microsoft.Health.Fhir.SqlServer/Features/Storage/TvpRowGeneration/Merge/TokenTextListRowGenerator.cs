@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Globalization;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 return false;
             }
 
-            row = new TokenTextListRow(resourceTypeId, resourceSurrogateId, searchParamId, searchValue.Text);
+            row = new TokenTextListRow(resourceTypeId, resourceSurrogateId, searchParamId, searchValue.Text.ToLower(CultureInfo.InvariantCulture));
             return results == null || results.Add(row);
         }
     }

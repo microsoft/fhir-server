@@ -6,6 +6,6 @@ CREATE TYPE dbo.ResourceWriteClaimList AS TABLE
    ,ClaimTypeId              tinyint       NOT NULL
    ,ClaimValue               nvarchar(128) NOT NULL
 
-   --PRIMARY KEY (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+   PRIMARY KEY (ResourceSurrogateId, ClaimTypeId, ClaimValue)
 )
 GO

@@ -25,12 +25,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             if (searchValue.String.Length > _indexedTextMaxLength)
             {
                 // TODO: this truncation can break apart grapheme clusters.
-                indexedPrefix = searchValue.String.Substring(0, _indexedTextMaxLength);
-                overflow = searchValue.String;
+                indexedPrefix = searchValue.String.Substring(0, _indexedTextMaxLength).ToLowerInvariant();
+                overflow = searchValue.String?.ToLowerInvariant();
             }
             else
             {
-                indexedPrefix = searchValue.String;
+                indexedPrefix = searchValue.String?.ToLowerInvariant();
                 overflow = null;
             }
 

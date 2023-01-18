@@ -68,7 +68,7 @@ CREATE TYPE dbo.CompartmentAssignmentList AS TABLE (
     ResourceTypeId      SMALLINT     NOT NULL,
     ResourceSurrogateId BIGINT       NOT NULL,
     CompartmentTypeId   TINYINT      NOT NULL,
-    ReferenceResourceId VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL);
+    ReferenceResourceId VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId));
 
 CREATE TYPE dbo.DateTimeSearchParamList AS TABLE (
     ResourceTypeId      SMALLINT           NOT NULL,
@@ -78,7 +78,7 @@ CREATE TYPE dbo.DateTimeSearchParamList AS TABLE (
     EndDateTime         DATETIMEOFFSET (7) NOT NULL,
     IsLongerThanADay    BIT                NOT NULL,
     IsMin               BIT                NOT NULL,
-    IsMax               BIT                NOT NULL);
+    IsMax               BIT                NOT NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax));
 
 CREATE TYPE dbo.NumberSearchParamList AS TABLE (
     ResourceTypeId      SMALLINT        NOT NULL,
@@ -86,7 +86,7 @@ CREATE TYPE dbo.NumberSearchParamList AS TABLE (
     SearchParamId       SMALLINT        NOT NULL,
     SingleValue         DECIMAL (18, 6) NULL,
     LowValue            DECIMAL (18, 6) NULL,
-    HighValue           DECIMAL (18, 6) NULL);
+    HighValue           DECIMAL (18, 6) NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue));
 
 CREATE TYPE dbo.QuantitySearchParamList AS TABLE (
     ResourceTypeId      SMALLINT        NOT NULL,
@@ -96,7 +96,7 @@ CREATE TYPE dbo.QuantitySearchParamList AS TABLE (
     QuantityCodeId      INT             NULL,
     SingleValue         DECIMAL (18, 6) NULL,
     LowValue            DECIMAL (18, 6) NULL,
-    HighValue           DECIMAL (18, 6) NULL);
+    HighValue           DECIMAL (18, 6) NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue));
 
 CREATE TYPE dbo.ReferenceSearchParamList AS TABLE (
     ResourceTypeId           SMALLINT      NOT NULL,
@@ -105,7 +105,7 @@ CREATE TYPE dbo.ReferenceSearchParamList AS TABLE (
     BaseUri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId  SMALLINT      NULL,
     ReferenceResourceId      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
-    ReferenceResourceVersion INT           NULL);
+    ReferenceResourceVersion INT           NULL UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId));
 
 CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE (
     ResourceTypeId            SMALLINT      NOT NULL,
@@ -143,7 +143,7 @@ CREATE TYPE dbo.ResourceList AS TABLE (
 CREATE TYPE dbo.ResourceWriteClaimList AS TABLE (
     ResourceSurrogateId BIGINT         NOT NULL,
     ClaimTypeId         TINYINT        NOT NULL,
-    ClaimValue          NVARCHAR (128) NOT NULL);
+    ClaimValue          NVARCHAR (128) NOT NULL PRIMARY KEY (ResourceSurrogateId, ClaimTypeId, ClaimValue));
 
 CREATE TYPE dbo.StringList AS TABLE (
     String VARCHAR (MAX));
@@ -471,7 +471,7 @@ CREATE TYPE dbo.UriSearchParamList AS TABLE (
     ResourceTypeId      SMALLINT      NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
-    Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL);
+    Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri));
 
 CREATE TABLE dbo.ClaimType (
     ClaimTypeId TINYINT       IDENTITY (1, 1) NOT NULL,

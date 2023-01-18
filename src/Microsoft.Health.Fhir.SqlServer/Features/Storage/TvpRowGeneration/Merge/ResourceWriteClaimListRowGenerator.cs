@@ -43,9 +43,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     yield break;
                 }
 
+                var results = new HashSet<ResourceWriteClaimListRow>();
                 foreach (var claim in writeClaims)
                 {
-                    yield return new ResourceWriteClaimListRow(merge.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value);
+                    var row = new ResourceWriteClaimListRow(merge.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value?.ToLowerInvariant());
+                    if (results.Add(row))
+                    {
+                        yield return row;
+                    }
                 }
             }
         }

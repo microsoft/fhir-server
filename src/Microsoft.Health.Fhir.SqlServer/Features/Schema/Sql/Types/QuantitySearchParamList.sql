@@ -11,6 +11,6 @@ CREATE TYPE dbo.QuantitySearchParamList AS TABLE
    ,LowValue                 decimal(18,6) NULL
    ,HighValue                decimal(18,6) NULL
 
-   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
+   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
 )
 GO

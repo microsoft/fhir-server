@@ -54,11 +54,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     yield break;
                 }
 
+                var results = new HashSet<CompartmentAssignmentListRow>();
+
                 if (compartments.PatientCompartmentEntry != null)
                 {
                     foreach (var entry in compartments.PatientCompartmentEntry)
                     {
-                        yield return new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _patientCompartmentId, entry);
+                        var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _patientCompartmentId, entry);
+                        if (results.Add(row))
+                        {
+                            yield return row;
+                        }
                     }
                 }
 
@@ -66,7 +72,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.EncounterCompartmentEntry)
                     {
-                        yield return new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _encounterCompartmentId, entry);
+                        var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _encounterCompartmentId, entry);
+                        if (results.Add(row))
+                        {
+                            yield return row;
+                        }
                     }
                 }
 
@@ -74,7 +84,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.RelatedPersonCompartmentEntry)
                     {
-                        yield return new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _relatedPersonCompartmentId, entry);
+                        var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _relatedPersonCompartmentId, entry);
+                        if (results.Add(row))
+                        {
+                            yield return row;
+                        }
                     }
                 }
 
@@ -82,7 +96,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.PractitionerCompartmentEntry)
                     {
-                        yield return new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _practitionerCompartmentId, entry);
+                        var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _practitionerCompartmentId, entry);
+                        if (results.Add(row))
+                        {
+                            yield return row;
+                        }
                     }
                 }
 
@@ -90,7 +108,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.DeviceCompartmentEntry)
                     {
-                        yield return new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _deviceCompartmentId, entry);
+                        var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _deviceCompartmentId, entry);
+                        if (results.Add(row))
+                        {
+                            yield return row;
+                        }
                     }
                 }
             }

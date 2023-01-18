@@ -9,7 +9,7 @@ CREATE TYPE dbo.UriSearchParamList AS TABLE
    ,SearchParamId            smallint NOT NULL
    ,Uri                      varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 
-   --PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
+   PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'TokenTokenCompositeSearchParamList')
@@ -34,8 +34,7 @@ CREATE TYPE dbo.TokenTextList AS TABLE
    ,SearchParamId            smallint NOT NULL
    ,Text                     nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
 
-   --TODO: Code generates dups. Remove.
-   --PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
+   PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'TokenStringCompositeSearchParamList')
@@ -129,7 +128,7 @@ CREATE TYPE dbo.ResourceWriteClaimList AS TABLE
    ,ClaimTypeId              tinyint       NOT NULL
    ,ClaimValue               nvarchar(128) NOT NULL
 
-   --PRIMARY KEY (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+   PRIMARY KEY (ResourceSurrogateId, ClaimTypeId, ClaimValue)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceTokenCompositeSearchParamList')
@@ -172,7 +171,7 @@ CREATE TYPE dbo.NumberSearchParamList AS TABLE
    ,LowValue                 decimal(18,6) NULL
    ,HighValue                decimal(18,6) NULL
 
-   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
+   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'DateTimeSearchParamList')
@@ -187,7 +186,7 @@ CREATE TYPE dbo.DateTimeSearchParamList AS TABLE
    ,IsMin                    bit      NOT NULL
    ,IsMax                    bit      NOT NULL
 
-   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
+   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'CompartmentAssignmentList')
@@ -198,7 +197,7 @@ CREATE TYPE dbo.CompartmentAssignmentList AS TABLE
    ,CompartmentTypeId        tinyint  NOT NULL
    ,ReferenceResourceId      varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
 
-   --PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId)
+   PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceSearchParamList')
@@ -212,7 +211,7 @@ CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
    ,ReferenceResourceId      varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
    ,ReferenceResourceVersion int      NULL
 
-   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
+   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceIdForChangesList')
