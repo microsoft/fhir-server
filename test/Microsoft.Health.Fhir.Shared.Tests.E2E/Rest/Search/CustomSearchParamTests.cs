@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Assert.True(success);
             }
-            catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
+            catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
                 _output.WriteLine($"Skipping because reindex is disabled.");
                 return;
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Assert.True(success);
             }
-            catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
+            catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
                 _output.WriteLine($"Skipping because reindex is disabled.");
                 return;
@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 await Client.PostAsync("SearchParameter", searchParam);
             }
-            catch (FhirException ex)
+            catch (FhirClientException ex)
             {
                 Assert.Contains(ex.OperationOutcome.Issue, i => i.Diagnostics.Contains(errorMessage));
             }
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Assert.True(success);
             }
-            catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
+            catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
                 _output.WriteLine($"Skipping because reindex is disabled.");
                 return;
@@ -443,7 +443,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Assert.True(success, $"There are bundle validation failures. {retryCount} attempts reached. Check test logs.");
             }
-            catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
+            catch (FhirClientException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
                 _output.WriteLine($"Skipping because reindex is disabled.");
                 return;
@@ -472,7 +472,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenNonParametersRequestBody_WhenReindexSent_ThenBadRequest()
         {
             string body = Samples.GetJson("PatientWithMinimalData");
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.PostAsync("$reindex", body));
+            FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.PostAsync("$reindex", body));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
@@ -532,7 +532,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     catch (Exception exp)
                     {
                         _output.WriteLine($"Attempt {retryCount} of {MaxRetryCount}: CustomSearchParameter test experienced issue attempted to clean up SearchParameter {searchParam.Url}.  The exception is {exp}");
-                        if (exp is FhirException fhirException && fhirException.OperationOutcome?.Issue != null)
+                        if (exp is FhirClientException fhirException && fhirException.OperationOutcome?.Issue != null)
                         {
                             foreach (OperationOutcome.IssueComponent issueComponent in fhirException.OperationOutcome.Issue)
                             {
@@ -547,7 +547,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 while (!success && retryCount < MaxRetryCount);
 
                 Assert.True(success);
-                FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.ReadAsync<SearchParameter>(ResourceType.SearchParameter, searchParam.Id));
+                FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.ReadAsync<SearchParameter>(ResourceType.SearchParameter, searchParam.Id));
                 Assert.Contains("Gone", ex.Message);
             }
         }

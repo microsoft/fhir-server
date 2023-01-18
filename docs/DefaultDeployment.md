@@ -64,12 +64,6 @@ The FHIR server can be deployed using all free Azure resources. When deploying s
     <img src="https://aka.ms/deploytoazurebutton"/>
 </a>
 
-If you want to deploy to the Azure Government Cloud, use this button instead.
-
-<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmain%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank"> 
-    <img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazuregov.png">
-</a>
-
 You can also deploy using PowerShell. The example below leverages the CosmosDB template. Here is an example of how the authorization details from above can be provided:
 
 ```PowerShell

@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}",
                     },
                 };
-                ((DefaultOptionHashSet<string>)resourceComponent.Versioning).DefaultOption = _configuration.Versioning.ResourceTypeOverrides.ContainsKey(resourceType) ? _configuration.Versioning.ResourceTypeOverrides[resourceType] : _configuration.Versioning.Default;
+                ((DefaultOptionHashSet<string>)resourceComponent.Versioning).DefaultOption = _configuration.Versioning.ResourceTypeOverrides.TryGetValue(resourceType, out string overrideValue) ? overrideValue : _configuration.Versioning.Default;
                 listedRestComponent.Resource.Add(resourceComponent);
             }
 
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
 
-            IEnumerable<SearchParameterInfo> searchParams = _searchParameterDefinitionManager.GetSearchParameters(resourceType);
+            List<SearchParameterInfo> searchParams = _searchParameterDefinitionManager.GetSearchParameters(resourceType).ToList();
 
             if (searchParams.Any())
             {

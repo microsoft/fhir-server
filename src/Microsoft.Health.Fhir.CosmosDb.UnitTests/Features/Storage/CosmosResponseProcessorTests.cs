@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             ResponseMessage responseMessage = Substitute.ForPartsOf<ResponseMessage>(HttpStatusCode.OK, null, null);
             responseMessage.Headers.Returns(headers);
 
-            await _cosmosResponseProcessor.ProcessResponse(responseMessage);
+            await _cosmosResponseProcessor.ProcessResponse(CosmosResponseMessage.Create(responseMessage));
             ValidateExecution("2", 37.37, false);
         }
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             ResponseMessage responseMessage = Substitute.ForPartsOf<ResponseMessage>(HttpStatusCode.TooManyRequests, null, null);
             responseMessage.Headers.Returns(headers);
 
-            await _cosmosResponseProcessor.ProcessResponse(responseMessage);
+            await _cosmosResponseProcessor.ProcessResponse(CosmosResponseMessage.Create(responseMessage));
             ValidateExecution("2", 37.37, true);
         }
 
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("fail", HttpStatusCode.OK);
 
-            await _cosmosResponseProcessor.ProcessErrorResponse(response);
+            await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response));
         }
 
         [Fact]
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("fail", HttpStatusCode.TooManyRequests);
 
-            await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(response));
+            await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response)));
         }
 
         [Fact]
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("invalid continuation token", HttpStatusCode.BadRequest);
 
-            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(response));
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response)));
         }
 
         [Theory]
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("fail", HttpStatusCode.Forbidden, Convert.ToString((int)subStatusValue));
 
-            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(response));
+            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response)));
         }
 
         [Theory]
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("fail", HttpStatusCode.Forbidden, subsStatusCode);
 
-            await _cosmosResponseProcessor.ProcessErrorResponse(response);
+            await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response));
         }
 
         [Fact]

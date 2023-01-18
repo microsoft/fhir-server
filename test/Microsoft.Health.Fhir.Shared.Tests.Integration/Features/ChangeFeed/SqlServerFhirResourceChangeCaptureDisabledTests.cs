@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             }
             finally
             {
-                await fhirStorageTestsFixture?.DisposeAsync();
+                await fhirStorageTestsFixture.DisposeAsync();
             }
         }
     }

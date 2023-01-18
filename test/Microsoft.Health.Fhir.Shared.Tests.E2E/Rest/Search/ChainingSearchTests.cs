@@ -277,7 +277,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 await Task.WhenAll(batch.Select(_ => Client.CreateAsync(resource)));
             }
 
-            await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Observation, query));
+            await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Observation, query));
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenAChainedSearchExpressionWithNotProvider_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"subject:Patient.gender:not=female&subject:Patient._tag={Fixture.Tag}";
+
+            Bundle completeBundle = await Client.SearchAsync(ResourceType.Observation, query);
+            Assert.True(completeBundle.Entry.Count == 4);
+
+            query = $"subject:Patient.gender:not=male&subject:Patient._tag={Fixture.Tag}";
+
+            completeBundle = await Client.SearchAsync(ResourceType.Observation, query);
+            Assert.True(completeBundle.Entry.Count == 1);
         }
 
         public class ClassFixture : HttpIntegrationTestFixture
@@ -335,9 +350,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new() { City = "Seattle" }, new() { City = OrganizationCity} } })).Resource;
 
-                AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
-                SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
-                TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Given = new[] { TrumanPatientGivenName }, Family = "Truman" } } })).Resource;
+                AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Female, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
+                SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
+                TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { TrumanPatientGivenName }, Family = "Truman" } } })).Resource;
 
                 DeviceLoincSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
                 DeviceSnomedSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;

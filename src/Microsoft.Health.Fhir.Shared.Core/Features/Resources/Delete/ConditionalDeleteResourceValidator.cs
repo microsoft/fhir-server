@@ -25,8 +25,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
                 .WithMessage(request => string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourceNotSupported, request.ResourceType));
 
             RuleFor(x => x.ConditionalParameters)
-                .NotEmpty()
-                .WithMessage(Core.Resources.ConditionalOperationNotSelectiveEnough);
+                .Custom((conditionalParameters, context) =>
+                {
+                    if (conditionalParameters.Count == 0)
+                    {
+                        context.AddFailure(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, context.InstanceToValidate.ResourceType));
+                    }
+                });
 
             RuleFor(x => x.MaxDeleteCount)
                 .InclusiveBetween(1, configuration.Value.ConditionalDeleteMaxItems)

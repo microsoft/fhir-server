@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenANonExistantId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.ReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _client.DeleteAsync(createdResource);
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id));
 
             Assert.Equal(System.Net.HttpStatusCode.Gone, ex.StatusCode);

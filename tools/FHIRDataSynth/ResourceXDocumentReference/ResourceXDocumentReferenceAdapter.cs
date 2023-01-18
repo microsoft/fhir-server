@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceXDocumentReferenceAdapter : ResourceAdapterBase<DocumentReference.Rootobject, ResourceXDocumentReferenceAdapter.DocumentReferenceSibling>
+    internal sealed class ResourceXDocumentReferenceAdapter : ResourceAdapterBase<DocumentReference.Rootobject, ResourceXDocumentReferenceAdapter.DocumentReferenceSibling>
     {
         public override DocumentReferenceSibling CreateOriginal(ResourceGroupProcessor processor, DocumentReference.Rootobject json)
         {
@@ -207,7 +207,7 @@ namespace ResourceProcessorNamespace
         {
         }
 
-        public class Enumerator : EnumeratorBase<ResourceEncounterAdapter.EncounterSibling>
+        public sealed class Enumerator : EnumeratorBase<ResourceEncounterAdapter.EncounterSibling>
         {
             private Dictionary<string, ResourceSiblingsContainer<ResourceEncounterAdapter.EncounterSibling>>.Enumerator enumerator;
 

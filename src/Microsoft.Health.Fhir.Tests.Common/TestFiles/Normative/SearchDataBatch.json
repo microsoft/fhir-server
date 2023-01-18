@@ -1,0 +1,357 @@
+{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "searchpatient1",
+                "name": [
+                    {
+                        "family": "Chalmers",
+                        "given": [
+                            "Sarah"
+                        ]
+                    }
+                ],
+                "active": true,
+                "identifier": [
+                    {
+                        "use": "official",
+                        "value": "test 1"
+                    }
+                ],
+                "gender": "female",
+                "generalPractitioner": [
+                    {
+                        "reference": "Practitioner/searchpractitioner1"
+                    },
+                    {
+                        "reference": "Practitioner/searchpractitioner2"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/searchpatient1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "searchpatient2",
+                "name": [
+                    {
+                        "family": "Chalmers",
+                        "given": [
+                            "Jon"
+                        ]
+                    }
+                ],
+                "active": true,
+                "identifier": [
+                    {
+                        "use": "official",
+                        "value": "test 2"
+                    }
+                ],
+                "birthDate": "1987-02-20",
+                "gender": "male",
+                "generalPractitioner": {
+                    "reference": "Practitioner/searchpractitioner2"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/searchpatient2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "searchpatient3",
+                "name": [
+                    {
+                        "family": "Chalmers",
+                        "given": [
+                            "jon"
+                        ]
+                    }
+                ],
+                "address": [
+                    {
+                        "line": [
+                            "Dismal Drive"
+                        ]
+                    }
+                ],
+                "active": true,
+                "birthDate": "1975-01-12",
+                "gender": "male",
+                "generalPractitioner": {
+                    "reference": "Practitioner/searchpractitioner3"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/searchpatient3"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "searchpatient4",
+                "name": [
+                    {
+                        "family": "Chalmers",
+                        "given": [
+                            "Jonathon"
+                        ]
+                    }
+                ],
+                "address": [
+                    {
+                        "line": [
+                            "Pleasant Meadows"
+                        ]
+                    }
+                ],
+                "birthDate": "2000-12-23",
+                "gender": "female"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/searchpatient4"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "status": "planned",
+                "class": {
+                    "system": "system",
+                    "code": "code"
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient2"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Encounter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "status": "planned",
+                "class": {
+                    "system": "system",
+                    "code": "code"
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient3"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Encounter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "searchobservation1",
+                "status": "amended",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "LOINC",
+                            "code": "2823-3"
+                        }
+                    ]
+                },
+                "valueQuantity": {
+                    "value": 9.0
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/searchobservation1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "searchobservation2",
+                "status": "amended",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "LOINC",
+                            "code": "2823-3"
+                        }
+                    ]
+                },
+                "valueQuantity": {
+                    "value": 10.0
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient2"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Observation/searchobservation2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "status": "amended",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "system",
+                            "code": "527"
+                        }
+                    ]
+                },
+                "valueQuantity": {
+                    "value": 12.0
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient1"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Observation"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "DiagnosticReport",
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "system",
+                            "code": "code"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient1"
+                },
+                "result": {
+                    "reference": "Observation/searchobservation1"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "DiagnosticReport"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "DiagnosticReport",
+                "status": "partial",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "system",
+                            "code": "code"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient2"
+                },
+                "result": {
+                    "reference": "Observation/searchobservation2"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "DiagnosticReport"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Practitioner",
+                "id": "searchpractitioner1",
+                "name": [
+                    {
+                        "given": [
+                            "Sarah"
+                        ]
+                    }
+                ],
+                "address": [
+                    {
+                        "state": "VT"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Practitioner/searchpractitioner1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Practitioner",
+                "id": "searchpractitioner2",
+                "name": [
+                    {
+                        "given": [
+                            "Bob"
+                        ]
+                    }
+                ],
+                "address": [
+                    {
+                        "state": "WA"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Practitioner/searchpractitioner2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Practitioner",
+                "id": "searchpractitioner3",
+                "name": [
+                    {
+                        "given": [
+                            "janedoe"
+                        ]
+                    }
+                ],
+                "address": [
+                    {
+                        "state": "CA"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Practitioner/searchpractitioner3"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "AuditEvent",
+                "recorded": "2021-05-28T00:00:00.000"
+            },
+            "request": {
+                "method": "POST",
+                "url": "AuditEvent"
+            }
+        }
+    ]
+}

@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 
                 if (value is IEnumerable enumerable)
                 {
-                    IEnumerable<object> objects = enumerable.Cast<object>();
+                    List<object> objects = enumerable.Cast<object>().ToList();
 
                     // When a list is specified, check that the default is an option
                     if (objects.Any() && !objects.Any(x => Equals(defaultOption, x)))

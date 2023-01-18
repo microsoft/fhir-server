@@ -101,6 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 OutgoingEdges = new Dictionary<SearchParamTableExpression, IList<SearchParamTableExpression>>();
                 IncomingEdgesCount = new Dictionary<SearchParamTableExpression, int>();
+                includeIterateExpressions = includeIterateExpressions.ToList();
 
                 // Add graph nodes (parameters) and edges (dependencies)
                 foreach (var v in includeIterateExpressions)

@@ -21,7 +21,7 @@ public static class JobInfoExtensions
     }
 
     [SuppressMessage("Code", "CA1812:Avoid uninstantiated internal classes", Justification = "Used by JsonConvert")]
-    internal class JobDataDefinition : IJobData
+    internal sealed class JobDataDefinition : IJobData
     {
         [JsonProperty("typeId")]
         public int TypeId { get; set; }

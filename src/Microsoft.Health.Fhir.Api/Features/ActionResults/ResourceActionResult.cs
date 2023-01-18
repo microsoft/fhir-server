@@ -68,6 +68,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
             foreach (KeyValuePair<string, StringValues> header in Headers)
             {
+                if (response.Headers.ContainsKey(header.Key))
+                {
+                    response.Headers.Remove(header.Key);
+                }
+
                 response.Headers.Add(header);
             }
 

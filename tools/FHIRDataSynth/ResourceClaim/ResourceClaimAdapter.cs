@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceClaimAdapter : ResourceAdapterBase<Claim.Rootobject, ResourceClaimAdapter.ClaimSibling>
+    internal sealed class ResourceClaimAdapter : ResourceAdapterBase<Claim.Rootobject, ResourceClaimAdapter.ClaimSibling>
     {
         public override ClaimSibling CreateOriginal(ResourceGroupProcessor processor, Claim.Rootobject json)
         {

@@ -33,7 +33,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return searchParamTableExpression;
             }
 
-            return new SearchParamTableExpression(searchParamTableExpression.QueryGenerator, rewrittenPredicate, searchParamTableExpression.Kind);
+            int chainLevel = 0;
+            if (((rewrittenPredicate as SearchParameterExpression)?.Expression as MultiaryExpression)?.MultiaryOperation == MultiaryOperator.Or)
+            {
+                chainLevel = 1;
+            }
+
+            return new SearchParamTableExpression(searchParamTableExpression.QueryGenerator, rewrittenPredicate, searchParamTableExpression.Kind, chainLevel);
         }
 
         public virtual Expression VisitSqlChainLink(SqlChainLinkExpression sqlChainLinkExpression, TContext context)

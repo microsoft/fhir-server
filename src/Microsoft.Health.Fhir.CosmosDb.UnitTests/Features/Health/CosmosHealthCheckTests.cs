@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Common;
 using Microsoft.Azure.Cosmos;
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         [Fact]
         public async Task GivenCosmosDbCannotBeQueried_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
-            _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration).ThrowsForAnyArgs<HttpRequestException>();
+            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ThrowsForAnyArgs<HttpRequestException>();
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             {
                 var cosmosException = new CosmosException("Some error message", HttpStatusCode.Forbidden, subStatusCode: clientCmkIssue, activityId: null, requestCharge: 0);
                 _testProvider.ClearSubstitute();
-                _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration).ThrowsForAnyArgs(cosmosException);
+                _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ThrowsForAnyArgs(cosmosException);
 
                 HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         public async Task GivenCosmosAccessIsForbidden_IsNotClientCmkError_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
             const int SomeNonClientErrorSubstatusCode = 12345;
-            _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration)
+            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None)
                 .ThrowsForAnyArgs(new CosmosException(
                     "An error message",
                     HttpStatusCode.Forbidden,
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         [Fact]
         public async Task GivenCosmosDbWithTooManyRequests_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
         {
-            _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration)
+            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None)
                 .ThrowsForAnyArgs(new Exception(null, new RequestRateExceededException(TimeSpan.Zero)));
 
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
