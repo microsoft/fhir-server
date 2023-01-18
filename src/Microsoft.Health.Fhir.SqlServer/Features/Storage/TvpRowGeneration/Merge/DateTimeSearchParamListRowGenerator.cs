@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, DateTimeSearchValue searchValue, out DateTimeSearchParamListRow row)
+        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, DateTimeSearchValue searchValue, HashSet<DateTimeSearchParamListRow> results, out DateTimeSearchParamListRow row)
         {
             if (searchParamId == _lastUpdatedSearchParamId)
             {
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 searchValue.IsMin,
                 searchValue.IsMax);
 
-            return true;
+            return results == null || results.Add(row);
         }
 
         protected override void Initialize()

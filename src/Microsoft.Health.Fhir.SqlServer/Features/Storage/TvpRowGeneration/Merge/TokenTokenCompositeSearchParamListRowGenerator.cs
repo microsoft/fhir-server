@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -18,10 +19,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _tokenRowGenerator = tokenRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, (TokenSearchValue component1, TokenSearchValue component2) searchValue, out TokenTokenCompositeSearchParamListRow row)
+        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, (TokenSearchValue component1, TokenSearchValue component2) searchValue, HashSet<TokenTokenCompositeSearchParamListRow> results, out TokenTokenCompositeSearchParamListRow row)
         {
-            if (_tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component1, out var token1Row) &&
-                _tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component2, out var token2Row))
+            if (_tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component1, null, out var token1Row) &&
+                _tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component2, null, out var token2Row))
             {
                 row = new TokenTokenCompositeSearchParamListRow(
                     resourceTypeId,
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     token2Row.Code,
                     token2Row.CodeOverflow);
 
-                return true;
+                return results == null || results.Add(row);
             }
 
             row = default;

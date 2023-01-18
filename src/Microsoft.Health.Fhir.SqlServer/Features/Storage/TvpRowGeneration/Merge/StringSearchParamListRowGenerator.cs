@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, StringSearchValue searchValue, out StringSearchParamListRow row)
+        internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, StringSearchValue searchValue, HashSet<StringSearchParamListRow> results, out StringSearchParamListRow row)
         {
             string indexedPrefix;
             string overflow;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             }
 
             row = new StringSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, indexedPrefix, overflow, IsMin: searchValue.IsMin, IsMax: searchValue.IsMax);
-            return true;
+            return results == null || results.Add(row);
         }
     }
 }

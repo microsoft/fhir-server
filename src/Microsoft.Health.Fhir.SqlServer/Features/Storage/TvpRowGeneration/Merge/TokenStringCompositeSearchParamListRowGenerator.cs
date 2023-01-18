@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -29,10 +30,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             long resourceSurrogateId,
             short searchParamId,
             (TokenSearchValue component1, StringSearchValue component2) searchValue,
+            HashSet<TokenStringCompositeSearchParamListRow> results,
             out TokenStringCompositeSearchParamListRow row)
         {
-            if (_tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component1, out var token1Row) &&
-                _stringRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component2, out var string2Row))
+            if (_tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component1, null, out var token1Row) &&
+                _stringRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, default, searchValue.component2, null, out var string2Row))
             {
                 row = new TokenStringCompositeSearchParamListRow(
                     resourceTypeId,
@@ -44,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     string2Row.Text,
                     TextOverflow2: string2Row.TextOverflow);
 
-                return true;
+                return results == null || results.Add(row);
             }
 
             row = default;

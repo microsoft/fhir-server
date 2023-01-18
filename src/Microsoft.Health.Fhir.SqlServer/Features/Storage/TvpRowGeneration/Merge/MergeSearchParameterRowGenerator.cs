@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
             EnsureInitialized();
 
-            var results = new Dictionary<short, HashSet<TSearchValue>>();
+            var results = new HashSet<TRow>();
 
             foreach (var merge in resources.Where(_ => !_.ResourceWrapper.IsHistory)) // only current
             {
@@ -49,33 +49,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 foreach (SearchIndexEntry v in resourceMetadata.GetSearchIndexEntriesByType(typeof(TSearchValue)))
                 {
                     short searchParamId = Model.GetSearchParamId(v.SearchParameter.Url);
-                    if (!results.ContainsKey(searchParamId))
-                    {
-                        results.Add(searchParamId, new HashSet<TSearchValue>());
-                    }
 
                     if (!_isConvertSearchValueOverridden)
                     {
                         var searchValue = (TSearchValue)v.Value;
-                        if (results[searchParamId].Add(searchValue))
+
+                        // save an array allocation
+                        if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, results, out TRow row))
                         {
-                            // save an array allocation
-                            if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, out TRow row))
-                            {
-                                yield return row;
-                            }
+                            yield return row;
                         }
                     }
                     else
                     {
                         foreach (var searchValue in ConvertSearchValue(v))
                         {
-                            if (results[searchParamId].Add(searchValue))
+                            if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, results, out TRow row))
                             {
-                                if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, out TRow row))
-                                {
-                                    yield return row;
-                                }
+                                yield return row;
                             }
                         }
                     }
@@ -101,6 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal abstract bool TryGenerateRow(short resourceTypeId, long resourceRecordId, short searchParamId, TSearchValue searchValue, out TRow row);
+        internal abstract bool TryGenerateRow(short resourceTypeId, long resourceRecordId, short searchParamId, TSearchValue searchValue, HashSet<TRow> results, out TRow row);
     }
 }
