@@ -34,7 +34,7 @@ CREATE TYPE dbo.TokenTextList AS TABLE
    ,SearchParamId            smallint NOT NULL
    ,Text                     nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
 
-   PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
+   --PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'TokenStringCompositeSearchParamList')
@@ -128,7 +128,7 @@ CREATE TYPE dbo.ResourceWriteClaimList AS TABLE
    ,ClaimTypeId              tinyint       NOT NULL
    ,ClaimValue               nvarchar(128) NOT NULL
 
-   PRIMARY KEY (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+   --PRIMARY KEY (ResourceSurrogateId, ClaimTypeId, ClaimValue)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ReferenceTokenCompositeSearchParamList')
@@ -158,7 +158,7 @@ CREATE TYPE dbo.QuantitySearchParamList AS TABLE
    ,LowValue                 decimal(18,6) NULL
    ,HighValue                decimal(18,6) NULL
 
-   --UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
+   UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'NumberSearchParamList')

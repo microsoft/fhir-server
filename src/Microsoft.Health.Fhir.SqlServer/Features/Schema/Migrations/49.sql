@@ -143,7 +143,7 @@ CREATE TYPE dbo.ResourceList AS TABLE (
 CREATE TYPE dbo.ResourceWriteClaimList AS TABLE (
     ResourceSurrogateId BIGINT         NOT NULL,
     ClaimTypeId         TINYINT        NOT NULL,
-    ClaimValue          NVARCHAR (128) NOT NULL PRIMARY KEY (ResourceSurrogateId, ClaimTypeId, ClaimValue));
+    ClaimValue          NVARCHAR (128) NOT NULL);
 
 CREATE TYPE dbo.StringList AS TABLE (
     String VARCHAR (MAX));
@@ -218,7 +218,7 @@ CREATE TYPE dbo.TokenTextList AS TABLE (
     ResourceTypeId      SMALLINT       NOT NULL,
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
-    Text                NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text));
+    Text                NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL);
 
 CREATE TYPE dbo.TokenTokenCompositeSearchParamList AS TABLE (
     ResourceTypeId      SMALLINT      NOT NULL,
