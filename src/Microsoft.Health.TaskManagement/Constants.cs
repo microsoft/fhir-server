@@ -16,5 +16,7 @@ namespace Microsoft.Health.JobManagement
         public const int DefaultJobHeartbeatTimeoutThresholdInSeconds = 300;
 
         public const int DefaultJobHeartbeatIntervalInSeconds = 30;
+
+        public const int DefaultJobHeavyHeartbeatIntervalInSeconds = 300;
     }
 }

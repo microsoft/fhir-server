@@ -39,6 +39,8 @@ namespace Microsoft.Health.JobManagement
 
         public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
+        public double JobHeavyHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeavyHeartbeatIntervalInSeconds;
+
         [Obsolete("Temporary method to prevent build breaks within Health PaaS. Will be removed after code is updated in Health PaaS")]
         public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
         {
@@ -126,11 +128,10 @@ namespace Microsoft.Health.JobManagement
                                     jobCancellationToken)
                                : ExecuteJobWithHeartbeatsAsync(
                                     _queueClient,
-                                    jobInfo.QueueType,
-                                    jobInfo.Id,
-                                    jobInfo.Version,
+                                    jobInfo,
                                     cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
+                                    TimeSpan.FromSeconds(JobHeavyHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
 
                 jobInfo.Result = await runningJob;
@@ -193,12 +194,37 @@ namespace Microsoft.Health.JobManagement
 
         public static async Task<string> ExecuteJobWithHeartbeatsAsync(IQueueClient queueClient, byte queueType, long jobId, long version, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
         {
+            return await ExecuteJobWithHeartbeatsAsync(queueClient, new JobInfo { QueueType = queueType, Id = jobId, Version = version }, action, heartbeatPeriod, TimeSpan.FromDays(999), cancellationTokenSource);
+        }
+
+        public static async Task<string> ExecuteJobWithHeartbeatsAsync(IQueueClient queueClient, JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, TimeSpan heavyHeartbeatPeriod, CancellationTokenSource cancellationTokenSource)
+        {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(action, nameof(action));
 
-            var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // not other data points
+            var heavyHeartbeatInterval = heavyHeartbeatPeriod / heartbeatPeriod;
+            var heartbeatTracker = 0;
+            var trimmedJobInfo = new JobInfo { QueueType = jobInfo.QueueType, Id = jobInfo.Id, Version = jobInfo.Version }; // not other data points
 
-            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
+            await using (new Timer(
+                async _ =>
+                {
+                    // To record incremental progress the job can write heavy heartbeats (heartbeats that include result data) at a reduced interval to regular heartbeats.
+                    // This allows long running jobs to restart if they get interupted, but still allows for small fast heartbeats the majority of the time.
+                    heartbeatTracker++;
+                    if (heartbeatTracker >= heavyHeartbeatInterval)
+                    {
+                        await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource);
+                        heartbeatTracker = 0;
+                    }
+                    else
+                    {
+                        await PutJobHeartbeatAsync(queueClient, trimmedJobInfo, cancellationTokenSource);
+                    }
+                },
+                null,
+                TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds),
+                heartbeatPeriod))
             {
                 return await action(cancellationTokenSource);
             }
