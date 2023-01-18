@@ -11,11 +11,13 @@
     IsHistory bit NOT NULL,
     CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
-
+GO
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CONSTRAINT DF_TokenDateTimeCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CONSTRAINT CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
-
+GO
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
-
+GO
 CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -25,7 +27,7 @@ ON dbo.TokenDateTimeCompositeSearchParam
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -41,11 +43,10 @@ INCLUDE
     SystemId1,
     IsLongerThanADay2
 )
-
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -64,7 +65,7 @@ INCLUDE
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -79,11 +80,10 @@ INCLUDE
 (
     SystemId1
 )
-
 WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -101,3 +101,4 @@ INCLUDE
 WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO

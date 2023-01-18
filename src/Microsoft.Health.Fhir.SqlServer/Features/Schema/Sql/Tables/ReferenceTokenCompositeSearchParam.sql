@@ -12,11 +12,13 @@
     IsHistory bit NOT NULL,
     CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
-
+GO
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CONSTRAINT DF_ReferenceTokenCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CONSTRAINT CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256 OR CodeOverflow2 IS NULL)
-
+GO
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
-
+GO
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
 ON dbo.ReferenceTokenCompositeSearchParam
 (
@@ -26,7 +28,7 @@ ON dbo.ReferenceTokenCompositeSearchParam
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
 ON dbo.ReferenceTokenCompositeSearchParam
 (
@@ -45,3 +47,4 @@ INCLUDE
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO

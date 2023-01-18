@@ -9,9 +9,11 @@
     IsMin bit CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
     IsMax bit CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL
 )
-
+GO
+ALTER TABLE dbo.StringSearchParam ADD CONSTRAINT DF_StringSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
 ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )
-
+GO
 CREATE CLUSTERED INDEX IXC_StringSearchParam
 ON dbo.StringSearchParam
 (
@@ -21,7 +23,7 @@ ON dbo.StringSearchParam
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
 ON dbo.StringSearchParam
 (
@@ -39,7 +41,7 @@ INCLUDE
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+GO
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 ON dbo.StringSearchParam
 (
@@ -56,3 +58,4 @@ INCLUDE
 WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO

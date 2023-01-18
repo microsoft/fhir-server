@@ -1,4 +1,43 @@
-﻿IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_UriSearchParam_IsHistory')
+﻿IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenTokenCompositeSearchParam_IsHistory')
+ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CONSTRAINT DF_TokenTokenCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenText_IsHistory')
+ALTER TABLE dbo.TokenText ADD CONSTRAINT DF_TokenText_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenStringCompositeSearchParam_IsHistory')
+ALTER TABLE dbo.TokenStringCompositeSearchParam ADD CONSTRAINT DF_TokenStringCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenSearchParam_IsHistory')
+ALTER TABLE dbo.TokenSearchParam ADD CONSTRAINT DF_TokenSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenQuantityCompositeSearchParam_IsHistory')
+ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CONSTRAINT DF_TokenQuantityCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenNumberNumberCompositeSearchParam_IsHistory')
+ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam ADD CONSTRAINT DF_TokenNumberNumberCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenDateTimeCompositeSearchParam_IsHistory')
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam ADD CONSTRAINT DF_TokenDateTimeCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_ReferenceTokenCompositeSearchParam_IsHistory')
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam ADD CONSTRAINT DF_ReferenceTokenCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_ReferenceSearchParam_IsHistory')
+ALTER TABLE dbo.ReferenceSearchParam ADD CONSTRAINT DF_ReferenceSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_QuantitySearchParam_IsHistory')
+ALTER TABLE dbo.QuantitySearchParam ADD CONSTRAINT DF_QuantitySearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_NumberSearchParam_IsHistory')
+ALTER TABLE dbo.NumberSearchParam ADD CONSTRAINT DF_NumberSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_DateTimeSearchParam_IsHistory')
+ALTER TABLE dbo.DateTimeSearchParam ADD CONSTRAINT DF_DateTimeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_CompartmentAssignment_IsHistory')
+ALTER TABLE dbo.CompartmentAssignment ADD CONSTRAINT DF_CompartmentAssignment_IsHistory DEFAULT 0 FOR IsHistory
+GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_UriSearchParam_IsHistory')
 ALTER TABLE dbo.UriSearchParam ADD CONSTRAINT DF_UriSearchParam_IsHistory DEFAULT 0 FOR IsHistory
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'UriSearchParamList')

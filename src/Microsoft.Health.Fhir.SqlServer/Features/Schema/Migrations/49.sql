@@ -489,8 +489,17 @@ CREATE TABLE dbo.CompartmentAssignment (
     CONSTRAINT PKC_CompartmentAssignment PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
+
+GO
+ALTER TABLE dbo.CompartmentAssignment
+    ADD CONSTRAINT DF_CompartmentAssignment_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.CompartmentAssignment SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId
     ON dbo.CompartmentAssignment(ResourceTypeId, CompartmentTypeId, ReferenceResourceId, ResourceSurrogateId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
@@ -514,28 +523,45 @@ CREATE TABLE dbo.DateTimeSearchParam (
     IsMax               BIT           CONSTRAINT date_IsMax_Constraint DEFAULT 0 NOT NULL
 );
 
+
+GO
+ALTER TABLE dbo.DateTimeSearchParam
+    ADD CONSTRAINT DF_DateTimeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.DateTimeSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
     ON dbo.DateTimeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
     ON dbo.DateTimeSearchParam(ResourceTypeId, SearchParamId, StartDateTime, EndDateTime, ResourceSurrogateId)
     INCLUDE(IsLongerThanADay, IsMin, IsMax) WHERE IsHistory = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
     ON dbo.DateTimeSearchParam(ResourceTypeId, SearchParamId, EndDateTime, StartDateTime, ResourceSurrogateId)
     INCLUDE(IsLongerThanADay, IsMin, IsMax) WHERE IsHistory = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
     ON dbo.DateTimeSearchParam(ResourceTypeId, SearchParamId, StartDateTime, EndDateTime, ResourceSurrogateId)
     INCLUDE(IsMin, IsMax) WHERE IsHistory = 0
                                 AND IsLongerThanADay = 1
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
     ON dbo.DateTimeSearchParam(ResourceTypeId, SearchParamId, EndDateTime, StartDateTime, ResourceSurrogateId)
     INCLUDE(IsMin, IsMax) WHERE IsHistory = 0
@@ -666,21 +692,36 @@ CREATE TABLE dbo.NumberSearchParam (
     IsHistory           BIT             NOT NULL
 );
 
+
+GO
+ALTER TABLE dbo.NumberSearchParam
+    ADD CONSTRAINT DF_NumberSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.NumberSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_NumberSearchParam
     ON dbo.NumberSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
     ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, SingleValue, ResourceSurrogateId) WHERE IsHistory = 0
                                                                                                     AND SingleValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
     ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, LowValue, HighValue, ResourceSurrogateId) WHERE IsHistory = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
     ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId) WHERE IsHistory = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
@@ -729,23 +770,38 @@ CREATE TABLE dbo.QuantitySearchParam (
     IsHistory           BIT             NOT NULL
 );
 
+
+GO
+ALTER TABLE dbo.QuantitySearchParam
+    ADD CONSTRAINT DF_QuantitySearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.QuantitySearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_QuantitySearchParam
     ON dbo.QuantitySearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
     ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, SingleValue, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0
                             AND SingleValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
     ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, LowValue, HighValue, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
     ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, HighValue, LowValue, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0
@@ -762,12 +818,23 @@ CREATE TABLE dbo.ReferenceSearchParam (
     IsHistory                BIT           NOT NULL
 );
 
+
+GO
+ALTER TABLE dbo.ReferenceSearchParam
+    ADD CONSTRAINT DF_ReferenceSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.ReferenceSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
     ON dbo.ReferenceSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
     ON dbo.ReferenceSearchParam(ResourceTypeId, SearchParamId, ReferenceResourceId, ReferenceResourceTypeId, BaseUri, ResourceSurrogateId)
     INCLUDE(ReferenceResourceVersion) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
@@ -787,16 +854,29 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
     CodeOverflow2             VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
+
+GO
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+    ADD CONSTRAINT DF_ReferenceTokenCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
     ADD CONSTRAINT CHK_ReferenceTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256
                                                                                OR CodeOverflow2 IS NULL);
 
+
+GO
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
     ON dbo.ReferenceTokenCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
     ON dbo.ReferenceTokenCompositeSearchParam(ResourceTypeId, SearchParamId, ReferenceResourceId1, Code2, ResourceSurrogateId)
     INCLUDE(ReferenceResourceTypeId1, BaseUri1, SystemId2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
@@ -934,17 +1014,30 @@ CREATE TABLE dbo.StringSearchParam (
     IsMax               BIT            CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL
 );
 
+
+GO
+ALTER TABLE dbo.StringSearchParam
+    ADD CONSTRAINT DF_StringSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.StringSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_StringSearchParam
     ON dbo.StringSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
     ON dbo.StringSearchParam(ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
     INCLUDE(TextOverflow, IsMin, IsMax) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
     ON dbo.StringSearchParam(ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
     INCLUDE(IsMin, IsMax) WHERE IsHistory = 0
@@ -1003,32 +1096,51 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     CodeOverflow1       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
+
+GO
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam
+    ADD CONSTRAINT DF_TokenDateTimeCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam
     ADD CONSTRAINT CHK_TokenDateTimeCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
                                                                               OR CodeOverflow1 IS NULL);
 
+
+GO
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
     ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
     ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, StartDateTime2, EndDateTime2, ResourceSurrogateId)
     INCLUDE(SystemId1, IsLongerThanADay2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2
     ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
     INCLUDE(SystemId1, IsLongerThanADay2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long
     ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, StartDateTime2, EndDateTime2, ResourceSurrogateId)
     INCLUDE(SystemId1) WHERE IsHistory = 0
                              AND IsLongerThanADay2 = 1 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long
     ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
     INCLUDE(SystemId1) WHERE IsHistory = 0
@@ -1052,22 +1164,37 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
     CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
 );
 
+
+GO
+ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam
+    ADD CONSTRAINT DF_TokenNumberNumberCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam
     ADD CONSTRAINT CHK_TokenNumberNumberCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
                                                                                   OR CodeOverflow1 IS NULL);
 
+
+GO
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
     ON dbo.TokenNumberNumberCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
     ON dbo.TokenNumberNumberCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, SingleValue2, SingleValue3, ResourceSurrogateId)
     INCLUDE(SystemId1) WHERE IsHistory = 0
                              AND HasRange = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3
     ON dbo.TokenNumberNumberCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, LowValue3, HighValue3, ResourceSurrogateId)
     INCLUDE(SystemId1) WHERE IsHistory = 0
@@ -1089,28 +1216,45 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam (
     CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
 );
 
+
+GO
+ALTER TABLE dbo.TokenQuantityCompositeSearchParam
+    ADD CONSTRAINT DF_TokenQuantityCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam
     ADD CONSTRAINT CHK_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
                                                                               OR CodeOverflow1 IS NULL);
 
+
+GO
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
     ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
     ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, SingleValue2, ResourceSurrogateId)
     INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
                                                          AND SingleValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
     ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, ResourceSurrogateId)
     INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
                                                          AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
     ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, HighValue2, LowValue2, ResourceSurrogateId)
     INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
@@ -1127,16 +1271,29 @@ CREATE TABLE dbo.TokenSearchParam (
     CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
+
+GO
+ALTER TABLE dbo.TokenSearchParam
+    ADD CONSTRAINT DF_TokenSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.TokenSearchParam
     ADD CONSTRAINT CHK_TokenSearchParam_CodeOverflow CHECK (LEN(Code) = 256
                                                             OR CodeOverflow IS NULL);
 
+
+GO
 ALTER TABLE dbo.TokenSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_TokenSearchParam
     ON dbo.TokenSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
     ON dbo.TokenSearchParam(ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
@@ -1154,21 +1311,36 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam (
     CodeOverflow1       VARCHAR (MAX)  COLLATE Latin1_General_100_CS_AS NULL
 );
 
+
+GO
+ALTER TABLE dbo.TokenStringCompositeSearchParam
+    ADD CONSTRAINT DF_TokenStringCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.TokenStringCompositeSearchParam
     ADD CONSTRAINT CHK_TokenStringCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
                                                                             OR CodeOverflow1 IS NULL);
 
+
+GO
 ALTER TABLE dbo.TokenStringCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
     ON dbo.TokenStringCompositeSearchParam(ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
     ON dbo.TokenStringCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
     INCLUDE(SystemId1, TextOverflow2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
     ON dbo.TokenStringCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
     INCLUDE(SystemId1) WHERE IsHistory = 0
@@ -1183,12 +1355,23 @@ CREATE TABLE dbo.TokenText (
     IsHistory           BIT            NOT NULL
 );
 
+
+GO
+ALTER TABLE dbo.TokenText
+    ADD CONSTRAINT DF_TokenText_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.TokenText SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_TokenText
     ON dbo.TokenText(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
     ON dbo.TokenText(ResourceTypeId, SearchParamId, Text, ResourceSurrogateId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
@@ -1206,20 +1389,35 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam (
     CodeOverflow2       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
 
+
+GO
+ALTER TABLE dbo.TokenTokenCompositeSearchParam
+    ADD CONSTRAINT DF_TokenTokenCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+
+GO
 ALTER TABLE dbo.TokenTokenCompositeSearchParam
     ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
                                                                            OR CodeOverflow1 IS NULL);
 
+
+GO
 ALTER TABLE dbo.TokenTokenCompositeSearchParam
     ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow2 CHECK (LEN(Code2) = 256
                                                                            OR CodeOverflow2 IS NULL);
 
+
+GO
 ALTER TABLE dbo.TokenTokenCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
+
+GO
 CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
     ON dbo.TokenTokenCompositeSearchParam(ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+
+GO
 CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
     ON dbo.TokenTokenCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, Code2, ResourceSurrogateId)
     INCLUDE(SystemId1, SystemId2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
@@ -3754,73 +3952,66 @@ BEGIN TRY
            ClaimValue
     FROM   @ResourceWriteClaims;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.CompartmentAssignment (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
+    INSERT INTO dbo.CompartmentAssignment (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            CompartmentTypeId,
-           ReferenceResourceId,
-           0
+           ReferenceResourceId
     FROM   @CompartmentAssignments;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
+    INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
            BaseUri,
            ReferenceResourceTypeId,
            ReferenceResourceId,
-           ReferenceResourceVersion,
-           0
+           ReferenceResourceVersion
     FROM   @ReferenceSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow, IsHistory)
+    INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
            SystemId,
            Code,
-           CodeOverflow,
-           0
+           CodeOverflow
     FROM   @TokenSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
+    INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
-           Text,
-           0
+           Text
     FROM   @TokenTexts;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax)
+    INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
            Text,
            TextOverflow,
-           0,
            IsMin,
            IsMax
     FROM   @StringSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
+    INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
-           Uri,
-           0
+           Uri
     FROM   @UriSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
+    INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
            SingleValue,
            LowValue,
-           HighValue,
-           0
+           HighValue
     FROM   @NumberSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
+    INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
@@ -3828,23 +4019,21 @@ BEGIN TRY
            QuantityCodeId,
            SingleValue,
            LowValue,
-           HighValue,
-           0
+           HighValue
     FROM   @QuantitySearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
+    INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
            StartDateTime,
            EndDateTime,
            IsLongerThanADay,
-           0,
            IsMin,
            IsMax
     FROM   @DateTimeSearchParms;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2, IsHistory)
+    INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
@@ -3854,11 +4043,10 @@ BEGIN TRY
            ReferenceResourceVersion1,
            SystemId2,
            Code2,
-           CodeOverflow2,
-           0
+           CodeOverflow2
     FROM   @ReferenceTokenCompositeSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2, IsHistory)
+    INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
@@ -3867,11 +4055,10 @@ BEGIN TRY
            CodeOverflow1,
            SystemId2,
            Code2,
-           CodeOverflow2,
-           0
+           CodeOverflow2
     FROM   @TokenTokenCompositeSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+    INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
@@ -3880,11 +4067,10 @@ BEGIN TRY
            CodeOverflow1,
            StartDateTime2,
            EndDateTime2,
-           IsLongerThanADay2,
-           0
+           IsLongerThanADay2
     FROM   @TokenDateTimeCompositeSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+    INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
@@ -3895,11 +4081,10 @@ BEGIN TRY
            SystemId2,
            QuantityCodeId2,
            LowValue2,
-           HighValue2,
-           0
+           HighValue2
     FROM   @TokenQuantityCompositeSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2, IsHistory)
+    INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
@@ -3907,11 +4092,10 @@ BEGIN TRY
            Code1,
            CodeOverflow1,
            Text2,
-           TextOverflow2,
-           0
+           TextOverflow2
     FROM   @TokenStringCompositeSearchParams;
     SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+    INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
@@ -3924,8 +4108,7 @@ BEGIN TRY
            SingleValue3,
            LowValue3,
            HighValue3,
-           HasRange,
-           0
+           HasRange
     FROM   @TokenNumberNumberCompositeSearchParams;
     SET @AffectedRows += @@rowcount;
     IF @IsResourceChangeCaptureEnabled = 1
