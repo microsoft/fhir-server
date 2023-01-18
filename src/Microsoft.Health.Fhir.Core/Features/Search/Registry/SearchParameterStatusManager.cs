@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using static System.Net.WebRequestMethods;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly IMediator _mediator;
         private readonly ILogger<SearchParameterStatusManager> _logger;
         private DateTimeOffset _latestSearchParams;
+        private readonly List<string> enabledSortIndices = new List<string>() { "http://hl7.org/fhir/SearchParameter/individual-birthdate", "http://hl7.org/fhir/SearchParameter/individual-family", "http://hl7.org/fhir/SearchParameter/individual-given" };
 
         public SearchParameterStatusManager(
             ISearchParameterStatusDataStore searchParameterStatusDataStore,
@@ -102,9 +104,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
-            if (updated.Any())
+            var disableSortIndicesList = _searchParameterDefinitionManager.AllSearchParameters.Where(u => enabledSortIndices.Contains(u.Url.ToString()) && u.SortStatus != SortParameterStatus.Enabled);
+            if (disableSortIndicesList.Any())
             {
-                _logger.LogInformation("SearchParameterStatusManager: Updated Search Parameters {Environment.NewLine} {Message}", Environment.NewLine, string.Join($"{Environment.NewLine}    ", updated.Select(u => "Url : " + u.Url.ToString() + ", Sort status : " + u.SortStatus.ToString())));
+                _logger.LogError("SearchParameterStatusManager: Sort status is not enabled {Environment.NewLine} {Message}", Environment.NewLine, string.Join($"{Environment.NewLine}    ", disableSortIndicesList.Select(u => "Url : " + u.Url.ToString() + ", Sort status : " + u.SortStatus.ToString())));
             }
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);

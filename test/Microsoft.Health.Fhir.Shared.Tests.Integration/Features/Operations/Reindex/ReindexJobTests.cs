@@ -683,7 +683,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     keepHistory: true,
                     cancellationToken: CancellationToken.None);
 
-                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                // In DeleteSearchParameterBehavior.Handle method we update the in-memory SearchParameterDefinitionManager,
+                // and remove the status metadata from the data store
+                await _searchParameterOperations2.DeleteSearchParameterAsync(deletedWrapper.RawResource, CancellationToken.None);
 
                 // After trying to sync the new "supported" status, but finding the resource missing, we should not add it to the
                 // searchparameterdefinitionmanager
@@ -937,8 +939,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
 
             var searchParamValue = new UriSearchValue(searchParam.Url, false);
-            List<SearchIndexEntry> searchIndices = null;
-            searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(searchParamInfo, searchParamValue) };
+            List<SearchIndexEntry> searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(searchParamInfo, searchParamValue) };
 
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, deleted, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("SearchParameter"));
             wrapper.SearchParameterHash = "hash";
