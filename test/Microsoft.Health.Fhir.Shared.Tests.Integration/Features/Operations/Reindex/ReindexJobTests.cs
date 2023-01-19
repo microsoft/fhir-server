@@ -676,16 +676,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                 // first step of the delete process would be to remove the SearchParameter from the data store
                 ResourceWrapper deletedWrapper = CreateSearchParamResourceWrapper(searchParam, deleted: true);
+
+                // In DeleteSearchParameterBehavior.Handle method we update the in-memory SearchParameterDefinitionManager,
+                // and remove the status metadata from the data store
+                await _searchParameterOperations2.DeleteSearchParameterAsync(deletedWrapper.RawResource, CancellationToken.None);
+
                 UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(
                     deletedWrapper,
                     weakETag: null,
                     allowCreate: true,
                     keepHistory: true,
                     cancellationToken: CancellationToken.None);
-
-                // In DeleteSearchParameterBehavior.Handle method we update the in-memory SearchParameterDefinitionManager,
-                // and remove the status metadata from the data store
-                await _searchParameterOperations2.DeleteSearchParameterAsync(deletedWrapper.RawResource, CancellationToken.None);
 
                 // After trying to sync the new "supported" status, but finding the resource missing, we should not add it to the
                 // searchparameterdefinitionmanager
