@@ -674,11 +674,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 bool tryGetSearchParamResult2 = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
                 Assert.False(tryGetSearchParamResult2);
 
-                // first step of the delete process would be to remove the SearchParameter from the data store
                 ResourceWrapper deletedWrapper = CreateSearchParamResourceWrapper(searchParam, deleted: true);
 
-                // In DeleteSearchParameterBehavior.Handle method we update the in-memory SearchParameterDefinitionManager,
-                // and remove the status metadata from the data store
+                // As per DeleteSearchParameterBehavior.Handle, first step of the delete process would be to delete from the in-memory datastore
+                // then delete the search parameter resource from data base
                 await _searchParameterOperations2.DeleteSearchParameterAsync(deletedWrapper.RawResource, CancellationToken.None);
 
                 UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(
