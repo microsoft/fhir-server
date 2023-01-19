@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private const string InitialVersion = "1";
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -156,7 +157,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                         }
 
-                        resource.Version = "1";
+                        resource.Version = InitialVersion;
                     }
                     else
                     {
@@ -218,10 +219,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             stream.Seek(0, 0);
                             PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
                             await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken); // resource.Version has been set already
-                            resource.RawResource.IsMetaSet = resource.Version == "1";
+                            resource.RawResource.IsMetaSet = resource.Version == InitialVersion;
                         }
 
-                        return new UpsertOutcome(resource, resource.Version == "1" ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
+                        return new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
                     }
                     catch (SqlException e)
                     {
@@ -417,7 +418,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated");
             string rawResourceData;
-            if (resourceWrapper.Version == "1") // version is already correct
+            if (resourceWrapper.Version == InitialVersion) // version is already correct
             {
                 rawResourceData = resourceWrapper.RawResource.Data
                                     .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
@@ -438,7 +439,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated");
             var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated");
             var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId");
-            if (existingVersion != "1")
+            if (existingVersion != InitialVersion)
             {
                 return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
@@ -446,11 +447,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 return input.RawResource.Data
                             == existing.RawResource.Data
-                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"1\"", StringComparison.Ordinal)
+                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{InitialVersion}\"", StringComparison.Ordinal)
                                     .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
         }
 
+        // This method relies on current raw resource string formatting, i.e. no extra spaces.
+        // This logic should be removed once "resource.meta not available" bug is fixed.
         private string GetJsonValue(string json, string propName)
         {
             var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.Ordinal);
