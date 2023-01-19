@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>45</LatestSchemaVersion>
+    <LatestSchemaVersion>48</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
   </PropertyGroup>
 
@@ -43,7 +43,7 @@
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
   </ItemGroup>
 
-  <ItemGroup>
+ <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
@@ -59,6 +59,11 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="**\*.generated.cs" />
+    <Compile Remove="**\*.generated.*.cs" />
+    <Compile Include="**\*.generated.$(TargetFramework).cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -76,12 +81,12 @@
       <!--We create this item group to that MSBuild can know when the GenerateFiles can be skipped.-->
       <GenerateFilesInputs Include="@(MutableSqlGeneratorInputs);@(ImmutableSqlGeneratorInputs)" />
 
-      <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.cs">
+      <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.$(TargetFramework).cs">
         <Generator>ImmutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
         <Args>@(ImmutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
       </Generated>
-      <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.cs">
+      <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.$(TargetFramework).cs">
         <Generator>MutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
         <Args>@(MutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>

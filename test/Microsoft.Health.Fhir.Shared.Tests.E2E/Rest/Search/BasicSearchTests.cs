@@ -325,7 +325,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenEmptyTypeOfResource_WhenSearching_ThenBadRequestShouldBeReturned()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"?_type="));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"?_type="));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -385,7 +385,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypesUsingNonCommonSearchParameter_ThenExceptionShouldBeThrown()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"?_type=Encounter,Procedure&subject=Patient/123"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"?_type=Encounter,Procedure&subject=Patient/123"));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -570,7 +570,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithIncorrectFormatParams_ThenExceptionShouldBeThrown(string key, string val)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -611,7 +611,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithElementsAndSummaryNotSetToFalse_ThenExceptionShouldBeThrown(string elementsValues, string summaryValue)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_elements={elementsValues}&_summary={summaryValue}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?_elements={elementsValues}&_summary={summaryValue}"));
 
             const HttpStatusCode expectedStatusCode = HttpStatusCode.BadRequest;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
@@ -792,7 +792,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var totalType = TotalType.Estimate.ToString();
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
 
             var expectedStatusCode = HttpStatusCode.Forbidden;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
@@ -809,7 +809,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             var expectedStatusCode = HttpStatusCode.BadRequest;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
@@ -931,7 +931,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchRequestWithInvalidParametersAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
                 Client.SearchAsync("Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -954,7 +954,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchRequestWithInvalidHandling_WhenHandled_ReturnsBadRequest()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
                 Client.SearchAsync("Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=foo")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -1078,7 +1078,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchRequestWithParameterTextAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
                 Client.SearchAsync("Patient?_text=mobile", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }

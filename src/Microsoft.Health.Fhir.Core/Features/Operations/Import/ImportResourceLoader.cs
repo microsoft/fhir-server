@@ -75,7 +75,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 List<(string content, long index)> buffer = new List<(string content, long index)>();
                 Queue<Task<IEnumerable<ImportResource>>> processingTasks = new Queue<Task<IEnumerable<ImportResource>>>();
 
+#pragma warning disable CA2016
                 while (!string.IsNullOrEmpty(content = await inputDataReader.ReadLineAsync()))
+#pragma warning restore CA2016
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {

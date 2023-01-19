@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     x.DefinitionUrl))
                 .ToArray();
 
-            IEnumerable<string> resourceTypes = (parameterInfo.TargetResourceTypes ?? Enumerable.Empty<string>()).Concat(parameterInfo.BaseResourceTypes ?? Enumerable.Empty<string>());
+            List<string> resourceTypes = (parameterInfo.TargetResourceTypes ?? Enumerable.Empty<string>()).Concat(parameterInfo.BaseResourceTypes ?? Enumerable.Empty<string>()).ToList();
 
             if (!resourceTypes.Any())
             {

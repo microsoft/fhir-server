@@ -18,7 +18,7 @@ BEGIN TRY
        ,Status = CASE WHEN @Failed = 1 THEN 3 WHEN CancelRequested = 1 THEN 4 ELSE 2 END -- 2=completed 3=failed 4=cancelled
        ,Data = @Data
        ,Result = @FinalResult
-       ,Version = datediff_big(millisecond,'0001-01-01',getUTCdate())
+       -- This call must be idempotent, so version cannot be changed.
        ,@GroupId = GroupId
     WHERE QueueType = @QueueType
       AND PartitionId = @PartitionId
@@ -29,10 +29,12 @@ BEGIN TRY
   
   IF @Rows = 0
   BEGIN
-    IF EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId)
-      THROW 50412, 'Precondition failed', 1
-    ELSE
-      THROW 50404, 'Job record not found', 1
+    SET @GroupId = (SELECT GroupId FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId AND Version = @Version AND Status IN (2,3,4))
+    IF @GroupId IS NULL
+      IF EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId)
+        THROW 50412, 'Precondition failed', 1
+      ELSE
+        THROW 50404, 'Job record not found', 1
   END
 
   IF @Failed = 1 AND @RequestCancellationOnFailure = 1

@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
             Assert.Equal(AdministrativeGender.Male, response.Resource.Gender);
             Assert.NotNull(response.Resource.Address);
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(response.Resource, patch));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(response.Resource, patch));
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             string patchDocument = "[{\"op\":\"add\",\"path\":\"/dummyProperty\",\"value\":\"dummy\"}]";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(
                 response.Resource,
                 patchDocument));
 
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string patchDocument =
                 "[{\"op\":\"replace\",\"path\":\"" + propertyName + "\",\"value\":\"" + value + "\"}]";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(
                 response.Resource,
                 patchDocument));
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string patchDocument =
                 "[{\"op\":\"replace\",\"path\":\"" + propertyName + "\",\"value\":\"" + value + "\"}]";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(
                 response.Resource,
                 patchDocument));
 
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string patchDocument =
                 "[{\"op\":\"add\",\"path\":\"/deceasedDateTime\",\"value\":\"2015-02-14T13:42:00+10:00\"}]";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(
                 poco,
                 patchDocument));
 
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string patchDocument =
                 "[{\"op\":\"add\",\"path\":\"/deceasedDateTime\",\"value\":\"2015-02-14T13:42:00+10:00\"}]";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(
                 response.Resource,
                 patchDocument));
 
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string patchDocument =
                 "[{\"op\":\"add\",\"path\":\"/deceasedDateTime\",\"value\":\"2015-02-14T13:42:00+10:00\"}]";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(
                 response.Resource,
                 patchDocument,
                 "5"));
@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string patchDocument =
                 "[{\"op\":\"add\",\"path\":\"/deceasedDateTime\",\"value\":\"2015-02-14T13:42:00+10:00\"}]";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(
                 response.Resource,
                 patchDocument));
 
@@ -297,7 +297,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string patchDocument =
                 "[{\"op\":\"test\",\"path\":\"/deceasedBoolean\",\"value\": true}, {\"op\":\"replace\",\"path\":\"/deceasedBoolean\",\"value\":\"false\"}]";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(
                 response.Resource,
                 patchDocument));
 
@@ -380,14 +380,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "[{\"op\":\"add\",\"path\":\"/approvalDate\",\"value\":\"" + dateTimeString + "\"}]";
 
             // DateTime without offset
-            await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(response.Resource, patchDocument));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(response.Resource, patchDocument));
 
             string dateTimeOffsetString = "2022-05-02T14:00:00+02:00";
             patchDocument =
                 "[{\"op\":\"add\",\"path\":\"/approvalDate\",\"value\":\"" + dateTimeOffsetString + "\"}]";
 
             // DateTime with offset
-            await Assert.ThrowsAsync<FhirException>(() => _client.JsonPatchAsync(response.Resource, patchDocument));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.JsonPatchAsync(response.Resource, patchDocument));
         }
     }
 }

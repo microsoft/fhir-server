@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit

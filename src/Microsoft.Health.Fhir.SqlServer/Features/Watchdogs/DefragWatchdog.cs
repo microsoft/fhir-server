@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
+            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var job = await GetCoordinatorJobAsync(cancellationToken);
 
             if (job.jobId == -1)
@@ -78,7 +79,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger.LogInformation("Group={GroupId} Job={JobId}: ActiveDefragItems={ActiveDefragItems}, executing...", job.groupId, job.jobId, job.activeDefragItems);
 
             using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-            await scopedQueueClient.Value.ExecuteJobWithHeartbeatAsync(
+            await JobHosting.ExecuteJobWithHeartbeatsAsync(
+                scopedQueueClient.Value,
                 QueueType,
                 job.jobId,
                 job.version,
@@ -86,11 +88,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 {
                     try
                     {
-                        var newDefragItems = await InitDefragAsync(job.groupId, cancellationSource);
+                        var newDefragItems = await InitDefragAsync(job.groupId, cancellationSource.Token);
                         _logger.LogInformation("Group={GroupId} Job={JobId}: NewDefragItems={NewDefragItems}.", job.groupId, job.jobId, newDefragItems);
                         if (job.activeDefragItems > 0 || newDefragItems > 0)
                         {
-                            await ChangeDatabaseSettingsAsync(false, cancellationSource);
+                            await ChangeDatabaseSettingsAsync(false, cancellationSource.Token);
 
                             var tasks = new List<Task>();
                             for (var thread = 0; thread < _threads; thread++)
@@ -99,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                             }
 
                             await Task.WhenAll(tasks);
-                            await ChangeDatabaseSettingsAsync(true, cancellationSource);
+                            await ChangeDatabaseSettingsAsync(true, cancellationSource.Token);
 
                             _logger.LogInformation("Group={GroupId} Job={JobId}: All ParallelTasks={ParallelTasks} tasks completed.", job.groupId, job.jobId, tasks.Count);
                         }
@@ -107,6 +109,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                         {
                             _logger.LogInformation("Group={GroupId} Job={JobId}: No defrag items found.", job.groupId, job.jobId);
                         }
+
+                        return null;
                     }
                     catch (Exception e)
                     {
@@ -115,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     }
                 },
                 TimeSpan.FromSeconds(_heartbeatPeriodSec),
-                cancellationToken);
+                cancellationTokenSource);
 
             await CompleteJobAsync(job.jobId, job.version, false, cancellationToken);
         }
@@ -131,11 +135,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger.LogInformation("ChangeDatabaseSettings: {IsOn}.", isOn);
         }
 
-        private async Task ExecDefragWithHeartbeatAsync(CancellationToken cancellationToken)
+        private async Task ExecDefragWithHeartbeatAsync(CancellationTokenSource cancellationTokenSource)
         {
             while (true)
             {
-                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId: null, cancellationToken);
+                (long groupId, long jobId, long version, string definition) job = await DequeueJobAsync(jobId: null, cancellationTokenSource.Token);
 
                 long jobId = job.jobId;
 
@@ -145,19 +149,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 }
 
                 using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-                await scopedQueueClient.Value.ExecuteJobWithHeartbeatAsync(
+                await JobHosting.ExecuteJobWithHeartbeatsAsync(
+                    scopedQueueClient.Value,
                     QueueType,
                     jobId,
                     job.version,
                     async cancellationSource =>
                     {
                         var split = job.definition.Split(";");
-                        await DefragAsync(split[0], split[1], int.Parse(split[2]), byte.Parse(split[3]) == 1, cancellationSource);
+                        await DefragAsync(split[0], split[1], int.Parse(split[2]), byte.Parse(split[3]) == 1, cancellationSource.Token);
+                        return await Task.FromResult((string)null);
                     },
                     TimeSpan.FromSeconds(_heartbeatPeriodSec),
-                    cancellationToken);
+                    cancellationTokenSource);
 
-                await CompleteJobAsync(jobId, job.version, false, cancellationToken);
+                await CompleteJobAsync(jobId, job.version, false, cancellationTokenSource.Token);
             }
         }
 

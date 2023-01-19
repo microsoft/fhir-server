@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 SearchParamTableExpression tableExpression = expression.SearchParamTableExpressions[i];
 
                 // process only normalized predicates. Ignore Sort as it has its own visitor.
-                if (tableExpression.Kind != SearchParamTableExpressionKind.Sort && tableExpression.Predicate?.AcceptVisitor(Scout.Instance, context) == true)
+                if (tableExpression.Kind != SearchParamTableExpressionKind.Chain && tableExpression.Kind != SearchParamTableExpressionKind.Sort && tableExpression.Predicate?.AcceptVisitor(Scout.Instance, context) == true)
                 {
                     EnsureAllocatedAndPopulated(ref newTableExpressions, expression.SearchParamTableExpressions, i);
 

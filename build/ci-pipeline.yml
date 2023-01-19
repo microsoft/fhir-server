@@ -31,24 +31,35 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows
+  - job: Windows_dotnet7
     pool:
       vmImage: $(WindowsVmImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
-        packageIntegrationTests: true
-
-  - job: Linux
+        targetBuildFramework: $(defaultBuildFramework)
+        unitTest: false
+        codeCoverage: true
+  - job: Linux_dotnet6
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
       parameters:
-        codeCoverage: true
+        targetBuildFramework: 'net6.0'
+  - job: Linux_BuildAndPackage
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        codeCoverage: false
+        unitTest: false
         componentGovernance: true
         packageArtifacts: true
+        packageIntegrationTests: true
 
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis'

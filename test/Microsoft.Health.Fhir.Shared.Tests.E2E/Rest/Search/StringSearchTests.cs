@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,6 +6,9 @@
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
+using IdentityServer4.Models;
+using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -22,6 +25,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public StringSearchTests(StringSearchTestFixture fixture)
             : base(fixture)
         {
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenChainedSearchQuery_WhenSearchedWithEqualsAndContains_ThenCorrectBundleShouldBeReturned()
+        {
+            var requestBundle = Samples.GetJsonSample("SearchDataBatch").ToPoco<Bundle>();
+            using FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle);
+            Assert.NotNull(fhirResponse);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+            string queryEquals = "_total=accurate&general-practitioner:Practitioner.name=Sarah&general-practitioner:Practitioner.address-state=Wa";
+            string queryContains = "_total=accurate&general-practitioner:Practitioner.name=Sarah&general-practitioner:Practitioner.address-state:contains=Wa";
+
+            Bundle bundleEquals = await Client.SearchAsync(ResourceType.Patient, queryEquals);
+            Bundle bundleContains = await Client.SearchAsync(ResourceType.Patient, queryContains);
+
+            Assert.NotNull(bundleEquals);
+            Assert.NotNull(bundleContains);
+            Assert.True(bundleEquals.Total <= bundleContains.Total);
+            Assert.True(bundleEquals.Total > 0 && bundleContains.Total > 0);
         }
 
         /// <summary>
@@ -41,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 await Client.PostAsync("Patient/$member-match", body, CancellationToken.None);
             }
-            catch (Microsoft.Health.Fhir.Client.FhirException ex)
+            catch (Microsoft.Health.Fhir.Client.FhirClientException ex)
             {
                 httpStatusCode = ex.StatusCode;
             }

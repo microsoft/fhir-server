@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
+        ///   Looks up a localized string similar to Conditional operation on {0} was not attempted because search criteria was not selective enough..
         /// </summary>
         internal static string ConditionalOperationNotSelectiveEnough {
             get {
@@ -1574,7 +1574,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}&apos; for validation: {1}.
+        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}/{1}&apos; for validation: {2}.
         /// </summary>
         internal static string USCoreDeserializationError {
             get {

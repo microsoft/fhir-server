@@ -1,12 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>Microsoft.Health.Fhir.Api</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants>R4;R4B</DefineConstants>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />

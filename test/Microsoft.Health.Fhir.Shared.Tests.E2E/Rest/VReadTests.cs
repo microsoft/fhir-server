@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenANonExistingIdAndVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.VReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString(), Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.VReadAsync<Observation>(ResourceType.Observation, createdResource.Id, Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var deletedVersion = WeakETag.FromWeakETag(deleteResponse.Headers.ETag.ToString()).VersionId;
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
                 () => _client.VReadAsync<Observation>(ResourceType.Observation, createdResource.Id, deletedVersion));
 
             Assert.Equal(System.Net.HttpStatusCode.Gone, ex.StatusCode);

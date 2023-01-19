@@ -60,10 +60,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
-            Assert.True(jobCount == executedJobCount);
+            Assert.Equal(jobCount, executedJobCount);
             foreach (JobInfo job in jobs)
             {
                 Assert.Equal(JobStatus.Completed, job.Status);
@@ -117,7 +117,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(1));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.Equal(2, executeCount);
 
@@ -150,12 +150,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.MaxRunningJobCount = 1;
-            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 2;
+            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.Equal(JobStatus.Completed, job1.Status);
             Assert.Equal(1, executeCount0);
@@ -173,7 +173,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         async (progress, token) =>
                         {
                             autoResetEvent.Set();
-                            await Task.Delay(TimeSpan.FromSeconds(10), token);
+                            await Task.Delay(TimeSpan.FromSeconds(1), token);
                             Interlocked.Increment(ref executeCount0);
 
                             return t.Definition;
@@ -185,11 +185,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.MaxRunningJobCount = 1;
-            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 2;
+            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            Task hostingTask = jobHosting.StartAsync(0, "test", tokenSource);
+            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource);
             autoResetEvent.WaitOne();
             tokenSource.Cancel();
 
@@ -225,12 +225,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.MaxRunningJobCount = 1;
-            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 2;
+            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             Assert.Equal(JobStatus.Completed, job1.Status);
             Assert.Equal(2, executeCount0);
@@ -261,11 +261,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
+            jobHosting.JobHeartbeatIntervalInSeconds = 1;
             jobHosting.MaxRunningJobCount = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            Task hostingTask = jobHosting.StartAsync(0, "test", tokenSource);
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource);
 
             autoResetEvent.WaitOne();
             await queueClient.CancelJobByGroupIdAsync(0, job1.GroupId, CancellationToken.None);
@@ -278,17 +279,16 @@ namespace Microsoft.Health.JobManagement.UnitTests
         [Fact]
         public async Task GivenJobRunning_WhenUpdateCurrentResult_ThenCurrentResultShouldBePersisted()
         {
-            AutoResetEvent autoResetEvent1 = new AutoResetEvent(false);
-            AutoResetEvent autoResetEvent2 = new AutoResetEvent(false);
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
             TestJobFactory factory = new TestJobFactory(t =>
             {
                 return new TestJob(
                         async (progress, token) =>
                         {
                             progress.Report("Progress");
-                            await Task.Delay(TimeSpan.FromSeconds(2));
-                            autoResetEvent1.Set();
                             await Task.Delay(TimeSpan.FromSeconds(1));
+                            autoResetEvent.Set();
+                            await Task.Delay(TimeSpan.FromSeconds(0.5));
 
                             return t.Definition;
                         });
@@ -303,10 +303,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
             jobHosting.JobHeartbeatIntervalInSeconds = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            Task hostingTask = jobHosting.StartAsync(0, "test", tokenSource);
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource, true);
 
-            autoResetEvent1.WaitOne();
+            autoResetEvent.WaitOne();
             Assert.Equal("Progress", job1.Result);
 
             await hostingTask;
@@ -317,54 +317,87 @@ namespace Microsoft.Health.JobManagement.UnitTests
         [Fact]
         public async Task GivenRandomFailuresInQueueClient_WhenStartHosting_ThenAllTasksShouldBeCompleted()
         {
-            TestJobFactory factory = new TestJobFactory(t =>
+            var factory = new TestJobFactory(t =>
             {
                 return new TestJob(
                         async (progress, token) =>
                         {
-                            await Task.Delay(TimeSpan.FromMilliseconds(10));
+                            await Task.Delay(TimeSpan.FromSeconds(0.01));
                             return t.Definition;
                         });
             });
 
-            TestQueueClient queueClient = new TestQueueClient();
-            int randomNumber = 0;
-            int errorNumber = 0;
-            Action faultAction = () =>
+            var queueClient = new TestQueueClient();
+            var randomNumber = 0;
+            var completeErrorNumber = 0;
+            Action completeFaultAction = () =>
             {
-                Interlocked.Increment(ref randomNumber);
-
-                if (randomNumber % 2 == 0)
+                if (Interlocked.Increment(ref randomNumber) % 3 == 0)
                 {
-                    Interlocked.Increment(ref errorNumber);
+                    Interlocked.Increment(ref completeErrorNumber);
+                    Task.Delay(TimeSpan.FromSeconds(0.001)).Wait();
                     throw new InvalidOperationException();
                 }
             };
 
-            queueClient.CompleteFaultAction = faultAction;
-            queueClient.DequeueFaultAction = faultAction;
-            queueClient.HeartbeatFaultAction = faultAction;
+            var dequeueErrorNumber = 0;
+            Action dequeueFaultAction = () =>
+            {
+                if (Interlocked.Increment(ref randomNumber) % 3 == 0)
+                {
+                    Interlocked.Increment(ref dequeueErrorNumber);
+                    Task.Delay(TimeSpan.FromSeconds(0.001)).Wait();
+                    throw new InvalidOperationException();
+                }
+            };
 
-            List<string> definitions = new List<string>();
-            for (int i = 0; i < 100; ++i)
+            var heartbeatErrorNumber = 0;
+            Action heartbeatFaultAction = () =>
+            {
+                if (Interlocked.Increment(ref randomNumber) % 3 == 0)
+                {
+                    Interlocked.Increment(ref heartbeatErrorNumber);
+                    Task.Delay(TimeSpan.FromSeconds(0.001)).Wait();
+                    throw new InvalidOperationException();
+                }
+            };
+
+            queueClient.CompleteFaultAction = completeFaultAction;
+            queueClient.DequeueFaultAction = dequeueFaultAction;
+            queueClient.HeartbeatFaultAction = heartbeatFaultAction;
+
+            var definitions = new List<string>();
+            var numberOfJobs = 50;
+            for (var i = 0; i < numberOfJobs; ++i)
             {
                 definitions.Add(i.ToString());
             }
 
             var jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
+            Assert.Equal(numberOfJobs, jobs.Count);
+            Assert.True(jobs.All(t => t.Status == JobStatus.Created));
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            var jobHosting = new JobHosting(queueClient, factory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
-            jobHosting.MaxRunningJobCount = 50;
-            jobHosting.JobHeartbeatIntervalInSeconds = 1;
-            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 2;
+            jobHosting.MaxRunningJobCount = 10;
+            jobHosting.JobHeartbeatIntervalInSeconds = 0.001;
+            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await jobHosting.StartAsync(0, "test", tokenSource);
+            var tokenSource = new CancellationTokenSource();
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(60));
+            var host = Task.Run(async () => await jobHosting.ExecuteAsync(0, "test", tokenSource));
+            while (jobs.Where(t => t.Status == JobStatus.Completed).Count() < numberOfJobs && !tokenSource.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
 
-            Assert.True(jobs.All(t => t.Status == JobStatus.Completed));
-            Assert.True(errorNumber > 0);
+            tokenSource.Cancel();
+            host.Wait();
+
+            Assert.Equal(numberOfJobs, jobs.Where(t => t.Status == JobStatus.Completed).Count());
+            Assert.True(completeErrorNumber > 5, $"completeErrorNumber={completeErrorNumber} > 5");
+            Assert.True(dequeueErrorNumber > 5, $"dequeueErrorNumber={dequeueErrorNumber} > 5");
+            Assert.True(heartbeatErrorNumber > 5, $"heartbeatErrorNumber={heartbeatErrorNumber} > 5");
         }
     }
 }

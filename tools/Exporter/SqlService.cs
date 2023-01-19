@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
-    internal class SqlService
+    internal sealed class SqlService
     {
         private string _connectionString;
         private byte _queueType = (byte)QueueType.Export;

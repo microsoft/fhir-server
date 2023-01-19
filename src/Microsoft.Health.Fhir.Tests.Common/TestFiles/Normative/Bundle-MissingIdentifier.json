@@ -1,0 +1,20 @@
+﻿{
+    "resourceType": "Bundle",
+    "id": "bundle-batch",
+    "meta": {
+        "lastUpdated": "2014-08-18T01:43:30Z"
+    },
+    "type": "batch",
+    "entry": [
+        {
+            "fullUrl": "urn:uuid:",
+            "resource": {
+                "resourceType": "Location"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Location/"
+            }
+        }
+    ]
+}

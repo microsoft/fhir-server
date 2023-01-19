@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAnObservation_WithInvalidDecimalSpecification_ThenBadRequestShouldBeReturned()
         {
             var resource = Samples.GetJsonSample<Observation>("ObservationWithInvalidDecimalSpecification");
-            using FhirException exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(resource));
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(resource));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAResourceThatWasRenamed_WhenSearched_ThenExceptionShouldBeThrown()
         {
-            using FhirException exception = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("Sequence"));
+            using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.SearchAsync("Sequence"));
 
             Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
         }

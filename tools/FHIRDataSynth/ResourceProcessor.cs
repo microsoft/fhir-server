@@ -121,9 +121,9 @@ namespace ResourceProcessorNamespace
                             {
                                 totals.Add(key, task.Result[key]);
                             }
-                            else if (task.Result.ContainsKey(key))
+                            else if (task.Result.TryGetValue(key, out ResourceGroupProcessor.ResourcesResult value))
                             {
-                                totals[key].Add(task.Result[key]);
+                                value.Add(task.Result[key]);
                             }
                         }
                     }

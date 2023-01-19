@@ -274,18 +274,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task PublishNotification(Hl7.Fhir.Model.Bundle responseBundle, BundleType bundleType)
         {
-            var apiCallResults = new Dictionary<string, int>();
+            var apiCallResults = new Dictionary<string, List<BundleSubCallMetricData>>();
             foreach (var entry in responseBundle.Entry)
             {
                 var status = entry.Response.Status;
-                if (apiCallResults.ContainsKey(status))
+                if (!apiCallResults.TryGetValue(status, out List<BundleSubCallMetricData> val))
                 {
-                    apiCallResults[status]++;
+                    apiCallResults[status] = new List<BundleSubCallMetricData>();
                 }
-                else
+
+                apiCallResults[status].Add(new BundleSubCallMetricData()
                 {
-                    apiCallResults[status] = 1;
-                }
+                    FhirOperation = "Bundle Sub Call",
+                    ResourceType = entry?.Resource?.TypeName,
+                });
             }
 
             await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction), CancellationToken.None);
@@ -609,9 +611,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             Dictionary<string, int> statistics = new Dictionary<string, int>();
             foreach (EntryComponent entryComponent in responseBundle.Entry)
             {
-                if (statistics.ContainsKey(entryComponent.Response.Status))
+                if (statistics.TryGetValue(entryComponent.Response.Status, out int numberOfRequests))
                 {
-                    statistics[entryComponent.Response.Status]++;
+                    statistics[entryComponent.Response.Status] = numberOfRequests + 1;
                 }
                 else
                 {
