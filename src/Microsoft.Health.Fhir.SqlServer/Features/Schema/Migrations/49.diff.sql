@@ -1,6 +1,9 @@
 ﻿IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenTokenCompositeSearchParam_IsHistory')
 ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CONSTRAINT DF_TokenTokenCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
 GO
+IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_StringSearchParam_IsHistory')
+ALTER TABLE dbo.StringSearchParam ADD CONSTRAINT DF_StringSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+GO
 IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_TokenText_IsHistory')
 ALTER TABLE dbo.TokenText ADD CONSTRAINT DF_TokenText_IsHistory DEFAULT 0 FOR IsHistory
 GO
