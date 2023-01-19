@@ -607,9 +607,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             Dictionary<string, int> statistics = new Dictionary<string, int>();
             foreach (EntryComponent entryComponent in responseBundle.Entry)
             {
-                if (statistics.ContainsKey(entryComponent.Response.Status))
+                if (statistics.TryGetValue(entryComponent.Response.Status, out int numberOfRequests))
                 {
-                    statistics[entryComponent.Response.Status]++;
+                    statistics[entryComponent.Response.Status] = numberOfRequests + 1;
                 }
                 else
                 {
