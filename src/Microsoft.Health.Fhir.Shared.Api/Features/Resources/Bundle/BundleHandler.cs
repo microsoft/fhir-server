@@ -545,12 +545,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // This method runs in parallel requests extracted from bundles.
             // It uses Parallel.ForEachAsync as an optimization, given that Parallel.ForEachAsync has a better parallel Task management then handling Tasks manually.
 
-            IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
-            IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext;
-            RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
-            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
-            ResourceIdProvider resourceIdProvider = _resourceIdProvider;
-            FhirJsonParser fhirJsonParser = _fhirJsonParser;
+            IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping; // Safe
+            IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext; // Modified
+            RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor; // Safe
+            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor; // Modified
+            FhirJsonParser fhirJsonParser = _fhirJsonParser; // Safe
 
             if (_requests[httpVerb].Any())
             {
@@ -573,6 +572,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
 
                     _logger.LogTrace("BundleHandler - Running request #{RequestNumber} out of {TotalNumberOfRequests}.", state.Item2, totalNumberOfRequests);
+
+                    // FHIBF - ResourceIdProvider is modified by HandleRequestAsync.
+                    // I've decided creating one new instance of ResourceIdProvider per record, giving that it can cause internal conflicts due the parallel access from multiple threads.
+                    // The single instance would make it thread safe.
+                    ResourceIdProvider resourceIdProvider = new ResourceIdProvider();
 
                     await HandleRequestAsync(
                         responseBundle,
