@@ -277,6 +277,55 @@ namespace Microsoft.Health.JobManagement.UnitTests
         }
 
         [Fact]
+        public async Task GivenJobRunning_WhenLongTimeHasPassed_ThenResultsShouldBeRecorded()
+        {
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
+            TestQueueClient queueClient = new TestQueueClient();
+            List<string> definitions = new List<string>
+            {
+                "1",
+            };
+
+            IEnumerable<JobInfo> jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
+            JobInfo job = jobs.FirstOrDefault();
+
+            var heavyHeartbeat = "Test result";
+            TestJobFactory factory = new TestJobFactory(t =>
+            {
+                return new TestJob(
+                    async (progress, cancellationToken) =>
+                    {
+                        progress.Report(heavyHeartbeat);
+                        await Task.Delay(TimeSpan.FromSeconds(1));
+                        autoResetEvent.Set();
+                        await Task.Delay(TimeSpan.FromMilliseconds(500));
+                        return t.Definition;
+                    });
+            });
+
+            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            jobHosting.PollingFrequencyInSeconds = 0;
+            jobHosting.MaxRunningJobCount = 1;
+            jobHosting.JobHeartbeatIntervalInSeconds = 0.1;
+            jobHosting.JobHeavyHeartbeatIntervalInSeconds = 0.4;
+
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+
+            Task runningJob = jobHosting.ExecuteAsync(0, "test", tokenSource);
+
+            autoResetEvent.WaitOne();
+
+            Assert.Equal(JobStatus.Running, job.Status);
+            Assert.Equal(heavyHeartbeat, queueClient.JobInfos.FirstOrDefault().Result);
+
+            await runningJob;
+
+            Assert.Equal(JobStatus.Completed, job.Status);
+            Assert.Equal(job.Definition, queueClient.JobInfos.FirstOrDefault().Result);
+        }
+
+        [Fact]
         public async Task GivenJobRunning_WhenUpdateCurrentResult_ThenCurrentResultShouldBePersisted()
         {
             AutoResetEvent autoResetEvent = new AutoResetEvent(false);

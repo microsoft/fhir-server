@@ -117,7 +117,10 @@ namespace Microsoft.Health.JobManagement
                     jobCancellationToken.Cancel();
                 }
 
-                var progress = new Progress<string>((result) => { jobInfo.Result = result; });
+                var progress = new Progress<string>((result) =>
+                {
+                    jobInfo.Result = result;
+                });
 
                 var runningJob = useHeavyHeartbeats
                                ? ExecuteJobWithHeavyHeartbeatsAsync(
@@ -200,6 +203,7 @@ namespace Microsoft.Health.JobManagement
         public static async Task<string> ExecuteJobWithHeartbeatsAsync(IQueueClient queueClient, JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, TimeSpan heavyHeartbeatPeriod, CancellationTokenSource cancellationTokenSource)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(action, nameof(action));
 
             var heavyHeartbeatInterval = heavyHeartbeatPeriod / heartbeatPeriod;

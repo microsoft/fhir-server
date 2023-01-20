@@ -197,7 +197,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 }
 
                 job.HeartbeatDateTime = DateTime.Now;
-                job.Result = jobInfo.Result;
+
+                if (jobInfo.Result != null)
+                {
+                    job.Result = jobInfo.Result;
+                }
 
                 cancel = job.CancelRequested;
             }
