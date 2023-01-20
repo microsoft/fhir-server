@@ -34,6 +34,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 overflow = null;
             }
 
+            // There are 2 rows created: one with input values as-is to save in store, and other with lower case values for deduplication.
+            // As-is one is needed to support "exact" match in store even though columns are conflated as case insensitive
+            // Lower case one is needed to dedup in code using default comparers.
+            // Same logic is used in other similar cases.
             row = new StringSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, indexedPrefix, overflow, IsMin: searchValue.IsMin, IsMax: searchValue.IsMax);
             return results == null || results.Add(new StringSearchParamListRow(resourceTypeId, resourceSurrogateId, searchParamId, indexedPrefix?.ToLowerInvariant(), overflow?.ToLowerInvariant(), IsMin: searchValue.IsMin, IsMax: searchValue.IsMax));
         }
