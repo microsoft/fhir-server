@@ -90,8 +90,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<bool> MergeAsync(IReadOnlyList<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
+            // for perf testing assume that all resources are new
+            ////var existingResources = await GetAsync(resources.Select(_ => _.ToResourceKey()), cancellationToken);
+            var minSurrId = (await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken)).MinResourceSurrogateId;
+            var index = 0;
+            var mergeWrappers = new List<MergeResourceWrapper>();
+            foreach (var resource in resources)
+            {
+                var surrId = minSurrId + index;
+                resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                ReplaceVersionIdAndLastUpdatedInMeta(resource);
+                mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, true, true));
+                index++;
+            }
+
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateNonRetrySqlCommand();
+            VLatest.MergeResources.PopulateCommand(
+                cmd,
+                AffectedRows: 0,
+                RaiseExceptionOnConflict: true,
+                IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
+                tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+
             return await Task.FromResult(true);
         }
 
@@ -282,18 +304,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
-            if (_schemaInformation.Current < SchemaVersionConstants.Merge)
-            {
-                throw new NotSupportedException($"Current schema version = {_schemaInformation.Current} < {SchemaVersionConstants.Merge}");
-            }
-
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateRetrySqlCommand();
             VLatest.GetResources.PopulateCommand(cmd, keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id)));
 
             using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             var resources = new List<ResourceWrapper>();
-            while (reader.Read())
+            while (await reader.ReadAsync(cancellationToken))
             {
                 var resourceTable = VLatest.Resource;
                 (short resourceTypeId, string resourceId, long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream, bool isRawResourceMetaSet, string searchParamHash) =
@@ -332,6 +349,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 resources.Add(resource);
             }
+
+            await reader.NextResultAsync(cancellationToken);
 
             return resources;
         }
