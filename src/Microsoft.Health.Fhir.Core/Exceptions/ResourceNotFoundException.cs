@@ -4,24 +4,25 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Diagnostics;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
     public class ResourceNotFoundException : FhirException
     {
-        public ResourceNotFoundException(string message, bool groupNotFound = false)
+        public ResourceNotFoundException(string message, ResourceKey resourceKey = null)
             : base(message)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
 
-            GroupNotFound = groupNotFound;
+            ResourceKey = resourceKey;
             Issues.Add(new OperationOutcomeIssue(
-                    GroupNotFound ? OperationOutcomeConstants.IssueSeverity.Information : OperationOutcomeConstants.IssueSeverity.Error,
+                    ResourceKey.ResourceType == "Group" ? OperationOutcomeConstants.IssueSeverity.Information : OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.NotFound,
                     message));
         }
 
-        public bool GroupNotFound { get; init; } // Special case for group not found, will be turned into info log in the action filter.
+        public ResourceKey ResourceKey { get; init; }
     }
 }

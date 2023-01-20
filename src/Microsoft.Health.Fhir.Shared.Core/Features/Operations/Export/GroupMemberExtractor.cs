@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (groupResource == null)
             {
-                throw new ResourceNotFoundException($"Group {groupId} was not found.", true);
+                throw new ResourceNotFoundException($"Group {groupId} was not found.", new ResourceKey("Group", groupId));
             }
 
             var group = _resourceDeserializer.Deserialize(groupResource);
