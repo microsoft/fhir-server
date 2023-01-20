@@ -125,6 +125,10 @@ CREATE TYPE dbo.ResourceIdForChangesList AS TABLE (
     Version        INT          NOT NULL,
     IsDeleted      BIT          NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
 
+CREATE TYPE dbo.ResourceKeyList AS TABLE (
+    ResourceTypeId SMALLINT     NOT NULL,
+    ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
+
 CREATE TYPE dbo.ResourceList AS TABLE (
     ResourceTypeId       SMALLINT        NOT NULL,
     ResourceSurrogateId  BIGINT          NOT NULL,
@@ -3346,6 +3350,40 @@ FROM   dbo.ReindexJob
 WHERE  Id = @id;
 
 GO
+CREATE PROCEDURE dbo.GetResources
+@ResourceKeys dbo.ResourceKeyList READONLY
+AS
+SET NOCOUNT ON;
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResources', @InputRows AS INT = (SELECT count(*)
+                                                                                                    FROM   @ResourceKeys);
+DECLARE @Mode AS VARCHAR (100) = 'Input=' + CONVERT (VARCHAR, @InputRows);
+BEGIN TRY
+    SELECT ResourceTypeId,
+           ResourceId,
+           ResourceSurrogateId,
+           Version,
+           IsDeleted,
+           IsHistory,
+           RawResource,
+           IsRawResourceMetaSet,
+           SearchParamHash
+    FROM   dbo.Resource AS A
+    WHERE  EXISTS (SELECT TOP (@DummyTop) *
+                   FROM   @ResourceKeys AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceId = A.ResourceId)
+           AND IsHistory = 0
+    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
 @ResourceTypeId SMALLINT, @StartId BIGINT, @EndId BIGINT, @GlobalStartId BIGINT=NULL, @GlobalEndId BIGINT=NULL
 AS
@@ -3775,8 +3813,8 @@ CREATE PROCEDURE dbo.MergeResources
 @AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @CompartmentAssignments dbo.CompartmentAssignmentList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'MergeResources', @MaxSequence AS BIGINT, @SurrBase AS BIGINT, @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @InputRows AS INT = (SELECT count(*)
-                                                                                                                                                                                                                                      FROM   @Resources);
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'MergeResources', @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @InputRows AS INT = (SELECT count(*)
+                                                                                                                                                                                         FROM   @Resources);
 SET @AffectedRows = 0;
 DECLARE @Mode AS VARCHAR (100) = 'Input=' + CONVERT (VARCHAR, @InputRows) + ' TR=' + CONVERT (VARCHAR, @InitialTranCount) + ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled);
 BEGIN TRY

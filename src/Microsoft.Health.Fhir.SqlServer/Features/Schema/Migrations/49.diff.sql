@@ -43,6 +43,15 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_UriSearchParam_IsHistory')
 ALTER TABLE dbo.UriSearchParam ADD CONSTRAINT DF_UriSearchParam_IsHistory DEFAULT 0 FOR IsHistory
 GO
+IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceKeyList')
+CREATE TYPE dbo.ResourceKeyList AS TABLE
+(
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceId           varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
+
+    PRIMARY KEY (ResourceTypeId, ResourceId)
+)
+GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'UriSearchParamList')
 CREATE TYPE dbo.UriSearchParamList AS TABLE
 (
@@ -359,8 +368,6 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'MergeResources'
-       ,@MaxSequence bigint
-       ,@SurrBase bigint
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@InputRows int = (SELECT count(*) FROM @Resources)
@@ -580,6 +587,41 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
   IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+
+--DROP PROCEDURE dbo.GetResources
+GO
+CREATE OR ALTER PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY
+AS
+set nocount on
+DECLARE @st datetime = getUTCdate()
+       ,@SP varchar(100) = 'GetResources'
+       ,@InputRows int = (SELECT count(*) FROM @ResourceKeys)
+
+DECLARE @Mode varchar(100) = 'Input='+convert(varchar,@InputRows)
+
+BEGIN TRY
+  SELECT ResourceTypeId
+        ,ResourceId
+        ,ResourceSurrogateId
+        ,Version
+        ,IsDeleted
+        ,IsHistory
+        ,RawResource
+        ,IsRawResourceMetaSet
+        ,SearchParamHash
+    FROM dbo.Resource A
+    WHERE EXISTS (SELECT TOP (@DummyTop) * FROM @ResourceKeys B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId)
+      AND IsHistory = 0
+    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+END TRY
+BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW

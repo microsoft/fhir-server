@@ -29,8 +29,6 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'MergeResources'
-       ,@MaxSequence bigint
-       ,@SurrBase bigint
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@InputRows int = (SELECT count(*) FROM @Resources)
