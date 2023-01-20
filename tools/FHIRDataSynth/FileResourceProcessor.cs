@@ -11,7 +11,7 @@ using ResourceProcessorNamespace;
 
 namespace FHIRDataSynth
 {
-    internal class FileResourceProcessor : ResourceProcessor
+    internal sealed class FileResourceProcessor : ResourceProcessor
     {
         private const string OutputBlobContainerNamePrefix = "blend-";
         private readonly string storePath;

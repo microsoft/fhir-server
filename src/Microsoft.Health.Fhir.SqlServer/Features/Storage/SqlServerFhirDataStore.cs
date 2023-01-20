@@ -44,15 +44,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly V6.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV6;
-        private readonly V7.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV7;
-        private readonly V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV13;
-        private readonly V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV17;
-        private readonly V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV18;
-        private readonly V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV27;
-        private readonly V40.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV40;
-        private readonly V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorV17;
-        private readonly V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorV17;
         private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
         private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
         private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
@@ -67,17 +58,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            V6.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV6,
-            V7.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV7,
-            V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV13,
-            V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV17,
-            V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV18,
-            V27.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV27,
-            V40.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV40,
             VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
-            V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorV17,
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
-            V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorV17,
             VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -89,17 +71,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            _upsertResourceTvpGeneratorV6 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV6, nameof(upsertResourceTvpGeneratorV6));
-            _upsertResourceTvpGeneratorV7 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV7, nameof(upsertResourceTvpGeneratorV7));
-            _upsertResourceTvpGeneratorV13 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV13, nameof(upsertResourceTvpGeneratorV13));
-            _upsertResourceTvpGeneratorV17 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV17, nameof(upsertResourceTvpGeneratorV17));
-            _upsertResourceTvpGeneratorV18 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV18, nameof(upsertResourceTvpGeneratorV18));
-            _upsertResourceTvpGeneratorV27 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV27, nameof(upsertResourceTvpGeneratorV27));
-            _upsertResourceTvpGeneratorV40 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV40, nameof(upsertResourceTvpGeneratorV40));
             _upsertResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
-            _reindexResourceTvpGeneratorV17 = EnsureArg.IsNotNull(reindexResourceTvpGeneratorV17, nameof(reindexResourceTvpGeneratorV17));
             _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
-            _bulkReindexResourcesTvpGeneratorV17 = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorV17, nameof(bulkReindexResourcesTvpGeneratorV17));
             _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
@@ -136,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // ** We must use CreateNonRetrySqlCommand here because the retry will not reset the Stream containing the RawResource, resulting in a failure to save the data
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand())
-                using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
+                using (var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(SqlServerFhirDataStore)))
                 {
                     // Read the latest resource
                     var existingResource = await GetAsync(new ResourceKey(resource.ResourceTypeName, resource.ResourceId), cancellationToken);
@@ -232,7 +205,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         throw new ServiceUnavailableException();
                     }
 
-                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
+                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
 
                     try
                     {
@@ -285,11 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void PopulateUpsertResourceCommand(
             SqlCommandWrapper sqlCommandWrapper,
             ResourceWrapper resource,
-            ResourceMetadata resourceMetadata,
-            bool allowCreate,
             bool keepHistory,
-            bool requireETagOnUpdate,
-            int? eTag,
             int? comparedVersion,
             RecyclableMemoryStream stream,
             bool isResourceChangeCaptureEnabled)
@@ -302,142 +271,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // statements, so GenerateRows() body is not really executed at this point and no rows are generated, only IEnumerable interface is returned.
             // This comment is put in here instead of in _upsertResourceTvpGeneratorV[Version].Generate() because
             // _upsertResourceTvpGeneratorV[Version].Generate() is autogenerated by a tool so we cannot put comment there.
-            if (_schemaInformation.Current >= SchemaVersionConstants.TokenOverflow)
-            {
-                VLatest.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: baseResourceSurrogateId,
-                    resourceTypeId: resourceTypeId,
-                    resourceId: resource.ResourceId,
-                    eTag: eTag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requireETagOnUpdate: requireETagOnUpdate,
-                    requestMethod: resource.Request.Method,
-                    searchParamHash: resource.SearchParameterHash,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
-                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled,
-                    comparedVersion: comparedVersion);
-            }
-            else if (_schemaInformation.Current >= SchemaVersionConstants.PreventUpdatesFromCreatingVersionWhenNoImpact)
-            {
-                V40.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: baseResourceSurrogateId,
-                    resourceTypeId: resourceTypeId,
-                    resourceId: resource.ResourceId,
-                    eTag: eTag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requireETagOnUpdate: requireETagOnUpdate,
-                    requestMethod: resource.Request.Method,
-                    searchParamHash: resource.SearchParameterHash,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV40.Generate(new List<ResourceWrapper> { resource }),
-                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled,
-                    comparedVersion: comparedVersion);
-            }
-            else if (_schemaInformation.Current >= SchemaVersionConstants.PutCreateWithVersionedUpdatePolicyVersion)
-            {
-                V27.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: baseResourceSurrogateId,
-                    resourceTypeId: resourceTypeId,
-                    resourceId: resource.ResourceId,
-                    eTag: eTag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requireETagOnUpdate: requireETagOnUpdate,
-                    requestMethod: resource.Request.Method,
-                    searchParamHash: resource.SearchParameterHash,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV27.Generate(new List<ResourceWrapper> { resource }),
-                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled);
-            }
-            else if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
-            {
-                V18.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: baseResourceSurrogateId,
-                    resourceTypeId: resourceTypeId,
-                    resourceId: resource.ResourceId,
-                    eTag: eTag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    searchParamHash: resource.SearchParameterHash,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV18.Generate(new List<ResourceWrapper> { resource }),
-                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled);
-            }
-            else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsResourceChangeCaptureSchemaVersion)
-            {
-                V17.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: baseResourceSurrogateId,
-                    resourceTypeId: resourceTypeId,
-                    resourceId: resource.ResourceId,
-                    eTag: eTag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    searchParamHash: resource.SearchParameterHash,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV17.Generate(new List<ResourceWrapper> { resource }),
-                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled);
-            }
-            else if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-            {
-                V13.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: baseResourceSurrogateId,
-                    resourceTypeId: resourceTypeId,
-                    resourceId: resource.ResourceId,
-                    eTag: eTag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    searchParamHash: resource.SearchParameterHash,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV13.Generate(new List<ResourceWrapper> { resource }));
-            }
-            else if (_schemaInformation.Current >= SchemaVersionConstants.SupportForReferencesWithMissingTypeVersion)
-            {
-                V7.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: baseResourceSurrogateId,
-                    resourceTypeId: resourceTypeId,
-                    resourceId: resource.ResourceId,
-                    eTag: eTag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV7.Generate(resourceMetadata));
-            }
-            else
-            {
-                V6.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: baseResourceSurrogateId,
-                    resourceTypeId: resourceTypeId,
-                    resourceId: resource.ResourceId,
-                    eTag: eTag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV6.Generate(resourceMetadata));
-            }
+            VLatest.UpsertResource.PopulateCommand(
+                sqlCommandWrapper,
+                baseResourceSurrogateId: baseResourceSurrogateId,
+                resourceTypeId: resourceTypeId,
+                resourceId: resource.ResourceId,
+                eTag: null, // not used in stored procedure
+                allowCreate: true, // not used in stored procedure
+                isDeleted: resource.IsDeleted,
+                keepHistory: keepHistory,
+                requireETagOnUpdate: true, // not used in stored procedure
+                requestMethod: resource.Request.Method,
+                searchParamHash: resource.SearchParameterHash,
+                rawResource: stream,
+                tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
+                isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled,
+                comparedVersion: comparedVersion);
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
@@ -549,64 +398,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
+                VLatest.BulkReindexResources.PopulateCommand(
+                    sqlCommandWrapper,
+                    _bulkReindexResourcesTvpGeneratorVLatest.Generate(resources.ToList()));
+
+                // We will reindex the rest of the batch if one resource has a versioning conflict
+                int? failedResourceCount;
+                try
                 {
-                    VLatest.BulkReindexResources.PopulateCommand(
-                        sqlCommandWrapper,
-                        _bulkReindexResourcesTvpGeneratorVLatest.Generate(resources.ToList()));
+                    failedResourceCount = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
                 }
-                else
+                catch (SqlException e)
                 {
-                    V17.BulkReindexResources.PopulateCommand(
-                        sqlCommandWrapper,
-                        _bulkReindexResourcesTvpGeneratorV17.Generate(resources.ToList()));
+                    _logger.LogError(e, "Error from SQL database on reindex.");
+                    throw;
                 }
 
-                if (_schemaInformation.Current >= SchemaVersionConstants.BulkReindexReturnsFailuresVersion)
+                if (failedResourceCount != 0)
                 {
-                    // We will reindex the rest of the batch if one resource has a versioning conflict
-                    int? failedResourceCount;
-                    try
-                    {
-                        failedResourceCount = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-                    }
-                    catch (SqlException e)
-                    {
-                        _logger.LogError(e, "Error from SQL database on reindex.");
-                        throw;
-                    }
-
-                    if (failedResourceCount != 0)
-                    {
-                        string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
-                        string userAction = Core.Resources.ReindexingUserAction;
-                        _logger.LogError("{Error}", message);
-                        throw new PreconditionFailedException(message + " " + userAction);
-                    }
-                }
-                else
-                {
-                    try
-                    {
-                        // We are running an earlier schema version where we will fail the whole batch if there is a conflict
-                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    }
-                    catch (SqlException e)
-                    {
-                        switch (e.Number)
-                        {
-                            case SqlErrorCodes.PreconditionFailed:
-                                string message = Core.Resources.ReindexingResourceVersionConflict;
-                                string userAction = Core.Resources.ReindexingUserAction;
-
-                                _logger.LogError("{Error}", message);
-                                throw new PreconditionFailedException(message + " " + userAction);
-
-                            default:
-                                _logger.LogError(e, "Error from SQL database on reindex.");
-                                throw;
-                        }
-                    }
+                    string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
+                    string userAction = Core.Resources.ReindexingUserAction;
+                    _logger.LogError("{Error}", message);
+                    throw new PreconditionFailedException(message + " " + userAction);
                 }
             }
         }
@@ -665,26 +478,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
-                {
-                    VLatest.ReindexResource.PopulateCommand(
-                        sqlCommandWrapper,
-                        resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                        resourceId: resource.ResourceId,
-                        eTag,
-                        searchParamHash: resource.SearchParameterHash,
-                        tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
-                }
-                else
-                {
-                    V17.ReindexResource.PopulateCommand(
-                        sqlCommandWrapper,
-                        resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                        resourceId: resource.ResourceId,
-                        eTag,
-                        searchParamHash: resource.SearchParameterHash,
-                        tableValuedParameters: _reindexResourceTvpGeneratorV17.Generate(new List<ResourceWrapper> { resource }));
-                }
+                VLatest.ReindexResource.PopulateCommand(
+                    sqlCommandWrapper,
+                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                    resourceId: resource.ResourceId,
+                    eTag,
+                    searchParamHash: resource.SearchParameterHash,
+                    tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
 
                 try
                 {

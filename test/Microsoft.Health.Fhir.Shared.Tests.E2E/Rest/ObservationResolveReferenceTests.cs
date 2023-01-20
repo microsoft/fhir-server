@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             observation.Subject.Reference = $"Patient?identifier={uniqueIdentifier}";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(observation));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(observation));
             var issue = exception.Response.Resource.Issue.First();
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             Assert.Equal(IssueSeverity.Error, issue.Severity.Value);

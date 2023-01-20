@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.EnqueueJobs
 GO
-CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit, @IsCompleted bit = NULL
+CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @ReturnJobs bit = 1
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'EnqueueJobs'
@@ -61,7 +61,8 @@ BEGIN TRY
     COMMIT TRANSACTION
   END
 
-  EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+  IF @ReturnJobs = 1
+    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY

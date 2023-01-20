@@ -14,7 +14,7 @@ using ResourceProcessorNamespace;
 
 namespace FHIRDataSynth
 {
-    internal class BlobResourceGroupProcessor : ResourceGroupProcessor
+    internal sealed class BlobResourceGroupProcessor : ResourceGroupProcessor
     {
         private string resourceGroupDir;
         private string outputConnectionString;

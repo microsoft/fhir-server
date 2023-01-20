@@ -1,7 +1,6 @@
 ﻿--IF object_id('SwitchPartitionsOutAllTables') IS NOT NULL DROP PROCEDURE dbo.SwitchPartitionsOutAllTables
 GO
 CREATE PROCEDURE dbo.SwitchPartitionsOutAllTables @RebuildClustered bit
-WITH EXECUTE AS SELF
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsOutAllTables'

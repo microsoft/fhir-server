@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         internal static string CalculateSearchParameterHash(this IEnumerable<SearchParameterInfo> searchParamaterInfos)
         {
             EnsureArg.IsNotNull(searchParamaterInfos, nameof(searchParamaterInfos));
+            searchParamaterInfos = searchParamaterInfos.ToList();
             EnsureArg.IsGt(searchParamaterInfos.Count(), 0, nameof(searchParamaterInfos));
 
             var sb = new StringBuilder();

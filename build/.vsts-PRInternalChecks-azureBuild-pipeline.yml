@@ -21,9 +21,9 @@ jobs:
   steps:
   - checkout: self
     clean: true
-    
+
   - task: UseDotNet@2
-    displayName: Use .NET Core sdk
+    displayName: Use .NET sdk
     inputs:
       useGlobalJson: true
 
@@ -32,8 +32,7 @@ jobs:
     displayName: dotnet build
     inputs:
       projects: '**/*.sln'
-      arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror
-      
+      arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror -f net7.0      
   - task: AutoApplicability@1
     displayName: Run AutoApplicability
     continueOnError: True

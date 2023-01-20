@@ -1,7 +1,7 @@
 ﻿--DROP PROCEDURE dbo.DefragChangeDatabaseSettings
 GO
 CREATE PROCEDURE dbo.DefragChangeDatabaseSettings @IsOn bit
-WITH EXECUTE AS SELF
+WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DefragChangeDatabaseSettings'

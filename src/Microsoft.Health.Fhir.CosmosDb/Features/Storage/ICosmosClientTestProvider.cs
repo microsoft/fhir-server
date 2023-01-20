@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -11,6 +12,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public interface ICosmosClientTestProvider
     {
-        Task PerformTest(Container container, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
+        Task PerformTestAsync(Container container, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration, CancellationToken cancellationToken = default);
     }
 }

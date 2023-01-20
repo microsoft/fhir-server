@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceProcedureAdapter : ResourceAdapterBase<Procedure.Rootobject, ResourceProcedureAdapter.ProcedureSibling>
+    internal sealed class ResourceProcedureAdapter : ResourceAdapterBase<Procedure.Rootobject, ResourceProcedureAdapter.ProcedureSibling>
     {
         public override ProcedureSibling CreateOriginal(ResourceGroupProcessor processor, Procedure.Rootobject json)
         {

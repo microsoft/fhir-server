@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
         }
 
-        public async Task<Container> InitializeCollection(CosmosClient client)
+        public async Task<Container> InitializeCollectionAsync(CosmosClient client, CancellationToken cancellationToken = default)
         {
             Database database = client.GetDatabase(_cosmosDataStoreConfiguration.DatabaseId);
             Container containerClient = database.GetContainer(_cosmosCollectionConfiguration.CollectionId);
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 try
                 {
-                    await _clientTestProvider.PerformTest(existingContainer, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration);
+                    await _clientTestProvider.PerformTestAsync(existingContainer, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration, cancellationToken);
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.TooManyRequests)
                 {

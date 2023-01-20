@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         return parsedType;
                     })
-                    .Distinct();
+                    .Distinct().ToList();
 
                 if (resourceTypes.Any())
                 {

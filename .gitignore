@@ -291,3 +291,4 @@ install-aso/
 
 # Generated C# code
 *.Generated.cs
+*.Generated.*.cs

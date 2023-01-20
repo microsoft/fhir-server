@@ -41,11 +41,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnObservation_WhenPatchingConditionally_TheServerRespondsWithCorrectMessage()
+        {
+            Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = Guid.NewGuid().ToString();
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            Parameters observationFhirPatchRequest = new Parameters().AddReplacePatchParameter("subject.reference", new FhirString("Patient/"));
+
+            FhirClientException exceptionFhir = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalFhirPatchAsync<Observation>(
+                "Observation",
+                $"id={response.Resource.Id}",
+                observationFhirPatchRequest));
+
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exceptionFhir.StatusCode);
+            Assert.True(exceptionFhir.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, observation.TypeName)));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenConditionWithNoExistingResources_WhenPatching_TheServerShouldReturnNoFound()
         {
-            var exceptionJson = await Assert.ThrowsAsync<FhirException>(() =>
+            var exceptionJson = await Assert.ThrowsAsync<FhirClientException>(() =>
                 _client.ConditionalJsonPatchAsync<Patient>("Patient", $"identifier={Guid.NewGuid()}", _patchDocumentJson));
-            var exceptionFhir = await Assert.ThrowsAsync<FhirException>(() =>
+            var exceptionFhir = await Assert.ThrowsAsync<FhirClientException>(() =>
                 _client.ConditionalFhirPatchAsync<Patient>("Patient", $"identifier={Guid.NewGuid()}", _fhirPatchRequest));
 
             Assert.Equal(HttpStatusCode.NotFound, exceptionJson.Response.StatusCode);
@@ -56,9 +76,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenNoCondition_WhenPatching_ThenAnErrorShouldBeReturned()
         {
-            var exceptionJson = await Assert.ThrowsAsync<FhirException>(() =>
+            var exceptionJson = await Assert.ThrowsAsync<FhirClientException>(() =>
                 _client.ConditionalJsonPatchAsync<Patient>("Patient", string.Empty, _patchDocumentJson));
-            var exceptionFhir = await Assert.ThrowsAsync<FhirException>(() =>
+            var exceptionFhir = await Assert.ThrowsAsync<FhirClientException>(() =>
                 _client.ConditionalFhirPatchAsync<Patient>("Patient", string.Empty, _fhirPatchRequest));
 
             Assert.Equal(HttpStatusCode.PreconditionFailed, exceptionJson.Response.StatusCode);
@@ -124,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = null;
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalJsonPatchAsync<Patient>(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalJsonPatchAsync<Patient>(
                 "Patient",
                 $"identifier={identifier}",
                 _patchDocumentJson));
@@ -149,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = null;
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalFhirPatchAsync<Patient>(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalFhirPatchAsync<Patient>(
                 "Patient",
                 $"identifier={identifier}",
                 _fhirPatchRequest));
@@ -221,12 +241,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             response.Resource.BirthDate = "2020-01-01";
             using FhirResponse<Patient> secondVersion = await _client.UpdateAsync(response.Resource);
 
-            var exceptionJson = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalJsonPatchAsync<Patient>(
+            var exceptionJson = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalJsonPatchAsync<Patient>(
                 "Patient",
                 $"identifier={identifier}",
                 _patchDocumentJson,
                 "3"));
-            var exceptionFhir = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalFhirPatchAsync<Patient>(
+            var exceptionFhir = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalFhirPatchAsync<Patient>(
                 "Patient",
                 $"identifier={identifier}",
                 _fhirPatchRequest,

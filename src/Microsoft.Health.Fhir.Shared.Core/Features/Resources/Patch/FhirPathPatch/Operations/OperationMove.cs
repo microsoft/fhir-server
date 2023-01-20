@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             // iterate over the list to reconstruct it.
             var children = targetParent.Children(name).ToList()
                                        .Select(x => x.ToElementNode())
-                                       .Select((value, index) => (value, index));
+                                       .Select((value, index) => (value, index)).ToList();
 
             foreach (var child in children)
             {
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Oper
             }
 
             // Insert if destination is at end of list (orig list length + 1)
-            if (children.Count() == Operation.Destination)
+            if (children.Count == Operation.Destination)
             {
                 targetParent.Add(Provider, elementToMove, name);
             }

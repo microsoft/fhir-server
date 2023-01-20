@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
         {
             XDocument doc = XDocument.Parse(resourceWrapper.RawResource.Data);
 
-            IEnumerable<XElement> elementsByName = doc.Root.Elements().Where(x => string.Equals(x.Name.LocalName, requiredStatusElementName, StringComparison.OrdinalIgnoreCase));
+            List<XElement> elementsByName = doc.Root.Elements().Where(x => string.Equals(x.Name.LocalName, requiredStatusElementName, StringComparison.OrdinalIgnoreCase)).ToList();
 
             if (!elementsByName.Any())
             {

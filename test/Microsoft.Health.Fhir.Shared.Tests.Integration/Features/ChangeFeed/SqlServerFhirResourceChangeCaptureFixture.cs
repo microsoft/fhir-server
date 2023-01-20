@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public async Task DisposeAsync()
         {
-            await _storageFixture?.DisposeAsync();
+            await (_storageFixture?.DisposeAsync() ?? Task.CompletedTask);
         }
     }
 }
