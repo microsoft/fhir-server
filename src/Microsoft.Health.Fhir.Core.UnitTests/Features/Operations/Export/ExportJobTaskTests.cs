@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Net;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
@@ -70,10 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _cancellationToken = _cancellationTokenSource.Token;
             SetupExportJobRecordAndOperationDataStore();
             _exportJobTask = CreateExportJobTask();
-
-            IModelInfoProvider modelInfoProvider = Substitute.For<IModelInfoProvider>();
-            modelInfoProvider.IsKnownResource("Group").Returns(true);
-            ModelInfoProvider.SetProvider(modelInfoProvider);
+            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
         }
 
         [Fact]
@@ -995,18 +991,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAGroupExportJob_WhenGroupDoesNotExist_ThenLogExceptionAsInfo()
         {
+            string groupId = "groupdoesnotexist";
+
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
               exportJobType: ExportJobType.Group,
-              groupId: "groupdoesnotexist",
+              groupId: groupId,
               numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
             _groupMemberExtractor.GetGroupPatientIds(
-                "groupdoesnotexist",
+                groupId,
                 Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns<Task<HashSet<string>>>(x =>
                 {
-                    throw new ResourceNotFoundException("Group nogroup was not found.", new ResourceKey("Group", "groupdoesnotexist"));
+                    throw new ResourceNotFoundException($"Group {groupId} was not found.", new ResourceKey(KnownResourceTypes.Group, groupId));
                 });
 
             var logger = new TestLogger();
@@ -1015,21 +1013,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.Single(logger.ResourceKeyList); // Log info is called exactly once.
-            Assert.Equal("Group", logger.ResourceKeyList[0].ResourceType);
-            Assert.Equal("groupdoesnotexist", logger.ResourceKeyList[0].Id);
+            Assert.Equal(KnownResourceTypes.Group, logger.ResourceKeyList[0].ResourceType);
+            Assert.Equal(groupId, logger.ResourceKeyList[0].Id);
         }
 
         [Fact]
         public async Task GivenAGroupExportJob_WhenGroupExists_ThenDoNotLogExceptionAsInfo()
         {
+            string groupId = "groupexists";
+
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
               exportJobType: ExportJobType.Group,
-              groupId: "groupexists",
+              groupId: groupId,
               numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
             _groupMemberExtractor.GetGroupPatientIds(
-                "groupexists",
+                groupId,
                 Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
                     new HashSet<string>()
@@ -2198,7 +2198,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             {
                 var ex = exception as ResourceNotFoundException;
 
-                if (logLevel == LogLevel.Information && ex?.ResourceKey?.ResourceType?.Equals("Group", StringComparison.OrdinalIgnoreCase) == true)
+                if (logLevel == LogLevel.Information && ex?.ResourceKey?.ResourceType?.Equals(KnownResourceTypes.Group, StringComparison.OrdinalIgnoreCase) == true)
                 {
                     ResourceKeyList.Add(ex?.ResourceKey);
                 }

@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
 
             ResourceKey = resourceKey;
             Issues.Add(new OperationOutcomeIssue(
-                    ResourceKey.ResourceType == "Group" ? OperationOutcomeConstants.IssueSeverity.Information : OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.NotFound,
                     message));
         }
