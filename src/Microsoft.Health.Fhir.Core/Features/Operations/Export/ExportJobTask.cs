@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (ResourceNotFoundException rnfe)
             {
-                if (rnfe.ResourceKey.ResourceType == KnownResourceTypes.Group)
+                if (rnfe.ResourceKey?.ResourceType == KnownResourceTypes.Group)
                 {
                     _logger.LogInformation(rnfe, "Can't find specified resource. The job will be marked as failed.");
                 }

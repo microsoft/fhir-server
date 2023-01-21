@@ -2198,7 +2198,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             {
                 var ex = exception as ResourceNotFoundException;
 
-                if (logLevel == LogLevel.Information && ex?.ResourceKey?.ResourceType?.Equals(KnownResourceTypes.Group, StringComparison.OrdinalIgnoreCase) == true)
+                if (logLevel == LogLevel.Information && ex?.ResourceKey?.ResourceType == KnownResourceTypes.Group)
                 {
                     ResourceKeyList.Add(ex?.ResourceKey);
                 }
