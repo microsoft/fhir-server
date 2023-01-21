@@ -11,8 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface IFhirDataStore
     {
-        Task<bool> MergeAsync(IReadOnlyList<ResourceWrapper> resources, CancellationToken cancellationToken);
-
         Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
@@ -20,8 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool keepHistory,
             CancellationToken cancellationToken,
             bool requireETagOnUpdate = false);
-
-        Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken);
 
         Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken);
 

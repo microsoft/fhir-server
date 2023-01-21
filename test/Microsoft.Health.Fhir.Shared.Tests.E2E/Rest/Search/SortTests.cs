@@ -532,7 +532,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task SimpleTestWithCoreLogicToUnderstandHowThingsWork()
+        public async Task GivenSingleWrittenObservation_WhenSearched_ThenObservationWithMatchingIdAndLastUpdatedIsReturned()
         {
             var tag = Guid.NewGuid().ToString();
             var written = (await AddObservationToPatient(null, "1990-01-01", tag))[0];

@@ -3355,7 +3355,7 @@ CREATE PROCEDURE dbo.GetResources
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResources', @InputRows AS INT = (SELECT count(*)
-                                                                                                    FROM   @ResourceKeys);
+                                                                                                    FROM   @ResourceKeys), @DummyTop AS BIGINT = 9223372036854775807;
 DECLARE @Mode AS VARCHAR (100) = 'Input=' + CONVERT (VARCHAR, @InputRows);
 BEGIN TRY
     SELECT ResourceTypeId,

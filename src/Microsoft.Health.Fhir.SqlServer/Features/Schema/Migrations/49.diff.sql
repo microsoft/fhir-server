@@ -601,6 +601,7 @@ set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'GetResources'
        ,@InputRows int = (SELECT count(*) FROM @ResourceKeys)
+       ,@DummyTop bigint = 9223372036854775807
 
 DECLARE @Mode varchar(100) = 'Input='+convert(varchar,@InputRows)
 

@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task ChangedResourceWithinAndOutsideHistoryRange()
+        public async Task GivenResourceInsideAndOutsideHistoryRange_WhenGettingSystemHistory_ServerShouldReturnOnlyIfInside()
         {
             var tag = Guid.NewGuid().ToString();
             var since = await CreatePatientAndGetStartTimeForHistoryTest(tag);
