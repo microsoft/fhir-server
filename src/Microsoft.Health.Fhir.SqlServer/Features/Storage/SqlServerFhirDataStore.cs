@@ -312,25 +312,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resources = new List<ResourceWrapper>();
             while (await reader.ReadAsync(cancellationToken))
             {
-                var resourceTable = VLatest.Resource;
-                (short resourceTypeId, string resourceId, long resourceSurrogateId, int version, bool isDeleted, bool isHistory,
-                    Stream rawResourceStream, bool isRawResourceMetaSet, string searchParamHash) =
-                        reader.ReadRow(
-                            resourceTable.ResourceTypeId,
-                            resourceTable.ResourceId,
-                            resourceTable.ResourceSurrogateId,
-                            resourceTable.Version,
-                            resourceTable.IsDeleted,
-                            resourceTable.IsHistory,
-                            resourceTable.RawResource,
-                            resourceTable.IsRawResourceMetaSet,
-                            resourceTable.SearchParamHash);
+                var resourceTypeId = reader.GetInt16(0);
+                var resourceId = reader.GetString(1);
+                var resourceSurrogateId = reader.GetInt64(2);
+                var version = reader.GetInt32(3);
+                var isDeleted = reader.GetBoolean(4);
+                var isHistory = reader.GetBoolean(5);
+                var rawResourceBytes = reader.GetSqlBytes(6).Value;
+                var isRawResourceMetaSet = reader.GetBoolean(7);
+                var searchParamHash = reader.GetString(8);
 
-                string rawResource;
-                await using (rawResourceStream)
-                {
-                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-                }
+                ////var resourceTable = VLatest.Resource;
+                ////(short resourceTypeId, string resourceId, long resourceSurrogateId, int version, bool isDeleted, bool isHistory,
+                ////    Stream rawResourceStream, bool isRawResourceMetaSet, string searchParamHash) =
+                ////        reader.ReadRow(
+                ////            resourceTable.ResourceTypeId,
+                ////            resourceTable.ResourceId,
+                ////            resourceTable.ResourceSurrogateId,
+                ////            resourceTable.Version,
+                ////            resourceTable.IsDeleted,
+                ////            resourceTable.IsHistory,
+                ////            resourceTable.RawResource,
+                ////            resourceTable.IsRawResourceMetaSet,
+                ////            resourceTable.SearchParamHash);
+
+                using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
                 var resource = new ResourceWrapper(
                     resourceId,

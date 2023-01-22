@@ -5,12 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -25,18 +26,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlServerSetMergeTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private readonly SqlServerFhirDataStore _store;
-        private readonly ITestOutputHelper _testOutputHelper;
+        private readonly XUnitLogger<SqlServerSetMergeTests> _logger;
         private readonly FhirJsonSerializer _jsonSerializer;
 
         public SqlServerSetMergeTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _store = (SqlServerFhirDataStore)fixture.GetService<IFhirDataStore>();
-            _testOutputHelper = testOutputHelper;
             _jsonSerializer = new FhirJsonSerializer(null);
+            _logger = XUnitLogger<SqlServerSetMergeTests>.Create(testOutputHelper);
         }
 
         [Fact]
-        public async Task SaveAndGetSetOfResources()
+        public async Task GivenSetOfResources_MergeAndGet()
         {
             var patientId = Guid.NewGuid().ToString();
             var patientWrapper = GetResourceWrapper(Samples.GetDefaultPatient().UpdateId(patientId));
@@ -48,8 +49,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(wr);
             wr = await _store.GetAsync(new ResourceKey("Observation", observationId), default);
             Assert.NotNull(wr);
-            ////var wrappers = await _store.GetAsync(new List<ResourceKey> { new ResourceKey("Patient", patientId), new ResourceKey("Observation", observationId) }, default);
-            ////Assert.Equal(2, wrappers.Count);
+            var wrappers = await _store.GetAsync(new List<ResourceKey> { new ResourceKey("Patient", patientId), new ResourceKey("Observation", observationId) }, default);
+            Assert.Equal(2, wrappers.Count);
+            _logger.LogInformation($"wrappers.Count={wrappers.Count}");
             ////Assert.NotNull(wrappers.FirstOrDefault(_ => _.ResourceId == patientId));
             ////Assert.NotNull(wrappers.FirstOrDefault(_ => _.ResourceId == observationId));
         }

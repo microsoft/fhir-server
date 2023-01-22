@@ -3365,8 +3365,7 @@ BEGIN TRY
            IsDeleted,
            IsHistory,
            RawResource,
-           IsRawResourceMetaSet,
-           SearchParamHash
+           IsRawResourceMetaSet
     FROM   dbo.Resource AS A
     WHERE  EXISTS (SELECT TOP (@DummyTop) *
                    FROM   @ResourceKeys AS B
