@@ -313,20 +313,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             while (await reader.ReadAsync(cancellationToken))
             {
                 var resourceTable = VLatest.Resource;
-                (short resourceTypeId, string resourceId, long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream, bool isRawResourceMetaSet, string searchParamHash) =
-                    reader.ReadRow(
-                        resourceTable.ResourceTypeId,
-                        resourceTable.ResourceId,
-                        resourceTable.ResourceSurrogateId,
-                        resourceTable.Version,
-                        resourceTable.IsDeleted,
-                        resourceTable.IsHistory,
-                        resourceTable.RawResource,
-                        resourceTable.IsRawResourceMetaSet,
-                        resourceTable.SearchParamHash);
+                (short resourceTypeId, string resourceId, long resourceSurrogateId, int version, bool isDeleted, bool isHistory,
+                    Stream rawResourceStream, bool isRawResourceMetaSet, string searchParamHash) =
+                        reader.ReadRow(
+                            resourceTable.ResourceTypeId,
+                            resourceTable.ResourceId,
+                            resourceTable.ResourceSurrogateId,
+                            resourceTable.Version,
+                            resourceTable.IsDeleted,
+                            resourceTable.IsHistory,
+                            resourceTable.RawResource,
+                            resourceTable.IsRawResourceMetaSet,
+                            resourceTable.SearchParamHash);
 
                 string rawResource;
-                using (rawResourceStream)
+                await using (rawResourceStream)
                 {
                     rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                 }
