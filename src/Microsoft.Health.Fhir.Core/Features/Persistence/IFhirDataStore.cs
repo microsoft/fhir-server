@@ -11,6 +11,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface IFhirDataStore
     {
+        Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapper> resources, CancellationToken cancellationToken);
+
+        Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken);
+
         Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,

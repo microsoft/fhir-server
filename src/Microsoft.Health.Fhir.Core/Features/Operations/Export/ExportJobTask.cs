@@ -45,6 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger _logger;
+        private readonly IResourceWrapperFactory _wrapperFactory;
+        private readonly Func<IScoped<IFhirDataStore>> _store;
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
@@ -61,7 +63,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IScoped<IAnonymizerFactory> anonymizerFactory,
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ILogger<ExportJobTask> logger)
+            ILogger<ExportJobTask> logger,
+            IResourceWrapperFactory wrapperFactory,
+            Func<IScoped<IFhirDataStore>> store)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
@@ -73,6 +77,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(wrapperFactory, nameof(wrapperFactory));
+            EnsureArg.IsNotNull(store, nameof(store));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
@@ -85,6 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _mediator = mediator;
             _contextAccessor = contextAccessor;
             _logger = logger;
+            _wrapperFactory = wrapperFactory;
+            _store = store;
 
             UpdateExportJob = UpdateExportJobAsync;
         }
@@ -497,7 +505,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    ProcessSearchResults(searchResult.Results, anonymizer);
+                    await ProcessSearchResults(searchResult.Results, anonymizer);
                 }
 
                 if (searchResult.ContinuationToken == null)
@@ -637,7 +645,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         _exportJobRecord.SmartRequest);
                 }
 
-                ProcessSearchResults(searchResult.Results, anonymizer);
+                await ProcessSearchResults(searchResult.Results, anonymizer);
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -654,8 +662,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             progress.MarkFilterFinished();
         }
 
-        private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
+        private async Task ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
+            var completeWrappers = new List<ResourceWrapper>();
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
@@ -683,8 +692,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     data = _resourceToByteArraySerializer.StringSerialize(element);
                 }
 
+                var read = await _store().Value.GetAsync(resourceWrapper.ToResourceKey(), CancellationToken.None);
+                var reads = await _store().Value.GetAsync(new List<ResourceKey> { resourceWrapper.ToResourceKey() }, CancellationToken.None);
+
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
+
+                _wrapperFactory.Update(resourceWrapper);
+                completeWrappers.Add(resourceWrapper);
             }
+
+            ////var merges = await _store().Value.MergeAsync(completeWrappers, CancellationToken.None);
+
+            await Task.CompletedTask;
         }
 
         private async Task ProcessProgressChange(

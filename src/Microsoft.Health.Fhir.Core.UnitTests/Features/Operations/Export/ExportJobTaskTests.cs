@@ -2023,7 +2023,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 anonymizerFactory,
                 Substitute.For<IMediator>(),
                 _contextAccessor,
-                NullLogger<ExportJobTask>.Instance);
+                NullLogger<ExportJobTask>.Instance,
+                null,
+                null);
         }
 
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
