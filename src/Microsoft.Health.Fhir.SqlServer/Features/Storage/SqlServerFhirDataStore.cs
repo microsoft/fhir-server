@@ -91,6 +91,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
+            var results = new Dictionary<ResourceKey, UpsertOutcome>();
+            if (resources == null || resources.Count == 0)
+            {
+                return results;
+            }
+
             var existingResources = (await GetAsync(resources.Select(_ => _.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
 
             // assume that most likely case is that all resources should be updated
@@ -98,7 +104,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var index = 0;
             var mergeWrappers = new List<MergeResourceWrapper>();
-            var results = new Dictionary<ResourceKey, UpsertOutcome>();
             foreach (var resource in resources)
             {
                 var resourceKey = resource.ToResourceKey();
@@ -369,11 +374,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
-            {
-                var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
-                return results.Count == 0 ? null : results[0];
-            }
+            ////if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
+            ////{
+            ////    var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
+            ////    return results.Count == 0 ? null : results[0];
+            ////}
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             {
