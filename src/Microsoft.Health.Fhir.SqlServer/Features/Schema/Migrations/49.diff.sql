@@ -614,6 +614,7 @@ BEGIN TRY
         ,IsHistory
         ,RawResource
         ,IsRawResourceMetaSet
+        ,SearchParamHash
     FROM dbo.Resource A
     WHERE EXISTS (SELECT TOP (@DummyTop) * FROM @ResourceKeys B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId)
       AND IsHistory = 0

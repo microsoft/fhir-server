@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Common;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -88,20 +89,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public async Task<bool> MergeAsync(IReadOnlyList<ResourceWrapper> resources, CancellationToken cancellationToken)
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
-            // for perf testing assume that all resources are new
-            ////var existingResources = await GetAsync(resources.Select(_ => _.ToResourceKey()), cancellationToken);
+            var existingResources = (await GetAsync(resources.Select(_ => _.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
+
+            // assume that most likely case is that all resources should be updated
             var minSurrId = (await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken)).MinResourceSurrogateId;
+
             var index = 0;
             var mergeWrappers = new List<MergeResourceWrapper>();
+            var results = new Dictionary<ResourceKey, UpsertOutcome>();
             foreach (var resource in resources)
             {
+                var resourceKey = resource.ToResourceKey();
+                if (existingResources.TryGetValue(resourceKey, out var existingResource))
+                {
+                    if (ExistingRawResourceIsEqualToInput(resource, existingResource))
+                    {
+                        results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
+                        continue;
+                    }
+
+                    resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                }
+
                 var surrId = minSurrId + index;
                 resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
                 ReplaceVersionIdAndLastUpdatedInMeta(resource);
                 mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, true, true));
                 index++;
+                results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
             }
 
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
@@ -114,7 +131,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
             await cmd.ExecuteNonQueryAsync(cancellationToken);
 
-            return await Task.FromResult(true);
+            return results;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(
@@ -312,29 +329,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resources = new List<ResourceWrapper>();
             while (await reader.ReadAsync(cancellationToken))
             {
-                var resourceTypeId = reader.GetInt16(0);
-                var resourceId = reader.GetString(1);
-                var resourceSurrogateId = reader.GetInt64(2);
-                var version = reader.GetInt32(3);
-                var isDeleted = reader.GetBoolean(4);
-                var isHistory = reader.GetBoolean(5);
+                var table = VLatest.Resource;
+                var resourceTypeId = reader.Read(table.ResourceTypeId, 0);
+                var resourceId = reader.Read(table.ResourceId, 1);
+                var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
+                var version = reader.Read(table.Version, 3);
+                var isDeleted = reader.Read(table.IsDeleted, 4);
+                var isHistory = reader.Read(table.IsHistory, 5);
                 var rawResourceBytes = reader.GetSqlBytes(6).Value;
-                var isRawResourceMetaSet = reader.GetBoolean(7);
-                var searchParamHash = reader.GetString(8);
-
-                ////var resourceTable = VLatest.Resource;
-                ////(short resourceTypeId, string resourceId, long resourceSurrogateId, int version, bool isDeleted, bool isHistory,
-                ////    Stream rawResourceStream, bool isRawResourceMetaSet, string searchParamHash) =
-                ////        reader.ReadRow(
-                ////            resourceTable.ResourceTypeId,
-                ////            resourceTable.ResourceId,
-                ////            resourceTable.ResourceSurrogateId,
-                ////            resourceTable.Version,
-                ////            resourceTable.IsDeleted,
-                ////            resourceTable.IsHistory,
-                ////            resourceTable.RawResource,
-                ////            resourceTable.IsRawResourceMetaSet,
-                ////            resourceTable.SearchParamHash);
+                var isRawResourceMetaSet = reader.Read(table.IsRawResourceMetaSet, 7);
+                var searchParamHash = reader.Read(table.SearchParamHash, 8);
 
                 using var rawResourceStream = new MemoryStream(rawResourceBytes);
                 var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
@@ -350,7 +354,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     searchIndices: null,
                     compartmentIndices: null,
                     lastModifiedClaims: null,
-                    searchParamHash)
+                    searchParameterHash: searchParamHash)
                 {
                     IsHistory = isHistory,
                 };

@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -44,16 +46,54 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var observationId = Guid.NewGuid().ToString();
             var observationWrapper = GetResourceWrapper(Samples.GetDefaultObservation().UpdateId(observationId));
 
-            await _store.MergeAsync(new List<ResourceWrapper> { patientWrapper, observationWrapper }, default);
-            var wr = await _store.GetAsync(new ResourceKey("Patient", patientId), default);
-            Assert.NotNull(wr);
-            wr = await _store.GetAsync(new ResourceKey("Observation", observationId), default);
-            Assert.NotNull(wr);
+            // create both
+            var mergeResults = await _store.MergeAsync(new List<ResourceWrapper> { patientWrapper, observationWrapper }, default);
+            Assert.NotNull(mergeResults);
+            Assert.Equal(2, mergeResults.Count);
+            var patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
+            Assert.NotNull(patientOutcome);
+            Assert.Equal(SaveOutcomeType.Created, patientOutcome.OutcomeType);
+            Assert.Equal("1", patientOutcome.Wrapper.Version);
+            var observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == observationId);
+            Assert.NotNull(observationOutcome);
+            Assert.Equal(SaveOutcomeType.Created, observationOutcome.OutcomeType);
+            Assert.Equal("1", observationOutcome.Wrapper.Version);
+
             var wrappers = await _store.GetAsync(new List<ResourceKey> { new ResourceKey("Patient", patientId), new ResourceKey("Observation", observationId) }, default);
-            Assert.Equal(2, wrappers.Count);
             _logger.LogInformation($"wrappers.Count={wrappers.Count}");
-            ////Assert.NotNull(wrappers.FirstOrDefault(_ => _.ResourceId == patientId));
-            ////Assert.NotNull(wrappers.FirstOrDefault(_ => _.ResourceId == observationId));
+            Assert.Equal(2, wrappers.Count);
+            Assert.NotNull(wrappers.FirstOrDefault(_ => _.ResourceId == patientId));
+            Assert.NotNull(wrappers.FirstOrDefault(_ => _.ResourceId == observationId));
+
+            // update patient
+            _logger.LogInformation($"update patient");
+            UpdateResource(patientWrapper);
+            mergeResults = await _store.MergeAsync(new List<ResourceWrapper> { patientWrapper, observationWrapper }, default);
+            Assert.NotNull(mergeResults);
+            Assert.Equal(2, mergeResults.Count);
+            patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
+            Assert.NotNull(patientOutcome);
+            Assert.Equal(SaveOutcomeType.Updated, patientOutcome.OutcomeType);
+            Assert.Equal("2", patientOutcome.Wrapper.Version);
+            observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == observationId);
+            Assert.NotNull(observationOutcome);
+            Assert.Equal(SaveOutcomeType.Updated, observationOutcome.OutcomeType);
+            Assert.Equal("1", observationOutcome.Wrapper.Version);
+
+            // update observation
+            _logger.LogInformation($"update observation");
+            UpdateResource(observationWrapper);
+            mergeResults = await _store.MergeAsync(new List<ResourceWrapper> { patientWrapper, observationWrapper }, default);
+            Assert.NotNull(mergeResults);
+            Assert.Equal(2, mergeResults.Count);
+            patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
+            Assert.NotNull(patientOutcome);
+            Assert.Equal(SaveOutcomeType.Updated, patientOutcome.OutcomeType);
+            Assert.Equal("2", patientOutcome.Wrapper.Version);
+            observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == observationId);
+            Assert.NotNull(observationOutcome);
+            Assert.Equal(SaveOutcomeType.Updated, observationOutcome.OutcomeType);
+            Assert.Equal("2", observationOutcome.Wrapper.Version);
         }
 
         private ResourceWrapper GetResourceWrapper(ResourceElement resource)
@@ -65,6 +105,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var wrapper = new ResourceWrapper(resource, raw, new ResourceRequest("Merge"), false, null, null, null);
             wrapper.LastModified = DateTime.UtcNow;
             return wrapper;
+        }
+
+        private static void UpdateResource(ResourceWrapper resource)
+        {
+            var rawResourceData = resource.RawResource.Data;
+            if (resource.ResourceTypeName == "Observation")
+            {
+                rawResourceData = rawResourceData.Replace("\"value\":67,", "\"value\":167,");
+            }
+            else if (resource.ResourceTypeName == "Patient")
+            {
+                rawResourceData = rawResourceData.Replace("\"birthDate\":\"1974-12-25\"", "\"birthDate\":\"2000-01-01\"");
+            }
+
+            resource.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
     }
 }
