@@ -48,8 +48,9 @@ CREATE TYPE dbo.ResourceKeyList AS TABLE
 (
     ResourceTypeId       smallint            NOT NULL
    ,ResourceId           varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version              int                 NULL
 
-    PRIMARY KEY (ResourceTypeId, ResourceId)
+    UNIQUE (ResourceTypeId, ResourceId, Version)
 )
 GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'UriSearchParamList')
@@ -600,25 +601,57 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'GetResources'
-       ,@InputRows int = (SELECT count(*) FROM @ResourceKeys)
+       ,@InputRows int
        ,@DummyTop bigint = 9223372036854775807
+       ,@NotNullVersionExists bit 
 
-DECLARE @Mode varchar(100) = 'Input='+convert(varchar,@InputRows)
+SELECT @InputRows = count(*), @NotNullVersionExists = max(CASE WHEN Version IS NOT NULL THEN 1 ELSE 0 END) FROM @ResourceKeys
+
+DECLARE @Mode varchar(100) = 'Cnt='+convert(varchar,@InputRows)+' V='+convert(varchar,@NotNullVersionExists)
 
 BEGIN TRY
-  SELECT ResourceTypeId
-        ,ResourceId
-        ,ResourceSurrogateId
-        ,Version
-        ,IsDeleted
-        ,IsHistory
-        ,RawResource
-        ,IsRawResourceMetaSet
-        ,SearchParamHash
-    FROM dbo.Resource A
-    WHERE EXISTS (SELECT TOP (@DummyTop) * FROM @ResourceKeys B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId)
-      AND IsHistory = 0
-    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  IF @NotNullVersionExists = 1
+    SELECT *
+      FROM (SELECT ResourceTypeId
+                  ,ResourceId
+                  ,ResourceSurrogateId
+                  ,Version
+                  ,IsDeleted
+                  ,IsHistory
+                  ,RawResource
+                  ,IsRawResourceMetaSet
+                  ,SearchParamHash
+              FROM dbo.Resource A
+              WHERE EXISTS (SELECT TOP (@DummyTop) * FROM @ResourceKeys B WHERE B.Version IS NOT NULL AND B.Version = A.Version AND B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId)
+            UNION ALL
+            SELECT ResourceTypeId
+                  ,ResourceId
+                  ,ResourceSurrogateId
+                  ,Version
+                  ,IsDeleted
+                  ,IsHistory
+                  ,RawResource
+                  ,IsRawResourceMetaSet
+                  ,SearchParamHash
+              FROM dbo.Resource A
+              WHERE EXISTS (SELECT TOP (@DummyTop) * FROM @ResourceKeys B WHERE B.Version IS NULL AND B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId)
+                AND IsHistory = 0
+           ) A
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  ELSE
+    SELECT ResourceTypeId
+          ,ResourceId
+          ,ResourceSurrogateId
+          ,Version
+          ,IsDeleted
+          ,IsHistory
+          ,RawResource
+          ,IsRawResourceMetaSet
+          ,SearchParamHash
+      FROM dbo.Resource A
+      WHERE EXISTS (SELECT TOP (@DummyTop) * FROM @ResourceKeys B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId)
+        AND IsHistory = 0
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY

@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var resourceKey = resource.ToResourceKey();
                 if (existingResources.TryGetValue(resourceKey, out var existingResource))
                 {
-                    if (ExistingRawResourceIsEqualToInput(resource, existingResource))
+                    if ((resource.IsDeleted && existingResource.IsDeleted) || ExistingRawResourceIsEqualToInput(resource, existingResource))
                     {
                         results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
                         continue;
@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateRetrySqlCommand();
-            VLatest.GetResources.PopulateCommand(cmd, keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id)));
+            VLatest.GetResources.PopulateCommand(cmd, keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.Parse(_.VersionId))));
 
             using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             var resources = new List<ResourceWrapper>();
