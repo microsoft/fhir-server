@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if ((e.Number == SqlErrorCodes.Conflict || e.IsRetryable()) && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)}");
-                        await Task.Delay(5000);
+                        await Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
