@@ -309,7 +309,7 @@ GO
 
 --DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @MinResourceSurrogateId bigint = 0 OUT 
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @MinResourceSurrogateId bigint = 0 OUT 
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
@@ -415,7 +415,7 @@ BEGIN TRY
              ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
-  IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE Version <> isnull(PreviousVersion, 0) + 1)
+  IF @RaiseExceptionOnConflict = 1 AND EXISTS (SELECT * FROM @ResourceInfos WHERE PreviousVersion IS NOT NULL AND Version <> PreviousVersion + 1)
     THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1
 
   INSERT INTO @PreviousSurrogateIds
@@ -593,6 +593,7 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+
 
 --DROP PROCEDURE dbo.GetResources
 GO
