@@ -692,8 +692,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     data = _resourceToByteArraySerializer.StringSerialize(element);
                 }
 
-                var read = await _store().Value.GetAsync(resourceWrapper.ToResourceKey(), CancellationToken.None);
-                var reads = await _store().Value.GetAsync(new List<ResourceKey> { resourceWrapper.ToResourceKey() }, CancellationToken.None);
+                ////var read = await _store().Value.GetAsync(resourceWrapper.ToResourceKey(), CancellationToken.None);
+                ////var reads = await _store().Value.GetAsync(new List<ResourceKey> { resourceWrapper.ToResourceKey() }, CancellationToken.None);
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
 
@@ -701,7 +701,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 completeWrappers.Add(resourceWrapper);
             }
 
-            ////var merges = await _store().Value.MergeAsync(completeWrappers, CancellationToken.None);
+            var merges = await _store().Value.MergeAsync(completeWrappers, CancellationToken.None);
 
             await Task.CompletedTask;
         }

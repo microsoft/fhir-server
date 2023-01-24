@@ -374,11 +374,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            ////if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
-            ////{
-            ////    var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
-            ////    return results.Count == 0 ? null : results[0];
-            ////}
+            if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
+            {
+                var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
+                return results.Count == 0 ? null : results[0];
+            }
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             {
