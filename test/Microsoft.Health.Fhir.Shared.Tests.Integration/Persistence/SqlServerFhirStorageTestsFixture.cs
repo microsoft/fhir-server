@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -175,7 +176,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
                 ModelInfoProvider.Instance,
-                _fhirRequestContextAccessor);
+                _fhirRequestContextAccessor,
+                new Lazy<IConformanceProvider>(() => Substitute.For<ConformanceProviderBase>()));
 
             // the test queue client may not be enough for these tests. will need to look back into this.
             var queueClient = new TestQueueClient();
