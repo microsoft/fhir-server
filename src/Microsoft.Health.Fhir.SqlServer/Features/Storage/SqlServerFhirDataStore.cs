@@ -105,37 +105,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var existingResources = (await GetAsync(resources.Select(_ => _.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
-
-                // assume that most likely case is that all resources should be updated
-                var minSurrId = (await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken)).MinResourceSurrogateId;
-
-                var index = 0;
-                var mergeWrappers = new List<MergeResourceWrapper>();
-                foreach (var resource in resources)
-                {
-                    var resourceKey = resource.ToResourceKey();
-                    if (existingResources.TryGetValue(resourceKey, out var existingResource))
-                    {
-                        if ((resource.IsDeleted && existingResource.IsDeleted) || ExistingRawResourceIsEqualToInput(resource, existingResource))
-                        {
-                            results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
-                            continue;
-                        }
-
-                        resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
-                    }
-
-                    var surrId = minSurrId + index;
-                    resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
-                    ReplaceVersionIdAndLastUpdatedInMeta(resource);
-                    mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, true, true));
-                    index++;
-                    results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
-                }
-
                 try
                 {
+                    var existingResources = (await GetAsync(resources.Select(_ => _.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
+
+                    // assume that most likely case is that all resources should be updated
+                    var minSurrId = (await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken)).MinResourceSurrogateId;
+
+                    var index = 0;
+                    var mergeWrappers = new List<MergeResourceWrapper>();
+                    foreach (var resource in resources)
+                    {
+                        var resourceKey = resource.ToResourceKey();
+                        if (existingResources.TryGetValue(resourceKey, out var existingResource))
+                        {
+                            if ((resource.IsDeleted && existingResource.IsDeleted) || ExistingRawResourceIsEqualToInput(resource, existingResource))
+                            {
+                                results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
+                                continue;
+                            }
+
+                            resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                        }
+
+                        var surrId = minSurrId + index;
+                        resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                        ReplaceVersionIdAndLastUpdatedInMeta(resource);
+                        mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, true, true));
+                        index++;
+                        results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
+                    }
+
                     using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
                     using var cmd = conn.CreateNonRetrySqlCommand();
                     VLatest.MergeResources.PopulateCommand(
@@ -150,9 +150,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException e)
                 {
-                    if (e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                    if ((e.Number == SqlErrorCodes.Conflict || e.IsRetryable()) && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)}");
+                        await Task.Delay(5000);
                         continue;
                     }
 
