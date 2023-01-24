@@ -5,14 +5,14 @@ AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
        ,@Mode varchar(100) = 'Cnt='+convert(varchar,@Count)
-       ,@st datetime2 = sysUTCdatetime()
+       ,@st datetime = getUTCdate()
        ,@LastValueVar sql_variant
 
 BEGIN TRY
   -- Below logic is SQL implementation of current C# surrogate id helper extended for a batch
   -- I don't like it because it is not full proof, and can produce identical ids for different calls.
   EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = NULL, @range_last_value = @LastValueVar OUT
-  SET @MinResourceSurrogateId = datediff_big(millisecond,'0001-01-01',@st) * 80000 + convert(int,@LastValueVar) - @Count
+  SET @MinResourceSurrogateId = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + convert(int,@LastValueVar) - @Count
   
   -- This is a placeholder. It will change in future.
   SET @TransactionId = @MinResourceSurrogateId

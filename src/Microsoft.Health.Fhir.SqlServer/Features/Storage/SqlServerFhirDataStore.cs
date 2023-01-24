@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly Lazy<IConformanceProvider> _conformanceProvider;
         private const string InitialVersion = "1";
 
         public SqlServerFhirDataStore(
@@ -70,7 +71,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
             IModelInfoProvider modelInfoProvider,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            Lazy<IConformanceProvider> conformanceProvider)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -85,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            _conformanceProvider = EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -97,6 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return results;
             }
 
+            var retries = 0;
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -146,13 +150,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException e)
                 {
-                    if (e.Number == SqlErrorCodes.Conflict)
+                    if (e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)}");
                         continue;
                     }
 
-                    _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)}");
+                    _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={retries}");
                     throw;
                 }
             }
@@ -169,11 +173,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             int? eTag = weakETag == null
                 ? null
                 : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
-
-            var resourceMetadata = new ResourceMetadata(
-                resource.CompartmentIndices,
-                resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
-                resource.LastModifiedClaims);
 
             while (true)
             {
@@ -393,12 +392,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
+            // TODO: Remove if when Merge is released
             if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
             {
                 var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
                 return results.Count == 0 ? null : results[0];
             }
 
+            // TODO: Remove all below when Merge is released
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             {
                 int? requestedVersion = null;
