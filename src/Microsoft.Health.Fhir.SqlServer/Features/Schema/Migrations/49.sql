@@ -4243,10 +4243,10 @@ CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
 @Count INT, @TransactionId BIGINT=0 OUTPUT, @MinResourceSurrogateId BIGINT=0 OUTPUT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (100) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME2 = sysUTCdatetime(), @LastValueVar AS SQL_VARIANT;
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (100) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @LastValueVar AS SQL_VARIANT;
 BEGIN TRY
     EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = NULL, @range_last_value = @LastValueVar OUTPUT;
-    SET @MinResourceSurrogateId = datediff_big(millisecond, '0001-01-01', @st) * 80000 + CONVERT (INT, @LastValueVar) - @Count;
+    SET @MinResourceSurrogateId = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + CONVERT (INT, @LastValueVar) - @Count;
     SET @TransactionId = @MinResourceSurrogateId;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = NULL, @Text = @TransactionId;
 END TRY
