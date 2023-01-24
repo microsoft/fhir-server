@@ -97,46 +97,65 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return results;
             }
 
-            var existingResources = (await GetAsync(resources.Select(_ => _.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
-
-            // assume that most likely case is that all resources should be updated
-            var minSurrId = (await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken)).MinResourceSurrogateId;
-
-            var index = 0;
-            var mergeWrappers = new List<MergeResourceWrapper>();
-            foreach (var resource in resources)
+            while (true)
             {
-                var resourceKey = resource.ToResourceKey();
-                if (existingResources.TryGetValue(resourceKey, out var existingResource))
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var existingResources = (await GetAsync(resources.Select(_ => _.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
+
+                // assume that most likely case is that all resources should be updated
+                var minSurrId = (await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken)).MinResourceSurrogateId;
+
+                var index = 0;
+                var mergeWrappers = new List<MergeResourceWrapper>();
+                foreach (var resource in resources)
                 {
-                    if ((resource.IsDeleted && existingResource.IsDeleted) || ExistingRawResourceIsEqualToInput(resource, existingResource))
+                    var resourceKey = resource.ToResourceKey();
+                    if (existingResources.TryGetValue(resourceKey, out var existingResource))
                     {
-                        results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
+                        if ((resource.IsDeleted && existingResource.IsDeleted) || ExistingRawResourceIsEqualToInput(resource, existingResource))
+                        {
+                            results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
+                            continue;
+                        }
+
+                        resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                    }
+
+                    var surrId = minSurrId + index;
+                    resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                    ReplaceVersionIdAndLastUpdatedInMeta(resource);
+                    mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, true, true));
+                    index++;
+                    results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
+                }
+
+                try
+                {
+                    using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                    using var cmd = conn.CreateNonRetrySqlCommand();
+                    VLatest.MergeResources.PopulateCommand(
+                        cmd,
+                        AffectedRows: 0,
+                        RaiseExceptionOnConflict: true,
+                        IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
+                        tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+                    return results;
+                }
+                catch (SqlException e)
+                {
+                    if (e.Number == SqlErrorCodes.Conflict)
+                    {
+                        _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)}");
                         continue;
                     }
 
-                    resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                    _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)}");
+                    throw;
                 }
-
-                var surrId = minSurrId + index;
-                resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
-                ReplaceVersionIdAndLastUpdatedInMeta(resource);
-                mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, true, true));
-                index++;
-                results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
             }
-
-            using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
-            using var cmd = conn.CreateNonRetrySqlCommand();
-            VLatest.MergeResources.PopulateCommand(
-                cmd,
-                AffectedRows: 0,
-                RaiseExceptionOnConflict: true,
-                IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
-                tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
-
-            return results;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(

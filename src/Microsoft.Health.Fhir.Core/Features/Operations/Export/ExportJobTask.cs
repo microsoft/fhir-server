@@ -695,7 +695,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 ////var read = await _store().Value.GetAsync(resourceWrapper.ToResourceKey(), CancellationToken.None);
                 ////var reads = await _store().Value.GetAsync(new List<ResourceKey> { resourceWrapper.ToResourceKey() }, CancellationToken.None);
 
-                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
+                ////_fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
+
+                if (resourceWrapper.Version == "0")
+                {
+                    resourceWrapper.Version = "1";
+                }
 
                 _wrapperFactory.Update(resourceWrapper);
                 completeWrappers.Add(resourceWrapper);
