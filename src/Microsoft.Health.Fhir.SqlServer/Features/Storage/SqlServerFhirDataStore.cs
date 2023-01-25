@@ -136,15 +136,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
                     }
 
-                    using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
-                    using var cmd = conn.CreateNonRetrySqlCommand();
-                    VLatest.MergeResources.PopulateCommand(
-                        cmd,
-                        AffectedRows: 0,
-                        RaiseExceptionOnConflict: true,
-                        IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
-                        tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
-                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    if (mergeWrappers.Count > 0) // do not call db with empty input
+                    {
+                        using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                        using var cmd = conn.CreateNonRetrySqlCommand();
+                        VLatest.MergeResources.PopulateCommand(
+                            cmd,
+                            AffectedRows: 0,
+                            RaiseExceptionOnConflict: true,
+                            IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
+                            tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
+                        await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    }
 
                     return results;
                 }
@@ -152,7 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if ((e.Number == SqlErrorCodes.Conflict || e.IsRetryable()) && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                     {
-                        _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)}");
+                        _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={retries}");
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
