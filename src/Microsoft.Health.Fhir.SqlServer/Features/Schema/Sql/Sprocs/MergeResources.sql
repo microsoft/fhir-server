@@ -31,12 +31,12 @@ DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'MergeResources'
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
-       ,@InputRows int = (SELECT count(*) FROM @Resources)
+
+DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] MinSur='+convert(varchar,min(ResourceSurrogateId))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
+
+SET @Mode += ' ITC='+convert(varchar,@InitialTranCount)+' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
 
 SET @AffectedRows = 0
-
-DECLARE @Mode varchar(100) = 'Input='+convert(varchar,@InputRows)+' TR='+convert(varchar,@InitialTranCount)
-                           +' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
 
 BEGIN TRY
   DECLARE @ResourceInfos AS TABLE
