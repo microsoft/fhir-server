@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Linq;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
 
-            if (cosmosWrapper.SearchIndices.Count == 0)
+            if (cosmosWrapper.SearchIndices.IsNull() || cosmosWrapper.SearchIndices.Count == 0)
             {
                 throw new MissingSearchIndicesException(string.Format(Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
             }
