@@ -33,7 +33,6 @@ DECLARE @st datetime = getUTCdate()
        ,@InitialTranCount int = @@trancount
 
 DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] MinSur='+convert(varchar,min(ResourceSurrogateId))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
-
 SET @Mode += ' ITC='+convert(varchar,@InitialTranCount)+' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
 
 SET @AffectedRows = 0
@@ -71,7 +70,7 @@ BEGIN TRY
           ,B.Version
           ,B.ResourceSurrogateId
       FROM (SELECT TOP (@DummyTop) * FROM @Resources WHERE HasVersionToCompare = 1) A
-           LEFT OUTER JOIN dbo.Resource B WITH (UPDLOCK, HOLDLOCK) 
+           LEFT OUTER JOIN dbo.Resource B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
              ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
