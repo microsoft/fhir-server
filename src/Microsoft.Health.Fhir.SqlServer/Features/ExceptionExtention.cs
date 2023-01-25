@@ -8,7 +8,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
 {
     internal static class ExceptionExtention
     {
-        internal static bool IsRetryable(this Exception e)
+        internal static bool IsRetriable(this Exception e)
         {
             var str = e.ToString().ToLowerInvariant();
             return HasNetworkErrorPattern(str)

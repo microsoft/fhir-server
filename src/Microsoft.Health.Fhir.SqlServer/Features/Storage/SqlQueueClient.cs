@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CancelJobByGroupIdAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CancelJobByIdAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CompleteJobAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "DequeueAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "EnqueueAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GetJobByGroupIdAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GetJobByIdAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GetJobsByIdsAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }

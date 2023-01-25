@@ -8,25 +8,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.SqlServer;
-using Microsoft.Health.SqlServer.Configs;
 using static Microsoft.Health.Fhir.SqlServer.Features.Storage.SqlRetryService;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in fhir-shared?
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in health-shared?
 {
     public interface ISqlRetryService
     {
-        Task ExecuteSqlWithRetries(SqlCommand sqlCommand, SqlConnectionInitializer sqlConnectionInitializer, ExecuteSqlWithRetriesAction action, CancellationToken cancellationToken);
-
-        Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken);
-
-        Task<T> ProcessSqlDataReaderRowsWithRetries<T>(SqlCommand sqlCommand, SqlConnectionInitializer sqlConnectionInitializer, InitializeRowProcessor<T> initializer, ExecuteRowProcessor<T> processRow, CancellationToken cancellationToken);
+        Task ExecuteWithRetries(RetriableAction action);
     }
 
     public class SqlRetryServiceOptions
@@ -37,22 +29,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 
         public int RetryMillisecondsDelay { get; set; } = 5000;
 
-#pragma warning disable CA1002 // Do not expose generic lists
-        public List<int> RemoveTransientErrors { get; } = new List<int>();
-#pragma warning restore CA1002 // Do not expose generic lists
+        public IList<int> RemoveTransientErrors { get; } = new List<int>();
 
-#pragma warning disable CA1002 // Do not expose generic lists
-        public List<int> AddTransientErrors { get; } = new List<int>();
-#pragma warning restore CA1002 // Do not expose generic lists
-
-        /*
-        #pragma warning disable CA2227 // Collection properties should be read only
-                public HashSet<int> RemoveTransientErrors { get; set; }
-        #pragma warning restore CA2227 // Collection properties should be read only
-
-        #pragma warning disable CA2227 // Collection properties should be read only
-                public HashSet<int> AddTransientErrors { get; set; }
-        #pragma warning restore CA2227 // Collection properties should be read only*/
+        public IList<int> AddTransientErrors { get; } = new List<int>();
     }
 
     public class SqlRetryServiceDelegateOptions
@@ -64,13 +43,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 
     public class SqlRetryService : ISqlRetryService
     {
-        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
-        private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
-
         // Default errors copied from src/Microsoft.Data.SqlClient/src/Microsoft/Data/SqlClient/Reliability/SqlConfigurableRetryFactory.cs .
-        private readonly HashSet<int> transientErrors
-            = new HashSet<int>
-                {
+        private readonly HashSet<int> _transientErrors
+            = new()
+            {
                 // Default .NET errors:
                     1204,   // The instance of the SQL Server Database Engine cannot obtain a LOCK resource at this time. Rerun your statement when there are fewer active users. Ask the database administrator to check the lock and memory configuration for this instance, or to check for long-running transactions.
                     1205,   // Transaction (Process ID) was deadlocked on resources with another process and has been chosen as the deadlock victim. Rerun the transaction
@@ -95,54 +71,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 
                 // Additional Fhir Server errors:
                     8623,   // The query processor ran out of internal resources and could not produce a query plan.
-                };
+            };
 
-        private readonly IsExceptionRetriable defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
-        private readonly bool defaultIsExceptionRetriableOff;
-        private readonly IsExceptionRetriable customIsExceptionRetriable;
-        private readonly int maxRetries;
-        private readonly int retryMillisecondsDelay;
+        private readonly IsExceptionRetriable _defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
+        private readonly bool _defaultIsExceptionRetriableOff;
+        private readonly IsExceptionRetriable _customIsExceptionRetriable;
+        private readonly int _maxRetries;
+        private readonly int _retryMillisecondsDelay;
 
         public SqlRetryService(
-            ISqlConnectionBuilder sqlConnectionBuilder,
-            IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
             SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions)
         {
-            EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
-            _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
-            _sqlConnectionBuilder = sqlConnectionBuilder;
-
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             if (sqlRetryServiceOptions.Value.RemoveTransientErrors != null)
             {
-                transientErrors.ExceptWith(sqlRetryServiceOptions.Value.RemoveTransientErrors);
+                _transientErrors.ExceptWith(sqlRetryServiceOptions.Value.RemoveTransientErrors);
             }
 
             if (sqlRetryServiceOptions.Value.AddTransientErrors != null)
             {
-                transientErrors.UnionWith(sqlRetryServiceOptions.Value.AddTransientErrors);
+                _transientErrors.UnionWith(sqlRetryServiceOptions.Value.AddTransientErrors);
             }
 
-            maxRetries = sqlRetryServiceOptions.Value.MaxRetries;
-            retryMillisecondsDelay = sqlRetryServiceOptions.Value.RetryMillisecondsDelay;
+            _maxRetries = sqlRetryServiceOptions.Value.MaxRetries;
+            _retryMillisecondsDelay = sqlRetryServiceOptions.Value.RetryMillisecondsDelay;
 
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
-            defaultIsExceptionRetriableOff = sqlRetryServiceDelegateOptions.DefaultIsExceptionRetriableOff;
-            customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
+            _defaultIsExceptionRetriableOff = sqlRetryServiceDelegateOptions.DefaultIsExceptionRetriableOff;
+            _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
         }
 
         public delegate bool IsExceptionRetriable(Exception ex);
 
-        public delegate Task ExecuteSqlWithRetriesAction(SqlCommand sqlCommand, CancellationToken cancellationToken);
-
-        public delegate Task<bool> ExecuteRowProcessor<T>(SqlDataReader reader, T result, CancellationToken cancellationToken);
-
-        public delegate T InitializeRowProcessor<T>();
-
-        public delegate void SqlConnectionInitializer(SqlConnection sqlConnection);
-
-        // TODO also define toT action delegate.
+        public delegate Task RetriableAction();
 
         private static bool DefaultIsExceptionRetriable(Exception ex)
         {
@@ -164,22 +126,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
 
         private bool RetryTest(Exception ex)
         {
-            if (ex is SqlException sqlEx && transientErrors.Contains(sqlEx.Number))
+            if (ex is SqlException sqlEx && _transientErrors.Contains(sqlEx.Number))
             {
                 return true;
             }
 
-            if (!defaultIsExceptionRetriableOff && defaultIsExceptionRetriable(ex))
+            if (!_defaultIsExceptionRetriableOff && _defaultIsExceptionRetriable(ex))
             {
                 return true;
             }
 
-            if (customIsExceptionRetriable(ex))
+            if (_customIsExceptionRetriable(ex))
             {
                 return true;
             }
 
-            if (ex.IsRetryable())
+            if (ex.IsRetriable())
             {
                 return true;
             }
@@ -187,94 +149,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public async Task ExecuteSqlWithRetries(SqlCommand sqlCommand, SqlConnectionInitializer sqlConnectionInitializer, ExecuteSqlWithRetriesAction action, CancellationToken cancellationToken)
+        public async Task ExecuteWithRetries(RetriableAction action)
         {
-            EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
-
-            sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
             int retry = 0;
             while (true)
             {
                 try
                 {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false); // TODO: change GetSqlConnection, this still uses old retry? Also, set connection timeout.
-                    sqlConnectionInitializer?.Invoke(connection);
-                    await connection.OpenAsync(cancellationToken);
-                    sqlCommand.Connection = connection;
-                    await action(sqlCommand, cancellationToken);
-                    return;
+                    await action();
                 }
                 catch (Exception ex)
                 {
-                    if (!RetryTest(ex) || ++retry >= maxRetries)
+                    if (!RetryTest(ex) || ++retry >= _maxRetries)
                     {
                         throw;
                     }
                 }
 
-                await Task.Delay(retryMillisecondsDelay, cancellationToken);
+                await Task.Delay(_retryMillisecondsDelay);
             }
-        }
-
-        /*public async Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken)
-        {
-            IList<T> results = null;
-            await ExecuteSqlWithRetries(
-                sqlCommand,
-                null,
-                async (sqlCommandInt, cancellationToken) =>
-                {
-                    using SqlDataReader reader = await sqlCommandInt.ExecuteReaderAsync(cancellationToken);
-                    results = new List<T>();
-                    while (await reader.ReadAsync(cancellationToken))
-                    {
-                        results.Add(toT(reader));
-                    }
-
-                    await reader.NextResultAsync(cancellationToken);
-                },
-                cancellationToken);
-
-            return results;
-        }*/
-
-        public async Task<IList<T>> ExecuteSqlReaderWithRetries<T>(SqlCommand sqlCommand, Func<SqlDataReader, T> toT, CancellationToken cancellationToken)
-        {
-            return await ProcessSqlDataReaderRowsWithRetries<IList<T>>(
-                sqlCommand,
-                null,
-                () => new List<T>(),
-                (reader, result, cancellationToken) =>
-                {
-                    result.Add(toT(reader));
-                    return Task.FromResult(true);
-                },
-                cancellationToken);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public async Task<T> ProcessSqlDataReaderRowsWithRetries<T>(SqlCommand sqlCommand, SqlConnectionInitializer sqlConnectionInitializer, InitializeRowProcessor<T> initializer, ExecuteRowProcessor<T> processRow, CancellationToken cancellationToken)
-        {
-            var results = default(T);
-            await ExecuteSqlWithRetries(
-                sqlCommand,
-                sqlConnectionInitializer,
-                async (sqlCommandInt, cancellationToken) =>
-                {
-                    using SqlDataReader reader = await sqlCommandInt.ExecuteReaderAsync(cancellationToken);
-                    results = initializer();
-                    while (await reader.ReadAsync(cancellationToken) && await processRow(reader, results, cancellationToken))
-                    {
-                    }
-
-                    await reader.NextResultAsync(cancellationToken);
-                },
-                cancellationToken);
-
-            return results;
         }
     }
 }

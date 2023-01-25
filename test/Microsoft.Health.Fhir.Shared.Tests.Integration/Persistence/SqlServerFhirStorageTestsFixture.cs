@@ -236,6 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
                 SqlConnectionWrapperFactory,
+                new SqlRetryService(Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions()),
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
