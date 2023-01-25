@@ -324,11 +324,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             results.UnionWith(searchParametersLookup[resourceType]);
 
-            var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>(
-                results.ToDictionary(
-                r => r.Code,
-                r => r,
-                StringComparer.Ordinal));
+            var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
+            foreach (SearchParameterInfo searchParam in results)
+            {
+                searchParameterDictionary.TryAdd(searchParam.Code, searchParam);
+            }
 
             if (!resourceTypeDictionary.TryAdd(resourceType, searchParameterDictionary))
             {
