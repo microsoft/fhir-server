@@ -94,15 +94,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
-            var results = new Dictionary<ResourceKey, UpsertOutcome>();
-            if (resources == null || resources.Count == 0)
-            {
-                return results;
-            }
-
             var retries = 0;
             while (true)
             {
+                var results = new Dictionary<ResourceKey, UpsertOutcome>();
+                if (resources == null || resources.Count == 0)
+                {
+                    return results;
+                }
+
                 cancellationToken.ThrowIfCancellationRequested();
 
                 try
