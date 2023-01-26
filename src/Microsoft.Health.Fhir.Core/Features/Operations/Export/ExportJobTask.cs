@@ -711,7 +711,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 smallList.Add(wrapper);
 
-                if (smallList.Count == 2)
+                if (smallList.Count == 4)
                 {
                     await _store().Value.MergeAsync(smallList, CancellationToken.None);
                     smallList = new List<ResourceWrapper>();
