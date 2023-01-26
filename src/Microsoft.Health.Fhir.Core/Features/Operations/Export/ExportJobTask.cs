@@ -706,9 +706,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 completeWrappers.Add(resourceWrapper);
             }
 
+            var smallList = new List<ResourceWrapper>();
             foreach (var wrapper in completeWrappers)
             {
-                await _store().Value.MergeAsync(new List<ResourceWrapper> { wrapper }, CancellationToken.None);
+                smallList.Add(wrapper);
+
+                if (smallList.Count == 2)
+                {
+                    await _store().Value.MergeAsync(smallList, CancellationToken.None);
+                    smallList = new List<ResourceWrapper>();
+                }
+                ////await _store().Value.MergeAsync(new List<ResourceWrapper> { wrapper }, CancellationToken.None);
+            }
+
+            if (smallList.Count > 0)
+            {
+                await _store().Value.MergeAsync(smallList, CancellationToken.None);
             }
 
             ////var merges = await _store().Value.MergeAsync(completeWrappers, CancellationToken.None);
