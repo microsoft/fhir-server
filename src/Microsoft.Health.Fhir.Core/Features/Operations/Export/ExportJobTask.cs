@@ -721,10 +721,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await _store().Value.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
             }
 
-            if (smallList.Count > 0)
-            {
-                await _store().Value.MergeAsync(smallList, CancellationToken.None);
-            }
+            ////if (smallList.Count > 0)
+            ////{
+            ////    await _store().Value.MergeAsync(smallList, CancellationToken.None);
+            ////}
 
             ////var merges = await _store().Value.MergeAsync(completeWrappers, CancellationToken.None);
 
