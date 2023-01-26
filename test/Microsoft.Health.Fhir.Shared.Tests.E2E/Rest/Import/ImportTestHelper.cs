@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
             {
+                Assert.Equal("1", resultResource.VersionId);
                 Assert.Contains(resources, expectedResource => expectedResource.Id.Equals(resultResource.Id));
             }
         }
