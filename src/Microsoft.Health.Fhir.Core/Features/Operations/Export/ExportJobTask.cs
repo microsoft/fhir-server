@@ -709,14 +709,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var smallList = new List<ResourceWrapper>();
             foreach (var wrapper in completeWrappers)
             {
-                smallList.Add(wrapper);
+                ////smallList.Add(wrapper);
 
-                if (smallList.Count == 4)
-                {
-                    await _store().Value.MergeAsync(smallList, CancellationToken.None);
-                    smallList = new List<ResourceWrapper>();
-                }
+                ////if (smallList.Count == 4)
+                ////{
+                ////    await _store().Value.MergeAsync(smallList, CancellationToken.None);
+                ////    smallList = new List<ResourceWrapper>();
+                ////}
                 ////await _store().Value.MergeAsync(new List<ResourceWrapper> { wrapper }, CancellationToken.None);
+
+                await _store().Value.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
             }
 
             if (smallList.Count > 0)
