@@ -818,6 +818,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Missing search indices for resource type &apos;{0}&apos;..
+        /// </summary>
+        internal static string MissingSearchIndices {
+            get {
+                return ResourceManager.GetString("MissingSearchIndices", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Modifier &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
         internal static string ModifierNotSupported {

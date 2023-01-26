@@ -65,6 +65,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
                 currentThrottling = throttleController.GetThrottleBasedDelay();
                 totalThrottling += currentThrottling;
 
+                if (totalThrottling > 0)
+                {
+                    break;
+                }
+
                 _output.WriteLine($"Current throttle based delay is: {currentThrottling}");
                 _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "100.0");
                 throttleController.UpdateDatastoreUsage();
