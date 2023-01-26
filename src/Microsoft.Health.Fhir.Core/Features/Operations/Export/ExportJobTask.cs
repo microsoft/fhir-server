@@ -706,7 +706,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 completeWrappers.Add(resourceWrapper);
             }
 
-            var merges = await _store().Value.MergeAsync(completeWrappers, CancellationToken.None);
+            foreach (var wrapper in completeWrappers)
+            {
+                await _store().Value.MergeAsync(new List<ResourceWrapper> { wrapper }, CancellationToken.None);
+            }
+
+            ////var merges = await _store().Value.MergeAsync(completeWrappers, CancellationToken.None);
 
             await Task.CompletedTask;
         }
