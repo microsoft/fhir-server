@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // ** We must use CreateNonRetrySqlCommand here because the retry will not reset the Stream containing the RawResource, resulting in a failure to save the data
                     using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                     using var sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
-                    if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
+                    if (_schemaInformation.Current >= SchemaVersionConstants.Merge && false)
                     {
                         var surrId = (await MergeResourcesBeginTransactionAsync(1, cancellationToken)).MinResourceSurrogateId;
 
