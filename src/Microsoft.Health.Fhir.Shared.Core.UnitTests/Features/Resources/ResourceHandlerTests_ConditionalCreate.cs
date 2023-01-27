@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
 
-            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapper>(x => x.ResourceId == result.Outcome.RawResourceElement.Id), null, true, true, Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperExtended>(x => x.Wrapper.ResourceId == result.Outcome.RawResourceElement.Id), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -58,12 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             Assert.Null(result);
 
-            await _fhirDataStore.DidNotReceive().UpsertAsync(
-                Arg.Any<ResourceWrapper>(),
-                Arg.Any<WeakETag>(),
-                true,
-                true,
-                Arg.Any<CancellationToken>());
+            await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -125,8 +120,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None)
                 .Returns(new SearchResult(searchResults, null, null, Enumerable.Empty<Tuple<string, string>>().ToArray()));
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperExtended>(0).Wrapper, SaveOutcomeType.Created));
 
             var message = new ConditionalCreateResourceRequest(requestResource, list);
 
