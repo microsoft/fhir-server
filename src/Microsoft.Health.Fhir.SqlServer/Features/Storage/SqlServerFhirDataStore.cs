@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (resource.IsDeleted)
                     {
                         // Don't bother marking the resource as deleted since it already does not exist.
-                        return null;
+                        return new UpsertOutcome(resource, SaveOutcomeType.Updated);
                     }
 
                     if (eTag.HasValue && eTag != null)
@@ -247,7 +247,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (resource.IsDeleted && existingResource.IsDeleted)
                     {
                         // Already deleted - don't create a new version
-                        return null;
+                        return new UpsertOutcome(existingResource, SaveOutcomeType.Updated);
                     }
 
                     // check if reosurces are equal if its not a Delete action
