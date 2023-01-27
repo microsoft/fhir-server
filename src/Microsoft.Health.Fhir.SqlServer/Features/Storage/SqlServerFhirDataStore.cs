@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var existingResources = (await GetAsync(resources.Select(_ => _.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
 
                     // assume that most likely case is that all resources should be updated
-                    var minSurrId = (await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken)).MinResourceSurrogateId;
+                    var minSurrId = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
                     var index = 0;
                     var mergeWrappers = new List<MergeResourceWrapper>();
@@ -148,6 +148,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
                         await cmd.ExecuteNonQueryAsync(cancellationToken);
                     }
+
+                    await MergeResourcesCommitTransactionAsync(minSurrId, cancellationToken);
 
                     return results;
                 }
@@ -271,7 +273,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     using var sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
                     if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
                     {
-                        var surrId = (await MergeResourcesBeginTransactionAsync(1, cancellationToken)).MinResourceSurrogateId;
+                        var surrId = await MergeResourcesBeginTransactionAsync(1, cancellationToken);
 
                         resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
                         ReplaceVersionIdAndLastUpdatedInMeta(resource);
@@ -625,18 +627,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<(long TransactionId, long MinResourceSurrogateId)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
+        public async Task<long> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateNonRetrySqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResourcesBeginTransaction";
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
-            var surrogateIdParam = new SqlParameter("@MinResourceSurrogateId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
+            var surrogateIdParam = new SqlParameter("@SurrogateIdRangeFirstValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(surrogateIdParam);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
-            var surrogateId = (long)surrogateIdParam.Value;
-            return (surrogateId, surrogateId);
+            return (long)surrogateIdParam.Value;
+        }
+
+        public async Task MergeResourcesCommitTransactionAsync(long surrogateIdRangeFirstValue, CancellationToken cancellationToken)
+        {
+            using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using var cmd = conn.CreateNonRetrySqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.MergeResourcesCommitTransaction";
+            cmd.Parameters.AddWithValue("@SurrogateIdRangeFirstValue", surrogateIdRangeFirstValue);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)

@@ -1278,6 +1278,26 @@ CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
     INCLUDE(SystemId1, SystemId2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+CREATE TABLE dbo.Transactions (
+    SurrogateIdRangeFirstValue BIGINT         NOT NULL,
+    SurrogateIdRangeLastValue  BIGINT         NOT NULL,
+    Definition                 VARCHAR (2000) NULL,
+    IsCompleted                BIT            CONSTRAINT DF_Transactions_IsCompleted DEFAULT 0 NOT NULL,
+    IsSuccess                  BIT            CONSTRAINT DF_Transactions_IsSuccess DEFAULT 0 NOT NULL,
+    IsVisible                  BIT            CONSTRAINT DF_Transactions_IsVisible DEFAULT 0 NOT NULL,
+    IsHistoryMoved             BIT            CONSTRAINT DF_Transactions_IsHistoryMoved DEFAULT 0 NOT NULL,
+    CreateDate                 DATETIME       CONSTRAINT DF_Transactions_CreateDate DEFAULT getUTCdate() NOT NULL,
+    EndDate                    DATETIME       NULL,
+    VisibleDate                DATETIME       NULL,
+    HistoryMovedDate           DATETIME       NULL,
+    HeartbeatDate              DATETIME       CONSTRAINT DF_Transactions_HeartbeatDate DEFAULT getUTCdate() NOT NULL,
+    FailureReason              VARCHAR (MAX)  NULL,
+    IsControlledByClient       BIT            CONSTRAINT DF_Transactions_IsControlledByClient DEFAULT 1 NOT NULL CONSTRAINT PKC_Transactions_SurrogateIdRangeFirstValue PRIMARY KEY CLUSTERED (SurrogateIdRangeFirstValue)
+);
+
+CREATE INDEX IX_IsVisible
+    ON dbo.Transactions(IsVisible);
+
 CREATE TABLE dbo.UriSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
@@ -4084,15 +4104,62 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @TransactionId BIGINT=0 OUTPUT, @MinResourceSurrogateId BIGINT=0 OUTPUT
+@Count INT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (100) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @LastValueVar AS SQL_VARIANT;
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @TransactionId AS BIGINT = NULL;
 BEGIN TRY
-    EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = NULL, @range_last_value = @LastValueVar OUTPUT;
-    SET @MinResourceSurrogateId = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + CONVERT (INT, @LastValueVar) - @Count;
-    SET @TransactionId = @MinResourceSurrogateId;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = NULL, @Text = @TransactionId;
+    IF @@trancount > 0
+        RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    WHILE @TransactionId IS NULL
+        BEGIN
+            EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUTPUT, @range_last_value = NULL;
+            SET @SurrogateIdRangeFirstValue = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + CONVERT (INT, @FirstValueVar);
+            BEGIN TRANSACTION;
+            INSERT INTO dbo.Transactions (SurrogateIdRangeFirstValue, SurrogateIdRangeLastValue)
+            SELECT @SurrogateIdRangeFirstValue,
+                   @SurrogateIdRangeFirstValue + @Count - 1;
+            IF isnull((SELECT   TOP 1 SurrogateIdRangeLastValue
+                       FROM     dbo.Transactions
+                       WHERE    SurrogateIdRangeFirstValue < @SurrogateIdRangeFirstValue
+                       ORDER BY SurrogateIdRangeFirstValue DESC), 0) < @SurrogateIdRangeFirstValue
+                BEGIN
+                    COMMIT TRANSACTION;
+                    SET @TransactionId = @SurrogateIdRangeFirstValue;
+                END
+            ELSE
+                BEGIN
+                    ROLLBACK;
+                    SET @TransactionId = NULL;
+                    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Warn', @Start = @st, @Rows = NULL, @Text = @SurrogateIdRangeFirstValue;
+                END
+        END
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    IF @@trancount > 0
+        ROLLBACK;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.MergeResourcesCommitTransaction
+@SurrogateIdRangeFirstValue BIGINT, @FailureReason VARCHAR (MAX)=NULL
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @SurrogateIdRangeFirstValue), @st AS DATETIME = getUTCdate();
+BEGIN TRY
+    UPDATE dbo.Transactions
+    SET    IsCompleted   = 1,
+           IsSuccess     = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END,
+           EndDate       = getUTCdate(),
+           IsVisible     = 1,
+           VisibleDate   = getUTCdate(),
+           FailureReason = @FailureReason
+    WHERE  SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue;
 END TRY
 BEGIN CATCH
     IF error_number() = 1750
