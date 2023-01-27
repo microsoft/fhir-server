@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                 return true;
             }
 
-            if (_customIsExceptionRetriable(ex))
+            if (_customIsExceptionRetriable?.Invoke(ex) == true)
             {
                 return true;
             }
@@ -159,6 +159,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in
                 try
                 {
                     await action();
+                    return;
                 }
                 catch (Exception ex)
                 {
