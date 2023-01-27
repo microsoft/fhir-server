@@ -3,44 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-#pragma warning disable SA1649 // File name should match first type name. TODO: split this file so each class has it's own.
-#pragma warning disable SA1402 // File may only contain a single type
-
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
-using static Microsoft.Health.Fhir.SqlServer.Features.Storage.SqlRetryService;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage // TODO: namespace in health-shared?
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public interface ISqlRetryService
-    {
-        Task ExecuteWithRetries(RetriableAction action);
-    }
-
-    public class SqlRetryServiceOptions
-    {
-        public const string SqlServer = "SqlServer";
-
-        public int MaxRetries { get; set; } = 5;
-
-        public int RetryMillisecondsDelay { get; set; } = 5000;
-
-        public IList<int> RemoveTransientErrors { get; } = new List<int>();
-
-        public IList<int> AddTransientErrors { get; } = new List<int>();
-    }
-
-    public class SqlRetryServiceDelegateOptions
-    {
-        public bool DefaultIsExceptionRetriableOff { get; init; }
-
-        public IsExceptionRetriable CustomIsExceptionRetriable { get; init; }
-    }
-
     public class SqlRetryService : ISqlRetryService
     {
         // Default errors copied from src/Microsoft.Data.SqlClient/src/Microsoft/Data/SqlClient/Reliability/SqlConfigurableRetryFactory.cs .

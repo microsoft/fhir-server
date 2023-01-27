@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     if (exportTimeTravel)
                     {
                         PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
-                        sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large TODO: confirm thos for OSS.
+                        sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
                     }
                     else
                     {
