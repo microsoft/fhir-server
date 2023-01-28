@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -88,12 +89,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public async Task<IDictionary<ResourceKey, object>> MergeAsync(IReadOnlyList<ResourceWrapperExtended> resources, CancellationToken cancellationToken)
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperExtended> resources, CancellationToken cancellationToken)
         {
             var retries = 0;
             while (true)
             {
-                var results = new Dictionary<ResourceKey, object>();
+                var results = new Dictionary<ResourceKey, UpsertOutcome>();
                 if (resources == null || resources.Count == 0)
                 {
                     return results;
@@ -110,40 +111,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     var index = 0;
                     var mergeWrappers = new List<MergeResourceWrapper>();
-                    foreach (var resource in resources)
+                    foreach (var resourceExt in resources)
                     {
-                        // TODO: validation logic below is copy/paste from upsert method.
-                        // It does not throw on each exception but accumulates them and writes the rest.
-                        // This will need to change for transaction bundles as we do not want to write partial bundle.
-                        int? eTag = resource.WeakETag == null
-                                    ? null
-                                    : (int.TryParse(resource.WeakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
+                        var weakETag = resourceExt.WeakETag;
+                        int? eTag = weakETag == null
+                            ? null
+                            : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
-                        var resourceKey = resource.Wrapper.ToResourceKey();
-
+                        var resource = resourceExt.Wrapper;
+                        var resourceKey = resource.ToResourceKey();
                         existingResources.TryGetValue(resourceKey, out var existingResource);
 
                         // Check for any validation errors
                         if (existingResource != null && eTag.HasValue && eTag.ToString() != existingResource.Version)
                         {
-                            if (resource.WeakETag != null)
+                            if (weakETag != null)
                             {
                                 // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
                                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                                 {
-                                    results.Add(resourceKey, new ResourceConflictException(resource.WeakETag));
-                                    continue;
+                                    throw new ResourceConflictException(weakETag);
                                 }
 
-                                results.Add(resourceKey, new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, resource.WeakETag.VersionId)));
-                                continue;
+                                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                             }
                         }
 
                         // There is no previous version of this resource, check validations and then simply call SP to create new version
                         if (existingResource == null)
                         {
-                            if (resource.Wrapper.IsDeleted)
+                            if (resource.IsDeleted)
                             {
                                 // Don't bother marking the resource as deleted since it already does not exist.
                                 results.Add(resourceKey, null);
@@ -153,39 +150,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             if (eTag.HasValue && eTag != null)
                             {
                                 // You can't update a resource with a specified version if the resource does not exist
-                                if (resource.WeakETag != null)
+                                if (weakETag != null)
                                 {
-                                    results.Add(resourceKey, new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.Wrapper.ResourceTypeName, resource.Wrapper.ResourceId, resource.WeakETag.VersionId)));
-                                    continue;
+                                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                                 }
                             }
 
-                            if (!resource.AllowCreate)
+                            if (!resourceExt.AllowCreate)
                             {
-                                results.Add(resourceKey, new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed));
-                                continue;
+                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             }
 
-                            resource.Wrapper.Version = InitialVersion;
+                            resource.Version = InitialVersion;
                         }
                         else
                         {
-                            if (resource.RequireETagOnUpdate && !eTag.HasValue)
+                            if (resourceExt.RequireETagOnUpdate && !eTag.HasValue)
                             {
                                 // This is a versioned update and no version was specified
                                 // TODO: Add this to SQL error codes in AB#88286
                                 // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
                                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                                 {
-                                    results.Add(resourceKey, new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.Wrapper.ResourceTypeName)));
-                                    continue;
+                                    throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                                 }
 
-                                results.Add(resourceKey, new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.Wrapper.ResourceTypeName)));
-                                continue;
+                                throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                             }
 
-                            if (resource.Wrapper.IsDeleted && existingResource.IsDeleted)
+                            if (resource.IsDeleted && existingResource.IsDeleted)
                             {
                                 // Already deleted - don't create a new version
                                 results.Add(resourceKey, null);
@@ -193,10 +186,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             }
 
                             // check if reosurces are equal if its not a Delete action
-                            if (!resource.Wrapper.IsDeleted)
+                            if (!resource.IsDeleted)
                             {
                                 // check if the new resource data is same as existing resource data
-                                if (ExistingRawResourceIsEqualToInput(resource.Wrapper, existingResource))
+                                if (ExistingRawResourceIsEqualToInput(resource, existingResource))
                                 {
                                     // Send the existing resource in the response
                                     results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
@@ -205,20 +198,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             }
 
                             // existing version in the SQL db should never be null
-                            resource.Wrapper.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                            resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
                         }
 
                         var surrId = minSurrId + index;
-                        resource.Wrapper.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
-                        ReplaceVersionIdAndLastUpdatedInMeta(resource.Wrapper);
-                        mergeWrappers.Add(new MergeResourceWrapper(resource.Wrapper, surrId, resource.KeepHistory, true));
+                        resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                        ReplaceVersionIdAndLastUpdatedInMeta(resource);
+                        mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
                         index++;
-                        results.Add(resourceKey, new UpsertOutcome(resource.Wrapper, resource.Wrapper.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
+                        results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
                     }
 
                     if (mergeWrappers.Count > 0) // do not call db with empty input
                     {
-                        using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                        using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true); // TODO: Remove tran enlist when true bundle logic is in place.
                         using var cmd = conn.CreateNonRetrySqlCommand();
                         VLatest.MergeResources.PopulateCommand(
                             cmd,
@@ -250,9 +243,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperExtended resource, CancellationToken cancellationToken)
         {
-            // TODO: transactions are currently handled on C# side. This should be reworked when bundles are plumbed through
-            // The goal is all should go via Merge method.
-            return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
+            return (await MergeAsync(new List<ResourceWrapperExtended> { resource }, cancellationToken)).First().Value;
         }
 
         private async Task<UpsertOutcome> UpsertAsync(
@@ -485,8 +476,92 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
-            return results.Count == 0 ? null : results[0];
+            // TODO: Remove if when Merge is released
+            if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
+            {
+                var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
+                return results.Count == 0 ? null : results[0];
+            }
+
+            // TODO: Remove all below when Merge is released
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            {
+                int? requestedVersion = null;
+                if (!string.IsNullOrEmpty(key.VersionId))
+                {
+                    if (!int.TryParse(key.VersionId, out var parsedVersion))
+                    {
+                        return null;
+                    }
+
+                    requestedVersion = parsedVersion;
+                }
+
+                using (SqlCommandWrapper commandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+                {
+                    VLatest.ReadResource.PopulateCommand(
+                        commandWrapper,
+                        resourceTypeId: _model.GetResourceTypeId(key.ResourceType),
+                        resourceId: key.Id,
+                        version: requestedVersion);
+
+                    using (SqlDataReader sqlDataReader = await commandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                    {
+                        if (!await sqlDataReader.ReadAsync(cancellationToken))
+                        {
+                            return null;
+                        }
+
+                        var resourceTable = VLatest.Resource;
+
+                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                            resourceTable.ResourceSurrogateId,
+                            resourceTable.Version,
+                            resourceTable.IsDeleted,
+                            resourceTable.IsHistory,
+                            resourceTable.RawResource);
+
+                        string rawResource;
+                        using (rawResourceStream)
+                        {
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        }
+
+                        if (string.IsNullOrEmpty(rawResource))
+                        {
+                            rawResource = MissingResourceFactory.CreateJson(key.Id, key.ResourceType, "error", "exception");
+                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.InternalServerError);
+                        }
+
+                        _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceType}: {ResourceType}; {NameOfRawResource} length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(key.ResourceType), key.ResourceType, nameof(rawResource), rawResource.Length);
+
+                        var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
+
+                        string searchParamHash = null;
+
+                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
+                        {
+                            searchParamHash = sqlDataReader.Read(resourceTable.SearchParamHash, 6);
+                        }
+
+                        return new ResourceWrapper(
+                            key.Id,
+                            version.ToString(CultureInfo.InvariantCulture),
+                            key.ResourceType,
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                            null,
+                            new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                            isDeleted,
+                            searchIndices: null,
+                            compartmentIndices: null,
+                            lastModifiedClaims: null,
+                            searchParamHash)
+                        {
+                            IsHistory = isHistory,
+                        };
+                    }
+                }
+            }
         }
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
