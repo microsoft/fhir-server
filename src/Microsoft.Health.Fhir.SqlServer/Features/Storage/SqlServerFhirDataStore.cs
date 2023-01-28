@@ -26,7 +26,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -253,20 +252,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             // TODO: transactions are currently handled on C# side. This should be reworked when bundles are plumbed through
             // The goal is all should go via Merge method.
-            if (!_requestContextAccessor.RequestContext.ExecutingBatchOrTransaction) // is transaction
-            {
-                return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
-            }
-
-            var result = (await MergeAsync(new List<ResourceWrapperExtended> { resource }, cancellationToken)).Values.First();
-            if (result is UpsertOutcome || result == null)
-            {
-                return (UpsertOutcome)result;
-            }
-            else
-            {
-                throw (Exception)result;
-            }
+            return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
         }
 
         private async Task<UpsertOutcome> UpsertAsync(
