@@ -243,7 +243,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperExtended resource, CancellationToken cancellationToken)
         {
-            return (await MergeAsync(new List<ResourceWrapperExtended> { resource }, cancellationToken)).First().Value;
+            // TODO: transactions are currently handled on C# side. This should be reworked when bundles are plumbed through
+            // The goal is all should go via Merge method.
+            // return (await MergeAsync(new List<ResourceWrapperExtended> { resource }, cancellationToken)).First().Value;
+            return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
         }
 
         private async Task<UpsertOutcome> UpsertAsync(
