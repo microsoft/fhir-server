@@ -665,12 +665,13 @@ BEGIN CATCH
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
 
-  IF @RaiseExceptionOnConflict = 1 AND error_number() = 2601 AND error_message() LIKE 'cannot insert duplicate key row in object ''dbo.Resource'' with unique index%version%'
+  IF @RaiseExceptionOnConflict = 1 AND error_number() = 2601 AND error_message() LIKE '''dbo.Resource''%version%'
     THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
   ELSE
     THROW
 END CATCH
 GO
+
 
 --DROP PROCEDURE dbo.GetResources
 GO
