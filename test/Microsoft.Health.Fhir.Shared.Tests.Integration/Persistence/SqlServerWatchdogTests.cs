@@ -44,6 +44,9 @@ DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)
 COMMIT TRANSACTION
 EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
                 ");
+
+            await Task.Delay(10000);
+
             var sizeBefore = GetSize();
             var current = GetDateTime();
 
