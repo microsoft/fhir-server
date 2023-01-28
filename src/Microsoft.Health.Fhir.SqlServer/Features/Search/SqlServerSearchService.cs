@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -33,6 +34,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -57,6 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly ISqlRetryService _sqlRetryService;
+        private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
@@ -77,6 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ISqlConnectionBuilder sqlConnectionBuilder,
             ISqlRetryService sqlRetryService,
+            IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
@@ -95,6 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
@@ -304,11 +309,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteWithRetries(async () =>
             {
-                using (SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false)) // TODO: change GetSqlConnection, this still uses old retry? Also, set connection timeout.
-                using (SqlCommand sqlCommand = new SqlCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+                using (SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false))
+                using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                 {
+                    // connection.ConnectionTimeout = default value 15 sec; TODO: NOT SET?
+
+                    // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
+                    // Connection is never open but RetryLogicProvider is set to the old retry implementation. According to teh .NET spec, RetryLogicProvider must be set before opening connection to take effect.
+                    // Therefore we must reset it to null here before opening the connection.
+                    connection.RetryLogicProvider = null; // Before opening connection, reset old retry logic to null! To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
                     await connection.OpenAsync(cancellationToken);
-                    sqlCommand.Connection = connection;
+
+                    sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
                     var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
                     if (exportTimeTravel)

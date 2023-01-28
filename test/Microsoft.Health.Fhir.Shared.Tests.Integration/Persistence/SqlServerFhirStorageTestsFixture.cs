@@ -81,7 +81,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
+            var config = Options.Create(new SqlServerDataStoreConfiguration
+            {
+                ConnectionString = TestConnectionString,
+                Initialize = true,
+                SchemaOptions = schemaOptions,
+                StatementTimeout = TimeSpan.FromMinutes(10),
+                CommandTimeout = TimeSpan.FromMinutes(3),
+            });
 
             SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
@@ -238,6 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlConnectionWrapperFactory,
                 SqlConnectionBuilder,
                 new SqlRetryService(Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions()),
+                config,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
