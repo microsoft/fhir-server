@@ -713,27 +713,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 completeWrappers.Add(resourceWrapper);
             }
 
-            var smallList = new List<ResourceWrapper>();
+            var smallList = new List<ResourceWrapperExtended>();
             foreach (var wrapper in completeWrappers)
             {
-                ////smallList.Add(wrapper);
-
-                ////if (smallList.Count == 4)
-                ////{
-                ////    await _store().Value.MergeAsync(smallList, CancellationToken.None);
-                ////    smallList = new List<ResourceWrapper>();
-                ////}
-                ////await _store().Value.MergeAsync(new List<ResourceWrapper> { wrapper }, CancellationToken.None);
-
-                await _store().Value.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
+                var wrapperExt = new ResourceWrapperExtended(wrapper, true, true, null, false);
+                smallList.Add(wrapperExt);
+                if (smallList.Count == 10000)
+                {
+                    await _store().Value.MergeAsync(smallList, CancellationToken.None);
+                    smallList = new List<ResourceWrapperExtended>();
+                }
             }
 
-            ////if (smallList.Count > 0)
-            ////{
-            ////    await _store().Value.MergeAsync(smallList, CancellationToken.None);
-            ////}
-
-            ////var merges = await _store().Value.MergeAsync(completeWrappers, CancellationToken.None);
+            if (smallList.Count > 0)
+            {
+                await _store().Value.MergeAsync(smallList, CancellationToken.None);
+            }
 
             await Task.CompletedTask;
         }

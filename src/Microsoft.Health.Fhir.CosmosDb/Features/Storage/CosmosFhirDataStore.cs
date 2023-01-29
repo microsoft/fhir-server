@@ -107,6 +107,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _coreFeatures = coreFeatures.Value;
             _modelInfoProvider = modelInfoProvider;
         }
+
         public Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperExtended> resources, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
