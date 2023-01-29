@@ -680,12 +680,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // then delete the search parameter resource from data base
                 await _searchParameterOperations2.DeleteSearchParameterAsync(deletedWrapper.RawResource, CancellationToken.None);
 
-                UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(
-                    deletedWrapper,
-                    weakETag: null,
-                    allowCreate: true,
-                    keepHistory: true,
-                    cancellationToken: CancellationToken.None);
+                UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(new ResourceWrapperExtended(deletedWrapper, true, true, null, false), CancellationToken.None);
 
                 // After trying to sync the new "supported" status, but finding the resource missing, we should not add it to the
                 // searchparameterdefinitionmanager
