@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var wrapper = CreateResourceWrapper(resource, false);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapper>(), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapperExtended>().Wrapper, SaveOutcomeType.Created));
 
             var rawResource = await _mediator.CreateResourceAsync(resource);
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
@@ -145,8 +145,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var resource = Samples.GetDefaultObservation()
                 .UpdateId(null);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperExtended>(0).Wrapper, SaveOutcomeType.Created));
 
             var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResourceElement;
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var wrapper = CreateResourceWrapper(resource, false);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapper>(), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapperExtended>().Wrapper, SaveOutcomeType.Created));
 
             var rawResource = await _mediator.CreateResourceAsync(resource);
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
@@ -181,8 +181,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
             {
-                _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                    .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
+                _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>())
+                    .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperExtended>(0).Wrapper, SaveOutcomeType.Created));
 
                 var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResourceElement;
                 var deserializedResource = rawResource.ToResourceElement(_deserializer);
@@ -204,8 +204,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 return CreateResourceWrapper(newResource.ToResourceElement(), false);
             }
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapperExtended>(0).Wrapper), SaveOutcomeType.Created));
 
             var outcome = await _mediator.UpsertResourceAsync(resource);
             var deserialized = outcome.RawResourceElement.ToResourceElement(_deserializer);
@@ -228,8 +228,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 return CreateResourceWrapper(newResource.ToResourceElement(), false);
             }
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Updated));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapperExtended>(0).Wrapper), SaveOutcomeType.Updated));
 
             var outcome = await _mediator.UpsertResourceAsync(resource, null);
             var deserialized = outcome.RawResourceElement.ToResourceElement(_deserializer);
@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         [Fact]
         public async Task GivenAFhirMediator_WhenDeletingAResourceThatIsAlreadyDeleted_ThenDoNothing()
         {
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), null, true, true, Arg.Any<CancellationToken>()).Returns(default(UpsertOutcome));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperExtended>(), Arg.Any<CancellationToken>()).Returns(default(UpsertOutcome));
 
             var resourceKey = new ResourceKey<Observation>("id1");
             ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.SoftDelete)).ResourceKey;

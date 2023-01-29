@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             // using try catch here instead of Assert.ThrowsAsync in order to verify exception property
             try
             {
-                await _dataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperExtended(wrapper, true, true, null, false), CancellationToken.None);
             }
             catch (CosmosException e)
             {
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             try
             {
-                await _dataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperExtended(wrapper, true, true, null, false), CancellationToken.None);
             }
             catch (CosmosException e)
             {
