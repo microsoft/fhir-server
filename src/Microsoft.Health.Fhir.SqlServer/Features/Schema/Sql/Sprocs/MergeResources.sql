@@ -33,7 +33,6 @@ DECLARE @st datetime = getUTCdate()
        ,@InitialTranCount int = @@trancount
 
 DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] MinSur='+convert(varchar,min(ResourceSurrogateId))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
-
 SET @Mode += ' ITC='+convert(varchar,@InitialTranCount)+' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
 
 SET @AffectedRows = 0
@@ -71,7 +70,7 @@ BEGIN TRY
           ,B.Version
           ,B.ResourceSurrogateId
       FROM (SELECT TOP (@DummyTop) * FROM @Resources WHERE HasVersionToCompare = 1) A
-           LEFT OUTER JOIN dbo.Resource B WITH (UPDLOCK, HOLDLOCK) 
+           LEFT OUTER JOIN dbo.Resource B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
              ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
@@ -249,7 +248,12 @@ END TRY
 BEGIN CATCH
   IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
-  THROW
+
+  IF @RaiseExceptionOnConflict = 1 AND error_number() = 2601 AND error_message() LIKE '%''dbo.Resource''%version%'
+    THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+  ELSE
+    THROW
 END CATCH
 GO

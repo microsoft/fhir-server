@@ -221,7 +221,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (ResourceNotFoundException rnfe)
             {
-                _logger.LogError(rnfe, "Can't find specified resource. The job will be marked as failed.");
+                if (rnfe.ResourceKey?.ResourceType == KnownResourceTypes.Group)
+                {
+                    _logger.LogInformation(rnfe, "Can't find specified resource. The job will be marked as failed.");
+                }
+                else
+                {
+                    _logger.LogError(rnfe, "Can't find specified resource. The job will be marked as failed.");
+                }
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);

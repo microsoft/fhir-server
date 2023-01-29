@@ -535,6 +535,89 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         [SkippableFact]
+        public async Task GivenFhirUserClaimPractitioner_WhenCareTeamIsRequested_OnlyCareTeamResourcesInTheSameCompartmentReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.CareTeam, Core.Features.Security.DataActions.Read, "user");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Practitioner";
+
+            var results = await _searchService.Value.SearchAsync("CareTeam", query, CancellationToken.None);
+
+            Assert.Collection(
+                            results.Results,
+                            r => Assert.True(r.Resource.ResourceId == "smart-careteam-1"));
+        }
+
+        [SkippableFact]
+        public async Task GivenFhirUserClaimPractitioner_WhenAllResourcesRequested_ResourcesInTheSameComparementAndUniversalResourcesAlsoReturned()
+        {
+            Skip.If(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var query = new List<Tuple<string, string>>();
+            query.Add(new Tuple<string, string>("_count", "100"));
+
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "user");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-practitioner-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Practitioner";
+
+            var results = await _searchService.Value.SearchAsync(null, query, CancellationToken.None);
+
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Observation);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Patient);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.CareTeam);
+            /* As per g10 standards, Resources Organization, Medication, Location and Practitioner are returned from outside of compartment.
+            */
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Organization);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Medication);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Location);
+            Assert.Contains(results.Results, r => r.Resource.ResourceTypeName == KnownResourceTypes.Practitioner);
+
+            Assert.Contains(
+                           results.Results,
+                           r => r.Resource.ResourceId == "smart-careteam-1");
+
+            Assert.Contains(
+                           results.Results,
+                           r => r.Resource.ResourceId == "smart-organization-A1");
+
+            Assert.Contains(
+                           results.Results,
+                           r => r.Resource.ResourceId == "smart-patient-B");
+
+            Assert.Contains(
+                           results.Results,
+                           r => r.Resource.ResourceId == "smart-practitioner-A");
+
+            Assert.Contains(
+                           results.Results,
+                           r => r.Resource.ResourceId == "smart-practitioner-B");
+
+            /*This is true because we are returning universal Organization resources even when they are not part of compartment of requested Practioner.*/
+            Assert.Contains(
+                           results.Results,
+                           r => r.Resource.ResourceId == "smart-organization-B1");
+
+            /*This is true because smart-patient-C doesnt belong to the same compartment requested and not part of universal resources that should be returned.*/
+            Assert.DoesNotContain(
+                           results.Results,
+                           r => r.Resource.ResourceId == "smart-patient-C");
+        }
+
+        [SkippableFact]
         public async Task GivenFhirUserClaimPatient_WhenAllResourcesRequested_UniversalResourcesAlsoReturned()
         {
             Skip.If(
@@ -618,7 +701,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
             wrapper.SearchParameterHash = "hash";
 
-            return await _scopedDataStore.Value.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
+            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperExtended(wrapper, true, true, null, false), CancellationToken.None);
         }
 
         private static async Task<FhirTypedElementToSearchValueConverterManager> CreateFhirTypedElementToSearchValueConverterManagerAsync()

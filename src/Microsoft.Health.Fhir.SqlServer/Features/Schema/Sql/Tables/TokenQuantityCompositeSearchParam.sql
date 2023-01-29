@@ -13,13 +13,13 @@
     IsHistory bit NOT NULL,
     CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
-GO
+
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CONSTRAINT DF_TokenQuantityCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
-GO
+
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CONSTRAINT CHK_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
-GO
+
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
-GO
+
 CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
 ON dbo.TokenQuantityCompositeSearchParam
 (
@@ -29,7 +29,7 @@ ON dbo.TokenQuantityCompositeSearchParam
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-GO
+
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
@@ -48,7 +48,7 @@ INCLUDE
 WHERE IsHistory = 0 AND SingleValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-GO
+
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
@@ -68,7 +68,7 @@ INCLUDE
 WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-GO
+
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
@@ -88,4 +88,4 @@ INCLUDE
 WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-GO
+

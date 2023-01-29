@@ -307,26 +307,49 @@ INSERT INTO dbo.ResourceChangeData
     FROM @Ids
 GO
 
---DROP PROCEDURE dbo.MergeResourcesBeginTransaction
+IF object_id('dbo.Transactions') IS NULL
+CREATE TABLE dbo.Transactions
+(
+     SurrogateIdRangeFirstValue   bigint NOT NULL
+    ,SurrogateIdRangeLastValue    bigint NOT NULL
+    ,Definition                   varchar(2000) NULL
+    ,IsCompleted                  bit NOT NULL CONSTRAINT DF_Transactions_IsCompleted DEFAULT 0 -- is set at the end of commit process
+    ,IsSuccess                    bit NOT NULL CONSTRAINT DF_Transactions_IsSuccess DEFAULT 0 -- is set at the end of commit process on success
+    ,IsVisible                    bit NOT NULL CONSTRAINT DF_Transactions_IsVisible DEFAULT 0
+    ,IsHistoryMoved               bit NOT NULL CONSTRAINT DF_Transactions_IsHistoryMoved DEFAULT 0
+    ,CreateDate                   datetime NOT NULL CONSTRAINT DF_Transactions_CreateDate DEFAULT getUTCdate()
+    ,EndDate                      datetime NULL -- is populated only for commit change sets at the end of commit process on success or failure
+    ,VisibleDate                  datetime NULL -- indicates when transaction data became visible
+    ,HistoryMovedDate             datetime NULL
+    ,HeartbeatDate                datetime NOT NULL CONSTRAINT DF_Transactions_HeartbeatDate DEFAULT getUTCdate()
+    ,FailureReason                varchar(max) NULL -- is populated at the end of data load on failure
+    ,IsControlledByClient         bit NOT NULL CONSTRAINT DF_Transactions_IsControlledByClient DEFAULT 1
+
+     CONSTRAINT PKC_Transactions_SurrogateIdRangeFirstValue PRIMARY KEY CLUSTERED (SurrogateIdRangeFirstValue)
+)
 GO
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @MinResourceSurrogateId bigint = 0 OUT 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Transactions') AND name = 'IX_IsVisible')
+CREATE INDEX IX_IsVisible ON dbo.Transactions (IsVisible)
+GO
+
+--DROP PROCEDURE dbo.MergeResourcesCommitTransaction
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesCommitTransaction @SurrogateIdRangeFirstValue bigint, @FailureReason varchar(max) = NULL
 AS
 set nocount on
-DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
-       ,@Mode varchar(100) = 'Cnt='+convert(varchar,@Count)
+DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
+       ,@Mode varchar(200) = 'TR='+convert(varchar,@SurrogateIdRangeFirstValue)
        ,@st datetime = getUTCdate()
-       ,@LastValueVar sql_variant
 
 BEGIN TRY
-  -- Below logic is SQL implementation of current C# surrogate id helper extended for a batch
-  -- I don't like it because it is not full proof, and can produce identical ids for different calls.
-  EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = NULL, @range_last_value = @LastValueVar OUT
-  SET @MinResourceSurrogateId = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + convert(int,@LastValueVar) - @Count
-  
-  -- This is a placeholder. It will change in future.
-  SET @TransactionId = @MinResourceSurrogateId
-
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=NULL,@Text=@TransactionId
+  UPDATE dbo.Transactions 
+    SET IsCompleted = 1
+       ,IsSuccess = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END
+       ,EndDate = getUTCdate()
+       ,IsVisible = 1 -- this will change in future
+       ,VisibleDate = getUTCdate()
+       ,FailureReason = @FailureReason
+    WHERE SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
@@ -334,9 +357,60 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---DECLARE @TransactionId bigint
---EXECUTE dbo.MergeResourcesBeginTransaction @Count = 500, @TransactionId = @TransactionId OUT
---SELECT @TransactionId
+
+--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @SurrogateIdRangeFirstValue bigint = 0 OUT
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)
+       ,@st datetime = getUTCdate()
+       ,@FirstValueVar sql_variant
+       ,@TransactionId bigint = NULL
+
+BEGIN TRY
+  IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
+
+  SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+    
+  WHILE @TransactionId IS NULL
+  BEGIN
+    EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUT, @range_last_value = NULL
+
+    SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + convert(int,@FirstValueVar)
+
+    BEGIN TRANSACTION
+
+    INSERT INTO dbo.Transactions
+           (  SurrogateIdRangeFirstValue,                SurrogateIdRangeLastValue )
+      SELECT @SurrogateIdRangeFirstValue, @SurrogateIdRangeFirstValue + @Count - 1
+
+    IF isnull((SELECT TOP 1 SurrogateIdRangeLastValue FROM dbo.Transactions WHERE SurrogateIdRangeFirstValue < @SurrogateIdRangeFirstValue ORDER BY SurrogateIdRangeFirstValue DESC),0) < @SurrogateIdRangeFirstValue
+    BEGIN
+      COMMIT TRANSACTION
+      SET @TransactionId = @SurrogateIdRangeFirstValue
+    END
+    ELSE
+    BEGIN
+      ROLLBACK TRANSACTION
+      SET @TransactionId = NULL
+      EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Warn',@Start=@st,@Rows=NULL,@Text=@SurrogateIdRangeFirstValue
+    END
+  END
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+--DECLARE @SurrogateIdRangeFirstValue bigint
+--EXECUTE dbo.MergeResourcesBeginTransaction @Count = 100, @TransactionId = 0, @SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue OUT
+--SELECT @SurrogateIdRangeFirstValue
+--SELECT TOP 10 * FROM Transactions ORDER BY SurrogateIdRangeFirstValue DESC
+--SELECT TOP 100 * FROM EventLog WHERE EventDate > dateadd(minute,-60,getUTCdate()) AND Process = 'MergeResourcesBeginTransaction' ORDER BY EventDate DESC, EventId DESC
 
 --DROP PROCEDURE dbo.MergeResources
 GO
@@ -373,7 +447,6 @@ DECLARE @st datetime = getUTCdate()
        ,@InitialTranCount int = @@trancount
 
 DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] MinSur='+convert(varchar,min(ResourceSurrogateId))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
-
 SET @Mode += ' ITC='+convert(varchar,@InitialTranCount)+' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
 
 SET @AffectedRows = 0
@@ -411,7 +484,7 @@ BEGIN TRY
           ,B.Version
           ,B.ResourceSurrogateId
       FROM (SELECT TOP (@DummyTop) * FROM @Resources WHERE HasVersionToCompare = 1) A
-           LEFT OUTER JOIN dbo.Resource B WITH (UPDLOCK, HOLDLOCK) 
+           LEFT OUTER JOIN dbo.Resource B -- WITH (UPDLOCK, HOLDLOCK) These locking hints cause deadlocks and are not needed. Racing might lead to tries to insert dups in unique index (with version key), but it will fail anyway, and in no case this will cause incorrect data saved.
              ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.IsHistory = 0
       OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
@@ -589,10 +662,16 @@ END TRY
 BEGIN CATCH
   IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
-  THROW
+
+  IF @RaiseExceptionOnConflict = 1 AND error_number() = 2601 AND error_message() LIKE '%''dbo.Resource''%version%'
+    THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+  ELSE
+    THROW
 END CATCH
 GO
+
 
 --DROP PROCEDURE dbo.GetResources
 GO
