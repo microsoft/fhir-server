@@ -104,7 +104,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var existingResources = (await GetAsync(resources.Select(_ => _.Wrapper.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
+                    // ignore input resource version to get latest version from the store
+                    var existingResources = (await GetAsync(resources.Select(_ => _.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _);
 
                     // assume that most likely case is that all resources should be updated
                     var minSurrId = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
@@ -119,8 +120,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
                         var resource = resourceExt.Wrapper;
-                        var resourceKey = resource.ToResourceKey();
-                        existingResources.TryGetValue(resourceKey, out var existingResource);
+                        var resourceKey = resource.ToResourceKey(); // keep input version in the results to allow processing multiple versions per resource
+                        existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
 
                         // Check for any validation errors
                         if (existingResource != null && eTag.HasValue && eTag.ToString() != existingResource.Version)
@@ -228,7 +229,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException e)
                 {
-                    if ((e.Number == SqlErrorCodes.Conflict || e.IsRetryable()) && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                    // we cannot retry on connection loss as this call might be in outer transaction.
+                    // TODO: Add retries when set bundle processing is in place.
+                    if (e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={retries}");
                         await Task.Delay(5000, cancellationToken);
@@ -243,10 +246,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperExtended resource, CancellationToken cancellationToken)
         {
-            // TODO: transactions are currently handled on C# side. This should be reworked when bundles are plumbed through
-            // The goal is all should go via Merge method.
-            // return (await MergeAsync(new List<ResourceWrapperExtended> { resource }, cancellationToken)).First().Value;
-            return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
+            // TODO: Remove if when Merge is released
+            if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
+            {
+                return (await MergeAsync(new List<ResourceWrapperExtended> { resource }, cancellationToken)).First().Value;
+            }
+            else
+            {
+                return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
+            }
         }
 
         private async Task<UpsertOutcome> UpsertAsync(
@@ -352,30 +360,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // ** We must use CreateNonRetrySqlCommand here because the retry will not reset the Stream containing the RawResource, resulting in a failure to save the data
                     using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                     using var sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
-                    if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
-                    {
-                        var surrId = await MergeResourcesBeginTransactionAsync(1, cancellationToken);
-
-                        resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
-                        ReplaceVersionIdAndLastUpdatedInMeta(resource);
-
-                        VLatest.MergeResources.PopulateCommand(
-                            sqlCommandWrapper,
-                            AffectedRows: 0,
-                            RaiseExceptionOnConflict: true,
-                            IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
-                            tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(new List<MergeResourceWrapper> { new MergeResourceWrapper(resource, surrId, keepHistory, true) }));
-                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    }
-                    else
-                    {
-                        using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(SqlServerFhirDataStore));
-                        _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
-                        stream.Seek(0, 0);
-                        PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
-                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken); // resource.Version has been set already
-                        resource.RawResource.IsMetaSet = resource.Version == InitialVersion;
-                    }
+                    using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(SqlServerFhirDataStore));
+                    _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
+                    stream.Seek(0, 0);
+                    PopulateUpsertResourceCommand(sqlCommandWrapper, resource, keepHistory, existingVersion, stream, _coreFeatures.SupportsResourceChangeCapture);
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken); // resource.Version has been set already
+                    resource.RawResource.IsMetaSet = resource.Version == InitialVersion;
 
                     return new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
                 }
