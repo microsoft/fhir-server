@@ -25,6 +25,8 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -213,7 +215,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             ResourceElement typedElement = observation.ToResourceElement();
 
             var wrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+            var searchIndex = new SearchIndexEntry(new SearchParameterInfo("newSearchParam1", "newSearchParam1"), new NumberSearchValue(1));
+            var searchIndex2 = new SearchIndexEntry(new SearchParameterInfo("newSearchParam2", "newSearchParam2"), new StringSearchValue("paramValue"));
 
+            wrapper.SearchIndices = new List<SearchIndexEntry>() { searchIndex, searchIndex2 };
             var innerException = new Exception("RequestTimeout");
 
             _container.Value.When(x => x.CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())).
@@ -243,7 +248,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             ResourceElement typedElement = observation.ToResourceElement();
 
             var wrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+            var searchIndex = new SearchIndexEntry(new SearchParameterInfo("newSearchParam1", "newSearchParam1"), new NumberSearchValue(1));
+            var searchIndex2 = new SearchIndexEntry(new SearchParameterInfo("newSearchParam2", "newSearchParam2"), new StringSearchValue("paramValue"));
 
+            wrapper.SearchIndices = new List<SearchIndexEntry>() { searchIndex, searchIndex2 };
             var innerException = new Exception("RequestTimeout");
 
             _container.Value.When(x => x.CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())).

@@ -76,7 +76,6 @@ namespace Microsoft.Health.JobManagement.UnitTests
         {
             string errorMessage = "Test error";
             object error = new { error = errorMessage };
-            object defaultError = new { message = errorMessage };
 
             string definition1 = "definition1";
             string definition2 = "definition2";
@@ -104,7 +103,6 @@ namespace Microsoft.Health.JobManagement.UnitTests
                             (progress, token) =>
                             {
                                 Interlocked.Increment(ref executeCount);
-
                                 throw new Exception(errorMessage);
                             });
                 }
@@ -124,7 +122,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(JobStatus.Failed, job1.Status);
             Assert.Equal(JsonConvert.SerializeObject(error), job1.Result);
             Assert.Equal(JobStatus.Failed, job2.Status);
-            Assert.Equal(JsonConvert.SerializeObject(defaultError), job2.Result);
+
+            // Job2's error includes the stack trace with can't be easily added to the expected value, so we just look for the message.
+            Assert.Contains(errorMessage, job2.Result);
         }
 
         [Fact]

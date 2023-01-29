@@ -674,11 +674,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 bool tryGetSearchParamResult2 = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
                 Assert.False(tryGetSearchParamResult2);
 
-                // first step of the delete process would be to remove the SearchParameter from the data store
                 ResourceWrapper deletedWrapper = CreateSearchParamResourceWrapper(searchParam, deleted: true);
-                UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(new ResourceWrapperExtended(deletedWrapper, true, true, null, false), CancellationToken.None);
 
-                await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None);
+                // As per DeleteSearchParameterBehavior.Handle, first step of the delete process would be to delete from the in-memory datastore
+                // then delete the search parameter resource from data base
+                await _searchParameterOperations2.DeleteSearchParameterAsync(deletedWrapper.RawResource, CancellationToken.None);
+
+                UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(
+                    deletedWrapper,
+                    weakETag: null,
+                    allowCreate: true,
+                    keepHistory: true,
+                    cancellationToken: CancellationToken.None);
 
                 // After trying to sync the new "supported" status, but finding the resource missing, we should not add it to the
                 // searchparameterdefinitionmanager
@@ -888,7 +895,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
-            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name")) { SortStatus = SortParameterStatus.Enabled }, new StringSearchValue(patientName)) };
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
             wrapper.SearchParameterHash = "hash";
 
@@ -906,7 +913,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
-            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("status", "status", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Observation-status")) { SortStatus = SortParameterStatus.Disabled }, new StringSearchValue("final")) };
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
             wrapper.SearchParameterHash = "hash";
 
@@ -932,11 +939,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
 
             var searchParamValue = new UriSearchValue(searchParam.Url, false);
-            List<SearchIndexEntry> searchIndices = null;
-            if (!deleted)
-            {
-                searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(searchParamInfo, searchParamValue) };
-            }
+            List<SearchIndexEntry> searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(searchParamInfo, searchParamValue) };
 
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, deleted, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("SearchParameter"));
             wrapper.SearchParameterHash = "hash";
