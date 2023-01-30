@@ -629,7 +629,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResourcesBeginTransaction";
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
-            var surrogateIdParam = new SqlParameter("@MinResourceSurrogateId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
+            var surrogateIdParam = new SqlParameter("@SurrogateIdRangeFirstValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(surrogateIdParam);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
             var surrogateId = (long)surrogateIdParam.Value;
