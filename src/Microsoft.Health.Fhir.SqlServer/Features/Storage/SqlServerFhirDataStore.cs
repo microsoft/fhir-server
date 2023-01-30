@@ -419,6 +419,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 comparedVersion: comparedVersion);
         }
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using var cmd = conn.CreateNonRetrySqlCommand();
+                VLatest.LogEvent.PopulateCommand(cmd, process, status, null, null, null, null, startDate, text, null, null);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch
+            {
+                // do nothing;
+            }
+        }
+
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);

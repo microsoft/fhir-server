@@ -709,8 +709,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     resourceWrapper.Version = "1";
                 }
 
+                var start = DateTime.UtcNow;
                 _wrapperFactory.Update(resourceWrapper);
+                await _store().Value.TryLogEvent("SearchIndexesUpdate", "Warn", resourceWrapper.ResourceId, start, CancellationToken.None);
+
                 completeWrappers.Add(resourceWrapper);
+            }
+
+            foreach (var wrapper in completeWrappers)
+            {
+                var wrapperExt = new ResourceWrapperExtended(wrapper, true, true, null, false);
+                await _store().Value.HardDeleteAsync(wrapper.ToResourceKey(), false, CancellationToken.None);
             }
 
             var smallList = new List<ResourceWrapperExtended>();
@@ -718,9 +727,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 var wrapperExt = new ResourceWrapperExtended(wrapper, true, true, null, false);
                 smallList.Add(wrapperExt);
-                if (smallList.Count == 10000)
+                if (smallList.Count == 1)
                 {
+                    var start = DateTime.UtcNow;
                     await _store().Value.MergeAsync(smallList, CancellationToken.None);
+                    await _store().Value.TryLogEvent("MergeAsync", "Warn", wrapper.ResourceId, start, CancellationToken.None);
                     smallList = new List<ResourceWrapperExtended>();
                 }
             }
