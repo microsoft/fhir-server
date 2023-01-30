@@ -702,18 +702,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     resourceWrapper.Version = "1";
                 }
 
-                _wrapperFactory.Update(resourceWrapper);
-                completeWrappers.Add(resourceWrapper);
+                if (resourceWrapper.ResourceTypeName != "ImagingStudy")
+                {
+                    _wrapperFactory.Update(resourceWrapper);
+                    completeWrappers.Add(resourceWrapper);
+                }
             }
 
             var smallList = new List<ResourceWrapper>();
             foreach (var wrapper in completeWrappers)
             {
-                if (wrapper.ResourceTypeName != "ImagingStudy")
-                {
-                    smallList.Add(wrapper);
-                }
-
                 if (smallList.Count == 10000)
                 {
                     await _store().Value.MergeAsync(smallList, CancellationToken.None);
