@@ -526,7 +526,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
-            // TODO: confirm this:
+            // TODO: Remove GetResourcesByTypeAndSurrogateIdRange from *.Generated.cs?
             command.CommandType = CommandType.StoredProcedure;
             command.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
             command.Parameters.AddWithValue("@ResourceTypeId", type);
