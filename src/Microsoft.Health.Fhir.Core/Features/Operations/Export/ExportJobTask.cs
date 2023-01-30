@@ -709,7 +709,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             var smallList = new List<ResourceWrapper>();
             foreach (var wrapper in completeWrappers)
             {
-                smallList.Add(wrapper);
+                if (wrapper.ResourceTypeName != "ImagingStudy")
+                {
+                    smallList.Add(wrapper);
+                }
 
                 if (smallList.Count == 10000)
                 {
