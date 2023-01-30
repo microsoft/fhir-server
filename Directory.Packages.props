@@ -1,11 +1,9 @@
 <Project>
-
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>6.2.15</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
-
   <!-- SDK Packages -->
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net7.0'">
@@ -27,7 +25,6 @@
       </ItemGroup>
     </Otherwise>
   </Choose>
-
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="0.17.1" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
@@ -64,9 +61,9 @@
     <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(RuntimePackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(AspNetPackageVersion)" />
@@ -75,7 +72,7 @@
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.20.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(RuntimePackageVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
@@ -122,5 +119,4 @@
     <PackageVersion Include="xunit.assert" Version="2.4.2" />
     <PackageVersion Include="System.Drawing.Common" Version="7.0.0" />
   </ItemGroup>
-
 </Project>
