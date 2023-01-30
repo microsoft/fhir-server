@@ -4116,7 +4116,7 @@ DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHA
 BEGIN TRY
     IF @@trancount > 0
         RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
     WHILE @TransactionId IS NULL
         BEGIN
             EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUTPUT, @range_last_value = NULL;
