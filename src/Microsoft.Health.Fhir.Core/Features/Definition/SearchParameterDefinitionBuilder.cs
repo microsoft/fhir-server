@@ -15,6 +15,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
@@ -44,12 +45,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IReadOnlyCollection<ITypedElement> searchParameters,
             ConcurrentDictionary<string, SearchParameterInfo> uriDictionary,
             ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ILogger logger)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
             EnsureArg.IsNotNull(uriDictionary, nameof(uriDictionary));
             EnsureArg.IsNotNull(resourceTypeDictionary, nameof(resourceTypeDictionary));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattenedList(
                 searchParameters,
@@ -65,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
-                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, modelInfoProvider);
+                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, modelInfoProvider, logger);
             }
         }
 
@@ -298,7 +301,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType,
             ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ILogger logger)
         {
             HashSet<SearchParameterInfo> results;
             if (resourceTypeDictionary.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> cachedSearchParameters))
@@ -318,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (baseType != null && !string.Equals(KnownResourceTypes.Base, baseType, StringComparison.OrdinalIgnoreCase))
             {
-                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider);
+                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider, logger);
                 results.UnionWith(baseResults);
             }
 
@@ -327,7 +331,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
             foreach (SearchParameterInfo searchParam in results)
             {
-                searchParameterDictionary.TryAdd(searchParam.Code, searchParam);
+                if (!searchParameterDictionary.TryAdd(searchParam.Code, searchParam) && searchParameterDictionary.TryGetValue(searchParam.Code, out SearchParameterInfo searchPWithSameCode))
+                {
+                    logger.LogWarning("SearchParameterDefinitionBuilder: Search parameter name {SearchParam1} with Base Resource Type {BaseResourceTypes1} has same code {Code} as Search Param name {SearchParam2} with Base Resource Type {BaseResourceTypes2}", searchParam.Name, searchParam.BaseResourceTypes, searchParam.Code, searchPWithSameCode.Name, searchPWithSameCode.BaseResourceTypes);
+                }
             }
 
             if (!resourceTypeDictionary.TryAdd(resourceType, searchParameterDictionary))
