@@ -286,13 +286,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"subject:Patient.gender:not=female&subject:Patient._tag={Fixture.Tag}";
 
-            Bundle completeBundle = await Client.SearchAsync(ResourceType.Observation, query);
-            Assert.True(completeBundle.Entry.Count == 4);
+            Bundle notFemaleBundle = await Client.SearchAsync(ResourceType.Observation, query);
+            Assert.True(notFemaleBundle.Entry.Count == 4);
 
             query = $"subject:Patient.gender:not=male&subject:Patient._tag={Fixture.Tag}";
 
-            completeBundle = await Client.SearchAsync(ResourceType.Observation, query);
-            Assert.True(completeBundle.Entry.Count == 1);
+            Bundle notMaleBundle = await Client.SearchAsync(ResourceType.Observation, query);
+            Assert.True(notMaleBundle.Entry.Count == 1);
+
+            query = $"subject:Patient._tag={Fixture.Tag}";
+
+            Bundle allPatientBundle = await Client.SearchAsync(ResourceType.Observation, query);
+            Assert.True(allPatientBundle.Entry.Count == notMaleBundle.Entry.Count + notFemaleBundle.Entry.Count);
         }
 
         public class ClassFixture : HttpIntegrationTestFixture
