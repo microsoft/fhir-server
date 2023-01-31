@@ -644,6 +644,9 @@
   <data name="Meta" xml:space="preserve">
     <value>Meta</value>
   </data>
+  <data name="MissingSearchIndices" xml:space="preserve">
+    <value>Missing search indices for resource type '{0}'.</value>
+  </data>
   <data name="OperationOutcomeLocationDeprication" xml:space="preserve">
     <value>OperationOutcome.Location is deprecated, please use OperationOutcome.Expression</value>
     <comment>Warning message informing users of a field deprecation</comment>

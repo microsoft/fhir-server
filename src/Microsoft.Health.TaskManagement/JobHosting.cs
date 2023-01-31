@@ -163,7 +163,7 @@ namespace Microsoft.Health.JobManagement
             {
                 _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
 
-                object error = new { message = ex.Message };
+                object error = new { message = ex.Message, stackTrace = ex.StackTrace };
                 jobInfo.Result = JsonConvert.SerializeObject(error);
                 jobInfo.Status = JobStatus.Failed;
 
