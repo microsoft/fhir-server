@@ -73,8 +73,8 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
 
-- stage: testStu3
-  displayName: 'Run Stu3 Tests'
+- stage: testStu3Export
+  displayName: 'Run Stu3 Export Tests'
   dependsOn:
   - Build
   - redeployStu3
@@ -85,14 +85,38 @@ stages:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
 
-- stage: testR4
-  displayName: 'Run R4 Tests'
+- stage: testR4Export
+  displayName: 'Run R4 Export Tests'
   dependsOn:
   - Build
   - redeployR4
   - redeployR4Sql
   jobs:
   - template: ./jobs/run-export-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(DeploymentEnvironmentNameR4)
+
+- stage: testStu3Import
+  displayName: 'Run Stu3 Import Tests'
+  dependsOn:
+  - Build
+  - redeployStu3
+  - redeployStu3Sql
+  jobs:
+  - template: ./jobs/run-import-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(DeploymentEnvironmentName)
+
+- stage: testR4Import
+  displayName: 'Run R4 Import Tests'
+  dependsOn:
+  - Build
+  - redeployR4
+  - redeployR4Sql
+  jobs:
+  - template: ./jobs/run-import-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
