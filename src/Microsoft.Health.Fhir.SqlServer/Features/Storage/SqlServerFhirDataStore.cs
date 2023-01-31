@@ -220,6 +220,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             RaiseExceptionOnConflict: true,
                             IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
                             tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
+                        cmd.CommandTimeout = 1800; // TODO: make dependent on volume of data.
                         await cmd.ExecuteNonQueryAsync(cancellationToken);
                     }
 
