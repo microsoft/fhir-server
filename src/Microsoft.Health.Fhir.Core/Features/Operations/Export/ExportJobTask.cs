@@ -704,18 +704,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
 
-                var start = DateTime.UtcNow;
+                ////var start = DateTime.UtcNow;
                 _wrapperFactory.Update(resourceWrapper);
-                await _store().Value.TryLogEvent("SearchIndexesUpdate", "Warn", resourceWrapper.ResourceId, start, CancellationToken.None);
+                ////await _store().Value.TryLogEvent("SearchIndexesUpdate", "Warn", resourceWrapper.ResourceId, start, CancellationToken.None);
 
                 completeWrappers.Add(resourceWrapper);
             }
 
-            foreach (var wrapper in completeWrappers)
-            {
-                var wrapperExt = new ResourceWrapperExtended(wrapper, true, true, null, false);
-                await _store().Value.HardDeleteAsync(wrapper.ToResourceKey(), false, CancellationToken.None);
-            }
+            ////foreach (var wrapper in completeWrappers)
+            ////{
+            ////    var wrapperExt = new ResourceWrapperExtended(wrapper, true, true, null, false);
+            ////    await _store().Value.HardDeleteAsync(wrapper.ToResourceKey(), false, CancellationToken.None);
+            ////}
 
             var smallList = new List<ResourceWrapperExtended>();
             foreach (var wrapper in completeWrappers)
@@ -724,18 +724,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 smallList.Add(wrapperExt);
                 if (smallList.Count == 10000)
                 {
-                    var start = DateTime.UtcNow;
+                    ////var start = DateTime.UtcNow;
                     await _store().Value.MergeAsync(smallList, CancellationToken.None);
-                    await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
+                    ////await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
                     smallList = new List<ResourceWrapperExtended>();
                 }
             }
 
             if (smallList.Count > 0)
             {
-                var start = DateTime.UtcNow;
+                ////var start = DateTime.UtcNow;
                 await _store().Value.MergeAsync(smallList, CancellationToken.None);
-                await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
+                ////await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
             }
 
             await Task.CompletedTask;
