@@ -704,11 +704,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
 
-                if (resourceWrapper.Version == "0")
-                {
-                    resourceWrapper.Version = "1";
-                }
-
                 var start = DateTime.UtcNow;
                 _wrapperFactory.Update(resourceWrapper);
                 await _store().Value.TryLogEvent("SearchIndexesUpdate", "Warn", resourceWrapper.ResourceId, start, CancellationToken.None);
@@ -727,18 +722,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 var wrapperExt = new ResourceWrapperExtended(wrapper, true, true, null, false);
                 smallList.Add(wrapperExt);
-                if (smallList.Count == 1)
+                if (smallList.Count == 10000)
                 {
                     var start = DateTime.UtcNow;
                     await _store().Value.MergeAsync(smallList, CancellationToken.None);
-                    await _store().Value.TryLogEvent("MergeAsync", "Warn", wrapper.ResourceId, start, CancellationToken.None);
+                    await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
                     smallList = new List<ResourceWrapperExtended>();
                 }
             }
 
             if (smallList.Count > 0)
             {
+                var start = DateTime.UtcNow;
                 await _store().Value.MergeAsync(smallList, CancellationToken.None);
+                await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
             }
 
             await Task.CompletedTask;
