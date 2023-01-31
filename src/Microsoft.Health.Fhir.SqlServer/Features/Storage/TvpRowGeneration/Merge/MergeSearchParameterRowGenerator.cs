@@ -36,8 +36,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
             EnsureInitialized();
 
-            var results = new HashSet<TRow>();
-
             foreach (var merge in resources.Where(_ => !_.ResourceWrapper.IsHistory)) // only current
             {
                 var typeId = Model.GetResourceTypeId(merge.ResourceWrapper.ResourceTypeName);
@@ -45,6 +43,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                         merge.ResourceWrapper.CompartmentIndices,
                         merge.ResourceWrapper.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                         merge.ResourceWrapper.LastModifiedClaims);
+
+                var results = new HashSet<TRow>();
 
                 foreach (SearchIndexEntry v in resourceMetadata.GetSearchIndexEntriesByType(typeof(TSearchValue)))
                 {
