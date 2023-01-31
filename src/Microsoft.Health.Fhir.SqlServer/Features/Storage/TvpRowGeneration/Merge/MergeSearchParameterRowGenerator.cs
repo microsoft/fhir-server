@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                         merge.ResourceWrapper.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                         merge.ResourceWrapper.LastModifiedClaims);
 
-                var dedupResults = new HashSet<TRow>();
+                var dedupedResults = new HashSet<TRow>();
 
                 foreach (SearchIndexEntry v in resourceMetadata.GetSearchIndexEntriesByType(typeof(TSearchValue)))
                 {
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                         var searchValue = (TSearchValue)v.Value;
 
                         // save an array allocation
-                        if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, dedupResults, out TRow row))
+                        if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, dedupedResults, out TRow row))
                         {
                             yield return row;
                         }
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     {
                         foreach (var searchValue in ConvertSearchValue(v))
                         {
-                            if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, dedupResults, out TRow row))
+                            if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, dedupedResults, out TRow row))
                             {
                                 yield return row;
                             }

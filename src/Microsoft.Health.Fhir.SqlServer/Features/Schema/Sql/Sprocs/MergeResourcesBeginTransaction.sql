@@ -12,7 +12,7 @@ DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
 BEGIN TRY
   IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
 
-  SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+  SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
     
   WHILE @TransactionId IS NULL
   BEGIN
