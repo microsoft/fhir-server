@@ -127,7 +127,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
-            Assert.Equal("2", resource.Version);
+            Assert.Equal("3", resource.Version);
+            Assert.False(resource.IsHistory); // current
+
+            // use surr id interval that covers all changes
+            maxId = _fixture.SearchService.GetSurrogateId(DateTime.UtcNow);
+            range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
+            queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Type, type),
+                Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
+                Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
+                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, "0"),
+                Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
+            };
+            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            Assert.Single(results.Results);
+            resource = results.Results.First().Resource;
+            Assert.Equal("3", resource.Version);
             Assert.False(resource.IsHistory); // current
         }
 
@@ -138,7 +155,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var newId = Guid.NewGuid().ToString();
             patient.Id = newId;
             await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
-            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 2 WHERE ResourceId = '{newId}'");
+            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 2, IsHistory = 1 WHERE ResourceId = '{newId}' AND Version = 1");
+            newId = Guid.NewGuid().ToString();
+            patient.Id = newId;
+            await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
+            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
         [Fact]
