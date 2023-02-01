@@ -204,7 +204,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var queueClient = new TestQueueClient();
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
-            var sqlQueueClient = new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlQueueClient>.Instance);
+            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
+            var sqlQueueClient = new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
             _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
@@ -244,7 +245,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 smartCompartmentSearchRewriter,
                 SqlConnectionWrapperFactory,
                 SqlConnectionBuilder,
-                new SqlRetryService(Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions()),
+                SqlRetryService,
                 config,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
@@ -271,6 +272,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
         internal ISqlConnectionBuilder SqlConnectionBuilder { get; }
+
+        internal ISqlRetryService SqlRetryService { get; }
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
 

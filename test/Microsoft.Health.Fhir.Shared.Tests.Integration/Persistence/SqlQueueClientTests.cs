@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenNewJobs_WhenEnqueueJobs_ThenCreatedJobsShouldBeReturned;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             string[] definitions = new string[] { "job1", "job2" };
             IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, definitions, null, false, false, CancellationToken.None);
 
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenNewJobsWithSameQueueType_WhenEnqueueWithForceOneActiveJobGroup_ThenSecondJobShouldNotBeEnqueued;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1" }, null, true, false, CancellationToken.None);
             await Assert.ThrowsAsync<JobConflictException>(async () => await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job2" }, null, true, false, CancellationToken.None));
         }
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobsWithSameDefinition_WhenEnqueue_ThenOnlyOneJobShouldBeEnqueued;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1"}, null, false, false, CancellationToken.None);
             Assert.Single(jobInfos);
             long jobId = jobInfos.First().Id;
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             byte queueType = (byte)TestQueueType.GivenJobsWithSameDefinition_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect;
 
             long groupId = new Random().Next(int.MinValue, int.MaxValue);
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1", "job2" }, groupId, false, false, CancellationToken.None);
             Assert.Equal(2, jobInfos.Count());
             Assert.Equal(groupId, jobInfos.First().GroupId);
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobsEnqueue_WhenDequeue_ThenAllJobsShouldBeReturened;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1" }, null, false, false, CancellationToken.None);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job2" }, null, false, false, CancellationToken.None);
 
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobKeepPutHeartbeat_WhenDequeue_ThenJobShouldNotBeReturened;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             IEnumerable<JobInfo> jobs = await sqlQueueClient.EnqueueAsync(queueType, new string[] { $"job1-{queueType}" }, null, false, false, CancellationToken.None);
             Assert.Single(jobs);
 
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobKeepPutHeartbeatWithResult_WhenDequeue_ThenJobWithResultShouldNotBeReturened;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1" }, null, false, false, CancellationToken.None);
 
             JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenRunningJobCancelled_WhenKeepHeartbeat_ThenCancelRequestedShouldBeReturned;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1" }, null, false, false, CancellationToken.None);
 
             JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobNotHeartbeat_WhenDequeue_ThenJobShouldBeReturenedAgain;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1" }, null, false, false, CancellationToken.None);
 
             JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCompleteJob_ThenJobsShouldBeCompleted;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1", "job2" }, null, false, false, CancellationToken.None);
 
             JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsByGroupId_ThenAllJobsShouldBeCancelled;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
 
             JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled;
 
-            var sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            var sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             IEnumerable<JobInfo> jobs = await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
 
             await sqlQueueClient.CancelJobByIdAsync(queueType, jobs.First().Id, CancellationToken.None);
@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled;
 
-            var sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
+            var sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, _logger);
             await sqlQueueClient.EnqueueAsync(queueType, new string[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
 
             JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
@@ -306,7 +306,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task ExecuteWithHeartbeat()
         {
             var queueType = (byte)TestQueueType.ExecuteWithHeartbeat;
-            var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+            var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             await client.EnqueueAsync(queueType, new string[] { "job" }, null, false, false, CancellationToken.None);
             JobInfo job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
             var cancel = new CancellationTokenSource();

@@ -5,10 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.SqlServer;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -44,6 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     8623,   // The query processor ran out of internal resources and could not produce a query plan.
             };
 
+        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly IsExceptionRetriable _defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
         private readonly bool _defaultIsExceptionRetriableOff;
         private readonly IsExceptionRetriable _customIsExceptionRetriable;
@@ -51,10 +55,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly int _retryMillisecondsDelay;
 
         public SqlRetryService(
+            ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
             SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions)
         {
+            EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
+            EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
+
+            _sqlConnectionBuilder = sqlConnectionBuilder;
+
             if (sqlRetryServiceOptions.Value.RemoveTransientErrors != null)
             {
                 _transientErrors.ExceptWith(sqlRetryServiceOptions.Value.RemoveTransientErrors);
@@ -68,14 +78,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _maxRetries = sqlRetryServiceOptions.Value.MaxRetries;
             _retryMillisecondsDelay = sqlRetryServiceOptions.Value.RetryMillisecondsDelay;
 
-            EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
             _defaultIsExceptionRetriableOff = sqlRetryServiceDelegateOptions.DefaultIsExceptionRetriableOff;
             _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
         }
 
         public delegate bool IsExceptionRetriable(Exception ex);
 
-        public delegate Task RetriableAction();
+        public delegate Task RetriableAction(CancellationToken cancellationToken);
+
+        public delegate Task RetriableSqlCommandAction(SqlCommand sqlCommand, CancellationToken cancellationToken);
+
+        public delegate Task<T> RetriableSqlCommandFunc<T>(SqlCommand sqlCommand, CancellationToken cancellationToken);
 
         private static bool DefaultIsExceptionRetriable(Exception ex)
         {
@@ -120,7 +133,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return false;
         }
 
-        public async Task ExecuteWithRetries(RetriableAction action)
+        public async Task<TResult> ExecuteSqlCommandFuncWithRetries<TResult, TLogger>(RetriableSqlCommandFunc<TResult> func, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(func, nameof(func));
+
+            int retry = 0;
+            while (true)
+            {
+                try
+                {
+                    using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    using SqlCommand sqlCommand = sqlConnection.CreateCommand(); // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+
+                    // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
+                    // Connection is never open but RetryLogicProvider is set to the old retry implementation. According to the .NET spec, RetryLogicProvider must be set before opening connection to take effect.
+                    // Therefore we must reset it to null here before opening the connection.
+                    sqlConnection.RetryLogicProvider = null; // Before opening connection, reset old retry logic to null! To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+                    await sqlConnection.OpenAsync(cancellationToken);
+
+                    return await func(sqlCommand, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    if (!RetryTest(ex))
+                    {
+                        throw;
+                    }
+
+                    if (++retry >= _maxRetries)
+                    {
+                        logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
+                        throw;
+                    }
+
+                    logger.LogInformation(ex, $"Attempt {retry}: {logMessage}");
+                }
+
+                await Task.Delay(_retryMillisecondsDelay, cancellationToken);
+            }
+        }
+
+        public async Task ExecuteSqlCommandActionWithRetries<TLogger>(RetriableSqlCommandAction action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
+        {
+            await ExecuteSqlCommandFuncWithRetries(
+                (sqlCommand, cancellationToken) =>
+                {
+                    action(sqlCommand, cancellationToken);
+                    return Task.FromResult(0);
+                },
+                logger,
+                logMessage,
+                cancellationToken);
+        }
+
+        public async Task ExecuteWithRetries(RetriableAction action, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
@@ -129,7 +195,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    await action();
+                    await action(cancellationToken);
                     return;
                 }
                 catch (Exception ex)
@@ -140,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
 
-                await Task.Delay(_retryMillisecondsDelay);
+                await Task.Delay(_retryMillisecondsDelay, cancellationToken);
             }
         }
     }
