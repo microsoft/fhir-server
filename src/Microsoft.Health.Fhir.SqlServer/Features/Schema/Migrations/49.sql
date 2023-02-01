@@ -2986,7 +2986,7 @@ BEGIN TRY
                FROM   @ResourceIds)
         BEGIN
             DECLARE @SurrogateIdMap TABLE (
-                MaxSurrogateId BIGINT);
+                MaxSurrogateId BIGINT PRIMARY KEY);
             INSERT INTO @SurrogateIdMap
             SELECT A.ResourceSurrogateId AS MaxSurrogateId
             FROM   (SELECT *

@@ -19,7 +19,7 @@ BEGIN TRY
 
   IF @GlobalEndId IS NOT NULL -- snapshot view
     INSERT INTO @ResourceIds
-      SELECT ResourceId, ResourceSurrogateId, RowId = row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId desc)
+      SELECT ResourceId, ResourceSurrogateId, RowId = row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId DESC)
         FROM dbo.Resource 
         WHERE ResourceTypeId = @ResourceTypeId
           AND ResourceId IN (SELECT DISTINCT ResourceId
@@ -33,7 +33,7 @@ BEGIN TRY
    
   IF EXISTS (SELECT * FROM @ResourceIds)
   BEGIN
-    DECLARE @SurrogateIdMap TABLE (MaxSurrogateId bigint)
+    DECLARE @SurrogateIdMap TABLE (MaxSurrogateId bigint PRIMARY KEY)
     INSERT INTO @SurrogateIdMap
       SELECT MaxSurrogateId = A.ResourceSurrogateId
         FROM (SELECT * FROM @ResourceIds WHERE RowId = 1 AND ResourceSurrogateId BETWEEN @StartId AND @EndId) A
