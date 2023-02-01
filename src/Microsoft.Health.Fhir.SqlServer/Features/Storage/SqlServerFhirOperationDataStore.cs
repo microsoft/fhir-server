@@ -178,17 +178,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
+            /*
             if (jobRecord.Status != OperationStatus.Canceled)
             {
                 throw new NotSupportedException($"Calls to this method with status={jobRecord.Status} are deprecated.");
             }
+            */
 
             eTag ??= WeakETag.FromVersionId("0");
 
             try
             {
                 var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Export, long.Parse(jobRecord.Id), false, cancellationToken);
-                await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
+                jobWithGroupId.QueueType = (byte)QueueType.Export;
+                jobWithGroupId.Result = JsonConvert.SerializeObject(jobRecord);
+                switch (jobRecord.Status)
+                {
+                    case OperationStatus.Canceled:
+                        await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
+                        break;
+                    case OperationStatus.Completed:
+                        jobWithGroupId.Status = JobStatus.Completed;
+                        await _queueClient.CompleteJobAsync(jobWithGroupId, false, cancellationToken);
+                        break;
+                    case OperationStatus.Failed:
+                        jobWithGroupId.Status = JobStatus.Failed;
+                        await _queueClient.CompleteJobAsync(jobWithGroupId, false, cancellationToken);
+                        break;
+                    case OperationStatus.Running:
+                    case OperationStatus.Queued:
+                        await _queueClient.PutJobHeartbeatAsync(jobWithGroupId, cancellationToken);
+                        break;
+                    default:
+                        throw new NotSupportedException($"Calls to this method with status={jobRecord.Status} are deprecated.");
+                }
             }
             catch (JobNotExistException ex)
             {

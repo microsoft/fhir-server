@@ -60,7 +60,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 var jobQueues = new[]
                 {
                     jobHostingValue.ExecuteAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource, true),
-                    jobHostingValue.ExecuteAsync((byte)QueueType.Export, Environment.MachineName, cancellationTokenSource),
                 };
                 await Task.WhenAll(jobQueues);
             }
