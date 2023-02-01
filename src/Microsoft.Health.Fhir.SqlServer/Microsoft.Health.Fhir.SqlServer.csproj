@@ -43,10 +43,6 @@
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Remove="Features\Schema\Migrations\49.diff.sql" />
-  </ItemGroup>
-
  <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
