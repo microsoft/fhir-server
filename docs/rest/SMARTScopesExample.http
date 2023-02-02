@@ -202,3 +202,55 @@ content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 < ./Data/BundleBatch.json
+
+### Testing Transaction bundle for Smart user with Read and Write access
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=user/*.*
+
+### POST the bundle data. Expect all Sucess
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/BundleTransaction.json
+
+
+### Testing Transaction bundle for Smart user with Read only access
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.read
+
+### POST the bundle data. Entire batch should fail
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/BundleTransaction.json
+
+### Testing Transaction bundle for Smart user with Write only access
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.write
+
+### POST the bundle data. Entire batch should fail
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/BundleTransaction.json
