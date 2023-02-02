@@ -1,0 +1,33 @@
+{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "MedicationRequest",
+                "status": "active",
+                "intent": "plan",
+                "medicationCodeableConcept": {
+                    "coding": [
+                        {
+                            "code": "test"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient1"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "MedicationRequest"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Patient"
+            }
+        }
+    ]
+}

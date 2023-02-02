@@ -134,4 +134,71 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 GET https://{{hostname}}/
 Authorization: Bearer {{bearer.response.body.access_token}}
 
+### Testing bundle post for Smart user with Read only access
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
 
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.read
+
+### POST the bundle data. Expect 403
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/SearchDataBatch.json
+
+
+### Testing bundle post for Smart user with Read and Write access
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=user/*.*
+
+### POST the bundle data. Expect all Sucess
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/SearchDataBatch.json
+
+### Testing bundle post for Smart user with Read only access, where Bundle has a read and write
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/Patient.read
+
+### POST the bundle data. Expect Success for Reads and 403 for Writes
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/BundleBatch.json
+
+### Testing bundle post for Smart user with Medicate write access only, where Bundle has a Patient read and Medication write
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smartUserClient
+&client_secret=smartUserClient
+&scope=patient/MedicationRequest.write
+
+### POST the bundle data. Expect Success for Write and 403 for Read
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/BundleBatch.json
