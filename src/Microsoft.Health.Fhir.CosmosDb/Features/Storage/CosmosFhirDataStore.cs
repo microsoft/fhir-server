@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             throw new NotImplementedException();
         }
 
-        public Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperExtended> resources, CancellationToken cancellationToken)
+        public Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             throw new NotImplementedException();
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperExtended resource, CancellationToken cancellationToken)
+        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
             return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
         }

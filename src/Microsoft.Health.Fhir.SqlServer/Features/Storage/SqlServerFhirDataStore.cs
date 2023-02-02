@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperExtended> resources, CancellationToken cancellationToken)
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             var retries = 0;
             while (true)
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
 
                         // Check for any validation errors
-                        if (existingResource != null && eTag.HasValue && eTag.ToString() != existingResource.Version)
+                        if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
                         {
                             if (weakETag != null)
                             {
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
 
-                            if (eTag.HasValue && eTag != null)
+                            if (eTag.HasValue)
                             {
                                 // You can't update a resource with a specified version if the resource does not exist
                                 if (weakETag != null)
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
 
-                            // check if reosurces are equal if its not a Delete action
+                            // check if resources are equal if its not a Delete action
                             if (!resource.IsDeleted)
                             {
                                 // check if the new resource data is same as existing resource data
@@ -234,23 +234,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // TODO: Add retries when set bundle processing is in place.
                     if ((e.Number == SqlErrorCodes.Conflict || e.IsRetryable()) && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                     {
-                        _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={retries}");
+                        _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
-                    _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={retries}");
+                    _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                     throw;
                 }
             }
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperExtended resource, CancellationToken cancellationToken)
+        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
             // TODO: Remove if when Merge is released
             if (_schemaInformation.Current >= SchemaVersionConstants.Merge)
             {
-                return (await MergeAsync(new List<ResourceWrapperExtended> { resource }, cancellationToken)).First().Value;
+                return (await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken)).First().Value;
             }
             else
             {
@@ -437,9 +437,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
+            var results = new List<ResourceWrapper>();
+            if (keys == null || keys.Count == 0)
+            {
+                return results;
+            }
+
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateRetrySqlCommand();
             VLatest.GetResources.PopulateCommand(cmd, keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue))); // put min value when cannot parse so resource will be not found
+            cmd.CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count);
 
             using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             var resources = new List<ResourceWrapper>();

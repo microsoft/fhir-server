@@ -14,11 +14,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken);
 
-        Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperExtended> resources, CancellationToken cancellationToken);
+        Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken);
 
         Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken);
 
-        Task<UpsertOutcome> UpsertAsync(ResourceWrapperExtended resource, CancellationToken cancellationToken);
+        Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken);
 
         Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken);
 

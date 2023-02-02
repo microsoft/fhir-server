@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int TokenOverflow = (int)SchemaVersion.V41;
         public const int Defrag = (int)SchemaVersion.V43;
         public const int ExportTimeTravel = (int)SchemaVersion.V44;
-        public const int Merge = (int)SchemaVersion.V49;
+        public const int Merge = (int)SchemaVersion.V50;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

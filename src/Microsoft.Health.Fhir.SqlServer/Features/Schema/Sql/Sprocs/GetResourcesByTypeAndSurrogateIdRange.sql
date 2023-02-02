@@ -19,7 +19,7 @@ BEGIN TRY
 
   IF @GlobalEndId IS NOT NULL -- snapshot view
     INSERT INTO @ResourceIds
-      SELECT ResourceId, ResourceSurrogateId, RowId = row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId)
+      SELECT ResourceId, ResourceSurrogateId, RowId = row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId DESC)
         FROM dbo.Resource 
         WHERE ResourceTypeId = @ResourceTypeId
           AND ResourceId IN (SELECT DISTINCT ResourceId
@@ -27,17 +27,16 @@ BEGIN TRY
                                WHERE ResourceTypeId = @ResourceTypeId 
                                  AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
                                  AND IsHistory = 1
+                                 AND IsDeleted = 0
                             )
           AND ResourceSurrogateId BETWEEN @GlobalStartId AND @GlobalEndId
    
   IF EXISTS (SELECT * FROM @ResourceIds)
   BEGIN
-    DECLARE @SurrogateIdMap TABLE (MinSurrogateId bigint, MaxSurrogateId bigint)
+    DECLARE @SurrogateIdMap TABLE (MaxSurrogateId bigint PRIMARY KEY)
     INSERT INTO @SurrogateIdMap
-      SELECT MinSurrogateId = A.ResourceSurrogateId
-            ,MaxSurrogateId = C.ResourceSurrogateId
+      SELECT MaxSurrogateId = A.ResourceSurrogateId
         FROM (SELECT * FROM @ResourceIds WHERE RowId = 1 AND ResourceSurrogateId BETWEEN @StartId AND @EndId) A
-             CROSS APPLY (SELECT ResourceSurrogateId FROM @ResourceIds B WHERE B.ResourceId = A.ResourceId) C
 
     SELECT @ResourceTypeId
           ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.ResourceId ELSE A.ResourceId END
@@ -51,11 +50,12 @@ BEGIN TRY
           ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.SearchParamHash ELSE A.SearchParamHash END
           ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.RawResource ELSE A.RawResource END
       FROM dbo.Resource A
-           LEFT OUTER JOIN @SurrogateIdMap B ON B.MinSurrogateId = A.ResourceSurrogateId
+           LEFT OUTER JOIN @SurrogateIdMap B ON B.MaxSurrogateId = A.ResourceSurrogateId
            LEFT OUTER JOIN dbo.Resource C ON C.ResourceTypeId = @ResourceTypeId AND C.ResourceSurrogateId = MaxSurrogateId
       WHERE A.ResourceTypeId = @ResourceTypeId 
         AND A.ResourceSurrogateId BETWEEN @StartId AND @EndId 
         AND (A.IsHistory = 0 OR MaxSurrogateId IS NOT NULL)
+        AND A.IsDeleted = 0
   END
   ELSE
     SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource 

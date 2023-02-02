@@ -5,9 +5,9 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class ResourceWrapperExtended
+    public class ResourceWrapperOperation
     {
-        public ResourceWrapperExtended(
+        public ResourceWrapperOperation(
             ResourceWrapper wrapper,
             bool allowCreate,
             bool keepHistory,

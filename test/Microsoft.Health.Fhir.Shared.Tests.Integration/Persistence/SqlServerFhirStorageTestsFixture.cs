@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -190,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
-            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser, _fhirRequestContextAccessor);
+            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
@@ -198,6 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 options,
                 _fhirRequestContextAccessor,
                 sqlSortingValidator,
+                new ExpressionAccessControl(_fhirRequestContextAccessor),
                 NullLogger<SearchOptionsFactory>.Instance);
 
             var searchParamTableExpressionQueryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);

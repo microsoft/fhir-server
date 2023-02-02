@@ -27,6 +27,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         internal override bool TryGenerateRow(short resourceTypeId, long resourceSurrogateId, short searchParamId, (ReferenceSearchValue component1, TokenSearchValue component2) searchValue, HashSet<ReferenceTokenCompositeSearchParamListRow> results, out ReferenceTokenCompositeSearchParamListRow row)
         {
+            // Dedupping hashset is defined in MergeSearchParameterRowGenerator which has access to all processed resources
+            // and knows definition of composite row, so dedupping is happening on composite row itself not on its components.
+            // Intentionally sending dedpinning results = null into component methods, as there is nothing to deduplicate on.
+            // This pattern is implemented in all composite row generators.
             if (_referenceRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, searchParamId, searchValue.component1, null, out var reference1Row) &&
                 _tokenRowGenerator.TryGenerateRow(resourceTypeId, resourceSurrogateId, searchParamId, searchValue.component2, null, out var token2Row))
             {
