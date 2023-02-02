@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var observationWrapper = GetResourceWrapper(Samples.GetDefaultObservation().UpdateId(observationId));
 
             // create both
-            var mergeResults = await _store.MergeAsync(new List<ResourceWrapperExtended> { new ResourceWrapperExtended(patientWrapper, true, true, null, false), new ResourceWrapperExtended(observationWrapper, true, true, null, false) }, default);
+            var mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
             var patientOutcome = mergeResults.Values.Select(_ => (UpsertOutcome)_).FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // update patient
             _logger.LogInformation($"update patient");
             UpdateResource(patientWrapper);
-            mergeResults = await _store.MergeAsync(new List<ResourceWrapperExtended> { new ResourceWrapperExtended(patientWrapper, true, true, null, false), new ResourceWrapperExtended(observationWrapper, true, true, null, false) }, default);
+            mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
             patientOutcome = mergeResults.Values.Select(_ => (UpsertOutcome)_).FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // update observation
             _logger.LogInformation($"update observation");
             UpdateResource(observationWrapper);
-            mergeResults = await _store.MergeAsync(new List<ResourceWrapperExtended> { new ResourceWrapperExtended(patientWrapper, true, true, null, false), new ResourceWrapperExtended(observationWrapper, true, true, null, false) }, default);
+            mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
             patientOutcome = mergeResults.Values.Select(_ => (UpsertOutcome)_).FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
