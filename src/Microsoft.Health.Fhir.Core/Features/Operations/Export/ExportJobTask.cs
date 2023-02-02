@@ -717,17 +717,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ////    await _store().Value.HardDeleteAsync(wrapper.ToResourceKey(), false, CancellationToken.None);
             ////}
 
-            var smallList = new List<ResourceWrapperExtended>();
+            var smallList = new List<ResourceWrapperOperation>();
             foreach (var wrapper in completeWrappers)
             {
-                var wrapperExt = new ResourceWrapperExtended(wrapper, true, true, null, false);
+                var wrapperExt = new ResourceWrapperOperation(wrapper, true, true, null, false);
                 smallList.Add(wrapperExt);
                 if (smallList.Count == 100)
                 {
                     ////var start = DateTime.UtcNow;
                     await _store().Value.MergeAsync(smallList, CancellationToken.None);
                     ////await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
-                    smallList = new List<ResourceWrapperExtended>();
+                    smallList = new List<ResourceWrapperOperation>();
                 }
             }
 
