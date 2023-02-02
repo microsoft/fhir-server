@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
 
-                            if (eTag.HasValue && eTag != null)
+                            if (eTag.HasValue)
                             {
                                 // You can't update a resource with a specified version if the resource does not exist
                                 if (weakETag != null)
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
 
-                            // check if reosurces are equal if its not a Delete action
+                            // check if resources are equal if its not a Delete action
                             if (!resource.IsDeleted)
                             {
                                 // check if the new resource data is same as existing resource data
@@ -234,12 +234,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // TODO: Add retries when set bundle processing is in place.
                     if (e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                     {
-                        _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={retries}");
+                        _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
-                    _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={retries}");
+                    _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                     throw;
                 }
             }

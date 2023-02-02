@@ -3326,30 +3326,27 @@ BEGIN TRY
         INSERT INTO @ResourceIds
         SELECT ResourceId,
                ResourceSurrogateId,
-               row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId) AS RowId
+               row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId DESC) AS RowId
         FROM   dbo.Resource
         WHERE  ResourceTypeId = @ResourceTypeId
                AND ResourceId IN (SELECT DISTINCT ResourceId
                                   FROM   dbo.Resource
                                   WHERE  ResourceTypeId = @ResourceTypeId
                                          AND ResourceSurrogateId BETWEEN @StartId AND @EndId
-                                         AND IsHistory = 1)
+                                         AND IsHistory = 1
+                                         AND IsDeleted = 0)
                AND ResourceSurrogateId BETWEEN @GlobalStartId AND @GlobalEndId;
     IF EXISTS (SELECT *
                FROM   @ResourceIds)
         BEGIN
             DECLARE @SurrogateIdMap TABLE (
-                MinSurrogateId BIGINT,
-                MaxSurrogateId BIGINT);
+                MaxSurrogateId BIGINT PRIMARY KEY);
             INSERT INTO @SurrogateIdMap
-            SELECT A.ResourceSurrogateId AS MinSurrogateId,
-                   C.ResourceSurrogateId AS MaxSurrogateId
+            SELECT A.ResourceSurrogateId AS MaxSurrogateId
             FROM   (SELECT *
                     FROM   @ResourceIds
                     WHERE  RowId = 1
-                           AND ResourceSurrogateId BETWEEN @StartId AND @EndId) AS A CROSS APPLY (SELECT ResourceSurrogateId
-                                                                                                  FROM   @ResourceIds AS B
-                                                                                                  WHERE  B.ResourceId = A.ResourceId) AS C;
+                           AND ResourceSurrogateId BETWEEN @StartId AND @EndId) AS A;
             SELECT @ResourceTypeId,
                    CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.ResourceId ELSE A.ResourceId END,
                    CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.Version ELSE A.Version END,
@@ -3364,7 +3361,7 @@ BEGIN TRY
             FROM   dbo.Resource AS A
                    LEFT OUTER JOIN
                    @SurrogateIdMap AS B
-                   ON B.MinSurrogateId = A.ResourceSurrogateId
+                   ON B.MaxSurrogateId = A.ResourceSurrogateId
                    LEFT OUTER JOIN
                    dbo.Resource AS C
                    ON C.ResourceTypeId = @ResourceTypeId
@@ -3372,7 +3369,8 @@ BEGIN TRY
             WHERE  A.ResourceTypeId = @ResourceTypeId
                    AND A.ResourceSurrogateId BETWEEN @StartId AND @EndId
                    AND (A.IsHistory = 0
-                        OR MaxSurrogateId IS NOT NULL);
+                        OR MaxSurrogateId IS NOT NULL)
+                   AND A.IsDeleted = 0;
         END
     ELSE
         SELECT ResourceTypeId,
