@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
         }
 
         [Theory]
-        [InlineData("<div><!-- Comment ended with a dash. This error should be ignored --->><not_valid_tag>This tag should return validation error</not_valid_tag></div>")]
+        [InlineData("<div><!-- Comment ended with a dash. This error should be ignored ---><not_valid_tag>This tag should return validation error</not_valid_tag></div>")]
         public void GivenHtmlWithIgnoredAndEnforecedErrors_WhenSanitizingHtml_ThenAValidationErrorIsReturned(string val)
         {
             var results = _sanitizer.Validate(val);
