@@ -722,7 +722,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 var wrapperExt = new ResourceWrapperExtended(wrapper, true, true, null, false);
                 smallList.Add(wrapperExt);
-                if (smallList.Count == 1000)
+                if (smallList.Count == 100)
                 {
                     ////var start = DateTime.UtcNow;
                     await _store().Value.MergeAsync(smallList, CancellationToken.None);
