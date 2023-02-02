@@ -180,9 +180,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 var dom = parser.ParseDocument(string.Format(HtmlTemplate, html));
 
                 // Report parsing errors
-                if (errors.Any())
+                var htmlParseErrors = errors.Where(x => RaiseErrorTypes.Contains((HtmlParseError)x.Code));
+
+                if (htmlParseErrors.Any())
                 {
-                    foreach (var error in errors.Where(x => RaiseErrorTypes.Contains((HtmlParseError)x.Code)))
+                    foreach (var error in htmlParseErrors)
                     {
                         yield return string.Format(Core.Resources.IllegalHtmlParsingError, error.Message, error.Position.Line, error.Position.Column);
                     }

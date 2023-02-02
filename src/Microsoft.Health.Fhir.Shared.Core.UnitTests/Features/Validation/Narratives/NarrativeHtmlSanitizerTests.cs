@@ -61,6 +61,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             Assert.Empty(results);
         }
 
+        [Theory]
+        [InlineData("<div><!-- Comment ended with a dash. This error should be ignored --->><not_valid_tag>This tag should return validation error</not_valid_tag></div>")]
+        public void GivenHtmlWithIgnoredAndEnforecedErrors_WhenSanitizingHtml_ThenAValidationErrorIsReturned(string val)
+        {
+            var results = _sanitizer.Validate(val);
+
+            Assert.NotEmpty(results);
+        }
+
         [Fact]
         public void GivenExampleNarrativeHtml_WhenSanitizingHtml_ThenValidationIsSuccessful()
         {
