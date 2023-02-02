@@ -82,6 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
+        private readonly bool _runRequestsInParallel;
 
         /// <summary>
         /// Headers to propagate the the from the inner actions to the outer HTTP request.
@@ -146,6 +147,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+
+            _runRequestsInParallel = false;
         }
 
         private async Task ExecuteAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
@@ -237,7 +240,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
-                    await ExecuteAllRequestsInParallelAsync(responseBundle, cancellationToken);
+                    if (_runRequestsInParallel)
+                    {
+                        await ExecuteAllRequestsInParallelAsync(responseBundle, cancellationToken);
+                    }
+                    else
+                    {
+                        await ExecuteAllRequestsAsync(responseBundle, cancellationToken);
+                    }
+
                     var response = new BundleResponse(responseBundle.ToResourceElement());
 
                     await PublishNotification(responseBundle, BundleType.Batch);
@@ -443,7 +454,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             foreach ((RouteContext request, int entryIndex, string persistedId) in _requests[httpVerb])
             {
-                if (entryIndex % GCCollectTrigger == 0)
+                if (entryIndex > 0 && entryIndex % GCCollectTrigger == 0)
                 {
                     RunGarbageCollection();
                 }
@@ -568,7 +579,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 Stopwatch stopwatch = Stopwatch.StartNew();
                 await Parallel.ForEachAsync(_requests[httpVerb], options, async (state, ct) =>
                 {
-                    if (state.Item2 % GCCollectTrigger == 0)
+                    if (state.Item2 > 0 && state.Item2 % GCCollectTrigger == 0)
                     {
                         RunGarbageCollection();
                     }
@@ -699,7 +710,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // Collecting memory up to Generation 2 using default collection mode.
                 // No blocking, allowing a collection to be performed as soon as possible, if another collection is not in progress.
                 // SOH compacting is set to true.
-                GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false);
 
                 _logger.LogTrace("{Origin} - MemoryWatch - Memory used after full collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
             }
