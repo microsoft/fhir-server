@@ -102,8 +102,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             // pull out the _include and _revinclude expressions.
-            bool hasIncludeOrRevIncludeExpressions = ExtractIncludeAndChainedExpressions(
-                searchOptions.Expression,
+            bool hasIncludeOrRevIncludeExpressions = searchOptions.Expression.ExtractIncludeAndChainedExpressions(
                 out Expression expressionWithoutIncludes,
                 out IReadOnlyList<IncludeExpression> includeExpressions,
                 out IReadOnlyList<IncludeExpression> revIncludeExpressions,
@@ -300,21 +299,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // e.g. Patient?_has:Group:member:_id=group1. In this case we would have run the query there Group.id = group1
                 // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
 
-                IEnumerable<ResourceTypeAndId> resourceTypeAndIds = chainedResults.SelectMany(x => x.ReferencesToInclude.Select(y => y)).Distinct();
+                List<ResourceTypeAndId> resourceTypeAndIds = chainedResults.SelectMany(x => x.ReferencesToInclude.Select(y => y)).Distinct().ToList();
 
                 if (!resourceTypeAndIds.Any())
                 {
                     return null;
                 }
 
-                IEnumerable<MultiaryExpression> typeAndResourceExpressions = resourceTypeAndIds
+                List<MultiaryExpression> typeAndResourceExpressions = resourceTypeAndIds
                     .GroupBy(x => x.ResourceTypeName)
                     .Select(g =>
                         Expression.And(
                             Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, g.Key)),
-                            Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId)))));
+                            Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId))))).ToList();
 
-                return typeAndResourceExpressions.Count() == 1 ? typeAndResourceExpressions.First() : Expression.Or(typeAndResourceExpressions.ToArray());
+                return typeAndResourceExpressions.Count == 1 ? typeAndResourceExpressions.First() : Expression.Or(typeAndResourceExpressions.ToArray());
             }
 
             // When normal chained expression we can filter using references in the parent object. e.g. Observation.subject
@@ -636,7 +635,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
                     SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
 
-                    IEnumerable<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName);
+                    List<IGrouping<string, FhirCosmosResourceWrapper>> matchesGroupedByType = matches.GroupBy(m => m.ResourceTypeName).ToList();
 
                     Expression referenceExpression = Expression.And(
                         Expression.SearchParameter(
@@ -753,53 +752,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             return true;
-        }
-
-        private static bool ExtractIncludeAndChainedExpressions(
-            Expression inputExpression,
-            out Expression expressionWithoutIncludesOrChained,
-            out IReadOnlyList<IncludeExpression> includeExpressions,
-            out IReadOnlyList<IncludeExpression> revIncludeExpressions,
-            out IReadOnlyList<ChainedExpression> chainedExpressions)
-        {
-            switch (inputExpression)
-            {
-                case IncludeExpression ie when ie.Reversed:
-                    expressionWithoutIncludesOrChained = null;
-                    includeExpressions = Array.Empty<IncludeExpression>();
-                    revIncludeExpressions = new[] { ie };
-                    chainedExpressions = Array.Empty<ChainedExpression>();
-                    return true;
-                case IncludeExpression ie:
-                    expressionWithoutIncludesOrChained = null;
-                    includeExpressions = new[] { ie };
-                    revIncludeExpressions = Array.Empty<IncludeExpression>();
-                    chainedExpressions = Array.Empty<ChainedExpression>();
-                    return true;
-                case ChainedExpression ie:
-                    expressionWithoutIncludesOrChained = null;
-                    includeExpressions = Array.Empty<IncludeExpression>();
-                    revIncludeExpressions = Array.Empty<IncludeExpression>();
-                    chainedExpressions = new[] { ie };
-                    return true;
-                case MultiaryExpression me when me.Expressions.Any(e => e is IncludeExpression || e is ChainedExpression):
-                    includeExpressions = me.Expressions.OfType<IncludeExpression>().Where(ie => !ie.Reversed).ToList();
-                    revIncludeExpressions = me.Expressions.OfType<IncludeExpression>().Where(ie => ie.Reversed).ToList();
-                    chainedExpressions = me.Expressions.OfType<ChainedExpression>().ToList();
-                    expressionWithoutIncludesOrChained = (me.Expressions.Count - (includeExpressions.Count + revIncludeExpressions.Count + chainedExpressions.Count)) switch
-                    {
-                        0 => null,
-                        1 => me.Expressions.Single(e => !(e is IncludeExpression || e is ChainedExpression)),
-                        _ => new MultiaryExpression(me.MultiaryOperation, me.Expressions.Where(e => !(e is IncludeExpression || e is ChainedExpression)).ToList()),
-                    };
-                    return true;
-                default:
-                    expressionWithoutIncludesOrChained = inputExpression;
-                    includeExpressions = Array.Empty<IncludeExpression>();
-                    revIncludeExpressions = Array.Empty<IncludeExpression>();
-                    chainedExpressions = Array.Empty<ChainedExpression>();
-                    return false;
-            }
         }
     }
 }

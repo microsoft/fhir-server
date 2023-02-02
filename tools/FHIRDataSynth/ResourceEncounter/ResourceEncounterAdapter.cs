@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceEncounterAdapter : ResourceAdapterBase<Encounter.Rootobject, ResourceEncounterAdapter.EncounterSibling>
+    internal sealed class ResourceEncounterAdapter : ResourceAdapterBase<Encounter.Rootobject, ResourceEncounterAdapter.EncounterSibling>
     {
         public override EncounterSibling CreateOriginal(ResourceGroupProcessor processor, Encounter.Rootobject json)
         {

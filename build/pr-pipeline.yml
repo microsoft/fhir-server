@@ -49,24 +49,35 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows
+  - job: Windows_dotnet7
     pool:
       vmImage: $(WindowsVmImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
-        packageIntegrationTests: true
-
-  - job: Linux
+        targetBuildFramework: $(defaultBuildFramework)
+        unitTest: false
+        codeCoverage: true
+  - job: Linux_dotnet6
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
       parameters:
-        codeCoverage: true
+        targetBuildFramework: 'net6.0'
+  - job: Linux_BuildAndPackage
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        codeCoverage: false
+        unitTest: false
         componentGovernance: true
         packageArtifacts: true
+        packageIntegrationTests: true
     
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis'
@@ -153,7 +164,7 @@ stages:
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
-      appServicePlanName: $(appServicePlanName)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
@@ -173,7 +184,7 @@ stages:
       version: Stu3
       sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
-      appServicePlanName: $(appServicePlanName)
+      appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
@@ -194,7 +205,7 @@ stages:
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
-      appServicePlanName: $(appServicePlanName)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
@@ -214,7 +225,7 @@ stages:
       version: R4
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
-      appServicePlanName: $(appServicePlanName)
+      appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
@@ -235,7 +246,7 @@ stages:
     parameters: 
       version: R4B
       webAppName: $(DeploymentEnvironmentNameR4B)
-      appServicePlanName: $(appServicePlanName)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
@@ -255,7 +266,7 @@ stages:
       version: R4B
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4BSql)
-      appServicePlanName: $(appServicePlanName)
+      appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
@@ -276,7 +287,7 @@ stages:
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
-      appServicePlanName: $(appServicePlanName)
+      appServicePlanName: '$(appServicePlanName)-cosmos'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
@@ -296,7 +307,7 @@ stages:
       version: R5
       sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
-      appServicePlanName: $(appServicePlanName)
+      appServicePlanName: '$(appServicePlanName)-sql'
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)

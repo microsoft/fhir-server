@@ -616,6 +616,9 @@ namespace Microsoft.Health.Fhir.Client
             {
                 await response.Content.LoadIntoBufferAsync();
 
+                using var message = new HttpRequestMessage(HttpMethod.Get, "health/check");
+                using HttpResponseMessage healthCheck = await HttpClient.SendAsync(message, CancellationToken.None);
+
                 FhirResponse<OperationOutcome> operationOutcome;
                 try
                 {
@@ -624,10 +627,10 @@ namespace Microsoft.Health.Fhir.Client
                 catch (Exception)
                 {
                     // The response could not be read as an OperationOutcome. Throw a generic HTTP error.
-                    throw new HttpRequestException($"Status code: {response.StatusCode}; reason phrase: '{response.ReasonPhrase}'; body: '{await response.Content.ReadAsStringAsync()}'");
+                    throw new HttpRequestException($"Status code: {response.StatusCode}; reason phrase: '{response.ReasonPhrase}'; body: '{await response.Content.ReadAsStringAsync()}'; health check: '{healthCheck.StatusCode}'");
                 }
 
-                throw new FhirException(operationOutcome);
+                throw new FhirClientException(operationOutcome, healthCheck.StatusCode);
             }
         }
 

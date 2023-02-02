@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
             try
             {
-                for (int i = SchemaVersionConstants.Max - 5; i <= SchemaVersionConstants.Max; i++)
+                for (int i = Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5); i <= SchemaVersionConstants.Max; i++)
                 {
                     try
                     {
@@ -72,7 +72,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                fhirStorageTestsFixture?.Dispose();
+                if (fhirStorageTestsFixture != null)
+                {
+                    await fhirStorageTestsFixture.DisposeAsync();
+                }
             }
         }
 
@@ -81,18 +84,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
         /// </summary>
         [Fact]
-        public void GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
+        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
+            // List<FhirStorageTestsFixture> fhirStorageTestsFixtures = new();
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, new ParallelOptions() { MaxDegreeOfParallelism = 2 }, async version =>
+            await Parallel.ForEachAsync(versions, new ParallelOptions { MaxDegreeOfParallelism = 2}, async (version, cancel) =>
             {
-                if (version >= SchemaVersionConstants.Max - 5 && version <= SchemaVersionConstants.Max)
+                if (version >= Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5) && version <= SchemaVersionConstants.Max)
                 {
                     string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-
-                    var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName));
+                    FhirStorageTestsFixture fhirStorageTestsFixture = null;
                     try
                     {
+                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName));
                         await fhirStorageTestsFixture.InitializeAsync();
 
                         Mediator mediator = fhirStorageTestsFixture.Mediator;
@@ -110,7 +114,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                     finally
                     {
-                        fhirStorageTestsFixture?.Dispose();
+                        if (fhirStorageTestsFixture != null)
+                        {
+                            await fhirStorageTestsFixture.DisposeAsync();
+                        }
                     }
                 }
             });
@@ -122,9 +129,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// version has not been upgraded. This test does a sanity check to make sure "old" _sort
         /// still works in such a scenario.
         /// </summary>
-        [Fact]
+        [SkippableFact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful()
         {
+            Skip.If(SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion < SchemaVersionConstants.Min, "Schema version required for this test is not supported");
+
             string databaseName = $"FHIRCOMPATIBILITYTEST_SORT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
             int schemaVersion = SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion - 1;
             var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(

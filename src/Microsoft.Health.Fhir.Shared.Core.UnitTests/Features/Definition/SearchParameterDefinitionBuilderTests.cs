@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance);
 
             Assert.Equal(6, _uriDictionary.Count);
 
@@ -95,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance);
 
             Assert.Equal(
                 ModelInfoProvider.GetResourceTypeNames().Concat(new[] { "Resource", "DomainResource" }).OrderBy(x => x).ToArray(),
@@ -111,8 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
-
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance);
             IDictionary<string, SearchParameterInfo> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
 
             ValidateSearchParameters(
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance);
 
             IDictionary<string, SearchParameterInfo> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
 
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 typeof(EmbeddedResourceManager).Assembly);
 
             InvalidDefinitionException ex = Assert.Throws<InvalidDefinitionException>(
-                () => SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance));
+                () => SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance, NullLogger.Instance));
 
             Assert.Contains(ex.Issues, issue =>
                 issue.Severity == IssueSeverity.Fatal.ToString() &&

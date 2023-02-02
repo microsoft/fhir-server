@@ -1,7 +1,7 @@
 ﻿--IF object_id('GetIndexCommands') IS NOT NULL DROP PROCEDURE dbo.GetIndexCommands
 GO
 CREATE PROCEDURE dbo.GetIndexCommands @Tbl varchar(100), @Ind varchar(200), @AddPartClause bit, @IncludeClustered bit, @Txt varchar(max) = NULL OUT
-WITH EXECUTE AS SELF
+WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetIndexCommands'

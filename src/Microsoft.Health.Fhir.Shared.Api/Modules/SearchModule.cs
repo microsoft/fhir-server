@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
@@ -63,7 +64,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<ISearchParameterDefinitionManager>()
-                .AsService<IHostedService>()
                 .AsService<INotificationHandler<SearchParametersUpdatedNotification>>()
                 .AsService<INotificationHandler<StorageInitializedNotification>>();
 
@@ -120,6 +120,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IExpressionParser, ExpressionParser>();
             services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();
             services.AddSingleton<IReferenceToElementResolver, LightweightReferenceToElementResolver>();
+            services.AddTransient<ExpressionAccessControl>();
 
             services.Add<CompartmentDefinitionManager>()
                 .Singleton()

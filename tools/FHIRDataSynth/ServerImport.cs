@@ -17,7 +17,7 @@ using Azure.Storage.Blobs.Models;
 
 namespace FHIRDataSynth
 {
-    internal class ServerImport
+    internal sealed class ServerImport
     {
         private static async Task<bool> ImportSingle(Uri uri, string importParametersJsonString, HttpClient client, ImportResult currentResult)
         {
@@ -340,14 +340,14 @@ namespace FHIRDataSynth
         }
 
 #pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
-        public class ImportParameters
+        public sealed class ImportParameters
         {
             public string resourceType { get; set; }
 
             public List<Parameter> parameter { get; set; }
         }
 
-        public class Parameter
+        public sealed class Parameter
         {
             public string name { get; set; }
 
@@ -356,7 +356,7 @@ namespace FHIRDataSynth
             public Part[] part { get; set; }
         }
 
-        public class Part
+        public sealed class Part
         {
             public string name { get; set; }
 
@@ -365,7 +365,7 @@ namespace FHIRDataSynth
             public string valueUri { get; set; }
         }
 
-        public class ImportResult
+        public sealed class ImportResult
         {
             public ImportParameters importParameters { get; set; }
 
@@ -382,13 +382,13 @@ namespace FHIRDataSynth
             public string importResultUrl { get; set; }
         }
 
-        public class ImportResultCollection
+        public sealed class ImportResultCollection
         {
             public List<ImportResult> importResult { get; set; }
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class ServerImportResult
+        public sealed class ServerImportResult
 #pragma warning restore CA1812
         {
             public DateTime transactionTime { get; set; }
@@ -401,7 +401,7 @@ namespace FHIRDataSynth
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class Output
+        public sealed class Output
 #pragma warning restore CA1812
         {
             public string type { get; set; }
@@ -412,7 +412,7 @@ namespace FHIRDataSynth
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class Error
+        public sealed class Error
 #pragma warning restore CA1812
         {
             public string type { get; set; }

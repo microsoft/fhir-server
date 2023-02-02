@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -19,7 +19,6 @@ namespace Microsoft.Health.JobManagement
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
-        private readonly ConcurrentDictionary<long, Func<Task>> _activeJobsNeedKeepAlive = new();
 
         public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
         {
@@ -38,59 +37,56 @@ namespace Microsoft.Health.JobManagement
 
         public int JobHeartbeatTimeoutThresholdInSeconds { get; set; } = Constants.DefaultJobHeartbeatTimeoutThresholdInSeconds;
 
-        public int JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
+        public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationToken)
+        [Obsolete("Temporary method to prevent build breaks within Health PaaS. Will be removed after code is updated in Health PaaS")]
+        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
         {
-            using var keepAliveCancellationToken = new CancellationTokenSource();
-            Task keepAliveTask = KeepAliveJobsAsync(keepAliveCancellationToken.Token);
-
-            await PullAndProcessJobsAsync(queueType, workerName, cancellationToken.Token);
-
-            keepAliveCancellationToken.Cancel();
-            await keepAliveTask;
+            await ExecuteAsync(queueType, workerName, cancellationTokenSource, useHeavyHeartbeats);
         }
 
-        private async Task PullAndProcessJobsAsync(byte queueType, string workerName, CancellationToken cancellationToken)
+        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
         {
-            var runningJobs = new List<Task>();
+            var workers = new List<Task>();
 
-            while (!cancellationToken.IsCancellationRequested)
+            // parallel dequeue
+            for (var thread = 0; thread < MaxRunningJobCount; thread++)
             {
-                var intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), CancellationToken.None);
-
-                if (runningJobs.Count >= MaxRunningJobCount)
+                workers.Add(Task.Run(async () =>
                 {
-                    _ = await Task.WhenAny(runningJobs.ToArray());
-                    runningJobs.RemoveAll(t => t.IsCompleted);
-                }
+                    // random delay to avoid convoys
+                    await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds));
 
-                JobInfo nextJob = null;
-                if (_queueClient.IsInitialized())
-                {
-                    try
+                    while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
-                        nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to pull new jobs.");
-                    }
-                }
+                        JobInfo nextJob = null;
+                        if (_queueClient.IsInitialized())
+                        {
+                            try
+                            {
+                                nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to dequeue new job.");
+                            }
+                        }
 
-                if (nextJob != null)
-                {
-                    runningJobs.Add(ExecuteJobAsync(nextJob));
-                }
-                else
-                {
-                    await intervalDelayTask;
-                }
+                        if (nextJob != null)
+                        {
+                            await ExecuteJobAsync(nextJob, useHeavyHeartbeats);
+                        }
+                        else
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
+                        }
+                    }
+                }));
             }
 
             try
             {
-                await Task.WhenAll(runningJobs.ToArray());
+                await Task.WhenAny(workers.ToArray()); // if any worker crashes exit
             }
             catch (Exception ex)
             {
@@ -98,7 +94,7 @@ namespace Microsoft.Health.JobManagement
             }
         }
 
-        private async Task ExecuteJobAsync(JobInfo jobInfo)
+        private async Task ExecuteJobAsync(JobInfo jobInfo, bool useHeavyHeartbeats)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
@@ -113,137 +109,127 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                try
+                if (jobInfo.CancelRequested)
                 {
-                    if (jobInfo.CancelRequested && !jobCancellationToken.IsCancellationRequested)
-                    {
-                        // For cancelled job, try to execute it for potential cleanup.
-                        jobCancellationToken.Cancel();
-                    }
-
-                    var progress = new Progress<string>((result) =>
-                    {
-                        jobInfo.Result = result;
-                    });
-
-                    var runningJob = Task.Run(() => job.ExecuteAsync(jobInfo, progress, jobCancellationToken.Token));
-                    _activeJobsNeedKeepAlive[jobInfo.Id] = () => KeepAliveSingleJobAsync(jobInfo, jobCancellationToken);
-
-                    jobInfo.Result = await runningJob;
+                    // For cancelled job, try to execute it for potential cleanup.
+                    jobCancellationToken.Cancel();
                 }
-                catch (RetriableJobException ex)
-                {
-                    _logger.LogError(ex, "Job {JobId} failed with retriable exception.", jobInfo.Id);
 
-                    // Not complete the job for retriable exception.
-                    return;
-                }
-                catch (JobExecutionException ex)
-                {
-                    _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
-                    jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
-                    jobInfo.Status = JobStatus.Failed;
+                var progress = new Progress<string>((result) => { jobInfo.Result = result; });
 
-                    try
-                    {
-                        await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
-                    }
-                    catch (Exception completeEx)
-                    {
-                        _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
-                    }
+                var runningJob = useHeavyHeartbeats
+                               ? ExecuteJobWithHeavyHeartbeatsAsync(
+                                    _queueClient,
+                                    jobInfo,
+                                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
+                                    TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
+                                    jobCancellationToken)
+                               : ExecuteJobWithHeartbeatsAsync(
+                                    _queueClient,
+                                    jobInfo.QueueType,
+                                    jobInfo.Id,
+                                    jobInfo.Version,
+                                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
+                                    TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
+                                    jobCancellationToken);
 
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
+                jobInfo.Result = await runningJob;
+            }
+            catch (RetriableJobException ex)
+            {
+                _logger.LogError(ex, "Job {JobId} failed with retriable exception.", jobInfo.Id);
 
-                    object error = new { message = ex.Message };
-                    jobInfo.Result = JsonConvert.SerializeObject(error);
-                    jobInfo.Status = JobStatus.Failed;
-
-                    try
-                    {
-                        await _queueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
-                    }
-                    catch (Exception completeEx)
-                    {
-                        _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
-                    }
-
-                    return;
-                }
+                // Not complete the job for retriable exception.
+                return;
+            }
+            catch (JobExecutionException ex)
+            {
+                _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
+                jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
+                jobInfo.Status = JobStatus.Failed;
 
                 try
                 {
-                    jobInfo.Status = JobStatus.Completed;
-                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
-                    _logger.LogInformation("Job {JobId} completed.", jobInfo.Id);
+                    await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
                 }
                 catch (Exception completeEx)
                 {
                     _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
                 }
-            }
-            finally
-            {
-                _activeJobsNeedKeepAlive.Remove(jobInfo.Id, out _);
-            }
-        }
 
-        private async Task KeepAliveSingleJobAsync(JobInfo jobInfo, CancellationTokenSource jobCancellationToken)
-        {
-            try
-            {
-                bool shouldCancel = false;
-                try
-                {
-                    bool cancelRequested = await _queueClient.KeepAliveJobAsync(jobInfo, CancellationToken.None);
-                    shouldCancel |= cancelRequested;
-                }
-                catch (JobNotExistException notExistEx)
-                {
-                    _logger.LogError(notExistEx, "Job {JobId} not exist or {RunId} not match.", jobInfo.Id, jobInfo.Version);
-                    shouldCancel = true;
-                }
-
-                if (shouldCancel && !jobCancellationToken.IsCancellationRequested)
-                {
-                    jobCancellationToken.Cancel();
-                }
+                return;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to keep alive on job {JobId}", jobInfo.Id);
+                _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
+
+                object error = new { message = ex.Message, stackTrace = ex.StackTrace };
+                jobInfo.Result = JsonConvert.SerializeObject(error);
+                jobInfo.Status = JobStatus.Failed;
+
+                try
+                {
+                    await _queueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
+                }
+
+                return;
+            }
+
+            try
+            {
+                jobInfo.Status = JobStatus.Completed;
+                await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
+                _logger.LogInformation("Job {JobId} completed.", jobInfo.Id);
+            }
+            catch (Exception completeEx)
+            {
+                _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
             }
         }
 
-        private async Task KeepAliveJobsAsync(CancellationToken cancellationToken)
+        public static async Task<string> ExecuteJobWithHeartbeatsAsync(IQueueClient queueClient, byte queueType, long jobId, long version, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
         {
-            _logger.LogInformation("Start to keep alive job message.");
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(action, nameof(action));
 
-            while (!cancellationToken.IsCancellationRequested)
+            var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // not other data points
+
+            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
-                var intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds), CancellationToken.None);
-                KeyValuePair<long, Func<Task>>[] activeJobRecords = _activeJobsNeedKeepAlive.ToArray();
-
-                foreach ((long jobId, Func<Task> keepAliveFunc) in activeJobRecords)
-                {
-                    try
-                    {
-                        await keepAliveFunc();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to keep alive on job {JobId}", jobId);
-                    }
-                }
-
-                await intervalDelayTask;
+                return await action(cancellationTokenSource);
             }
+        }
 
-            _logger.LogInformation("Stop to keep alive job message.");
+        public static async Task<string> ExecuteJobWithHeavyHeartbeatsAsync(IQueueClient queueClient, JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
+        {
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+            EnsureArg.IsNotNull(action, nameof(action));
+
+            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
+            {
+                return await action(cancellationTokenSource);
+            }
+        }
+
+        private static async Task PutJobHeartbeatAsync(IQueueClient queueClient, JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
+        {
+            try // this try/catch is redundant with try/catch in queueClient.PutJobHeartbeatAsync, but it is extra guarantee
+            {
+                var cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
+                if (cancel)
+                {
+                    cancellationTokenSource.Cancel();
+                }
+            }
+            catch
+            {
+                // do nothing
+            }
         }
     }
 }

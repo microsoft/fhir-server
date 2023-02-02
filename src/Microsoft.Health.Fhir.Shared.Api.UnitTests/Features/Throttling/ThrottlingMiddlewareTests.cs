@@ -222,6 +222,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 
             // cancel one of the existing requests. This should allow the request above to go through
             existingRequests[0].cancellationTokenSource.Cancel();
+            await existingRequests[0].task;
 
             // try the request again
             await _middleware.Value.Invoke(_httpContext);

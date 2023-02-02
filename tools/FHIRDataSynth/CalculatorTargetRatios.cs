@@ -12,7 +12,7 @@ using ResourceProcessorNamespace;
 
 namespace FHIRDataSynth
 {
-    internal class CalculatorTargetRatios
+    internal static class CalculatorTargetRatios
     {
         public const string ResourcesTotalSizeHeader = "ResourceName,Bytes";
         public const string OneResourceGroupInfoHeader = "Resource Name,Ids Count,Duplicate Ids Count,Patient Refs Not Patient,Subject Refs Not Patient,Patient Ref Ids Count,Intersect Patients PatientRefs Count,Lines Count,Lines Length Sum";
@@ -234,7 +234,7 @@ namespace FHIRDataSynth
             }
         }
 
-        private class CalculationData
+        private sealed class CalculationData
         {
             public int LinesCount { get; set; }
 
@@ -246,7 +246,7 @@ namespace FHIRDataSynth
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        private class BlendProfile
+        private sealed class BlendProfile
 #pragma warning restore CA1812
         {
             public string BlendName { get; set; }
@@ -255,13 +255,13 @@ namespace FHIRDataSynth
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        private class BlendRatios
+        private sealed class BlendRatios
 #pragma warning restore CA1812
         {
             public BlendProfile[] BlendProfiles { get; set; }
         }
 
-        private class OutputResourceGroupSize
+        private sealed class OutputResourceGroupSize
         {
             public OutputResourceGroupSize(double gbPerResourceGroup, string text, int outputResourceGroupsCount)
             {

@@ -6,13 +6,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -30,7 +28,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
 
-        private static readonly EnqueueJobsProcedure EnqueueJobs = new EnqueueJobsProcedure();
         private static readonly GetJobsProcedure GetJobs = new GetJobsProcedure();
 
         public SqlQueueClient(
@@ -186,7 +183,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await _sqlRetryService.ExecuteSqlCommandFuncWithRetries(
                 async (sqlCommand, cancellationToken) =>
                 {
-                    EnqueueJobs.PopulateCommand(sqlCommand, queueType, definitions.Select(d => new StringListRow(d)), groupId, forceOneActiveJobGroup, isCompleted);
+                    // cannot use VLatest as it does not understand optional parameters
+                    sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
+                    sqlCommand.CommandText = "dbo.EnqueueJobs";
+                    sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
+                    new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommand.Parameters, definitions.Select(d => new StringListRow(d)));
+                    if (groupId.HasValue)
+                    {
+                        sqlCommand.Parameters.AddWithValue("@GroupId", groupId.Value);
+                    }
+
+                    sqlCommand.Parameters.AddWithValue("@ForceOneActiveJobGroup", forceOneActiveJobGroup);
+                    sqlCommand.Parameters.AddWithValue("@IsCompleted", isCompleted);
+
                     try
                     {
                         await using SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
@@ -267,39 +276,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
-        public async Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
-        {
-            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-            try
-            {
-                if (_schemaInformation.Current >= SchemaVersionConstants.ReturnCancelRequestInJobHeartbeat)
-                {
-                    VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
-
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    return VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
-                }
-                else
-                {
-                    V36.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result);
-
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                    return (await GetJobByIdAsync(jobInfo.QueueType, jobInfo.Id, false, cancellationToken)).CancelRequested;
-                }
-            }
-            catch (SqlException sqlEx)
-            {
-                if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
-                {
-                    throw new JobNotExistException(sqlEx.Message);
-                }
-
-                throw;
-            }
-        }
-
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
@@ -308,69 +284,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        public async Task ExecuteJobWithHeartbeatAsync(byte queueType, long jobId, long version, Func<CancellationToken, Task> action, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(action, nameof(action));
-
-            await using (new Timer(_ => PutJobHeartbeatFireAndForget(queueType, jobId, version, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                await action(cancellationToken);
-            }
-        }
-
-        private void PutJobHeartbeatFireAndForget(byte queueType, long jobId, long version, CancellationToken cancellationToken)
-        {
+            var cancel = false;
             try
             {
-                KeepAliveJobAsync(new JobInfo { QueueType = queueType, Id = jobId, Version = version }, cancellationToken).Wait(cancellationToken);
-            }
-            catch (AggregateException ex) when (ex.InnerExceptions?.All(x => x is TaskCanceledException || x is OperationCanceledException) == true)
-            {
-                // ignore task cancellation exceptions
-            }
-            catch (TaskCanceledException)
-            {
-                // ignore task cancellation exceptions
-            }
-            catch (OperationCanceledException)
-            {
-                // ignore task cancellation exceptions
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
+                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to put job heartbeat.");
-            }
-        }
-
-        // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.cs .
-        private class EnqueueJobsProcedure : StoredProcedure
-        {
-            private readonly ParameterDefinition<byte> _queueType = new ParameterDefinition<byte>("@QueueType", global::System.Data.SqlDbType.TinyInt, false);
-            private readonly StringListTableValuedParameterDefinition _definitions = new StringListTableValuedParameterDefinition("@Definitions");
-            private readonly ParameterDefinition<long?> _groupId = new ParameterDefinition<long?>("@GroupId", global::System.Data.SqlDbType.BigInt, true);
-            private readonly ParameterDefinition<bool> _forceOneActiveJobGroup = new ParameterDefinition<bool>("@ForceOneActiveJobGroup", global::System.Data.SqlDbType.Bit, false);
-            private readonly ParameterDefinition<bool?> _isCompleted = new ParameterDefinition<bool?>("@IsCompleted", global::System.Data.SqlDbType.Bit, true);
-
-            internal EnqueueJobsProcedure()
-                : base("dbo.EnqueueJobs")
-            {
+                _logger.LogWarning(ex, "Failed to put job heartbeat.");
             }
 
-            public void PopulateCommand(SqlCommand sqlCommand, byte queueType, global::System.Collections.Generic.IEnumerable<StringListRow> definitions, long? groupId, bool forceOneActiveJobGroup, bool? isCompleted)
-            {
-                sqlCommand.CommandType = global::System.Data.CommandType.StoredProcedure;
-                sqlCommand.CommandText = "dbo.EnqueueJobs";
-                _queueType.AddParameter(sqlCommand.Parameters, queueType);
-                _definitions.AddParameter(sqlCommand.Parameters, definitions);
-                _groupId.AddParameter(sqlCommand.Parameters, groupId);
-                _forceOneActiveJobGroup.AddParameter(sqlCommand.Parameters, forceOneActiveJobGroup);
-                _isCompleted.AddParameter(sqlCommand.Parameters, isCompleted);
-            }
-
-            /*public void PopulateCommand(SqlCommandWrapper command, System.Byte QueueType, System.Nullable<System.Int64> GroupId, System.Boolean ForceOneActiveJobGroup, System.Nullable<System.Boolean> IsCompleted, EnqueueJobsTableValuedParameters tableValuedParameters)
-            {
-                PopulateCommand(command, QueueType: QueueType, GroupId: GroupId, ForceOneActiveJobGroup: ForceOneActiveJobGroup, IsCompleted: IsCompleted, Definitions: tableValuedParameters.Definitions);
-            }*/
+            return cancel;
         }
 
         // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.cs .
@@ -397,11 +327,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _groupId.AddParameter(sqlCommand.Parameters, groupId);
                 _returnDefinition.AddParameter(sqlCommand.Parameters, returnDefinition);
             }
-
-            /*public void PopulateCommand(SqlCommandWrapper command, byte QueueType, long? JobId, long? GroupId, bool? ReturnDefinition, GetJobsTableValuedParameters tableValuedParameters)
-            {
-                PopulateCommand(command, QueueType: QueueType, JobId: JobId, GroupId: GroupId, ReturnDefinition: ReturnDefinition, JobIds: tableValuedParameters.JobIds);
-            }*/
         }
     }
 }

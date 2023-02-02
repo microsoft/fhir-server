@@ -106,9 +106,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 // While processing the data we use the filename as a placeholder for the final uri as the file isn't created until the data is commited.
                 var fileName = _resourceTypeToFileInfoMapping[resourceType].FileUri.OriginalString;
-                if (blobUris.ContainsKey(fileName))
+                if (blobUris.TryGetValue(fileName, out Uri filrUri))
                 {
-                    _resourceTypeToFileInfoMapping[resourceType].FileUri = blobUris[fileName];
+                    _resourceTypeToFileInfoMapping[resourceType].FileUri = filrUri;
                 }
 
                 _resourceCommited[resourceType] = true;

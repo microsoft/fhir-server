@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Id = null;
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), $"identifier={Guid.NewGuid().ToString()}", "Jibberish"));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), $"identifier={Guid.NewGuid().ToString()}", "Jibberish"));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = Guid.NewGuid().ToString();
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(
                 observation2,
                 $"identifier={identifier}"));
 
@@ -132,13 +132,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenCreatingConditionallyWithEmptyIfNoneHeader_TheServerShouldFail()
         {
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(
                 Samples.GetDefaultObservation().ToPoco<Observation>(),
                 "&"));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             Assert.Single(exception.OperationOutcome.Issue);
-            Assert.Equal(Core.Resources.ConditionalOperationNotSelectiveEnough, exception.OperationOutcome.Issue[0].Diagnostics);
+            Assert.True(exception.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, "Observation")));
         }
     }
 }

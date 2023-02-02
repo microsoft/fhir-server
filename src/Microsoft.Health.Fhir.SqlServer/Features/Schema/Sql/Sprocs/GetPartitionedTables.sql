@@ -1,7 +1,7 @@
 ﻿--IF object_id('GetPartitionedTables') IS NOT NULL DROP PROCEDURE dbo.GetPartitionedTables
 GO
 CREATE PROCEDURE dbo.GetPartitionedTables @IncludeNotDisabled bit, @IncludeNotSupported bit
-WITH EXECUTE AS SELF
+WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetPartitionedTables'

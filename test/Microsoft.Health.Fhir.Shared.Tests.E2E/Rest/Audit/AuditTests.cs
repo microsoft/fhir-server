@@ -11,7 +11,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     {
                         await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
                     }
-                    catch (FhirException ex)
+                    catch (FhirClientException ex)
                     {
                         result = ex.Response;
                         ex.Dispose();
@@ -556,7 +556,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidateBundle(
               async () =>
               {
-                  using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+                  using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
 
                   return fhirException.Response;
               },
@@ -615,7 +615,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             // Create a new client with no token supplied.
             var client = createClient();
 
-            using FhirResponse<OperationOutcome> response = (await Assert.ThrowsAsync<FhirException>(() => client.ReadAsync<Patient>(url))).Response;
+            using FhirResponse<OperationOutcome> response = (await Assert.ThrowsAsync<FhirClientException>(() => client.ReadAsync<Patient>(url))).Response;
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
 

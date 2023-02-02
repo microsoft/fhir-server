@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             else
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
-                throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
+                throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, request.ResourceType));
             }
         }
 

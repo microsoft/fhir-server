@@ -9,8 +9,6 @@ using System.Globalization;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Utility;
-using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -32,8 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterExpressionParser _searchParameterExpressionParser;
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-
         private const char SearchSplitChar = ':';
         private const char ChainParameter = '.';
         internal const string ReverseChainParameter = "_has:";
@@ -43,19 +39,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         /// </summary>
         /// <param name="searchParameterDefinitionManagerResolver">The search parameter definition manager.</param>
         /// <param name="searchParameterExpressionParser">The parser used to parse the search value into a search expression.</param>
-        /// /// <param name="contextAccessor">Used to access the FhirRequestContext</param>
         public ExpressionParser(
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
-            ISearchParameterExpressionParser searchParameterExpressionParser,
-            RequestContextAccessor<IFhirRequestContext> contextAccessor)
+            ISearchParameterExpressionParser searchParameterExpressionParser)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(searchParameterExpressionParser, nameof(searchParameterExpressionParser));
-            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _searchParameterExpressionParser = searchParameterExpressionParser;
-            _contextAccessor = contextAccessor;
         }
 
         /// <summary>
@@ -86,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
             }
 
+            allowedResourceTypesByScope = allowedResourceTypesByScope?.ToList();
             if (allowedResourceTypesByScope != null && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
             {
                 resourceTypes = resourceTypes.Intersect(allowedResourceTypesByScope).ToArray();
@@ -236,15 +229,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     {
                         throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceNotSupported, targetResourceType));
                     }
-
-                    // check resource type restrictions from SMART clinical scopes
-                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
-                    {
-                        if (!ResourceTypeAllowedByClinicalScopes(targetResourceType))
-                        {
-                            throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceTypeNotAllowedRestrictedByClinicalScopes, targetResourceType));
-                        }
-                    }
                 }
             }
 
@@ -259,28 +243,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 var wrappedTargetResourceType = new[] { possibleTargetResourceType };
                 var multipleChainType = reversed ? resourceTypes : wrappedTargetResourceType;
-
-                // check resource type restrictions from SMART clinical scopes
-                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
-                {
-                    if (!ResourceTypeAllowedByClinicalScopes(possibleTargetResourceType))
-                    {
-                        restrictedByClinicalScopes = true;
-                    }
-
-                    foreach (var resourceType in multipleChainType)
-                    {
-                        if (!ResourceTypeAllowedByClinicalScopes(resourceType))
-                        {
-                            restrictedByClinicalScopes = true;
-                        }
-                    }
-
-                    if (restrictedByClinicalScopes == true)
-                    {
-                        continue;
-                    }
-                }
 
                 ChainedExpression expression;
                 try
@@ -409,18 +371,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 input = ReadOnlySpan<char>.Empty;
             }
-        }
-
-        private bool ResourceTypeAllowedByClinicalScopes(string resourceType)
-        {
-            var resourceTypes = _contextAccessor.RequestContext?.AccessControlContext.AllowedResourceActions.Select(r => r.Resource).Distinct().ToList();
-
-            if (resourceTypes.Contains(KnownResourceTypes.All) || resourceTypes.Contains(resourceType))
-            {
-                return true;
-            }
-
-            return false;
         }
     }
 }

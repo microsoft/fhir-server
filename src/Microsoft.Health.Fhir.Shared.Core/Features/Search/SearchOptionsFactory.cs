@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IExpressionParser _expressionParser;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISortingValidator _sortingValidator;
+        private readonly ExpressionAccessControl _expressionAccess;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
@@ -46,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IOptions<CoreFeatureConfiguration> featureConfiguration,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISortingValidator sortingValidator,
+            ExpressionAccessControl expressionAccess,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
@@ -53,11 +56,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
+            EnsureArg.IsNotNull(expressionAccess, nameof(expressionAccess));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
             _contextAccessor = contextAccessor;
             _sortingValidator = sortingValidator;
+            _expressionAccess = expressionAccess;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
@@ -262,7 +267,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         return parsedType;
                     })
-                    .Distinct();
+                    .Distinct().ToList();
 
                 if (resourceTypes.Any())
                 {
@@ -440,6 +445,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             error));
                 }
             }
+
+            _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression);
 
             return searchOptions;
 

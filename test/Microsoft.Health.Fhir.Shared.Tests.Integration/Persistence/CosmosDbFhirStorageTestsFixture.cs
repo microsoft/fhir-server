@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -97,7 +98,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
-            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
@@ -177,10 +177,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<CosmosFhirOperationDataStore>.Instance);
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
-            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser, _fhirRequestContextAccessor);
+            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
             ISortingValidator sortingValidator = Substitute.For<ISortingValidator>();
             sortingValidator.ValidateSorting(Arg.Is<IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)>>(x => x[0].searchParameter.Name == KnownQueryParameterNames.LastUpdated), out Arg.Any<IReadOnlyList<string>>()).Returns(true);
-            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, _fhirRequestContextAccessor, sortingValidator, NullLogger<SearchOptionsFactory>.Instance);
+            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, _fhirRequestContextAccessor, sortingValidator, new ExpressionAccessControl(_fhirRequestContextAccessor), NullLogger<SearchOptionsFactory>.Instance);
 
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             await compartmentDefinitionManager.StartAsync(CancellationToken.None);

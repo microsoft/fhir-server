@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// <summary>
     /// Maintains an LRU cache of <see cref="QueryPartitionStatistics"/>, keyed by search expression ignoring values in the expression.
     /// </summary>
-    public class QueryPartitionStatisticsCache
+    public sealed class QueryPartitionStatisticsCache : IDisposable
     {
         private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 512 });
 
@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     e.Size = 1;
                     return new QueryPartitionStatistics();
                 });
+        }
+
+        public void Dispose()
+        {
+            _cache?.Dispose();
         }
 
         private class ExpressionWrapper

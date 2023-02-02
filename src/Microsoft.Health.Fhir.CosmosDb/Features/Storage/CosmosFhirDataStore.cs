@@ -121,6 +121,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
 
+            if (cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
+            {
+                throw new MissingSearchIndicesException(string.Format(Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
+            }
+
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
@@ -545,9 +550,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)
         {
-            IEnumerable<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value
-                .GetSearchParameters(cosmosWrapper.ResourceTypeName)
-                .Where(x => x.SortStatus != SortParameterStatus.Disabled);
+            List<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value.GetSearchParameters(cosmosWrapper.ResourceTypeName).Where(x => x.SortStatus != SortParameterStatus.Disabled).ToList();
 
             if (searchParameters.Any())
             {
