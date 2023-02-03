@@ -8,6 +8,7 @@ DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
        ,@st datetime = getUTCdate()
        ,@FirstValueVar sql_variant
        ,@TransactionId bigint = NULL
+       ,@RunTransactionCheck bit = (SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled')
 
 BEGIN TRY
   IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
@@ -20,23 +21,28 @@ BEGIN TRY
 
     SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + convert(int,@FirstValueVar)
 
-    BEGIN TRANSACTION
-
-    INSERT INTO dbo.Transactions
-           (  SurrogateIdRangeFirstValue,                SurrogateIdRangeLastValue )
-      SELECT @SurrogateIdRangeFirstValue, @SurrogateIdRangeFirstValue + @Count - 1
-
-    IF isnull((SELECT TOP 1 SurrogateIdRangeLastValue FROM dbo.Transactions WHERE SurrogateIdRangeFirstValue < @SurrogateIdRangeFirstValue ORDER BY SurrogateIdRangeFirstValue DESC),0) < @SurrogateIdRangeFirstValue
+    IF @RunTransactionCheck = 1
     BEGIN
-      COMMIT TRANSACTION
-      SET @TransactionId = @SurrogateIdRangeFirstValue
+      BEGIN TRANSACTION
+
+      INSERT INTO dbo.Transactions
+             (  SurrogateIdRangeFirstValue,                SurrogateIdRangeLastValue )
+        SELECT @SurrogateIdRangeFirstValue, @SurrogateIdRangeFirstValue + @Count - 1
+
+      IF isnull((SELECT TOP 1 SurrogateIdRangeLastValue FROM dbo.Transactions WHERE SurrogateIdRangeFirstValue < @SurrogateIdRangeFirstValue ORDER BY SurrogateIdRangeFirstValue DESC),0) < @SurrogateIdRangeFirstValue
+      BEGIN
+        COMMIT TRANSACTION
+        SET @TransactionId = @SurrogateIdRangeFirstValue
+      END
+      ELSE
+      BEGIN
+        ROLLBACK TRANSACTION
+        SET @TransactionId = NULL
+        EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Warn',@Start=@st,@Rows=NULL,@Text=@SurrogateIdRangeFirstValue
+      END
     END
     ELSE
-    BEGIN
-      ROLLBACK TRANSACTION
-      SET @TransactionId = NULL
-      EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Warn',@Start=@st,@Rows=NULL,@Text=@SurrogateIdRangeFirstValue
-    END
+      SET @TransactionId = @SurrogateIdRangeFirstValue
   END
 END TRY
 BEGIN CATCH

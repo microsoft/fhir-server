@@ -51,17 +51,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 CompartmentIndices compartments = resourceMetadata.Compartments;
                 if (compartments == null)
                 {
-                    yield break;
+                    continue;
                 }
 
-                var results = new HashSet<CompartmentAssignmentListRow>();
+                var resultsForDedupping = new HashSet<CompartmentAssignmentListRow>();
 
                 if (compartments.PatientCompartmentEntry != null)
                 {
                     foreach (var entry in compartments.PatientCompartmentEntry)
                     {
                         var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _patientCompartmentId, entry);
-                        if (results.Add(row))
+                        if (resultsForDedupping.Add(row))
                         {
                             yield return row;
                         }
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     foreach (var entry in compartments.EncounterCompartmentEntry)
                     {
                         var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _encounterCompartmentId, entry);
-                        if (results.Add(row))
+                        if (resultsForDedupping.Add(row))
                         {
                             yield return row;
                         }
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     foreach (var entry in compartments.RelatedPersonCompartmentEntry)
                     {
                         var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _relatedPersonCompartmentId, entry);
-                        if (results.Add(row))
+                        if (resultsForDedupping.Add(row))
                         {
                             yield return row;
                         }
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     foreach (var entry in compartments.PractitionerCompartmentEntry)
                     {
                         var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _practitionerCompartmentId, entry);
-                        if (results.Add(row))
+                        if (resultsForDedupping.Add(row))
                         {
                             yield return row;
                         }
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     foreach (var entry in compartments.DeviceCompartmentEntry)
                     {
                         var row = new CompartmentAssignmentListRow(typeId, merge.ResourceSurrogateId, _deviceCompartmentId, entry);
-                        if (results.Add(row))
+                        if (resultsForDedupping.Add(row))
                         {
                             yield return row;
                         }
