@@ -5,6 +5,7 @@
         {
             "resource": {
                 "resourceType": "MedicationRequest",
+                "id": "smartMedicationRequest1",
                 "status": "active",
                 "intent": "plan",
                 "medicationCodeableConcept": {
@@ -19,8 +20,8 @@
                 }
             },
             "request": {
-                "method": "POST",
-                "url": "MedicationRequest"
+                "method": "PUT",
+                "url": "MedicationRequest/smartMedicationRequest1"
             }
         },
         {

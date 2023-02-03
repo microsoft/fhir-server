@@ -10,6 +10,7 @@
             "fullUrl": "urn:uuid:61ebe359-bfdc-4613-8bf2-c5e300945f0a",
             "resource": {
                 "resourceType": "Patient",
+                "id": "smartTranBundlePatient1",
                 "text": {
                     "status": "generated",
                     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
@@ -29,14 +30,15 @@
                 "birthDate": "1974-12-25"
             },
             "request": {
-                "method": "POST",
-                "url": "Patient"
+                "method": "PUT",
+                "url": "Patient/smartTranBundlePatient1"
             }
         },
         {
             "fullUrl": "urn:uuid:88f151c0-a954-468a-88bd-5ae15c08e059",
             "resource": {
                 "resourceType": "Patient",
+                "id": "smartTranBundlePatient2",
                 "text": {
                     "status": "generated",
                     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
@@ -62,8 +64,8 @@
                 "birthDate": "1974-12-25"
             },
             "request": {
-                "method": "POST",
-                "url": "Patient",
+                "method": "PUT",
+                "url": "Patient/smartTranBundlePatient2"
             }
         },
         {
