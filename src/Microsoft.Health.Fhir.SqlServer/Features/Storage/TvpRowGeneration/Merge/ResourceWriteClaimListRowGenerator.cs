@@ -40,13 +40,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 IReadOnlyCollection<KeyValuePair<string, string>> writeClaims = resourceMetadata.WriteClaims;
                 if (writeClaims == null)
                 {
-                    yield break;
+                    continue;
                 }
 
-                var results = new HashSet<ResourceWriteClaimListRow>();
+                var resultsForDedupping = new HashSet<ResourceWriteClaimListRow>();
                 foreach (var claim in writeClaims)
                 {
-                    if (results.Add(new ResourceWriteClaimListRow(merge.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value?.ToLowerInvariant())))
+                    if (resultsForDedupping.Add(new ResourceWriteClaimListRow(merge.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value?.ToLowerInvariant())))
                     {
                         yield return new ResourceWriteClaimListRow(merge.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value);
                     }
