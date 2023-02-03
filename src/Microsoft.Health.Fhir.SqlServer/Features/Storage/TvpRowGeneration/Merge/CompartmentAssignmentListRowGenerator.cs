@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 CompartmentIndices compartments = resourceMetadata.Compartments;
                 if (compartments == null)
                 {
-                    yield break;
+                    continue;
                 }
 
                 var results = new HashSet<CompartmentAssignmentListRow>();
