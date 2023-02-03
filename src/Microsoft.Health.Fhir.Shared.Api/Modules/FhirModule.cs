@@ -41,12 +41,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-#pragma warning disable CS0618 // Type or member is obsolete
-            var jsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
-#pragma warning restore CS0618 // Type or member is obsolete
+#pragma warning disable CS0618 // TruncateDateTimeToDate is marked obsolete
+            var jsonParser = new FhirJsonParser { Settings = { PermissiveParsing = true, TruncateDateTimeToDate = true, AllowUnrecognizedEnums = true, AcceptUnknownMembers = true }};
+#pragma warning restore CS0618 // TruncateDateTimeToDate is marked obsolete
             var jsonSerializer = new FhirJsonSerializer();
 
-            var xmlParser = new FhirXmlParser();
+#pragma warning disable CS0618 // TruncateDateTimeToDate is marked obsolete
+            var xmlParser = new FhirXmlParser { Settings = { PermissiveParsing = true, TruncateDateTimeToDate = true, AllowUnrecognizedEnums = true, AcceptUnknownMembers = true }};
+#pragma warning restore CS0618 // TruncateDateTimeToDate is marked obsolete
             var xmlSerializer = new FhirXmlSerializer();
 
             services.AddSingleton(jsonParser);
