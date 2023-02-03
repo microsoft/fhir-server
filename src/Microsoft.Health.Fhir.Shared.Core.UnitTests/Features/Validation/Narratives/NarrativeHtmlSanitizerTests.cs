@@ -41,7 +41,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
         [InlineData("<div>text</div><?xml version=\"1.0\" encoding=\"UTF-8\"?>div>")]
         [InlineData("<not_real>Example!</not_real>")]
         [InlineData("<?not_real><div>Example!</div>")]
-        public void GivenHtmlWithEmptyDiv_WhenSanitizingHtml_ThenAValidationErrorIsReturned(string val)
+        [InlineData("<div><!-- Comment ended with a dash. This error should be ignored ---><not_real>This tag should return validation error</not_real></div>")]
+        public void GivenInvalidNarrativeHtml_WhenSanitizingHtml_ThenAValidationErrorIsReturned(string val)
         {
             var results = _sanitizer.Validate(val);
 
@@ -59,15 +60,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             var results = _sanitizer.Validate(val);
 
             Assert.Empty(results);
-        }
-
-        [Theory]
-        [InlineData("<div><!-- Comment ended with a dash. This error should be ignored ---><not_valid_tag>This tag should return validation error</not_valid_tag></div>")]
-        public void GivenHtmlWithIgnoredAndEnforecedErrors_WhenSanitizingHtml_ThenAValidationErrorIsReturned(string val)
-        {
-            var results = _sanitizer.Validate(val);
-
-            Assert.NotEmpty(results);
         }
 
         [Fact]
