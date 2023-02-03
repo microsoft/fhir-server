@@ -66,7 +66,7 @@ public class ResourceProfileValidatorTests
 
     [Theory]
     [MemberData(nameof(ErrorIssues))]
-    public void GivenAResource_WhenValidatingWithAnError_ThenTheValidationResultFalse(OperationOutcomeIssue issue)
+    public void GivenAResource_WhenValidatingWithAnError_ThenTheValidationResultFails(OperationOutcomeIssue issue)
     {
         _profileValidator.TryValidate(Arg.Any<ITypedElement>(), Arg.Any<string>())
             .Returns(new[] { issue });
