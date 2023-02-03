@@ -722,7 +722,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 var wrapperExt = new ResourceWrapperOperation(wrapper, true, true, null, false);
                 smallList.Add(wrapperExt);
-                if (smallList.Count == 10000)
+                if (smallList.Count == 1)
                 {
                     ////var start = DateTime.UtcNow;
                     using var store = _store();
