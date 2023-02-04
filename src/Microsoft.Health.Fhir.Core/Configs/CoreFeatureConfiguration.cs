@@ -48,6 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int DefaultIncludeCountPerSearch { get; set; } = 100;
 
         /// <summary>
+        /// Configuration for loading packages in for validation.
+        /// </summary>
+        public FhirPackageConfiguration PackageConfiguration { get; set; } = new();
+
+        /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
         /// </summary>
         public bool ProfileValidationOnCreate { get; set; } = false;
@@ -70,6 +75,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets the resource versioning policy.
         /// </summary>
-        public VersioningConfiguration Versioning { get; set; } = new VersioningConfiguration();
+        public VersioningConfiguration Versioning { get; set; } = new();
     }
 }
