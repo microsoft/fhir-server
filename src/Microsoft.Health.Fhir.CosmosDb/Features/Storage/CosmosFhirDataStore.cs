@@ -108,19 +108,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken)
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var results = new Dictionary<ResourceKey, UpsertOutcome>();
+            if (resources == null || resources.Count == 0)
+            {
+                return results;
+            }
+
+            foreach (var resource in resources)
+            {
+                results.Add(resource.Wrapper.ToResourceKey(), await UpsertAsync(resource, cancellationToken));
+            }
+
+            return results;
         }
 
-        public Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
-        }
+            var results = new List<ResourceWrapper>();
+            if (keys == null || keys.Count == 0)
+            {
+                return results;
+            }
 
-        public Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
+            foreach (var key in keys)
+            {
+                results.Add(await GetAsync(key, cancellationToken));
+            }
+
+            return results;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
