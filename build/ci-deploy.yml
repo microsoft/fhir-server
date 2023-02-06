@@ -1,13 +1,18 @@
 # DESCRIPTION: 	
-# Deploys the CI environment in case the persistant resources are deleted or broken.
+# Deploys the CI environment in case the persistent resources are deleted or broken.
 # This pipeline is only needed if CI is broken. It can be months between runs.
-# As CI is a persistant environment this pipeline should not be run unless needed.
+# As CI is a persistent environment this pipeline should not be run unless needed.
+
+parameters:
+  name: VariablesTemplate
+  value: string
+  default: ci-variables.yml
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
 variables:
-- template: ci-variables.yml
+- template: ${{parameters.VariablesTemplate}}
 - template: build-variables.yml
 
 stages:
