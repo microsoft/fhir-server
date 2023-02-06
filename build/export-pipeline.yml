@@ -40,10 +40,7 @@ stages:
   displayName: 'Redeploy Export STU3 Site'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Export
-
+  - template: export-variables.yml
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentName)
@@ -53,10 +50,7 @@ stages:
   displayName: 'Redeploy Export STU3 SQL Site'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Export
-
+  - template: export-variables.yml
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
@@ -66,10 +60,7 @@ stages:
   displayName: 'Redeploy Export R4 Site'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Export
-
+  - template: export-variables.yml
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4)
@@ -79,10 +70,7 @@ stages:
   displayName: 'Redeploy Export R4 SQL Site'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Export
-
+  - template: export-variables.yml
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4Sql)
@@ -92,10 +80,7 @@ stages:
   displayName: 'Redeploy Import STU3 Site'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Import
-
+  - template: import-variables.yml
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentName)
@@ -105,10 +90,7 @@ stages:
   displayName: 'Redeploy Import STU3 SQL Site'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Import
-
+  - template: import-variables.yml
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
@@ -118,10 +100,7 @@ stages:
   displayName: 'Redeploy Import R4 Site'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Import
-
+  - template: import-variables.yml
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4)
@@ -131,10 +110,7 @@ stages:
   displayName: 'Redeploy Import R4 SQL Site'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Import
-
+  - template: import-variables.yml
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4Sql)
@@ -147,10 +123,7 @@ stages:
   - exportRedeployStu3
   - redeployStu3Sql
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Export
-
+  - template: export-variables.yml
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: Stu3
@@ -163,10 +136,7 @@ stages:
   - exportRedeployR4
   - exportRedeployR4Sql
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Export
-
+  - template: export-variables.yml
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: R4
@@ -179,10 +149,7 @@ stages:
   - importRedeployStu3
   - importRedeployStu3Sql
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Import
-
+  - template: import-variables.yml
   - template: ./jobs/run-import-tests.yml
     parameters:
       version: Stu3
@@ -195,10 +162,7 @@ stages:
   - importRedeployR4
   - importRedeployR4Sql
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Import
-
+  - template: import-variables.yml
   - template: ./jobs/run-import-tests.yml
     parameters:
       version: R4
@@ -208,10 +172,7 @@ stages:
   displayName: 'Clean Export Storage Accounts'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Export
-
+  - template: export-variables.yml
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
@@ -220,10 +181,7 @@ stages:
   displayName: 'Clean Import Storage Accounts'
   dependsOn: []
   jobs:
-  - template: testArea-variables.yml
-    parameters: 
-      testArea: Import
-
+  - template: import-variables.yml
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
