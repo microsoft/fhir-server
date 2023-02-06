@@ -856,14 +856,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return _isEnabled;
                 }
 
-                var isEnabled = true;
                 lock (_databaseAccessLocker)
                 {
-                    isEnabled = IsEnabledInDatabase();
+                    _isEnabled = IsEnabledInDatabase();
                     _lastUpdated = DateTime.UtcNow;
                 }
 
-                return isEnabled;
+                return _isEnabled;
             }
 
             private bool IsEnabledInDatabase()
