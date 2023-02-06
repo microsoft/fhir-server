@@ -13,7 +13,6 @@ schedules:
     - main
 
 variables:
-- template: export-variables.yml
 - template: build-variables.yml
 
 stages:
@@ -37,37 +36,105 @@ stages:
         arguments: '--configuration $(buildConfiguration) /warnaserror -f $(defaultBuildFramework)'
     - template: ./jobs/package-integration-tests.yml
 
-- stage: redeployStu3
-  displayName: 'Redeploy STU3 Site'
+- stage: exportRedeployStu3
+  displayName: 'Redeploy Export STU3 Site'
   dependsOn: []
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Export
+
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
 
-- stage: redeployStu3Sql
-  displayName: 'Redeploy STU3 SQL Site'
+- stage: exportRedeployStu3Sql
+  displayName: 'Redeploy Export STU3 SQL Site'
   dependsOn: []
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Export
+
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
       subscription: $(ConnectedServiceName)
 
-- stage: redeployR4
-  displayName: 'Redeploy R4 Site'
+- stage: exportRedeployR4
+  displayName: 'Redeploy Export R4 Site'
   dependsOn: []
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Export
+
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
 
-- stage: redeployR4Sql
-  displayName: 'Redeploy R4 SQL Site'
+- stage: exportRedeployR4Sql
+  displayName: 'Redeploy Export R4 SQL Site'
   dependsOn: []
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Export
+
+  - template: ./jobs/restart-webapp.yml
+    parameters: 
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
+      subscription: $(ConnectedServiceName)
+
+- stage: importRedeployStu3
+  displayName: 'Redeploy Import STU3 Site'
+  dependsOn: []
+  jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Import
+
+  - template: ./jobs/restart-webapp.yml
+    parameters: 
+      webAppName: $(DeploymentEnvironmentName)
+      subscription: $(ConnectedServiceName)
+
+- stage: importRedeployStu3Sql
+  displayName: 'Redeploy Import STU3 SQL Site'
+  dependsOn: []
+  jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Import
+
+  - template: ./jobs/restart-webapp.yml
+    parameters: 
+      webAppName: $(DeploymentEnvironmentNameSql)
+      subscription: $(ConnectedServiceName)
+
+- stage: importRedeployR4
+  displayName: 'Redeploy Import R4 Site'
+  dependsOn: []
+  jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Import
+
+  - template: ./jobs/restart-webapp.yml
+    parameters: 
+      webAppName: $(DeploymentEnvironmentNameR4)
+      subscription: $(ConnectedServiceName)
+
+- stage: importRedeployR4Sql
+  displayName: 'Redeploy Import R4 SQL Site'
+  dependsOn: []
+  jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Import
+
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4Sql)
@@ -77,9 +144,13 @@ stages:
   displayName: 'Run Stu3 Export Tests'
   dependsOn:
   - Build
-  - redeployStu3
+  - exportRedeployStu3
   - redeployStu3Sql
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Export
+
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: Stu3
@@ -89,9 +160,13 @@ stages:
   displayName: 'Run R4 Export Tests'
   dependsOn:
   - Build
-  - redeployR4
-  - redeployR4Sql
+  - exportRedeployR4
+  - exportRedeployR4Sql
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Export
+
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: R4
@@ -101,9 +176,13 @@ stages:
   displayName: 'Run Stu3 Import Tests'
   dependsOn:
   - Build
-  - redeployStu3
-  - redeployStu3Sql
+  - importRedeployStu3
+  - importRedeployStu3Sql
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Import
+
   - template: ./jobs/run-import-tests.yml
     parameters:
       version: Stu3
@@ -113,18 +192,38 @@ stages:
   displayName: 'Run R4 Import Tests'
   dependsOn:
   - Build
-  - redeployR4
-  - redeployR4Sql
+  - importRedeployR4
+  - importRedeployR4Sql
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Import
+
   - template: ./jobs/run-import-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
 
 - stage: cleanStorageAccounts
-  displayName: 'Clean Storage Accounts'
+  displayName: 'Clean Export Storage Accounts'
   dependsOn: []
   jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Export
+
+  - template: ./jobs/clean-storage-accounts.yml
+    parameters:
+      environmentName: $(DeploymentEnvironmentName)
+
+- stage: cleanStorageAccounts
+  displayName: 'Clean Import Storage Accounts'
+  dependsOn: []
+  jobs:
+  - template: testArea-variables.yml
+    parameters: 
+      testArea: Import
+
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
