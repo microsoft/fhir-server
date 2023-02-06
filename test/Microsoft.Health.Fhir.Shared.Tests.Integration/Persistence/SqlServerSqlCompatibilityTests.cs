@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -13,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -44,6 +46,58 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     {
                         fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
                         await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
+
+                        Mediator mediator = fhirStorageTestsFixture.Mediator;
+
+                        foreach (string id in insertedElements)
+                        {
+                            // verify that we can read entries from previous versions
+                            var readResult = (await mediator.GetResourceAsync(new ResourceKey("Observation", id))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+                            Assert.Equal(id, readResult.Id);
+                        }
+
+                        // add a new entry
+
+                        var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                        var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+                        var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+
+                        Assert.NotNull(result);
+                        Assert.Equal(deserialized.Id, result.Id);
+                        insertedElements.Add(result.Id);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new InvalidOperationException($"Failure using schema version {i}", e);
+                    }
+                }
+            }
+            finally
+            {
+                if (fhirStorageTestsFixture != null)
+                {
+                    await fhirStorageTestsFixture.DisposeAsync();
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgradedAndMergeDisabled_WhenUpsertingAfter_OperationSucceeds()
+        {
+            string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+            var insertedElements = new List<string>();
+
+            FhirStorageTestsFixture fhirStorageTestsFixture = null;
+            try
+            {
+                for (int i = Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5); i <= SchemaVersionConstants.Max; i++)
+                {
+                    try
+                    {
+                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
+                        await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
+
+                        await fhirStorageTestsFixture.SqlHelper.ExecuteSqlCmd("UPDATE dbo.Parameters SET Number = 1 WHERE Id = 'MergeResources.IsDisabled' IF @@rowcount = 0 INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.IsDisabled', 1");
 
                         Mediator mediator = fhirStorageTestsFixture.Mediator;
 

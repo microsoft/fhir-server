@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -30,12 +32,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SqlServerFhirDataStore _store;
         private readonly XUnitLogger<SqlServerSetMergeTests> _logger;
         private readonly FhirJsonSerializer _jsonSerializer;
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
 
         public SqlServerSetMergeTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _store = (SqlServerFhirDataStore)fixture.GetService<IFhirDataStore>();
             _jsonSerializer = new FhirJsonSerializer(null);
             _logger = XUnitLogger<SqlServerSetMergeTests>.Create(testOutputHelper);
+            _sqlConnectionWrapperFactory = fixture.SqlConnectionWrapperFactory;
         }
 
         [Fact]
@@ -96,13 +100,45 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal("2", observationOutcome.Wrapper.Version);
         }
 
+        [Fact]
+        public async Task GivenResourceAndMergeDisabled_UpsertAndGet()
+        {
+            DisableMergeResources();
+
+            try
+            {
+                var patientId = Guid.NewGuid().ToString();
+                var patientWrapper = GetResourceWrapper(Samples.GetDefaultPatient().UpdateId(patientId));
+
+                // create
+                var upsertResult = await _store.UpsertAsync(new ResourceWrapperOperation(patientWrapper, true, true, null, false), default);
+                Assert.NotNull(upsertResult);
+                Assert.Equal(SaveOutcomeType.Created, upsertResult.OutcomeType);
+                Assert.Equal("1", upsertResult.Wrapper.Version);
+
+                var wrapper = await _store.GetAsync(new ResourceKey("Patient", patientId), default);
+                Assert.NotNull(wrapper);
+
+                // update
+                UpdateResource(patientWrapper);
+                upsertResult = await _store.UpsertAsync(new ResourceWrapperOperation(patientWrapper, true, true, null, false), default);
+                Assert.NotNull(upsertResult);
+                Assert.Equal(SaveOutcomeType.Updated, upsertResult.OutcomeType);
+                Assert.Equal("2", upsertResult.Wrapper.Version);
+            }
+            finally
+            {
+                EnableMergeResources();
+            }
+        }
+
         private ResourceWrapper GetResourceWrapper(ResourceElement resource)
         {
             var poco = resource.ToPoco();
             poco.VersionId = "1";
             var str = _jsonSerializer.SerializeToString(poco);
             var raw = new RawResource(str, FhirResourceFormat.Json, true);
-            var wrapper = new ResourceWrapper(resource, raw, new ResourceRequest("Merge"), false, null, null, null);
+            var wrapper = new ResourceWrapper(resource, raw, new ResourceRequest("Merge"), false, null, null, null, "hash");
             wrapper.LastModified = DateTime.UtcNow;
             return wrapper;
         }
@@ -120,6 +156,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             resource.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
+        }
+
+        private void DisableMergeResources()
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "UPDATE dbo.Parameters SET Number = 1 WHERE Id = @Id IF @@rowcount = 0 INSERT INTO dbo.Parameters (Id, Number) SELECT @Id, 1";
+            cmd.Parameters.AddWithValue("@Id", SqlServerFhirDataStore.MergeResourcesDisabledFlagId);
+            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+        }
+
+        private void EnableMergeResources()
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "DELETE FROM dbo.Parameters WHERE Id = @Id";
+            cmd.Parameters.AddWithValue("@Id", SqlServerFhirDataStore.MergeResourcesDisabledFlagId);
+            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
         }
     }
 }

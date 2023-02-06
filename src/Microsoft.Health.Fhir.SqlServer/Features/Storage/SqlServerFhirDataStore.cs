@@ -11,7 +11,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Common;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -57,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private const string InitialVersion = "1";
+        public const string MergeResourcesDisabledFlagId = "MergeResources.IsDisabled";
         private static MergeResourcesFeatureFlag _mergeResourcesFeatureFlag;
         private static object _mergeResourcesFeatureFlagLocker = new object();
 
@@ -838,7 +838,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private class MergeResourcesFeatureFlag
         {
-            private const string FlagId = "MergeResources.IsDisabled";
             private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
             private bool _isEnabled;
             private DateTime? _lastUpdated;
@@ -870,9 +869,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
                 using var cmd = conn.CreateRetrySqlCommand();
                 cmd.CommandText = "SELECT Number FROM dbo.Parameters WHERE Id = @Id";
-                cmd.Parameters.AddWithValue("@Id", FlagId);
+                cmd.Parameters.AddWithValue("@Id", MergeResourcesDisabledFlagId);
                 var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
-                return value == null ? true : (double)value == 0;
+                return value == null || (double)value == 0;
             }
         }
     }
