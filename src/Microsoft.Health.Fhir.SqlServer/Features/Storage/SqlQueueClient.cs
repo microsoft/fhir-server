@@ -54,18 +54,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                SqlServerFhirOperationDataStore.DbgLog($"CancelJobByGroupIdAsync start ---------------------");
-                SqlServerFhirOperationDataStore.DbgLog($" connection string = {sqlCommandWrapper.Connection.ConnectionString}");
                 VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, groupId, null);
-                SqlServerFhirOperationDataStore.DbgLog($" command text = {sqlCommandWrapper.CommandText}");
-                for (int i = 0; i < sqlCommandWrapper.Parameters.Count; i++)
-                {
-                    SqlServerFhirOperationDataStore.DbgLog($" p{i} : {sqlCommandWrapper.Parameters[i].ParameterName} = {sqlCommandWrapper.Parameters[i].Value ?? "null"}");
-                }
-
-                var r = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                SqlServerFhirOperationDataStore.DbgLog($" r = {r}");
-                SqlServerFhirOperationDataStore.DbgLog($"CancelJobByGroupIdAsync end -----------------------");
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -86,18 +76,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                SqlServerFhirOperationDataStore.DbgLog($"CancelJobByIdAsync start ---------------------");
-                SqlServerFhirOperationDataStore.DbgLog($" connection string = {sqlCommandWrapper.Connection.ConnectionString}");
                 VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, null, jobId);
-                SqlServerFhirOperationDataStore.DbgLog($" command text = {sqlCommandWrapper.CommandText}");
-                for (int i = 0; i < sqlCommandWrapper.Parameters.Count; i++)
-                {
-                    SqlServerFhirOperationDataStore.DbgLog($" p{i} : {sqlCommandWrapper.Parameters[i].ParameterName} = {sqlCommandWrapper.Parameters[i].Value ?? "null"}");
-                }
-
-                var r = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                SqlServerFhirOperationDataStore.DbgLog($" r = {r}");
-                SqlServerFhirOperationDataStore.DbgLog($"CancelJobByIdAsync end -----------------------");
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -116,9 +96,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await _sqlRetryService.ExecuteSqlCommandActionWithRetries(
                 async (sqlCommand, cancellationToken) =>
                 {
-                    SqlServerFhirOperationDataStore.DbgLog($"CompleteJobAsync start ---------------------");
-                    SqlServerFhirOperationDataStore.DbgLog($" connection string = {sqlCommand.Connection.ConnectionString}");
-
                     // cannot use VLatest as it incorrectly sends nulls
                     sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
                     sqlCommand.CommandText = "dbo.PutJobStatus";
@@ -130,16 +107,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommand.Parameters.AddWithValue("@FinalResult", jobInfo.Result != null ? jobInfo.Result : DBNull.Value);
                     sqlCommand.Parameters.AddWithValue("@RequestCancellationOnFailure", requestCancellationOnFailure);
 
-                    SqlServerFhirOperationDataStore.DbgLog($" command text = {sqlCommand.CommandText}");
-                    for (int i = 0; i < sqlCommand.Parameters.Count; i++)
-                    {
-                        SqlServerFhirOperationDataStore.DbgLog($" p{i} : {sqlCommand.Parameters[i].ParameterName} = {sqlCommand.Parameters[i].Value ?? "null"}");
-                    }
-
-                    int r;
                     try
                     {
-                        r = await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
+                        await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
                     }
                     catch (SqlException sqlEx)
                     {
@@ -150,9 +120,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         throw;
                     }
-
-                    SqlServerFhirOperationDataStore.DbgLog($" r = {r}");
-                    SqlServerFhirOperationDataStore.DbgLog($"DequeueAsync end -----------------------");
                 },
                 _logger,
                 "CompleteJobAsync failed.",
@@ -186,9 +153,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await _sqlRetryService.ExecuteSqlCommandFuncWithRetries(
                 async (sqlCommand, cancellationToken) =>
                 {
-                    SqlServerFhirOperationDataStore.DbgLog($"DequeueAsync start ---------------------");
-                    SqlServerFhirOperationDataStore.DbgLog($" connection string = {sqlCommand.Connection.ConnectionString}");
-
                     // cannot use VLatest as it incorrectly asks for optional @InputJobId
                     sqlCommand.CommandText = "dbo.DequeueJob";
                     sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
@@ -200,12 +164,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
                     }
 
-                    SqlServerFhirOperationDataStore.DbgLog($" command text = {sqlCommand.CommandText}");
-                    for (int i = 0; i < sqlCommand.Parameters.Count; i++)
-                    {
-                        SqlServerFhirOperationDataStore.DbgLog($" p{i} : {sqlCommand.Parameters[i].ParameterName} = {sqlCommand.Parameters[i].Value ?? "null"}");
-                    }
-
                     await using SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
                     JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
                     if (jobInfo != null)
@@ -213,8 +171,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         jobInfo.QueueType = queueType;
                     }
 
-                    SqlServerFhirOperationDataStore.DbgLog($" jobInfo.Status = {jobInfo.Status}");
-                    SqlServerFhirOperationDataStore.DbgLog($"DequeueAsync end -----------------------");
                     return jobInfo;
                 },
                 _logger,
@@ -281,22 +237,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await _sqlRetryService.ExecuteSqlCommandFuncWithRetries(
                 async (sqlCommand, cancellationToken) =>
                 {
-                    SqlServerFhirOperationDataStore.DbgLog($"GetJobByIdAsync start ---------------------");
-                    SqlServerFhirOperationDataStore.DbgLog($" connection string = {sqlCommand.Connection.ConnectionString}");
                     GetJobs.PopulateCommand(sqlCommand, queueType, jobId, null, null, returnDefinition);
-                    SqlServerFhirOperationDataStore.DbgLog($" command text = {sqlCommand.CommandText}");
-                    for (int i = 0; i < sqlCommand.Parameters.Count; i++)
-                    {
-                        SqlServerFhirOperationDataStore.DbgLog($" p{i} : {sqlCommand.Parameters[i].ParameterName} = {sqlCommand.Parameters[i].Value ?? "null"}");
-                    }
-
                     await using SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
 
-                    var r = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
-                    SqlServerFhirOperationDataStore.DbgLog($" status = {r.Status}");
-                    SqlServerFhirOperationDataStore.DbgLog($" (int)status = {(int)r.Status}");
-                    SqlServerFhirOperationDataStore.DbgLog($"GetJobByIdAsync end -----------------------");
-                    return r;
+                    return await sqlDataReader.ReadJobInfoAsync(cancellationToken);
                 },
                 _logger,
                 "GetJobByIdAsync failed.",
@@ -345,15 +289,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var cancel = false;
             try
             {
-                SqlServerFhirOperationDataStore.DbgLog($"PutJobHeartbeatAsync start ---------------------");
-
                 using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
                 using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
                 VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                 cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
-
-                SqlServerFhirOperationDataStore.DbgLog($"PutJobHeartbeatAsync end -----------------------");
             }
             catch (Exception ex)
             {
