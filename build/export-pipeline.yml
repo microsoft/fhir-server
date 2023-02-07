@@ -180,7 +180,7 @@ stages:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
 
-- stage: cleanStorageAccounts
+- stage: cleanExportStorageAccounts
   displayName: 'Clean Export Storage Accounts'
   dependsOn: []
   variables:
@@ -190,7 +190,7 @@ stages:
     parameters:
       environmentName: $(DeploymentEnvironmentName)
 
-- stage: cleanStorageAccounts
+- stage: cleanImportStorageAccounts
   displayName: 'Clean Import Storage Accounts'
   dependsOn: []
   variables:
