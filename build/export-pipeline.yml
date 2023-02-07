@@ -129,7 +129,7 @@ stages:
   dependsOn:
   - Build
   - exportRedeployStu3
-  - redeployStu3Sql
+  - exportRedeployStu3Sql
   variables:
   - template: export-variables.yml
   jobs:
