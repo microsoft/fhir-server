@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
             try
             {
-                for (int i = Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5); i <= SchemaVersionConstants.Max; i++)
+                for (int i = Math.Max(SchemaVersionConstants.Merge, SchemaVersionConstants.Max - 5); i <= SchemaVersionConstants.Max; i++)
                 {
                     try
                     {
