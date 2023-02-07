@@ -868,7 +868,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
                 using var cmd = conn.CreateRetrySqlCommand();
-                cmd.CommandText = "SELECT Number FROM dbo.Parameters WHERE Id = @Id";
+                cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id"; // call can be made before store is initialized
                 cmd.Parameters.AddWithValue("@Id", MergeResourcesDisabledFlagId);
                 var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
                 return value == null || (double)value == 0;
