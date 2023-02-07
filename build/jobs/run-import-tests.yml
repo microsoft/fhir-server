@@ -23,7 +23,7 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
-        $keyVault = "$(ImportDeploymentEnvironmentName)-ts"
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
         
         foreach($secret in $secrets)
