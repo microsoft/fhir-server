@@ -5,8 +5,12 @@
 
 parameters:
   - name: VariablesTemplate
-    value: string
+    type: string
     default: ci-variables.yml
+    values:
+    - ci-variables.yml
+    - import-variables.yml
+    - export-variables.yml
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
