@@ -39,8 +39,9 @@ stages:
 - stage: exportRedeployStu3
   displayName: 'Redeploy Export STU3 Site'
   dependsOn: []
-  jobs:
+  variables:
   - template: export-variables.yml
+  jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentName)
@@ -49,8 +50,9 @@ stages:
 - stage: exportRedeployStu3Sql
   displayName: 'Redeploy Export STU3 SQL Site'
   dependsOn: []
-  jobs:
+  variables:
   - template: export-variables.yml
+  jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
@@ -59,8 +61,9 @@ stages:
 - stage: exportRedeployR4
   displayName: 'Redeploy Export R4 Site'
   dependsOn: []
-  jobs:
+  variables:
   - template: export-variables.yml
+  jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4)
@@ -69,8 +72,9 @@ stages:
 - stage: exportRedeployR4Sql
   displayName: 'Redeploy Export R4 SQL Site'
   dependsOn: []
-  jobs:
+  variables:
   - template: export-variables.yml
+  jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4Sql)
@@ -79,8 +83,9 @@ stages:
 - stage: importRedeployStu3
   displayName: 'Redeploy Import STU3 Site'
   dependsOn: []
-  jobs:
+  variables:
   - template: import-variables.yml
+  jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentName)
@@ -89,8 +94,9 @@ stages:
 - stage: importRedeployStu3Sql
   displayName: 'Redeploy Import STU3 SQL Site'
   dependsOn: []
-  jobs:
+  variables:
   - template: import-variables.yml
+  jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
@@ -99,8 +105,9 @@ stages:
 - stage: importRedeployR4
   displayName: 'Redeploy Import R4 Site'
   dependsOn: []
-  jobs:
+  variables:
   - template: import-variables.yml
+  jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4)
@@ -109,8 +116,9 @@ stages:
 - stage: importRedeployR4Sql
   displayName: 'Redeploy Import R4 SQL Site'
   dependsOn: []
-  jobs:
+  variables:
   - template: import-variables.yml
+  jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4Sql)
@@ -122,8 +130,9 @@ stages:
   - Build
   - exportRedeployStu3
   - redeployStu3Sql
-  jobs:
+  variables:
   - template: export-variables.yml
+  jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: Stu3
@@ -135,8 +144,9 @@ stages:
   - Build
   - exportRedeployR4
   - exportRedeployR4Sql
-  jobs:
+  variables:
   - template: export-variables.yml
+  jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: R4
@@ -148,8 +158,9 @@ stages:
   - Build
   - importRedeployStu3
   - importRedeployStu3Sql
-  jobs:
+  variables:
   - template: import-variables.yml
+  jobs:
   - template: ./jobs/run-import-tests.yml
     parameters:
       version: Stu3
@@ -161,8 +172,9 @@ stages:
   - Build
   - importRedeployR4
   - importRedeployR4Sql
-  jobs:
+  variables:
   - template: import-variables.yml
+  jobs:
   - template: ./jobs/run-import-tests.yml
     parameters:
       version: R4
@@ -171,8 +183,9 @@ stages:
 - stage: cleanStorageAccounts
   displayName: 'Clean Export Storage Accounts'
   dependsOn: []
-  jobs:
+  variables:
   - template: export-variables.yml
+  jobs:
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
@@ -180,8 +193,9 @@ stages:
 - stage: cleanStorageAccounts
   displayName: 'Clean Import Storage Accounts'
   dependsOn: []
-  jobs:
+  variables:
   - template: import-variables.yml
+  jobs:
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
