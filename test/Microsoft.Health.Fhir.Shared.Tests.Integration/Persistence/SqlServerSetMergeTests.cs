@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
             using var cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "UPDATE dbo.Parameters SET Number = 1 WHERE Id = @Id IF @@rowcount = 0 INSERT INTO dbo.Parameters (Id, Number) SELECT @Id, 1";
+            cmd.CommandText = "INSERT INTO dbo.Parameters (Id, Number) SELECT @Id, 1";
             cmd.Parameters.AddWithValue("@Id", SqlServerFhirDataStore.MergeResourcesDisabledFlagId);
             cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
         }

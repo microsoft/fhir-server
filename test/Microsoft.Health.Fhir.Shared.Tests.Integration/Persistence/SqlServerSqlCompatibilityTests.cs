@@ -6,15 +6,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -97,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
                         await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
 
-                        await fhirStorageTestsFixture.SqlHelper.ExecuteSqlCmd("UPDATE dbo.Parameters SET Number = 1 WHERE Id = 'MergeResources.IsDisabled' IF @@rowcount = 0 INSERT INTO dbo.Parameters (Id, Number) SELECT 'MergeResources.IsDisabled', 1");
+                        await fhirStorageTestsFixture.SqlHelper.ExecuteSqlCmd($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{SqlServerFhirDataStore.MergeResourcesDisabledFlagId}', 1");
 
                         Mediator mediator = fhirStorageTestsFixture.Mediator;
 
