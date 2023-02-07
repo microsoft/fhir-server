@@ -4,9 +4,9 @@
 # As CI is a persistent environment this pipeline should not be run unless needed.
 
 parameters:
-  name: VariablesTemplate
-  value: string
-  default: ci-variables.yml
+  - name: VariablesTemplate
+    value: string
+    default: ci-variables.yml
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
