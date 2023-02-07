@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     // ignore input resource version to get latest version from the store
-                    var existingResources = (await GetAsync(resources.Select(_ => _.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _);
+                    var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
                     // assume that most likely case is that all resources should be updated
                     var minSurrId = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);

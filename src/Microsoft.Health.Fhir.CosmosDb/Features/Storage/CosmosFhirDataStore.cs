@@ -132,10 +132,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return results;
             }
 
-            foreach (var key in keys)
-            {
-                results.Add(await GetAsync(key, cancellationToken));
-            }
+            results.AddRange(await Task.WhenAll(keys.Select(async key => await GetAsync(key, cancellationToken))));
 
             return results;
         }

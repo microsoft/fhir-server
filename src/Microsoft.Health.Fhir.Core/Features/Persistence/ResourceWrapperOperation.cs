@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
+
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceWrapperOperation
@@ -14,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             WeakETag weakETag,
             bool requireETagOnUpdate)
         {
-            Wrapper = wrapper;
+            Wrapper = EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             AllowCreate = allowCreate;
             KeepHistory = keepHistory;
             WeakETag = weakETag;
