@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using MediatR;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
@@ -26,11 +27,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             string integrationStoreFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestIntegrationStoreUri");
             string integrationStoreKeyFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestIntegrationStoreKey");
+            string allStorageAccounts = Environment.GetEnvironmentVariable("AllStorageAccounts");
             if (!string.IsNullOrEmpty(integrationStoreFromEnvironmentVariable) && !string.IsNullOrEmpty(integrationStoreKeyFromEnvironmentVariable))
             {
                 Uri integrationStoreUri = new Uri(integrationStoreFromEnvironmentVariable);
                 string storageAccountName = integrationStoreUri.Host.Split('.')[0];
                 StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, integrationStoreKeyFromEnvironmentVariable);
+                storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+            }
+            else if (!string.IsNullOrEmpty(allStorageAccounts))
+            {
+                var splitAccounts = allStorageAccounts.Split('|').ToList();
+                var firstAccount = splitAccounts[0];
+                var nameIndex = splitAccounts.IndexOf(firstAccount + "_secret");
+
+                if (nameIndex < 0)
+                {
+                    throw new Exception("Unable to create a cloud storage account, key not provided.");
+                }
+
+                StorageCredentials storageCredentials = new StorageCredentials(firstAccount, splitAccounts[nameIndex + 1].Trim());
                 storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
             }
             else
