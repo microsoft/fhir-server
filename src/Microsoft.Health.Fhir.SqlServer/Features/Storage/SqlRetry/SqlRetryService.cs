@@ -176,9 +176,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task ExecuteSqlCommandActionWithRetries<TLogger>(RetriableSqlCommandAction action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
         {
             await ExecuteSqlCommandFuncWithRetries(
-                (sqlCommand, cancellationToken) =>
+                async (sqlCommand, cancellationToken) =>
                 {
-                    action(sqlCommand, cancellationToken);
+                    await action(sqlCommand, cancellationToken);
                     return Task.FromResult(0);
                 },
                 logger,

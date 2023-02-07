@@ -44,9 +44,31 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
         }
 
+/*#pragma warning disable xUnit1013 // Public method should be marked as test
+        public static void DbgLog(string message)
+        {
+            System.IO.File.AppendAllText("C:\\Users\\v-tommarkoc\\Desktop\\DbgLog.txt", message + Environment.NewLine);
+        }
+#pragma warning restore xUnit1013 // Public method should be marked as test*/
+
         [Fact]
         public async Task ExportWorkRegistration()
         {
+            bool stop = false;
+            while (stop)
+            {
+                System.Diagnostics.Debug.WriteLine($"++++++++++++++++++++++STOP={stop}");
+                Task.Delay(1000).Wait();
+            }
+
+            bool debug = false;
+#if DEBUG
+            debug = true;
+#endif
+            System.Diagnostics.Debug.WriteLine($"++++++++++++++++++++++MODE={debug}");
+            SqlServerFhirOperationDataStore.DbgLog($"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            SqlServerFhirOperationDataStore.DbgLog($"debug = {debug}");
+
             try
             {
                 PrepareData(); // 1000 patients + 1000 observations + 1000 claims. !!! RawResource is invalid.
@@ -56,31 +78,48 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 coordJob.NumberOfSurrogateIdRanges = 5; // 100*5=500 is 50% of 1000, so there are 2 insert transactions in JobQueue per each resource type
 
                 await RunExport(null, coordJob, 31, 6); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
+                SqlServerFhirOperationDataStore.DbgLog($"A");
 
                 await RunExportWithCancel("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
+                SqlServerFhirOperationDataStore.DbgLog($"B");
 
                 await RunExport("Patient,Observation", coordJob, 21, null); // 21=coord+2*1000/SurrogateIdRangeSize
+                SqlServerFhirOperationDataStore.DbgLog($"C");
 
                 await RunExport(null, coordJob, 31, null); // 31=coord+3*1000/SurrogateIdRangeSize
+                SqlServerFhirOperationDataStore.DbgLog($"D");
             }
             finally
             {
-                ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+/*                while (true)
+                {
+                    await Task.Delay(1000);
+                }*/
+
+                /*ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
                 ExecuteSql("TRUNCATE TABLE dbo.Resource");
-                ExecuteSql(DropTrigger);
+                ExecuteSql(DropTrigger);*/
             }
         }
 
         private async Task RunExportWithCancel(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
         {
+            SqlServerFhirOperationDataStore.DbgLog($"B4");
             var coorId = await RunExport(resourceType, coordJob, totalJobs, totalJobsAfterFailure);
+            SqlServerFhirOperationDataStore.DbgLog($"B5");
             var record = (await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None)).JobRecord;
+            SqlServerFhirOperationDataStore.DbgLog($"B5 Status = {record.Status}");
             Assert.Equal(OperationStatus.Running, record.Status);
             record.Status = OperationStatus.Canceled;
+            await Task.Delay(10000);
+            SqlServerFhirOperationDataStore.DbgLog($"B6");
             var result = await _operationDataStore.UpdateExportJobAsync(record, null, CancellationToken.None);
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+            SqlServerFhirOperationDataStore.DbgLog($"B7");
             result = await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None);
+            SqlServerFhirOperationDataStore.DbgLog($"B8");
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
+            SqlServerFhirOperationDataStore.DbgLog($"B9");
         }
 
         private async Task<string> RunExport(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)

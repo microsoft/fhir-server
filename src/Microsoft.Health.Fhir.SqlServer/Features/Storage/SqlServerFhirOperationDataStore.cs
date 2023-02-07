@@ -72,8 +72,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return CreateExportJobOutcome(jobInfo, clone);
         }
 
+        public static void DbgLog(string message)
+        {
+            System.IO.File.AppendAllText("C:\\Users\\v-tommarkoc\\Desktop\\DbgLog.txt", message + Environment.NewLine);
+        }
+
         public async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
+            DbgLog($"GetExportJobByIdAsync()");
+
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
             if (!long.TryParse(id, out var jobId))
@@ -93,12 +100,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var result = jobInfo.Result;
             var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
 
+            DbgLog($"status = {status}");
+
             if (status == JobStatus.Completed)
             {
                 var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
                 var inFlightJobsExist = groupJobs.Where(_ => _.Id != jobInfo.Id).Any(_ => _.Status == JobStatus.Running || _.Status == JobStatus.Created);
                 var cancelledJobsExist = groupJobs.Where(_ => _.Id != jobInfo.Id).Any(_ => _.Status == JobStatus.Cancelled || (_.Status == JobStatus.Running && _.CancelRequested));
                 var failedJobsExist = groupJobs.Where(_ => _.Id != jobInfo.Id).Any(_ => _.Status == JobStatus.Failed);
+
+                DbgLog($"status1 = {status}");
+                DbgLog($"cancelledJobsExist = {cancelledJobsExist}");
+                DbgLog($"failedJobsExist = {failedJobsExist}");
 
                 if (cancelledJobsExist && !failedJobsExist)
                 {
