@@ -126,6 +126,14 @@ jobs:
       Inline: |
         $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
+        $importStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
+        $importStoreUri = $importStoreSettings[0].Value
+        Write-Host "$importStoreUri"
+        $importStoreAccountName = [System.Uri]::new("$importStoreUri").Host.Split('.')[0]
+        $importStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$importStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
+        
+        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($importStoreUri)"
+        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($importStoreKey.Value)"
         
         foreach($secret in $secrets)
         {
@@ -206,6 +214,4 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
-      'TestIntegrationStoreUri': $(keyvaul)
-      'TestIntegrationStoreKey': 
       
