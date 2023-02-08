@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using MediatR;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
