@@ -35,20 +35,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, integrationStoreKeyFromEnvironmentVariable);
                 storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
             }
-            else if (!string.IsNullOrEmpty(allStorageAccounts))
-            {
-                var splitAccounts = allStorageAccounts.Split('|').ToList();
-                var firstAccount = splitAccounts[0];
-                var nameIndex = splitAccounts.IndexOf(firstAccount + "_secret");
-
-                if (nameIndex < 0)
-                {
-                    throw new Exception("Unable to create a cloud storage account, key not provided.");
-                }
-
-                StorageCredentials storageCredentials = new StorageCredentials(firstAccount, splitAccounts[nameIndex + 1].Trim());
-                storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-            }
             else
             {
                 CloudStorageAccount.TryParse(LocalIntegrationStoreConnectionString, out storageAccount);

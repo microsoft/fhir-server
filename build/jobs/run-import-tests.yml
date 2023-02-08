@@ -234,4 +234,6 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+      'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'TestIntegrationStoreKey': $(TestIntegrationStoreKey)
       
