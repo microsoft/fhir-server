@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
             if (fhirRequestContextAccessor.RequestContext.Principal != null
                 && securityConfigurationOptions.Value.Enabled
-                && (authorizationConfiguration.Enabled || authorizationConfiguration.EnableSmartWithoutAuth))
+                && authorizationConfiguration.Enabled)
             {
                 var fhirRequestContext = fhirRequestContextAccessor.RequestContext;
                 var principal = fhirRequestContext.Principal;
