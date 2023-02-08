@@ -4,9 +4,6 @@ parameters:
 - name: keyVaultName
   type: string
 
-variables:
-  appServiceName: $(resourceGroupRoot)-${{parameters.version}}
-
 jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
@@ -29,7 +26,8 @@ jobs:
         $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
 
-                $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $(appServiceName)).SiteConfig.AppSettings
+        $appServiceName: $(resourceGroupRoot)-${{parameters.version}}
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
         $importStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
         $importStoreUri = $importStoreSettings[0].Value
         Write-Host "$importStoreUri"
@@ -139,7 +137,8 @@ jobs:
         $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
 
-        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $(appServiceName)).SiteConfig.AppSettings
+        $appServiceName: $(resourceGroupRoot)-${{parameters.version}}
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
         $importStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
         $importStoreUri = $importStoreSettings[0].Value
         Write-Host "$importStoreUri"
