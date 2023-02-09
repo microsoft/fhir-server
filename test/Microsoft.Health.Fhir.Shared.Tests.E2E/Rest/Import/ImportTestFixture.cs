@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             string integrationStoreFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestIntegrationStoreUri");
             string integrationStoreKeyFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestIntegrationStoreKey");
-            string allStorageAccounts = Environment.GetEnvironmentVariable("AllStorageAccounts");
             if (!string.IsNullOrEmpty(integrationStoreFromEnvironmentVariable) && !string.IsNullOrEmpty(integrationStoreKeyFromEnvironmentVariable))
             {
                 Uri integrationStoreUri = new Uri(integrationStoreFromEnvironmentVariable);
