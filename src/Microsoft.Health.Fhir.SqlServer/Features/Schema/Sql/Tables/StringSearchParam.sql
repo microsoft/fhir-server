@@ -10,6 +10,8 @@
     IsMax bit CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL
 )
 
+ALTER TABLE dbo.StringSearchParam ADD CONSTRAINT DF_StringSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+
 ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_StringSearchParam
@@ -56,3 +58,4 @@ INCLUDE
 WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+

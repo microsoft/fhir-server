@@ -10,6 +10,8 @@
     IsHistory                           bit                     NOT NULL,
 )
 
+ALTER TABLE dbo.ReferenceSearchParam ADD CONSTRAINT DF_ReferenceSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+
 ALTER TABLE dbo.ReferenceSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
@@ -39,3 +41,4 @@ INCLUDE
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
