@@ -231,15 +231,7 @@ BEGIN TRY
   SET @AffectedRows += @@rowcount
 
   IF @IsResourceChangeCaptureEnabled = 1 --If the resource change capture feature is enabled, to execute a stored procedure called CaptureResourceChanges to insert resource change data.
-  BEGIN
-    DECLARE @Ids dbo.ResourceIdForChangesList
-    INSERT INTO @Ids
-           ( ResourceTypeId, ResourceId, Version, IsDeleted )
-      SELECT ResourceTypeId, ResourceId, Version, IsDeleted
-        FROM @Resources
-        WHERE IsHistory = 0
-    EXECUTE dbo.CaptureResourceIdsForChanges @Ids
-  END
+    EXECUTE dbo.CaptureResourceIdsForChanges @Resources
 
   IF @InitialTranCount = 0 COMMIT TRANSACTION
 

@@ -266,17 +266,6 @@ CREATE TYPE dbo.ReferenceSearchParamList AS TABLE
    UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId) 
 )
 GO
-IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceIdForChangesList')
-CREATE TYPE dbo.ResourceIdForChangesList AS TABLE
-(
-    ResourceTypeId     smallint            NOT NULL
-   ,ResourceId         varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
-   ,Version            int                 NOT NULL
-   ,IsDeleted          bit                 NOT NULL
-
-    PRIMARY KEY (ResourceTypeId, ResourceId)
-)
-GO
 IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceList')
 CREATE TYPE dbo.ResourceList AS TABLE
 (
@@ -297,14 +286,15 @@ CREATE TYPE dbo.ResourceList AS TABLE
    ,UNIQUE (ResourceTypeId, ResourceId, Version)
 )
 GO
-CREATE OR ALTER PROCEDURE dbo.CaptureResourceIdsForChanges @Ids dbo.ResourceIdForChangesList READONLY
+CREATE OR ALTER PROCEDURE dbo.CaptureResourceIdsForChanges @Resources dbo.ResourceList READONLY
 AS
 set nocount on
 -- This procedure is intended to be called from the MergeResources procedure and relies on its transaction logic
 INSERT INTO dbo.ResourceChangeData 
        ( ResourceId, ResourceTypeId, ResourceVersion,                                              ResourceChangeTypeId )
   SELECT ResourceId, ResourceTypeId,         Version, CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
-    FROM @Ids
+    FROM @Resources
+    WHERE IsHistory = 0
 GO
 
 IF object_id('dbo.Transactions') IS NULL
@@ -653,15 +643,7 @@ BEGIN TRY
   SET @AffectedRows += @@rowcount
 
   IF @IsResourceChangeCaptureEnabled = 1 --If the resource change capture feature is enabled, to execute a stored procedure called CaptureResourceChanges to insert resource change data.
-  BEGIN
-    DECLARE @Ids dbo.ResourceIdForChangesList
-    INSERT INTO @Ids
-           ( ResourceTypeId, ResourceId, Version, IsDeleted )
-      SELECT ResourceTypeId, ResourceId, Version, IsDeleted
-        FROM @Resources
-        WHERE IsHistory = 0
-    EXECUTE dbo.CaptureResourceIdsForChanges @Ids
-  END
+    EXECUTE dbo.CaptureResourceIdsForChanges @Resources
 
   IF @InitialTranCount = 0 COMMIT TRANSACTION
 
@@ -679,7 +661,6 @@ BEGIN CATCH
     THROW
 END CATCH
 GO
-
 
 --DROP PROCEDURE dbo.GetResources
 GO

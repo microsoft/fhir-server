@@ -119,12 +119,6 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE (
     Code2                     VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     CodeOverflow2             VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
 
-CREATE TYPE dbo.ResourceIdForChangesList AS TABLE (
-    ResourceTypeId SMALLINT     NOT NULL,
-    ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Version        INT          NOT NULL,
-    IsDeleted      BIT          NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId));
-
 CREATE TYPE dbo.ResourceKeyList AS TABLE (
     ResourceTypeId SMALLINT     NOT NULL,
     ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -1958,7 +1952,7 @@ END
 
 GO
 CREATE PROCEDURE dbo.CaptureResourceIdsForChanges
-@Ids dbo.ResourceIdForChangesList READONLY
+@Resources dbo.ResourceList READONLY
 AS
 SET NOCOUNT ON;
 INSERT INTO dbo.ResourceChangeData (ResourceId, ResourceTypeId, ResourceVersion, ResourceChangeTypeId)
@@ -1966,7 +1960,8 @@ SELECT ResourceId,
        ResourceTypeId,
        Version,
        CASE WHEN IsDeleted = 1 THEN 2 WHEN Version > 1 THEN 1 ELSE 0 END
-FROM   @Ids;
+FROM   @Resources
+WHERE  IsHistory = 0;
 
 GO
 CREATE PROCEDURE dbo.CheckActiveReindexJobs
@@ -4075,17 +4070,7 @@ BEGIN TRY
     FROM   @TokenNumberNumberCompositeSearchParams;
     SET @AffectedRows += @@rowcount;
     IF @IsResourceChangeCaptureEnabled = 1
-        BEGIN
-            DECLARE @Ids AS dbo.ResourceIdForChangesList;
-            INSERT INTO @Ids (ResourceTypeId, ResourceId, Version, IsDeleted)
-            SELECT ResourceTypeId,
-                   ResourceId,
-                   Version,
-                   IsDeleted
-            FROM   @Resources
-            WHERE  IsHistory = 0;
-            EXECUTE dbo.CaptureResourceIdsForChanges @Ids;
-        END
+        EXECUTE dbo.CaptureResourceIdsForChanges @Resources;
     IF @InitialTranCount = 0
         COMMIT TRANSACTION;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @AffectedRows;
