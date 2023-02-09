@@ -22,5 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public string FhirUserClaim { get; set; } = "fhirUser";
 
         public bool ErrorOnMissingFhirUserClaim { get; set; } = false;
+
+        public bool ReadFhirUserClaimFromHeader { get; set; } = true;
     }
 }

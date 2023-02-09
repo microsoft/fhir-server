@@ -131,7 +131,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         if (string.IsNullOrEmpty(fhirUser))
                         {
                             // look for the fhirUser info in a header
-                            if (context.Request.Headers.ContainsKey(KnownHeaders.FhirUserHeader)
+                            if (authorizationConfiguration.ReadFhirUserClaimFromHeader
+                                && context.Request.Headers.ContainsKey(KnownHeaders.FhirUserHeader)
                                 && context.Request.Headers.TryGetValue(KnownHeaders.FhirUserHeader, out var hValue))
                             {
                                 fhirUser = hValue.ToString();
