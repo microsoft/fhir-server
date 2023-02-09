@@ -41,6 +41,7 @@
     <None Remove="TestFiles\Device-d1.json" />
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
+    <None Remove="TestFiles\Normative\CodeSystem-cdcrec.json" />
     <None Remove="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Correct.json" />
     <None Remove="TestFiles\Normative\Parameter-ValueSet-Validate-Code-Incorrect.json" />
     <None Remove="TestFiles\Normative\Parameter-CodeSystem-Validate-Code-Correct.json" />
@@ -330,6 +331,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Bundle-BinaryPatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-MissingIdentifier.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
+    <EmbeddedResource Include="TestFiles\Normative\CodeSystem-cdcrec.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
     <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />

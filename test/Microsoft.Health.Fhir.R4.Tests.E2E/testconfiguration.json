@@ -11,7 +11,7 @@
                 "ExternalTerminologyServer": "http://tx.fhir.org/r4",
                 "Validate": {
                     "CacheDurationInSeconds": 14400,
-                    "ProfileValidationTerminologyServer": "http://tx.fhir.org/r4"
+                    "ProfileValidationTerminologyServer": "http://hapi.fhir.org/baseR4"
                 },
                 "ValidateCodeEnabled": true,
                 "LookupEnabled": true,

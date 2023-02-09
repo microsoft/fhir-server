@@ -2,8 +2,6 @@
   "resourceType" : "Patient",
   "id" : "child-example",
   "meta" : {
-    "extension" : [
-    ],
     "profile" : [
       "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
     ]
@@ -57,11 +55,11 @@
       "use" : "usual",
       "type" : {
         "coding" : [
-          {
-            "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
-            "code" : "MR",
-            "display" : "Medical Record Number"
-          }
+            {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                "code": "MR",
+                "display": "Medical Record Number"
+            }
         ],
         "text" : "Medical Record Number"
       },

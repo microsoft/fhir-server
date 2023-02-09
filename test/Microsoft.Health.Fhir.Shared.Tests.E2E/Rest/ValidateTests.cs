@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenValidateCode_WhenInValidParamaterInput_ThenValidateCodeThrowsBadRequest(string body)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
-            await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodePOSTAsync("ValueSet/$validate-code", body));
+            await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ValidateCodePOSTAsync("ValueSet/$validate-code", body));
         }
 
         // Validate-Code Post Tests End
@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenValidateCode_WhenInvalidRequestParams_ThenThrowsExcept(string path, string system, string code, string display = null)
         {
             Skip.If(!_server.Metadata.SupportsTerminologyOperation("validate-code"));
-            await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateCodeGETAsync(path, system, code, display));
+            await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ValidateCodeGETAsync(path, system, code, display));
         }
 
         // Validate-Code Get Tests End
