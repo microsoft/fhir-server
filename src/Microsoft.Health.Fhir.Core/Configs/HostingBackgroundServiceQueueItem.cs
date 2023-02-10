@@ -11,5 +11,5 @@ public class HostingBackgroundServiceQueueItem
 {
     public QueueType Queue { get; set; }
 
-    public bool EnableHeartbeats { get; set; }
+    public bool UpdateProgressOnHeartbeat { get; set; }
 }
