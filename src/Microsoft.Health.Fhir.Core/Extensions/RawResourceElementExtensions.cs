@@ -13,7 +13,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class RawResourceElementExtensions
     {
-        private static readonly JsonWriterOptions WriterOptions = new JsonWriterOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        private static readonly JsonWriterOptions _writerOptions = new JsonWriterOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
+
+        private static readonly JsonWriterOptions _indentedWriterOptions = new JsonWriterOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            Indented = true,
+        };
 
         /// <summary>
         /// Get the raw data from resourceWrapper as a string and JsonDocument.
@@ -22,20 +31,20 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         /// <param name="rawResource">Input RawResourceElement to convert to a JsonDocument</param>
         /// <param name="outputStream">Stream to serialize to</param>
-        public static async Task SerializeToStreamAsUtf8Json(this RawResourceElement rawResource, Stream outputStream)
+        /// <param name="pretty">Identifies whether to indent or not the json response</param>
+        public static async Task SerializeToStreamAsUtf8Json(this RawResourceElement rawResource, Stream outputStream, bool pretty = false)
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
-            if (rawResource.RawResource.IsMetaSet)
-            {
-                await using var sw = new StreamWriter(outputStream, leaveOpen: true);
-                await sw.WriteAsync(rawResource.RawResource.Data);
-                return;
-            }
-
             var jsonDocument = JsonDocument.Parse(rawResource.RawResource.Data);
 
-            await using Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, WriterOptions);
+            await using Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, pretty ? _indentedWriterOptions : _writerOptions);
+
+            if (rawResource.RawResource.IsMetaSet)
+            {
+                jsonDocument.WriteTo(writer);
+                return;
+            }
 
             writer.WriteStartObject();
             bool foundMeta = false;
