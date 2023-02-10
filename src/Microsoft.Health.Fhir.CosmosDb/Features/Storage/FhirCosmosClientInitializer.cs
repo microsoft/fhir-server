@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IEnumerable<RequestHandler> requestHandlers = _requestHandlerFactory.Invoke();
 
             var builder = new CosmosClientBuilder(host, key)
-                .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
+                .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true, portReuseMode: PortReuseMode.PrivatePortPool)
                 .WithCustomSerializer(new FhirCosmosSerializer(_logger))
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
                 .AddCustomHandlers(requestHandlers.ToArray());
