@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
                 foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
                 {
-                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, Environment.MachineName, cancellationTokenSource, operation.EnableHeartbeats));
+                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, Environment.MachineName, cancellationTokenSource, operation.UpdateProgressOnHeartbeat));
                 }
 
                 await Task.WhenAll(jobQueues);
