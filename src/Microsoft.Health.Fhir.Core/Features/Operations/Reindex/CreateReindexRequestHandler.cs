@@ -3,6 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -69,9 +72,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // not detect the resources that need to be reindexed.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
 
+            // What this handles is the scenario where a user is effectively forcing a reindex to run
+            // by passing in a parameter of targetSearchParameterTypes. From those we can identify the base
+            // resource types. With the resource types we can now identify from our SearchParameterHashMap
+            // any matches and reset the hash value with a new guid thereby kicking off a new reindex job.
+            // Of course if we don't find a match then we leave the hash value unaffected and pass it through.
+            Dictionary<string, string> hashMap = null;
+            if (request.SearchParameterResourceTypes != null)
+            {
+                hashMap = new Dictionary<string, string>();
+                foreach (var searchParamHash in _searchParameterDefinitionManager.SearchParameterHashMap)
+                {
+                    if (request.SearchParameterResourceTypes.Contains(searchParamHash.Key))
+                    {
+                        hashMap[searchParamHash.Key] = Guid.NewGuid().ToString();
+                    }
+                    else
+                    {
+                        hashMap[searchParamHash.Key] = searchParamHash.Value;
+                    }
+                }
+            }
+
             var jobRecord = new ReindexJobRecord(
-                _searchParameterDefinitionManager.SearchParameterHashMap,
+                hashMap?.Count > 0 ? hashMap : _searchParameterDefinitionManager.SearchParameterHashMap,
                 request.TargetResourceTypes,
+                request.TargetSearchParameterTypes,
+                request.SearchParameterResourceTypes,
                 request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
                 request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds,
