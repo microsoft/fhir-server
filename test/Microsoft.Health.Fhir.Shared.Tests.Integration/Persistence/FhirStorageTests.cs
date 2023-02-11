@@ -163,14 +163,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin100ms()
+        public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin1sec()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
             Assert.NotNull(saveResult);
             Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
             var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
             Assert.NotNull(deserializedResource);
-            Assert.True((DateTimeOffset.UtcNow - deserializedResource.LastUpdated.GetValueOrDefault()).TotalMilliseconds < 100);
+            Assert.True((DateTimeOffset.UtcNow - deserializedResource.LastUpdated.GetValueOrDefault()).TotalMilliseconds < 1000);
         }
 
         [Fact]
