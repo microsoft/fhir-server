@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -27,11 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             ushort? targetDataStoreResourcePercentage,
             string targetResourceTypesString,
             string targetSearchParamTypesString,
-            SearchParameterDefinitionManager searchParameterDefinitionManager,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
             var targetResourceTypes = new List<string>();
 
@@ -48,17 +45,10 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             var targetSearchParamTypes = new List<string>();
-            var searchParameterResourceTypes = new HashSet<string>();
 
             if (!string.IsNullOrEmpty(targetSearchParamTypesString))
             {
                 targetSearchParamTypes.AddRange(targetSearchParamTypesString.Split(",").Select(s => s.Trim()));
-                foreach (var resourceType in targetSearchParamTypes)
-                {
-                    // this will force validate the search param exists and is valid
-                    var searchParameterInfo = searchParameterDefinitionManager.GetSearchParameter(resourceType);
-                    searchParameterResourceTypes.UnionWith(searchParameterInfo.BaseResourceTypes);
-                }
             }
 
             if (targetResourceTypes.Count > 0 && targetSearchParamTypes.Count > 0)
@@ -66,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 throw new RequestNotValidException(Resources.ReindexMultipleTargetsNotSupported);
             }
 
-            var request = new CreateReindexRequest(targetResourceTypes, targetSearchParamTypes, searchParameterResourceTypes, maximumConcurrency, maxResourcesPerQuery, queryDelay, targetDataStoreResourcePercentage);
+            var request = new CreateReindexRequest(targetResourceTypes, targetSearchParamTypes, maximumConcurrency, maxResourcesPerQuery, queryDelay, targetDataStoreResourcePercentage);
 
             CreateReindexResponse response = await mediator.Send(request, cancellationToken);
             return response.Job.ToParametersResourceElement();

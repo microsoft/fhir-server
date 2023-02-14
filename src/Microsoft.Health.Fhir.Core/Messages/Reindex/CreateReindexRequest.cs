@@ -14,7 +14,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
         public CreateReindexRequest(
             IReadOnlyCollection<string> targetResourceTypes,
             IReadOnlyCollection<string> targetSearchParameterTypes,
-            IReadOnlyCollection<string> searchParameterResourceTypes,
             ushort? maximumConcurrency = null,
             uint? maximumResourcesPerQuery = null,
             int? queryDelayIntervalInMilliseconds = null,
@@ -26,14 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
             TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
             TargetResourceTypes = EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
             TargetSearchParameterTypes = EnsureArg.IsNotNull(targetSearchParameterTypes, nameof(targetSearchParameterTypes));
-            SearchParameterResourceTypes = EnsureArg.IsNotNull(searchParameterResourceTypes, nameof(searchParameterResourceTypes));
         }
 
         public IReadOnlyCollection<string> TargetResourceTypes { get; }
 
         public IReadOnlyCollection<string> TargetSearchParameterTypes { get; }
-
-        public IReadOnlyCollection<string> SearchParameterResourceTypes { get; }
 
         public ushort? MaximumConcurrency { get; }
 

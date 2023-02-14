@@ -15,7 +15,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
@@ -23,10 +22,8 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -42,18 +39,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<ReindexController> _logger;
         private static Dictionary<string, HashSet<string>> _supportedParams = InitSupportedParams();
         private readonly IUrlResolver _urlResolver;
-        private readonly Func<IScoped<ISearchService>> _searchService;
-        private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly ILogger<SearchParameterDefinitionManager> _searchLogger;
 
         public ReindexController(
             IMediator mediator,
             IOptions<OperationsConfiguration> operationsConfig,
             IUrlResolver urlResolver,
-            ILogger<ReindexController> logger,
-            Func<IScoped<ISearchService>> searchService,
-            IModelInfoProvider modelInfoProvider,
-            ILogger<SearchParameterDefinitionManager> searchLogger)
+            ILogger<ReindexController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Reindex, nameof(operationsConfig));
@@ -64,9 +55,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _config = operationsConfig.Value.Reindex;
             _urlResolver = urlResolver;
             _logger = logger;
-            _searchService = searchService;
-            _modelInfoProvider = modelInfoProvider;
-            _searchLogger = searchLogger;
         }
 
         [HttpPost]
@@ -87,8 +75,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string targetResourceTypes = ReadStringParameter(inputParams, JobRecordProperties.TargetResourceTypes);
             string targetSearchParamTypes = ReadStringParameter(inputParams, JobRecordProperties.TargetSearchParameterTypes);
 
-            SearchParameterDefinitionManager searchParameterDefinitionManager = new SearchParameterDefinitionManager(_modelInfoProvider, _mediator, _searchService, _searchLogger);
-
             ResourceElement response = await _mediator.CreateReindexJobAsync(
                 maximumConcurrency,
                 maxResourcesPerQuery,
@@ -96,7 +82,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 targetDataStoreResourcePercentage,
                 targetResourceTypes,
                 targetSearchParamTypes,
-                searchParameterDefinitionManager,
                 HttpContext.RequestAborted);
 
             var result = FhirResult.Create(response, HttpStatusCode.Created)

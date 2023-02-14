@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenLessThanMaximumRunningJobs_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated()
         {
-            var request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>());
+            var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
             Assert.NotNull(response);
@@ -187,23 +187,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 switch (jobRecordProperty)
                 {
                     case JobRecordProperties.MaximumConcurrency:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), (ushort?)value);
+                        request = new CreateReindexRequest(new List<string>(), new List<string>(), (ushort?)value);
                         errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinMaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency);
                         break;
                     case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), null, (uint?)value);
+                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, (uint?)value);
                         errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery);
                         break;
                     case JobRecordProperties.QueryDelayIntervalInMilliseconds:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), null, null, value);
+                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, value);
                         errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinQueryDelayIntervalInMilliseconds, ReindexJobRecord.MaxQueryDelayIntervalInMilliseconds);
                         break;
                     case JobRecordProperties.TargetDataStoreUsagePercentage:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), null, null, null, (ushort?)value);
+                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, null, (ushort?)value);
                         errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinTargetDataStoreUsagePercentage, ReindexJobRecord.MaxTargetDataStoreUsagePercentage);
                         break;
                     default:
-                        request = new CreateReindexRequest(new List<string>() { jobRecordProperty }, new List<string>(), new List<string>());
+                        request = new CreateReindexRequest(new List<string>(), new List<string>());
                         errorMessage = $"Resource type 'Foo' is not supported. (Parameter 'type')";
                         break;
                 }
@@ -237,19 +237,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             switch (jobRecordProperty)
             {
                 case JobRecordProperties.MaximumConcurrency:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), (ushort?)value);
+                    request = new CreateReindexRequest(new List<string>(), new List<string>(), (ushort?)value);
                     break;
                 case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), null, (uint?)value);
+                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, (uint?)value);
                     break;
                 case JobRecordProperties.QueryDelayIntervalInMilliseconds:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), null, null, value);
+                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, value);
                     break;
                 case JobRecordProperties.TargetDataStoreUsagePercentage:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), null, null, null, (ushort?)value);
+                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, null, (ushort?)value);
                     break;
                 default:
-                    request = new CreateReindexRequest(new List<string>() { jobRecordProperty }, new List<string>(), new List<string>());
+                    request = new CreateReindexRequest(new List<string>(), new List<string>());
                     break;
             }
 
@@ -281,12 +281,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             SearchIndexEntry si = sample1.Wrapper.SearchIndices.FirstOrDefault();
             var targetSearchParameterTypes = new List<string>() { si.SearchParameter.Url.OriginalString };
-            var searchParameterResourceTypes = new List<string>() { "Patient" };
 
             var queryParams = new List<Tuple<string, string>> { new(searchParamCode, sampleName1) };
             SearchResult searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
 
-            var request = new CreateReindexRequest(new List<string>(), targetSearchParameterTypes, searchParameterResourceTypes);
+            var request = new CreateReindexRequest(new List<string>(), targetSearchParameterTypes);
             CreateReindexResponse response = await SetUpForReindexing(request);
             using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -313,7 +312,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenAlreadyRunningJob_WhenCreatingAReindexJob_ThenJobConflictExceptionThrown()
         {
-            var request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>());
+            var request = new CreateReindexRequest(new List<string>(), new List<string>());
 
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
@@ -326,7 +325,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenNoSupportedSearchParameters_WhenRunningReindexJob_ThenJobIsCanceled()
         {
-            var request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>());
+            var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await SetUpForReindexing(request);
 
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -347,7 +346,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter("http://hl7.org/fhir/SearchParameter/Measure-name");
             searchParam.IsSearchable = false;
 
-            var request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>());
+            var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await SetUpForReindexing(request);
 
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -475,7 +474,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Confirm that "foo" is dropped from the query string and all patients are returned
             Assert.Equal(4, searchResults.Results.Count());
 
-            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>(), 1, 1, 500);
+            var createReindexRequest = new CreateReindexRequest(new List<string>(), new List<string>(), 1, 1, 500);
             CreateReindexResponse response = await SetUpForReindexing(createReindexRequest);
 
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -845,7 +844,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             if (request == null)
             {
-                request = new CreateReindexRequest(new List<string>(), new List<string>(), new List<string>());
+                request = new CreateReindexRequest(new List<string>(), new List<string>());
             }
 
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
