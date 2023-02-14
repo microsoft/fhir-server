@@ -90,10 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         throw new RequestNotValidException(Core.Resources.SearchParameterByDefinitionUriNotSupported, searchParameterUrl);
                     }
 
-                    if (searchParameterInfo != null)
-                    {
-                        searchParameterResourceTypes.UnionWith(searchParameterInfo.BaseResourceTypes);
-                    }
+                    searchParameterResourceTypes.UnionWith(searchParameterInfo.BaseResourceTypes);
                 }
 
                 hashMap = new Dictionary<string, string>();
@@ -123,12 +120,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             return new CreateReindexResponse(outcome);
         }
-
-        /*
-        private SearchParameterInfo GetSearchParameterInfo(object paramInfo)
-        {
-            return null;
-        }
-        */
     }
 }
