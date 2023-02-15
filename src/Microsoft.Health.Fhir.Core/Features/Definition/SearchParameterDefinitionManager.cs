@@ -63,7 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 bundle.Entries.Select(e => e.Resource).ToList(),
                 UrlLookup,
                 TypeLookup,
-                _modelInfoProvider);
+                _modelInfoProvider,
+                _logger);
         }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
@@ -160,7 +161,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchParameters,
                 UrlLookup,
                 TypeLookup,
-                _modelInfoProvider);
+                _modelInfoProvider,
+                _logger);
 
             if (calculateHash)
             {
@@ -253,7 +255,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                 new List<ITypedElement>() { searchParam },
                                 UrlLookup,
                                 TypeLookup,
-                                _modelInfoProvider);
+                                _modelInfoProvider,
+                                _logger);
                         }
                         catch (SearchParameterNotSupportedException ex)
                         {

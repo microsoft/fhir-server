@@ -14,6 +14,8 @@
     CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
 
+ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CONSTRAINT DF_TokenQuantityCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CONSTRAINT CHK_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
@@ -86,3 +88,4 @@ INCLUDE
 WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+

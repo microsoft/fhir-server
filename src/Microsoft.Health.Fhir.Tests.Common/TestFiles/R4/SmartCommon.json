@@ -684,7 +684,7 @@
 				]
 			  },
 			  "subject": {
-				"reference": "Patient/smart-practitioner-A",
+				"reference": "Patient/smart-patient-A",
 				"display": "P. van de Heuvel"
 			  },
 			  "performedPeriod": {

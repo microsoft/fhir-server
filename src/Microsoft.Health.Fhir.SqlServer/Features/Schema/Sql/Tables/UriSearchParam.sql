@@ -7,6 +7,8 @@
     IsHistory bit NOT NULL
 )
 
+ALTER TABLE dbo.UriSearchParam ADD CONSTRAINT DF_UriSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+
 ALTER TABLE dbo.UriSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_UriSearchParam
@@ -30,3 +32,4 @@ ON dbo.UriSearchParam
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+

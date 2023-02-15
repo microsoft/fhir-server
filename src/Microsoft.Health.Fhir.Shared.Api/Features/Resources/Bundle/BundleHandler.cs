@@ -585,7 +585,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     actionName?.ToString()),
                 ExecutingBatchOrTransaction = true,
             };
+            foreach (var scopeRestriction in _originalFhirRequestContext.AccessControlContext.AllowedResourceActions)
+            {
+                newFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(scopeRestriction);
+            }
 
+            newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = _originalFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl;
             _fhirRequestContextAccessor.RequestContext = newFhirRequestContext;
 
             _bundleHttpContextAccessor.HttpContext = httpContext;

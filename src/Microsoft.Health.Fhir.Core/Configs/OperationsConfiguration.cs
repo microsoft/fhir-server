@@ -3,10 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class OperationsConfiguration
     {
+        public IList<HostingBackgroundServiceQueueItem> HostingBackgroundServiceQueues { get; } = new List<HostingBackgroundServiceQueueItem>();
+
         public ExportJobConfiguration Export { get; set; } = new ExportJobConfiguration();
 
         public ReindexJobConfiguration Reindex { get; set; } = new ReindexJobConfiguration();

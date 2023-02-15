@@ -127,7 +127,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
-            Assert.Equal("2", resource.Version);
+            Assert.Equal("3", resource.Version);
+            Assert.False(resource.IsHistory); // current
+
+            // use surr id interval that covers all changes
+            maxId = _fixture.SearchService.GetSurrogateId(DateTime.UtcNow);
+            range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
+            queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Type, type),
+                Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, maxId.ToString()),
+                Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
+                Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, "0"),
+                Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
+            };
+            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            Assert.Single(results.Results);
+            resource = results.Results.First().Resource;
+            Assert.Equal("3", resource.Version);
             Assert.False(resource.IsHistory); // current
         }
 
@@ -138,26 +155,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var newId = Guid.NewGuid().ToString();
             patient.Id = newId;
             await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
-            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 2 WHERE ResourceId = '{newId}'");
+            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 2, IsHistory = 1 WHERE ResourceId = '{newId}' AND Version = 1");
+            newId = Guid.NewGuid().ToString();
+            patient.Id = newId;
+            await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
+            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
         [Fact]
-        public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
+        public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin1sec()
         {
-            var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
-            {
-                var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-
-                Assert.NotNull(saveResult);
-                Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
-                var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
-                Assert.NotNull(deserializedResource);
-
-                Assert.NotNull(deserializedResource);
-                Assert.NotNull(deserializedResource);
-                Assert.Equal(instant, deserializedResource.LastUpdated.GetValueOrDefault());
-            }
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            Assert.NotNull(saveResult);
+            Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
+            var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+            Assert.NotNull(deserializedResource);
+            Assert.True((DateTimeOffset.UtcNow - deserializedResource.LastUpdated.GetValueOrDefault()).TotalMilliseconds < 1000);
         }
 
         [Fact]
@@ -230,7 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Not valid for merge")]
         public async Task GivenASavedResource_WhenUpserting_ThenRawResourceVersionIsSetOrMetaSetIsSetToFalse()
         {
             var versionId = Guid.NewGuid().ToString();
@@ -746,7 +759,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var deserializedResource = _fhirJsonParser.Parse<Patient>(original.RawResource.Data);
                 UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(UpdatePatientResourceWrapper(deserializedResource), WeakETag.FromVersionId(original.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), allowCreate: false, keepHistory: false, WeakETag.FromVersionId(original.Version), false), CancellationToken.None);
 
                 // Let's update the resource again with new information
                 searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
@@ -792,7 +805,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
                 ResourceWrapper deletedWrapper = CreateDeletedWrapper(original);
-                await _dataStore.UpsertAsync(deletedWrapper, WeakETag.FromVersionId(deletedWrapper.Version), allowCreate: true, keepHistory: false, CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, allowCreate: true, keepHistory: false, WeakETag.FromVersionId(deletedWrapper.Version), false), CancellationToken.None);
 
                 // Attempt to reindex the version of the resource that hasn't been deleted
                 await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(updated.Version), CancellationToken.None));
@@ -813,14 +826,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenAValidResource_WhenUpdatingAResourceWithSameDataImmaterialKeepHistoryValue_ServerShouldNotCreateANewVersionAndReturnOk(bool keepHistory)
         {
             // Upserting a resource twice with no data change
-            UpsertOutcome createResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), null, allowCreate: true, keepHistory: keepHistory, CancellationToken.None);
-            UpsertOutcome upsertResult = await _dataStore.UpsertAsync(CreateObservationResourceWrapper(createResult.Wrapper.ResourceId), null, allowCreate: true, keepHistory: keepHistory, CancellationToken.None);
+            UpsertOutcome createResult = await _dataStore.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, keepHistory, null, false), CancellationToken.None);
+            UpsertOutcome upsertResult = await _dataStore.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(createResult.Wrapper.ResourceId), true, keepHistory, null, false), CancellationToken.None);
 
             Assert.NotNull(createResult);
             Assert.NotNull(upsertResult);
 
             var createResource = new RawResourceElement(createResult.Wrapper);
-            var updatedeResource = new RawResourceElement(upsertResult.Wrapper);
+            var updateResource = new RawResourceElement(upsertResult.Wrapper);
 
             Assert.Equal(createResult.Wrapper.ResourceId, upsertResult.Wrapper.ResourceId);
             Assert.Equal(createResult.Wrapper.Version, upsertResult.Wrapper.Version);
@@ -829,8 +842,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // CreateResult.LastUpdated has date as 2008-10-31T17:04:32:3210000
             // upsertResult.lastUpdated will return what is stored in DB 2008-10-31T17:04:32:321 mismatching the milliseconds value
             // Hence comparing milliseconds separately. s Format Specifier 2008-10-31T17:04:32
-            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updatedeResource.LastUpdated.Value.ToString("s"));
-            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updatedeResource.LastUpdated.Value.Millisecond);
+            Assert.Equal(createResource.LastUpdated.Value.ToString("s"), updateResource.LastUpdated.Value.ToString("s"));
+            Assert.Equal(createResource.LastUpdated.Value.Millisecond, updateResource.LastUpdated.Value.Millisecond);
             Assert.Equal(createResult.Wrapper.LastModified.ToString("s"), createResult.Wrapper.LastModified.ToString("s"));
             Assert.Equal(createResult.Wrapper.LastModified.Millisecond, createResult.Wrapper.LastModified.Millisecond);
         }
@@ -904,11 +917,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var deserializedResource = _fhirJsonParser.Parse<Patient>(original1.RawResource.Data);
                 UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(UpdatePatientResourceWrapper(deserializedResource), WeakETag.FromVersionId(original1.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original1.Version), false), CancellationToken.None);
 
                 deserializedResource = _fhirJsonParser.Parse<Patient>(original2.RawResource.Data);
                 UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(UpdatePatientResourceWrapper(deserializedResource), WeakETag.FromVersionId(original2.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original2.Version), false), CancellationToken.None);
 
                 // Let's update the resources again with new information
                 searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
@@ -964,7 +977,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 // Delete one of the two resources
                 ResourceWrapper deletedWrapper = CreateDeletedWrapper(original1);
-                await _dataStore.UpsertAsync(deletedWrapper, WeakETag.FromVersionId(deletedWrapper.Version), allowCreate: true, keepHistory: false, CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, false, WeakETag.FromVersionId(deletedWrapper.Version), false), CancellationToken.None);
 
                 var resources = new List<ResourceWrapper> { updated1, updated2 };
 
@@ -981,12 +994,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Not valid test in Merge Resources design.")]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()
         {
             var wrapper = CreateObservationResourceWrapper("obsId1", true);
-            await Assert.ThrowsAsync<ServiceUnavailableException>(() => _fixture.DataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None));
+            await Assert.ThrowsAsync<ServiceUnavailableException>(() => _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false), CancellationToken.None));
         }
 
         private static void VerifyReindexedResource(ResourceWrapper original, ResourceWrapper replaceResult)

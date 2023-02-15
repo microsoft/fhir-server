@@ -7,6 +7,8 @@
     IsHistory                   bit                 NOT NULL
 )
 
+ALTER TABLE dbo.TokenText ADD CONSTRAINT DF_TokenText_IsHistory DEFAULT 0 FOR IsHistory
+
 ALTER TABLE dbo.TokenText SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_TokenText
@@ -30,3 +32,4 @@ ON dbo.TokenText
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
