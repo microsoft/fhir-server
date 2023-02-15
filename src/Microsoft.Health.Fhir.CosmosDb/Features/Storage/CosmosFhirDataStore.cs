@@ -108,7 +108,41 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        {
+            var results = new Dictionary<ResourceKey, UpsertOutcome>();
+            if (resources == null || resources.Count == 0)
+            {
+                return results;
+            }
+
+            foreach (var resource in resources)
+            {
+                results.Add(resource.Wrapper.ToResourceKey(), await UpsertAsync(resource, cancellationToken));
+            }
+
+            return results;
+        }
+
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
+        {
+            var results = new List<ResourceWrapper>();
+            if (keys == null || keys.Count == 0)
+            {
+                return results;
+            }
+
+            results.AddRange(await Task.WhenAll(keys.Select(async key => await GetAsync(key, cancellationToken))));
+
+            return results;
+        }
+
+        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
+        {
+            return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
+        }
+
+        private async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,

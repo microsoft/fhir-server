@@ -345,12 +345,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                        .Replace(Environment.NewLine, " ")
                        .Replace("\r", " ")
                        .Replace("\t", " ")
+                       .Replace(";", " ")
+                       .Replace(" output,", " out,")
                        .Replace(" output ", " out ")
                        .Replace(" inner join ", " join ")
                        .Replace(" delete from ", " delete ")
                        .Replace(" insert into ", " insert ")
+                       .Replace(" rollback transaction ", " rollback ")
                        .Replace(" as ", string.Empty)
-                       .Replace(";", string.Empty)
                        .Replace(" ", string.Empty);
         }
 

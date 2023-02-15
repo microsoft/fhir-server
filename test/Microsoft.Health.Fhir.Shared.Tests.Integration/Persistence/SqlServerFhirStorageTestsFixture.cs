@@ -15,11 +15,13 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -138,10 +140,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             serviceCollection.AddSingleton(sqlServerFhirModel);
             serviceCollection.AddSingleton<ISqlServerFhirModel>(sqlServerFhirModel);
             serviceCollection.AddSingleton(searchParameterToSearchValueTypeMap);
+            var converter = (ICompressedRawResourceConverter)new CompressedRawResourceConverter();
+            serviceCollection.AddSingleton(converter);
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var mergeResourcesTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>>>();
             var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
@@ -163,11 +168,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
                 upsertResourceTvpGeneratorVLatest,
+                mergeResourcesTvpGeneratorVLatest,
                 reindexResourceTvpGeneratorVLatest,
                 bulkReindexResourceTvpGeneratorVLatest,
                 options,
                 SqlConnectionWrapperFactory,
-                new CompressedRawResourceConverter(),
+                converter,
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
                 ModelInfoProvider.Instance,
@@ -185,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
-            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser, _fhirRequestContextAccessor);
+            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
@@ -193,6 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 options,
                 _fhirRequestContextAccessor,
                 sqlSortingValidator,
+                new ExpressionAccessControl(_fhirRequestContextAccessor),
                 NullLogger<SearchOptionsFactory>.Instance);
 
             var searchParamTableExpressionQueryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
