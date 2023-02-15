@@ -68,6 +68,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly string _adlsConnectionString;
         private readonly string _sqlConnectionString;
         private readonly string _adlsContainer;
+        private static bool _saveResourcesToAdls = true;
+        private static object _saveResourcesToAdlsLocker = new object();
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -132,8 +134,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        private async Task TryLogEvent(string process, string status, string mode, int rows, string text, DateTime startDate, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using var cmd = conn.CreateNonRetrySqlCommand();
+                VLatest.LogEvent.PopulateCommand(cmd, process, status, mode, null, null, rows, startDate, text, null, null);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch
+            {
+                // do nothing;
+            }
+        }
+
         public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
+            var saveToAdls = SaveResourcesToAdls();
             var start = DateTime.UtcNow;
             var retries = 0;
             while (true)
@@ -257,8 +275,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (mergeWrappers.Count > 0) // do not call db with empty input
                     {
-                        // save to adls first
-                        PutRawResourcesToAdls(mergeWrappers, minSurrId);
+                        if (saveToAdls)
+                        {
+                            // save to adls first
+                            PutRawResourcesToAdls(mergeWrappers, minSurrId);
+                        }
 
                         using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true); // TODO: Remove tran enlist when true bundle logic is in place.
                         using var cmd = conn.CreateNonRetrySqlCommand();
@@ -274,7 +295,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     await MergeResourcesCommitTransactionAsync(minSurrId, cancellationToken);
 
-                    await TryLogEvent("MergeAsync", "Warn", $"MergedResources={mergeWrappers.Count}", start, CancellationToken.None);
+                    await TryLogEvent("MergeAsync", "Warn", $"SaveToAdls={saveToAdls}", mergeWrappers.Count, $"ExistingResources={existingResources.Count} MergedResources={mergeWrappers.Count}", start, CancellationToken.None);
                     return results;
                 }
                 catch (SqlException e)
@@ -291,6 +312,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                     throw;
                 }
+            }
+        }
+
+        private static bool SaveResourcesToAdls()
+        {
+            lock (_saveResourcesToAdlsLocker)
+            {
+                _saveResourcesToAdls = _saveResourcesToAdls ? false : true;
+                return _saveResourcesToAdls;
             }
         }
 
