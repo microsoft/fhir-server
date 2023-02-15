@@ -36,5 +36,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// Flag indicating whether version in resource wrapper == (existing version in the database + 1)
         /// </summary>
         public bool HasVersionToCompare { get; private set; }
+
+        /// <summary>
+        /// Transaction Id resource is part of
+        /// </summary>
+        public long? TransactionId { get; internal set; }
+
+        /// <summary>
+        /// Reasource record offset in adls file
+        /// </summary>
+        public int? OffsetInFile { get; internal set; }
     }
 }

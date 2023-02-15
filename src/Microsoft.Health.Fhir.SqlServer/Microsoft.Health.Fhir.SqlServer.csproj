@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.SqlServer" />

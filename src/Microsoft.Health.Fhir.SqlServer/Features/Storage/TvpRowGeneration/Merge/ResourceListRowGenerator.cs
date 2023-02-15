@@ -30,10 +30,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             foreach (var merge in mergeWrappers)
             {
                 var wrapper = merge.ResourceWrapper;
-                using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
-                _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
-                stream.Seek(0, 0);
-                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request.Method, wrapper.SearchParameterHash);
+                if (merge.OffsetInFile.HasValue) // do not write raw resource
+                {
+                    yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, null, wrapper.RawResource.IsMetaSet, wrapper.Request.Method, wrapper.SearchParameterHash, merge.TransactionId, merge.OffsetInFile);
+                }
+                else
+                {
+                    using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
+                    _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
+                    stream.Seek(0, 0);
+                    yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request.Method, wrapper.SearchParameterHash, merge.TransactionId, null);
+                }
             }
         }
     }

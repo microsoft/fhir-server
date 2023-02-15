@@ -9,9 +9,13 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
+using Hl7.Fhir.Utility;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -28,6 +32,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -59,6 +64,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public const string MergeResourcesDisabledFlagId = "MergeResources.IsDisabled";
         private static MergeResourcesFeatureFlag _mergeResourcesFeatureFlag;
         private static object _mergeResourcesFeatureFlagLocker = new object();
+        private static object _adlsContainerLocker = new object();
+        private readonly string _adlsConnectionString;
+        private readonly string _sqlConnectionString;
+        private readonly string _adlsContainer;
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -73,7 +82,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
             IModelInfoProvider modelInfoProvider,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            IOptions<ExportJobConfiguration> adlsOptions,
+            IOptions<SqlServerDataStoreConfiguration> sqlOptions)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -88,6 +99,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(adlsOptions, nameof(adlsOptions));
+            EnsureArg.IsNotNull(sqlOptions, nameof(sqlOptions));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -98,6 +111,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _mergeResourcesFeatureFlag ??= new MergeResourcesFeatureFlag(_sqlConnectionWrapperFactory);
                 }
             }
+
+            _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
+            _sqlConnectionString = sqlOptions.Value.ConnectionString;
+            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant();
         }
 
         public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
@@ -223,6 +240,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (mergeWrappers.Count > 0) // do not call db with empty input
                     {
+                        // save to adls first
+                        PutRawResourcesToAdls(mergeWrappers, minSurrId);
+
                         using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true); // TODO: Remove tran enlist when true bundle logic is in place.
                         using var cmd = conn.CreateNonRetrySqlCommand();
                         VLatest.MergeResources.PopulateCommand(
@@ -254,6 +274,73 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     throw;
                 }
             }
+        }
+
+        private static string GetBlobName(long transactionId)
+        {
+            return $"transaction-{transactionId}.tjson";
+        }
+
+        private void PutRawResourcesToAdls(IList<MergeResourceWrapper> resources, long transactionId)
+        {
+            var blobName = GetBlobName(transactionId);
+            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+        retry:
+            try
+            {
+                using var stream = GetAdlsContainer().GetBlockBlobClient(blobName).OpenWrite(true);
+                using var writer = new StreamWriter(stream);
+                var offset = 0;
+                foreach (var resource in resources)
+                {
+                    resource.TransactionId = transactionId;
+                    resource.OffsetInFile = offset;
+                    var line = $"{resource.ResourceWrapper.ResourceTypeName}\t{resource.ResourceWrapper.ResourceId}\t{resource.ResourceWrapper.Version}\t{resource.ResourceWrapper.IsDeleted}\t{resource.ResourceWrapper.RawResource.Data}";
+                    offset += Encoding.UTF8.GetByteCount(line) + eol;
+                    writer.WriteLine(line);
+                }
+
+                writer.Flush();
+            }
+            catch (Exception e)
+            {
+                if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine(e);
+                    goto retry;
+                }
+
+                throw;
+            }
+        }
+
+        public string GetRawResourceFromAdls(long transactionId, int offsetInFile)
+        {
+            var blobName = GetBlobName(transactionId);
+            using var reader = new StreamReader(GetAdlsContainer().GetBlobClient(blobName).OpenRead(offsetInFile));
+            var line = reader.ReadLine();
+            return line.Split('\t')[4];
+        }
+
+        private BlobContainerClient GetAdlsContainer() // creates if does not exist
+        {
+            var blobServiceClient = new BlobServiceClient(_adlsConnectionString);
+            var blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
+
+            if (!blobContainerClient.Exists())
+            {
+                lock (_adlsContainerLocker)
+                {
+                    blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
+                    if (!blobContainerClient.Exists())
+                    {
+                        var container = blobServiceClient.CreateBlobContainer(_adlsContainer); // TODO: This can fail on multiple VMs.
+                        blobContainerClient = blobServiceClient.GetBlobContainerClient(_adlsContainer);
+                    }
+                }
+            }
+
+            return blobContainerClient;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
@@ -499,12 +586,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var version = reader.Read(table.Version, 3);
                 var isDeleted = reader.Read(table.IsDeleted, 4);
                 var isHistory = reader.Read(table.IsHistory, 5);
-                var rawResourceBytes = reader.GetSqlBytes(6).Value;
+                var bytes = reader.GetSqlBytes(6);
+                var rawResourceBytes = bytes.IsNull ? null : bytes.Value;
                 var isRawResourceMetaSet = reader.Read(table.IsRawResourceMetaSet, 7);
                 var searchParamHash = reader.Read(table.SearchParamHash, 8);
+                var transactionId = reader.Read(table.TransactionId, 9);
+                var offsetInFile = reader.Read(table.OffsetInFile, 10);
 
-                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                var rawResource = string.Empty;
+                if (rawResourceBytes == null)
+                {
+                    rawResource = GetRawResourceFromAdls(transactionId.Value, offsetInFile.Value);
+                }
+                else
+                {
+                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                }
 
                 var resource = new ResourceWrapper(
                     resourceId,

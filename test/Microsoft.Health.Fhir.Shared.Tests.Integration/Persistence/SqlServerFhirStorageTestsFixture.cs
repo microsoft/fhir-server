@@ -15,7 +15,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -164,6 +163,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<CoreFeatureConfiguration> options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
 
+            IOptions<ExportJobConfiguration> adlsOptions = Options.Create(new ExportJobConfiguration() { StorageAccountConnection = "UseDevelopmentStorage=true" });
+
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
@@ -177,7 +178,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
                 ModelInfoProvider.Instance,
-                _fhirRequestContextAccessor);
+                _fhirRequestContextAccessor,
+                adlsOptions,
+                config);
 
             // the test queue client may not be enough for these tests. will need to look back into this.
             var queueClient = new TestQueueClient();
