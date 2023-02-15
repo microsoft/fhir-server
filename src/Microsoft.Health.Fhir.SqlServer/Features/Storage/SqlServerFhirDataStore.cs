@@ -134,6 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
+            var start = DateTime.UtcNow;
             var retries = 0;
             while (true)
             {
@@ -149,6 +150,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     // ignore input resource version to get latest version from the store
                     var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
+                    await TryLogEvent("GetAsync", "Warn", $"ExistingResources={existingResources.Count}", start, CancellationToken.None);
 
                     // assume that most likely case is that all resources should be updated
                     var minSurrId = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
@@ -272,6 +274,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     await MergeResourcesCommitTransactionAsync(minSurrId, cancellationToken);
 
+                    await TryLogEvent("MergeAsync", "Warn", $"MergedResources={mergeWrappers.Count}", start, CancellationToken.None);
                     return results;
                 }
                 catch (SqlException e)
@@ -321,6 +324,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
                 {
+                    _logger.LogError(e, $"Error writing to ADLS blob={{BlobName}}", blobName);
                     Console.WriteLine(e);
                     goto retry;
                 }

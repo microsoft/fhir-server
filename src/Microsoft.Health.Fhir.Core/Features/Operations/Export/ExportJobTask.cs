@@ -728,27 +728,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ////    await _store().Value.HardDeleteAsync(wrapper.ToResourceKey(), false, CancellationToken.None);
             ////}
 
-            var smallList = new List<ResourceWrapperOperation>();
-            foreach (var wrapper in completeWrappers)
+            var batchSize = _mergeResourcesBatch.GetSize();
+            if (batchSize != 0)
             {
-                var wrapperExt = new ResourceWrapperOperation(wrapper, true, true, null, false);
-                smallList.Add(wrapperExt);
-                if (smallList.Count == _mergeResourcesBatch.GetSize())
+                var smallList = new List<ResourceWrapperOperation>();
+                foreach (var wrapper in completeWrappers)
                 {
-                    var start = DateTime.UtcNow;
+                    var wrapperExt = new ResourceWrapperOperation(wrapper, true, true, null, false);
+                    smallList.Add(wrapperExt);
+                    if (smallList.Count == batchSize)
+                    {
+                        using var store = _store();
+                        await store.Value.MergeAsync(smallList, CancellationToken.None);
+                        smallList = new List<ResourceWrapperOperation>();
+                    }
+                }
+
+                if (smallList.Count > 0)
+                {
                     using var store = _store();
                     await store.Value.MergeAsync(smallList, CancellationToken.None);
-                    await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
-                    smallList = new List<ResourceWrapperOperation>();
                 }
-            }
-
-            if (smallList.Count > 0)
-            {
-                ////var start = DateTime.UtcNow;
-                using var store = _store();
-                await store.Value.MergeAsync(smallList, CancellationToken.None);
-                ////await _store().Value.TryLogEvent("MergeAsync", "Warn", $"Resources={smallList.Count}", start, CancellationToken.None);
             }
 
             await Task.CompletedTask;
@@ -838,13 +838,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             public int GetSize()
             {
-                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 60)
                 {
                     return _size;
                 }
 
                 lock (_databaseAccessLocker)
                 {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 60)
+                    {
+                        return _size;
+                    }
+
                     using var store = _store();
                     _size = store.Value.GetMergeResourcesBatchSize();
                     _lastUpdated = DateTime.UtcNow;

@@ -133,10 +133,12 @@ CREATE TYPE dbo.ResourceList AS TABLE (
     IsDeleted            BIT             NOT NULL,
     IsHistory            BIT             NOT NULL,
     KeepHistory          BIT             NOT NULL,
-    RawResource          VARBINARY (MAX) NOT NULL,
+    RawResource          VARBINARY (MAX) NULL,
     IsRawResourceMetaSet BIT             NOT NULL,
     RequestMethod        VARCHAR (10)    NULL,
-    SearchParamHash      VARCHAR (64)    NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
+    SearchParamHash      VARCHAR (64)    NULL,
+    TransactionId        BIGINT          NULL,
+    OffsetInFile         INT             NULL PRIMARY KEY (ResourceTypeId, ResourceSurrogateId),
     UNIQUE (ResourceTypeId, ResourceId, Version));
 
 CREATE TYPE dbo.ResourceWriteClaimList AS TABLE (
@@ -842,11 +844,11 @@ CREATE TABLE dbo.Resource (
     ResourceSurrogateId  BIGINT          NOT NULL,
     IsDeleted            BIT             NOT NULL,
     RequestMethod        VARCHAR (10)    NULL,
-    RawResource          VARBINARY (MAX) NOT NULL,
+    RawResource          VARBINARY (MAX) NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT CH_Resource_RawResource_Length CHECK (RawResource > 0x0)
+    TransactionId        BIGINT          NULL,
+    OffsetInFile         INT             NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
@@ -3229,7 +3231,9 @@ BEGIN TRY
                    IsHistory,
                    RawResource,
                    IsRawResourceMetaSet,
-                   SearchParamHash
+                   SearchParamHash,
+                   TransactionId,
+                   OffsetInFile
             FROM   (SELECT TOP (@DummyTop) *
                     FROM   @ResourceKeys) AS A
                    INNER JOIN
@@ -3248,7 +3252,9 @@ BEGIN TRY
                            IsHistory,
                            RawResource,
                            IsRawResourceMetaSet,
-                           SearchParamHash
+                           SearchParamHash,
+                           TransactionId,
+                           OffsetInFile
                     FROM   (SELECT TOP (@DummyTop) *
                             FROM   @ResourceKeys
                             WHERE  Version IS NOT NULL) AS A
@@ -3266,7 +3272,9 @@ BEGIN TRY
                            IsHistory,
                            RawResource,
                            IsRawResourceMetaSet,
-                           SearchParamHash
+                           SearchParamHash,
+                           TransactionId,
+                           OffsetInFile
                     FROM   (SELECT TOP (@DummyTop) *
                             FROM   @ResourceKeys
                             WHERE  Version IS NULL) AS A
@@ -3285,7 +3293,9 @@ BEGIN TRY
                IsHistory,
                RawResource,
                IsRawResourceMetaSet,
-               SearchParamHash
+               SearchParamHash,
+               TransactionId,
+               OffsetInFile
         FROM   (SELECT TOP (@DummyTop) *
                 FROM   @ResourceKeys) AS A
                INNER JOIN
@@ -3891,7 +3901,7 @@ BEGIN TRY
                                   AND SurrogateId = ResourceSurrogateId);
             SET @AffectedRows += @@rowcount;
         END
-    INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash)
+    INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, OffsetInFile)
     SELECT ResourceTypeId,
            ResourceId,
            Version,
@@ -3901,7 +3911,9 @@ BEGIN TRY
            RequestMethod,
            RawResource,
            IsRawResourceMetaSet,
-           SearchParamHash
+           SearchParamHash,
+           TransactionId,
+           OffsetInFile
     FROM   @Resources;
     SET @AffectedRows += @@rowcount;
     INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
