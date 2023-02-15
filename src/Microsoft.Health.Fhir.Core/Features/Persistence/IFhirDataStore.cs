@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public interface IFhirDataStore
     {
+        int GetMergeResourcesBatchSize();
+
         Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken);
 
         string GetRawResourceFromAdls(long transactionId, int offsetInFile);

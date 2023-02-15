@@ -52,6 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private WeakETag _weakETag;
         private ExportFileManager _fileManager;
 
+        private static MergeResourcesBatch _mergeResourcesBatch;
+        private static object _mergeResourcesBatchLocker = new object();
+
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
@@ -95,6 +98,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _store = store;
 
             UpdateExportJob = UpdateExportJobAsync;
+
+            if (_mergeResourcesBatch == null)
+            {
+                lock (_mergeResourcesBatchLocker)
+                {
+                    _mergeResourcesBatch ??= new MergeResourcesBatch(_store);
+                }
+            }
         }
 
         public Func<ExportJobRecord, WeakETag, CancellationToken, Task<ExportJobOutcome>> UpdateExportJob
@@ -722,7 +733,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 var wrapperExt = new ResourceWrapperOperation(wrapper, true, true, null, false);
                 smallList.Add(wrapperExt);
-                if (smallList.Count == 1000)
+                if (smallList.Count == _mergeResourcesBatch.GetSize())
                 {
                     var start = DateTime.UtcNow;
                     using var store = _store();
@@ -810,6 +821,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                queryParametersList,
                                cancellationToken,
                                true);
+            }
+        }
+
+        private class MergeResourcesBatch
+        {
+            private int _size;
+            private DateTime? _lastUpdated;
+            private object _databaseAccessLocker = new object();
+            private Func<IScoped<IFhirDataStore>> _store;
+
+            public MergeResourcesBatch(Func<IScoped<IFhirDataStore>> store)
+            {
+                _store = store;
+            }
+
+            public int GetSize()
+            {
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return _size;
+                }
+
+                lock (_databaseAccessLocker)
+                {
+                    using var store = _store();
+                    _size = store.Value.GetMergeResourcesBatchSize();
+                    _lastUpdated = DateTime.UtcNow;
+                }
+
+                return _size;
             }
         }
     }

@@ -108,7 +108,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken)
+        public int GetMergeResourcesBatchSize()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

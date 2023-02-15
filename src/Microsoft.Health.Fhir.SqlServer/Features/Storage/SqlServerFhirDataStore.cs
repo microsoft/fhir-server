@@ -949,6 +949,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await Task.FromResult((int?)null);
         }
 
+        public int GetMergeResourcesBatchSize()
+        {
+            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.BatchSize'"; // call can be made before store is initialized
+            var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+            return value == null ? 1000 : (int)value;
+        }
+
         private class MergeResourcesFeatureFlag
         {
             private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
