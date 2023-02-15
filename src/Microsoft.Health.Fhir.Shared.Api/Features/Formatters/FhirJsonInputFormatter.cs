@@ -12,13 +12,14 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Core.Features;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     internal class FhirJsonInputFormatter : TextInputFormatter
     {
-        private readonly FhirJsonParser _parser;
+        private FhirJsonParser _parser;
         private readonly IArrayPool<char> _charPool;
 
         public FhirJsonInputFormatter(FhirJsonParser parser, ArrayPool<char> charPool)
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(charPool, nameof(charPool));
 
             _parser = parser;
+            _parser.Settings.AcceptUnknownMembers = true;
             _charPool = new JsonArrayPool(charPool);
 
             SupportedEncodings.Add(UTF8EncodingWithoutBOM);
@@ -56,6 +58,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var request = context.HttpContext.Request;
 
+            _parser.Settings.AllowUnrecognizedEnums = false;
+
+            if (request.Method == "POST"
+               && request.Path.Value.EndsWith("/", System.StringComparison.OrdinalIgnoreCase))
+            {
+                _parser.Settings.AllowUnrecognizedEnums = true;
+            }
+            else if (request.Headers.ContainsKey(KnownHeaders.AllowUnRecognizedEnums)
+                && request.Headers.TryGetValue(KnownHeaders.AllowUnRecognizedEnums, out var hValue)
+                && !string.IsNullOrWhiteSpace(hValue)
+                && string.Equals(hValue, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                _parser.Settings.AllowUnrecognizedEnums = true;
+            }
+
+            _parser.Settings.ExceptionHandler = (source, args) =>
+            {
+                context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
+            };
             using (var streamReader = context.ReaderFactory(request.Body, encoding))
             using (var jsonReader = new JsonTextReader(streamReader))
             {
