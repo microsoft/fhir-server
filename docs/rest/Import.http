@@ -1,0 +1,69 @@
+# .SUMMARY Sample requests for import
+# See more information about configuring and using import here: 
+# https://learn.microsoft.com/en-us/azure/healthcare-apis/fhir/import-data
+#
+# The following example requires Azurite to be running locally with a container
+# named "import" and a blob named "Patient-1.ndjson" and "Observation-1.ndjson".
+# These files can be created by running export.
+
+@hostname = localhost:44348
+@storageUri = http://localhost:10000/devstoreaccount1/import
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+
+
+### Create Import request
+# @name import
+POST https://{{hostname}}/$import
+Content-Type:application/fhir+json
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "inputFormat",
+            "valueString": "application/fhir+ndjson"
+        },
+        {
+            "name": "mode",
+            "valueString": "InitialLoad"
+        },
+        {
+            "name": "input",
+            "part": [
+                {
+                    "name": "type",
+                    "valueString": "Patient"
+                },
+                {
+                    "name": "url",
+                    "valueUri": "{{storageUri}}/Patient-1.ndjson"
+                }
+            ]
+        },
+        {
+            "name": "input",
+            "part": [
+                {
+                    "name": "type",
+                    "valueString": "Observation"
+                },
+                {
+                    "name": "url",
+                    "valueUri": "{{storageUri}}/Observation-1.ndjson"
+                }
+            ]
+        }
+    ]
+}
