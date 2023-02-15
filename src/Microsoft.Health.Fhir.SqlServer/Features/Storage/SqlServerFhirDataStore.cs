@@ -989,7 +989,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = conn.CreateRetrySqlCommand();
             cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.BatchSize'"; // call can be made before store is initialized
             var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
-            return value == null ? 1000 : (int)value;
+            return value == null ? 1000 : (int)(double)value;
         }
 
         private class MergeResourcesFeatureFlag
