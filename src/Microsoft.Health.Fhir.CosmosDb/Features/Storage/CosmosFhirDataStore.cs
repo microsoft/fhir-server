@@ -108,6 +108,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
+        public async Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
         public string GetRawResourceFromAdls(long transactionId, int offsetInFile)
         {
             throw new NotImplementedException();
