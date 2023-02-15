@@ -93,6 +93,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await SingleConnectionRetryTest(SqlLoginError, CreateTestStoredProcedureToReadTop10, true);
         }
 
+        [Fact]
+        public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesAreRun()
+        {
+            await AllConnectionRetriesTest(SqlLoginError, CreateTestStoredProcedureToReadDBData, true);
+        }
+
         private async Task TestInitializationExecuteSql(string commandText)
         {
             using SqlConnection sqlConnection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync();
@@ -293,17 +299,17 @@ END
             }
         }
 
-        private async Task AllConnectionRetriesTest(int sqlErrorNumber, Func<string, Task> testStoredProc)
+        private async Task AllConnectionRetriesTest(int sqlErrorNumber, Func<string, Task> testStoredProc, bool sqlConnectionBuilderWithFailure = false)
         {
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, null);
+                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, null, sqlConnectionBuilderWithFailure, true);
                 var logger = new TestLogger();
 
                 SqlException ex;
                 var sqlCommandFuncWithRetriesObject = new SqlCommandFuncWithRetriesObject(this, true);
-                ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlCommandFuncWithRetries(
-                    sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetriesAndKillConnection,
+                ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlCommandFuncWithRetries<List<long>, SqlRetryService>(
+                    sqlConnectionBuilderWithFailure ? sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetries : sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetriesAndKillConnection,
                     logger,
                     "log message",
                     CancellationToken.None));
