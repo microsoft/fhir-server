@@ -70,6 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly string _adlsContainer;
         private static bool _saveResourcesToAdls = true;
         private static object _saveResourcesToAdlsLocker = new object();
+        private readonly BlobContainerClient _adlsClient;
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -117,6 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
             _sqlConnectionString = sqlOptions.Value.ConnectionString;
             _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant();
+            _adlsClient = GetAdlsContainer();
         }
 
         public async Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken)
@@ -168,7 +170,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     // ignore input resource version to get latest version from the store
                     var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
-                    await TryLogEvent("GetAsync", "Warn", $"ExistingResources={existingResources.Count}", start, CancellationToken.None);
 
                     // assume that most likely case is that all resources should be updated
                     var minSurrId = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
@@ -295,7 +296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     await MergeResourcesCommitTransactionAsync(minSurrId, cancellationToken);
 
-                    await TryLogEvent("MergeAsync", "Warn", $"SaveToAdls={saveToAdls}", mergeWrappers.Count, $"ExistingResources={existingResources.Count} MergedResources={mergeWrappers.Count}", start, CancellationToken.None);
+                    await TryLogEvent("MergeAsync", "Warn", $"SaveToAdls={saveToAdls}", (int)(DateTime.UtcNow - start).TotalMilliseconds, $"ExistingResources={existingResources.Count} MergedResources={mergeWrappers.Count}", start, CancellationToken.None);
                     return results;
                 }
                 catch (SqlException e)
@@ -336,7 +337,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         retry:
             try
             {
-                using var stream = GetAdlsContainer().GetBlockBlobClient(blobName).OpenWrite(true);
+                using var stream = _adlsClient.GetBlockBlobClient(blobName).OpenWrite(true);
                 using var writer = new StreamWriter(stream);
                 var offset = 0;
                 foreach (var resource in resources)
@@ -366,7 +367,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public string GetRawResourceFromAdls(long transactionId, int offsetInFile)
         {
             var blobName = GetBlobName(transactionId);
-            using var reader = new StreamReader(GetAdlsContainer().GetBlobClient(blobName).OpenRead(offsetInFile));
+            using var reader = new StreamReader(_adlsClient.GetBlobClient(blobName).OpenRead(offsetInFile));
             var line = reader.ReadLine();
             return line.Split('\t')[4];
         }
@@ -613,6 +614,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
+            var start = DateTime.UtcNow;
+            var readFromAdls = false;
             var results = new List<ResourceWrapper>();
             if (keys == null || keys.Count == 0)
             {
@@ -646,6 +649,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (rawResourceBytes == null)
                 {
                     rawResource = GetRawResourceFromAdls(transactionId.Value, offsetInFile.Value);
+                    readFromAdls = true;
                 }
                 else
                 {
@@ -673,6 +677,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             await reader.NextResultAsync(cancellationToken);
+
+            await TryLogEvent("GetAsync", "Warn", $"ReadFromAdls={readFromAdls}", (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={resources.Count}", start, CancellationToken.None);
 
             return resources;
         }
