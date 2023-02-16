@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     if (!string.Equals(exportJobRecord.StorageAccountConnectionHash, connectionHash, StringComparison.Ordinal))
                     {
-                        throw new DestinationConnectionException("Storage account connection string was updated during an export job.", HttpStatusCode.BadRequest);
+                        ////throw new DestinationConnectionException("Storage account connection string was updated during an export job.", HttpStatusCode.BadRequest);
                     }
                 }
                 else
