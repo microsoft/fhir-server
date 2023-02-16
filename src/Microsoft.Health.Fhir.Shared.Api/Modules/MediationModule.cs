@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddMediatR(KnownAssemblies.All);
+            services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(KnownAssemblies.All));
 
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]
