@@ -372,6 +372,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return line.Split('\t')[4];
         }
 
+        private Dictionary<Tuple<long, int>, string> GetRawResourceFromAdls(List<Tuple<long, int>> resourceRefs)
+        {
+            var start = DateTime.UtcNow;
+            var results = new Dictionary<Tuple<long, int>, string>();
+            if (resourceRefs == null || resourceRefs.Count == 0)
+            {
+                return results;
+            }
+
+            var prevTran = -1L;
+            BlobClient blobClient = null;
+            foreach (var resourceRef in resourceRefs)
+            {
+                var transactionId = resourceRef.Item1;
+                var offsetInFile = resourceRef.Item2;
+                var blobName = GetBlobName(transactionId);
+                if (transactionId != prevTran)
+                {
+                    blobClient = _adlsClient.GetBlobClient(blobName);
+                }
+
+                using var reader = new StreamReader(blobClient.OpenRead(offsetInFile));
+                var line = reader.ReadLine();
+                results.Add(resourceRef, line.Split('\t')[4]);
+                prevTran = transactionId;
+            }
+
+            TryLogEvent("GetRawResourceFromAdls", "Warn", null, (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={results.Count}", start, CancellationToken.None).Wait();
+
+            return results;
+        }
+
         private BlobContainerClient GetAdlsContainer() // creates if does not exist
         {
             var blobServiceClient = new BlobServiceClient(_adlsConnectionString);
@@ -615,7 +647,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
             var start = DateTime.UtcNow;
-            var readFromAdls = false;
             var results = new List<ResourceWrapper>();
             if (keys == null || keys.Count == 0)
             {
@@ -628,7 +659,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count);
 
             using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-            var resources = new List<ResourceWrapper>();
+            var resources = new List<Tuple<ResourceWrapper, long?, int?>>();
+            var missingResourceRefs = new List<Tuple<long, int>>();
             while (await reader.ReadAsync(cancellationToken))
             {
                 var table = VLatest.Resource;
@@ -648,8 +680,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var rawResource = string.Empty;
                 if (rawResourceBytes == null)
                 {
-                    rawResource = GetRawResourceFromAdls(transactionId.Value, offsetInFile.Value);
-                    readFromAdls = true;
+                    missingResourceRefs.Add(Tuple.Create(transactionId.Value, offsetInFile.Value));
                 }
                 else
                 {
@@ -673,14 +704,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     IsHistory = isHistory,
                 };
 
-                resources.Add(resource);
+                resources.Add(Tuple.Create(resource, transactionId, offsetInFile));
             }
 
             await reader.NextResultAsync(cancellationToken);
 
-            await TryLogEvent("GetAsync", "Warn", $"ReadFromAdls={readFromAdls}", (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={resources.Count}", start, CancellationToken.None);
+            var missingRawResources = GetRawResourceFromAdls(missingResourceRefs);
 
-            return resources;
+            foreach (var resource in resources)
+            {
+                if (resource.Item1.RawResource.Data.Length == 0)
+                {
+                    resource.Item1.RawResource = new RawResource(missingRawResources[Tuple.Create(resource.Item2.Value, resource.Item3.Value)], resource.Item1.RawResource.Format, resource.Item1.RawResource.IsMetaSet);
+                }
+            }
+
+            await TryLogEvent("GetAsync", "Warn", $"ReadFromAdls={missingResourceRefs.Count > 0}", (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={resources.Count}", start, CancellationToken.None);
+
+            return resources.Select(_ => _.Item1).ToList();
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)

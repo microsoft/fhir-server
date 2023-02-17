@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         public RawResource(string data, FhirResourceFormat format, bool isMetaSet)
         {
-            EnsureArg.IsNotNullOrEmpty(data, nameof(data));
+            EnsureArg.IsNotNull(data, nameof(data));
 
             Data = data;
             Format = format;

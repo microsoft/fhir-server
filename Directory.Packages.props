@@ -30,6 +30,7 @@
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
     <PackageVersion Include="Azure.Identity" Version="1.8.2" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.14.1" />
+    <PackageVersion Include="Azure.Storage.Files.DataLake" Version="12.12.1" />
     <PackageVersion Include="coverlet.collector" Version="3.2.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.4.0" />
