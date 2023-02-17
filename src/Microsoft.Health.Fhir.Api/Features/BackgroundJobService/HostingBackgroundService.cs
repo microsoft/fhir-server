@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -12,7 +13,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
@@ -23,19 +23,23 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     public class HostingBackgroundService : BackgroundService
     {
         private readonly Func<IScoped<JobHosting>> _jobHostingFactory;
+        private readonly OperationsConfiguration _operationsConfiguration;
         private readonly TaskHostingConfiguration _hostingConfiguration;
         private readonly ILogger<HostingBackgroundService> _logger;
 
         public HostingBackgroundService(
             Func<IScoped<JobHosting>> jobHostingFactory,
             IOptions<TaskHostingConfiguration> hostingConfiguration,
+            IOptions<OperationsConfiguration> operationsConfiguration,
             ILogger<HostingBackgroundService> logger)
         {
             EnsureArg.IsNotNull(jobHostingFactory, nameof(jobHostingFactory));
             EnsureArg.IsNotNull(hostingConfiguration?.Value, nameof(hostingConfiguration));
+            EnsureArg.IsNotNull(operationsConfiguration?.Value, nameof(operationsConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _jobHostingFactory = jobHostingFactory;
+            _operationsConfiguration = operationsConfiguration.Value;
             _hostingConfiguration = hostingConfiguration.Value;
             _logger = logger;
         }
@@ -57,11 +61,13 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 }
 
                 using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                var jobQueues = new[]
+                var jobQueues = new List<Task>();
+
+                foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
                 {
-                    jobHostingValue.ExecuteAsync((byte)QueueType.Import, Environment.MachineName, cancellationTokenSource, true),
-                    jobHostingValue.ExecuteAsync((byte)QueueType.Export, Environment.MachineName, cancellationTokenSource),
-                };
+                    jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, Environment.MachineName, cancellationTokenSource, operation.UpdateProgressOnHeartbeat));
+                }
+
                 await Task.WhenAll(jobQueues);
             }
             catch (Exception ex)
