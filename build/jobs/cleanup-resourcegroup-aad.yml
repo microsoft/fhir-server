@@ -11,6 +11,11 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
-      Inline: 'Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force'
+      Inline: |
+        try {
+          Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
+        } catch {
+          Write-Warning "Delete Resource Group failed. The resource group may not exist."
+        }
 
 - template: ./cleanup-aad.yml
