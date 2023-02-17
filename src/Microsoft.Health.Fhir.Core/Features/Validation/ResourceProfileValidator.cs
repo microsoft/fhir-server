@@ -11,6 +11,7 @@ using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 using static Microsoft.Health.Fhir.Core.Models.OperationOutcomeConstants;
@@ -61,10 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     }
                 }
 
+                var isStrict = _contextAccessor.GetIsStrictHandlingEnabled();
+
                 if (profileValidation)
                 {
-                    var errors = _profileValidator.TryValidate(resourceElement.Instance);
-                    foreach (var error in errors.Where(x => x.Severity == IssueSeverity.Error || x.Severity == IssueSeverity.Fatal))
+                    OperationOutcomeIssue[] errors = _profileValidator.TryValidate(resourceElement.Instance);
+                    foreach (OperationOutcomeIssue error in errors
+                                 .Where(x => x.Severity == IssueSeverity.Error || x.Severity == IssueSeverity.Fatal || (isStrict && x.Severity == IssueSeverity.Warning)))
                     {
                         var validationFailure = new FhirValidationFailure(
                             resourceElement.InstanceType,
@@ -74,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     }
                 }
 
-                var baseValidation = base.Validate(context);
+                ValidationResult baseValidation = base.Validate(context);
                 failures.AddRange(baseValidation.Errors);
             }
 
