@@ -61,15 +61,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             if (request.Method == "POST"
                && request.Path.Value.EndsWith("/", System.StringComparison.OrdinalIgnoreCase))
             {
-                #pragma warning disable CS0618 // Type or member is obsolete
-                var jsonParserForBundle = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
-                #pragma warning disable CS0618 // Type or member is obsolete
-                jsonParserForBundle.Settings.AllowUnrecognizedEnums = true;
-                jsonParserForBundle.Settings.AcceptUnknownMembers = true;
-                jsonParserForBundle.Settings.ExceptionHandler = (source, args) =>
+                var newsettings = _parser.Settings.Clone();
+                newsettings.AllowUnrecognizedEnums = true;
+                newsettings.AcceptUnknownMembers = true;
+                newsettings.ExceptionHandler = (source, args) =>
                 {
                     context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
                 };
+                #pragma warning disable CS0618 // Type or member is obsolete
+                var jsonParserForBundle = new FhirJsonParser(newsettings);
+                #pragma warning disable CS0618 // Type or member is obsolete
+
                 parserToUse = jsonParserForBundle;
             }
 
