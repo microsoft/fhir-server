@@ -355,12 +355,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownHeaders.ProfileValidation, hValue, httpContext);
             }
 
-            if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.ContainsKey(KnownHeaders.AllowUnRecognizedEnums)
-                    && _fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.AllowUnRecognizedEnums, out var allowRecEnums))
-            {
-                AddHeaderIfNeeded(KnownHeaders.AllowUnRecognizedEnums, allowRecEnums, httpContext);
-            }
-
             if (requestMethod == HTTPVerb.POST
                 || requestMethod == HTTPVerb.PUT)
             {

@@ -29,6 +29,5 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string ProfileValidation = "x-ms-profile-validation";
         public const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
         public const string FhirUserHeader = "x-ms-fhiruser";
-        public const string AllowUnRecognizedEnums = "x-ms-allowunrecognizedenums";
     }
 }

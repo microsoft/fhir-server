@@ -12,14 +12,13 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
-using Microsoft.Health.Fhir.Core.Features;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     internal class FhirJsonInputFormatter : TextInputFormatter
     {
-        private FhirJsonParser _parser;
+        private readonly FhirJsonParser _parser;
         private readonly IArrayPool<char> _charPool;
 
         public FhirJsonInputFormatter(FhirJsonParser parser, ArrayPool<char> charPool)
@@ -28,7 +27,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(charPool, nameof(charPool));
 
             _parser = parser;
-            _parser.Settings.AcceptUnknownMembers = true;
             _charPool = new JsonArrayPool(charPool);
 
             SupportedEncodings.Add(UTF8EncodingWithoutBOM);
@@ -58,25 +56,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var request = context.HttpContext.Request;
 
-            _parser.Settings.AllowUnrecognizedEnums = false;
+            var parserToUse = _parser;
 
             if (request.Method == "POST"
                && request.Path.Value.EndsWith("/", System.StringComparison.OrdinalIgnoreCase))
             {
-                _parser.Settings.AllowUnrecognizedEnums = true;
-            }
-            else if (request.Headers.ContainsKey(KnownHeaders.AllowUnRecognizedEnums)
-                && request.Headers.TryGetValue(KnownHeaders.AllowUnRecognizedEnums, out var hValue)
-                && !string.IsNullOrWhiteSpace(hValue)
-                && string.Equals(hValue, "true", StringComparison.OrdinalIgnoreCase))
-            {
-                _parser.Settings.AllowUnrecognizedEnums = true;
+                #pragma warning disable CS0618 // Type or member is obsolete
+                var jsonParserForBundle = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
+                #pragma warning disable CS0618 // Type or member is obsolete
+                jsonParserForBundle.Settings.AllowUnrecognizedEnums = true;
+                jsonParserForBundle.Settings.AcceptUnknownMembers = true;
+                jsonParserForBundle.Settings.ExceptionHandler = (source, args) =>
+                {
+                    context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
+                };
+                parserToUse = jsonParserForBundle;
             }
 
-            _parser.Settings.ExceptionHandler = (source, args) =>
-            {
-                context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
-            };
             using (var streamReader = context.ReaderFactory(request.Body, encoding))
             using (var jsonReader = new JsonTextReader(streamReader))
             {
@@ -90,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 try
                 {
-                    model = await _parser.ParseAsync<Resource>(jsonReader);
+                    model = await parserToUse.ParseAsync<Resource>(jsonReader);
                 }
                 catch (Exception ex)
                 {
