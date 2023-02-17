@@ -207,6 +207,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
             }
+            else if (_reindexJobRecord.SearchParameterResourceTypes.Any())
+            {
+                resourceList.UnionWith(_reindexJobRecord.SearchParameterResourceTypes);
+            }
             else
             {
                 notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
@@ -221,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
-            if (!notYetIndexedParams.Any())
+            if (!notYetIndexedParams.Any() && resourceList.Count == 0)
             {
                 _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
@@ -325,7 +329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // grab the next query from the list which is labeled as queued and run it
                     var query = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
-                    CancellationTokenSource queryTokensSource = new CancellationTokenSource();
+                    using CancellationTokenSource queryTokensSource = new CancellationTokenSource();
                     queryCancellationTokens.TryAdd(query, queryTokensSource);
 
                     // We don't await ProcessQuery, so query status can or can not be changed inside immediately

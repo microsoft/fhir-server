@@ -31,13 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
             IReadOnlyCollection<string> targetResourceTypes,
+            IReadOnlyCollection<string> targetSearchParameterTypes,
+            IReadOnlyCollection<string> searchParameterResourceTypes,
             ushort maxiumumConcurrency = 1,
             uint maxResourcesPerQuery = 100,
             int queryDelayIntervalInMilliseconds = 500,
             ushort? targetDataStoreUsagePercentage = null)
         {
-            EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
-            EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
+            ResourceTypeSearchParameterHashMap = EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
+            TargetResourceTypes = EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
+            TargetSearchParameterTypes = EnsureArg.IsNotNull(targetSearchParameterTypes, nameof(targetSearchParameterTypes));
+            SearchParameterResourceTypes = EnsureArg.IsNotNull(searchParameterResourceTypes, nameof(searchParameterResourceTypes));
 
             // Default values
             SchemaVersion = 1;
@@ -46,8 +50,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
             QueuedTime = Clock.UtcNow;
             LastModified = Clock.UtcNow;
-
-            ResourceTypeSearchParameterHashMap = searchParametersHash;
 
             // check for MaximumConcurrency boundary
             if (maxiumumConcurrency < MinMaximumConcurrency || maxiumumConcurrency > MaxMaximumConcurrency)
@@ -94,8 +96,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             {
                 ModelInfoProvider.EnsureValidResourceType(type, nameof(type));
             }
-
-            TargetResourceTypes = targetResourceTypes;
         }
 
         [JsonConstructor]
@@ -167,6 +167,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.TargetResourceTypes)]
         public IReadOnlyCollection<string> TargetResourceTypes { get; private set; } = new List<string>();
 
+        /// <summary>
+        /// A user can supply a list of search params to force a reindex job even though the status is Enabled
+        /// </summary>
+        [JsonProperty(JobRecordProperties.TargetSearchParameterTypes)]
+        public IReadOnlyCollection<string> TargetSearchParameterTypes { get; private set; } = new List<string>();
+
+        /// <summary>
+        /// This will be the base resource types from the <see cref="TargetSearchParameterTypes"/>
+        /// </summary>
+        [JsonProperty(JobRecordProperties.SearchParameterResourceTypes)]
+        public IReadOnlyCollection<string> SearchParameterResourceTypes { get; private set; } = new List<string>();
+
         [JsonIgnore]
         public string ResourceList
         {
@@ -183,6 +195,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public string TargetResourceTypeList
         {
             get { return string.Join(",", TargetResourceTypes); }
+        }
+
+        [JsonIgnore]
+        public string TargetSearchParameterTypeList
+        {
+            get { return string.Join(",", TargetSearchParameterTypes); }
         }
     }
 }
