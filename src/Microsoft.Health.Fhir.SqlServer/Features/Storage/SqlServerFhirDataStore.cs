@@ -332,6 +332,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void PutRawResourcesToAdls(IList<MergeResourceWrapper> resources, long transactionId)
         {
+            var start = DateTime.UtcNow;
             var blobName = GetBlobName(transactionId);
             var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
         retry:
@@ -362,6 +363,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 throw;
             }
+
+            TryLogEvent("PutRawResourcesToAdls", "Warn", null, (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={resources.Count}", start, CancellationToken.None).Wait();
         }
 
         public string GetRawResourceFromAdls(long transactionId, int offsetInFile)
