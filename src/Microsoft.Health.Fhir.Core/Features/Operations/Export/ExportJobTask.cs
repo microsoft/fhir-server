@@ -716,7 +716,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
 
                 ////var start = DateTime.UtcNow;
-                _wrapperFactory.Update(resourceWrapper);
+                ////_wrapperFactory.Update(resourceWrapper);
                 ////await _store().Value.TryLogEvent("SearchIndexesUpdate", "Warn", resourceWrapper.ResourceId, start, CancellationToken.None);
 
                 completeWrappers.Add(resourceWrapper);

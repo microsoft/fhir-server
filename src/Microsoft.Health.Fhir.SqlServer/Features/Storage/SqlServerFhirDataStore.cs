@@ -320,7 +320,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             lock (_saveResourcesToAdlsLocker)
             {
-                _saveResourcesToAdls = _saveResourcesToAdls ? false : true;
+                _saveResourcesToAdls = true; ////_saveResourcesToAdls ? false : true;
                 return _saveResourcesToAdls;
             }
         }
