@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return outcome;
         }
 
-        private static JobInfo LoadJobInfo(SqlDataReader sqlDataReader)
+        public static JobInfo LoadJobInfo(SqlDataReader sqlDataReader)
         {
             var jobQueueTable = VLatest.JobQueue;
             long groupId = sqlDataReader.Read(jobQueueTable.GroupId, 0);

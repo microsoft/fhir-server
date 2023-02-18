@@ -133,6 +133,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return false;
         }
 
+        /*
         public async Task<TResult> ExecuteSqlCommandFuncWithRetries<TResult, TLogger>(RetriableSqlCommandFunc<TResult> func, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(func, nameof(func));
@@ -208,6 +209,97 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 await Task.Delay(_retryMillisecondsDelay, cancellationToken);
             }
+        }
+        */
+        /******************/
+
+        public async Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
+            EnsureArg.IsNotNull(action, nameof(action));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(logMessage, nameof(logMessage));
+
+            int retry = 0;
+            while (true)
+            {
+                try
+                {
+                    using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false); // TODO: check for transaction
+
+                    // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+                    // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
+                    // Connection is never open but RetryLogicProvider is set to the old retry implementation. According to the .NET spec, RetryLogicProvider must be set before opening connection to take effect.
+                    // Therefore we must reset it to null here before opening the connection.
+                    sqlConnection.RetryLogicProvider = null; // Before opening connection, reset old retry logic to null! To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+                    await sqlConnection.OpenAsync(cancellationToken);
+
+                    // sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds; // TODO:
+                    sqlCommand.Connection = sqlConnection;
+
+                    await action(sqlCommand, cancellationToken);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (!RetryTest(ex))
+                    {
+                        throw;
+                    }
+
+                    if (++retry >= _maxRetries)
+                    {
+                        logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
+                        throw;
+                    }
+
+                    logger.LogInformation(ex, $"Attempt {retry}: {logMessage}");
+                }
+
+                await Task.Delay(_retryMillisecondsDelay, cancellationToken);
+            }
+        }
+
+        private async Task<List<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, bool allRows, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
+            EnsureArg.IsNotNull(readerToResult, nameof(readerToResult));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(logMessage, nameof(logMessage));
+
+            List<TResult> results = null;
+            await ExecuteSql(
+                sqlCommand,
+                async (sqlCommand, cancellationToken) =>
+                {
+                    using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
+                    results = new List<TResult>();
+                    bool firstRow = true;
+                    while (await reader.ReadAsync(cancellationToken) && (allRows || firstRow))
+                    {
+                        results.Add(readerToResult(reader));
+                        firstRow = false;
+                    }
+
+                    await reader.NextResultAsync(cancellationToken);
+                },
+                logger,
+                logMessage,
+                cancellationToken);
+
+            return results;
+        }
+
+        public async Task<List<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
+        {
+            return await ExecuteSqlDataReader(sqlCommand, readerToResult, logger, logMessage, true, cancellationToken);
+        }
+
+        public async Task<TResult> ExecuteSqlDataReaderFirstRow<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
+            where TResult : class
+        {
+            List<TResult> result = await ExecuteSqlDataReader(sqlCommand, readerToResult, logger, logMessage, false, cancellationToken);
+            return result.Count > 0 ? result[0] : null;
         }
     }
 }
