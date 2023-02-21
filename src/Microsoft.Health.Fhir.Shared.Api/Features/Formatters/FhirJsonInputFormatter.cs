@@ -68,6 +68,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 {
                     context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
                 };
+
+                /*Current parser is initialized with a setting (TruncateDateTimeToDate) that was marked as Obsolete.
+                 To avoid changing existing behavior, same settings (one that was Obsolete) are used below. So, code added to
+                disable the warning.*/
+                
                 #pragma warning disable CS0618 // Type or member is obsolete
                 var jsonParserForBundle = new FhirJsonParser(newsettings);
                 #pragma warning disable CS0618 // Type or member is obsolete
