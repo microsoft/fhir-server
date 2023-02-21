@@ -80,17 +80,6 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
 
-- stage: importRedeployStu3
-  displayName: 'Redeploy Import STU3 Site'
-  dependsOn: []
-  variables:
-  - template: import-variables.yml
-  jobs:
-  - template: ./jobs/restart-webapp.yml
-    parameters: 
-      webAppName: $(DeploymentEnvironmentName)
-      subscription: $(ConnectedServiceName)
-
 - stage: importRedeployStu3Sql
   displayName: 'Redeploy Import STU3 SQL Site'
   dependsOn: []
@@ -100,17 +89,6 @@ stages:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
-      subscription: $(ConnectedServiceName)
-
-- stage: importRedeployR4
-  displayName: 'Redeploy Import R4 Site'
-  dependsOn: []
-  variables:
-  - template: import-variables.yml
-  jobs:
-  - template: ./jobs/restart-webapp.yml
-    parameters: 
-      webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
 
 - stage: importRedeployR4Sql
@@ -156,7 +134,6 @@ stages:
   displayName: 'Run Stu3 Import Tests'
   dependsOn:
   - Build
-  - importRedeployStu3
   - importRedeployStu3Sql
   variables:
   - template: import-variables.yml
@@ -170,7 +147,6 @@ stages:
   displayName: 'Run R4 Import Tests'
   dependsOn:
   - Build
-  - importRedeployR4
   - importRedeployR4Sql
   variables:
   - template: import-variables.yml
