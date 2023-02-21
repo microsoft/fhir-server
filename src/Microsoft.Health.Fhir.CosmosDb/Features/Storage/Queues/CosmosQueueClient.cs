@@ -68,13 +68,12 @@ public class CosmosQueueClient : IQueueClient
             .WithParameter("@queueType", queueType)
             .WithParameter("@groupId", groupId);
 
-        FeedResponse<JobGroupWrapper> existingJobs = await ExecuteQueryAsync(existingJobsSpec, 100, cancellationToken);
+        var existingJobs = await ExecuteQueryAsync(existingJobsSpec, 100, cancellationToken);
 
         if (existingJobs.Count > 0)
         {
             IEnumerable<JobInfo> existingJobInfos =
-                existingJobs.Resource
-                    .SelectMany(x => x.ToJobInfo(x.Definitions.Where(y => definitions.Contains(y.Definition))));
+                existingJobs.SelectMany(x => x.ToJobInfo(x.Definitions.Where(y => definitions.Contains(y.Definition))));
 
             jobInfos.AddRange(existingJobInfos);
         }
@@ -165,12 +164,15 @@ public class CosmosQueueClient : IQueueClient
 
         return await _retryPolicy.ExecuteAsync(async () =>
             {
-                FeedResponse<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, 1, cancellationToken);
+                IReadOnlyList<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, 1, cancellationToken);
 
-                JobGroupWrapper item = response.FirstOrDefault();
-                if (item != null)
+                if (response.Any())
                 {
-                    return await DequeueItemsInternalAsync(item, numberOfJobsToDequeue, worker, heartbeatTimeoutSec, cancellationToken);
+                    JobGroupWrapper item = response[0];
+                    if (item != null)
+                    {
+                        return await DequeueItemsInternalAsync(item, numberOfJobsToDequeue, worker, heartbeatTimeoutSec, cancellationToken);
+                    }
                 }
 
                 return Array.Empty<JobInfo>();
@@ -277,14 +279,8 @@ public class CosmosQueueClient : IQueueClient
 
     public async Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
     {
-        JobGroupWrapper job = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
-
-        if (job != null)
-        {
-            return job.ToJobInfo(job.Definitions).ToList();
-        }
-
-        return null;
+        IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
+        return jobs.SelectMany(job => job.ToJobInfo(job.Definitions)).ToList();
     }
 
     public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -324,8 +320,9 @@ public class CosmosQueueClient : IQueueClient
 
     public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
     {
-        JobGroupWrapper job = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
-        if (job != null)
+        IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
+
+        foreach (JobGroupWrapper job in jobs)
         {
             foreach (JobDefinitionWrapper item in job.Definitions)
             {
@@ -398,7 +395,7 @@ public class CosmosQueueClient : IQueueClient
         }
     }
 
-    private async Task<JobGroupWrapper> GetGroupInternalAsync(
+    private async Task<IReadOnlyList<JobGroupWrapper>> GetGroupInternalAsync(
         byte queueType,
         long groupId,
         CancellationToken cancellationToken)
@@ -408,9 +405,9 @@ public class CosmosQueueClient : IQueueClient
                 .WithParameter("@groupId", groupId.ToString())
                 .WithParameter("@queueType", queueType);
 
-            FeedResponse<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, 1, cancellationToken);
+            var response = await ExecuteQueryAsync(sqlQuerySpec, 100, cancellationToken);
 
-            return response.FirstOrDefault();
+            return response.ToList();
     }
 
     private async Task<IReadOnlyList<(JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob)>> GetJobsByIdsInternalAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
@@ -420,7 +417,7 @@ public class CosmosQueueClient : IQueueClient
            AND ARRAY_CONTAINS([{string.Join(",", jobIds.Select(x => $"'{x}'"))}], d.jobId)")
             .WithParameter("@queueType", queueType);
 
-        FeedResponse<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, jobIds.Length, cancellationToken);
+        var response = await ExecuteQueryAsync(sqlQuerySpec, jobIds.Length, cancellationToken);
 
         var infos = new List<(JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob)>();
         var jobIdsString = jobIds.Select(x => x.ToString()).ToHashSet();
@@ -451,7 +448,7 @@ public class CosmosQueueClient : IQueueClient
         }
     }
 
-    private async Task<FeedResponse<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int itemCount, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int itemCount, CancellationToken cancellationToken)
     {
         using IScoped<Container> container = _containerFactory.Invoke();
 
@@ -461,8 +458,16 @@ public class CosmosQueueClient : IQueueClient
                 sqlQuerySpec,
                 new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.JobInfoPartitionKey), MaxItemCount = itemCount }));
 
+        var items = new List<JobGroupWrapper>();
         FeedResponse<JobGroupWrapper> response = await query.ExecuteNextAsync(cancellationToken);
-        return response;
+
+        while ((response.Any() || !string.IsNullOrEmpty(response.ContinuationToken)) && items.Count < itemCount)
+        {
+            items.AddRange(response);
+            response = await query.ExecuteNextAsync(cancellationToken);
+        }
+
+        return items;
     }
 
     private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken)
