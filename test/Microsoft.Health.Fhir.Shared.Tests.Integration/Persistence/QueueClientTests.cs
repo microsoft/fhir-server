@@ -14,10 +14,9 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
-using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
@@ -47,19 +46,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlQueueClientTests : IClassFixture<SqlServerFhirStorageTestsFixture>
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+    public class QueueClientTests : IClassFixture<FhirStorageTestsFixture>
     {
-        private readonly SqlServerFhirStorageTestsFixture _fixture;
-        private readonly SchemaInformation _schemaInformation;
-        private ILogger<SqlQueueClient> _logger = Substitute.For<ILogger<SqlQueueClient>>();
         private readonly ITestOutputHelper _testOutputHelper;
+        private readonly FhirStorageTestsFixture _fixture;
+        private readonly IQueueClient _queueClient;
 
-        public SqlQueueClientTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
+        public QueueClientTests(FhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
-            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            _schemaInformation.Current = SchemaVersionConstants.Max;
             _testOutputHelper = testOutputHelper;
+            _queueClient = fixture.QueueClient;
         }
 
         [Fact]
@@ -67,9 +65,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenNewJobs_WhenEnqueueJobs_ThenCreatedJobsShouldBeReturned;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
             string[] definitions = new[] { "job1", "job2" };
-            IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, definitions, null, false, false, CancellationToken.None);
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, definitions, null, false, false, CancellationToken.None);
 
             Assert.Equal(2, jobInfos.Count());
             Assert.Equal(1, jobInfos.Last().Id - jobInfos.First().Id);
@@ -78,10 +75,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Null(jobInfos.First().EndDate);
             Assert.Equal(jobInfos.Last().GroupId, jobInfos.First().GroupId);
 
-            JobInfo jobInfo = await sqlQueueClient.GetJobByIdAsync(queueType, jobInfos.First().Id, true, CancellationToken.None);
+            JobInfo jobInfo = await _queueClient.GetJobByIdAsync(queueType, jobInfos.First().Id, true, CancellationToken.None);
             Assert.Contains(jobInfo.Definition, definitions);
 
-            jobInfo = await sqlQueueClient.GetJobByIdAsync(queueType, jobInfos.Last().Id, true, CancellationToken.None);
+            jobInfo = await _queueClient.GetJobByIdAsync(queueType, jobInfos.Last().Id, true, CancellationToken.None);
             Assert.Contains(jobInfo.Definition, definitions);
         }
 
@@ -90,9 +87,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenNewJobsWithSameQueueType_WhenEnqueueWithForceOneActiveJobGroup_ThenSecondJobShouldNotBeEnqueued;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1" }, null, true, false, CancellationToken.None);
-            await Assert.ThrowsAsync<JobConflictException>(async () => await sqlQueueClient.EnqueueAsync(queueType, new[] { "job2" }, null, true, false, CancellationToken.None));
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, true, false, CancellationToken.None);
+            await Assert.ThrowsAsync<JobConflictException>(async () => await _queueClient.EnqueueAsync(queueType, new[] { "job2" }, null, true, false, CancellationToken.None));
         }
 
         [Fact]
@@ -100,11 +96,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobsWithSameDefinition_WhenEnqueue_ThenOnlyOneJobShouldBeEnqueued;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1"}, null, false, false, CancellationToken.None);
             Assert.Single(jobInfos);
             long jobId = jobInfos.First().Id;
-            jobInfos = await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
+            jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1"}, null, false, false, CancellationToken.None);
             Assert.Equal(jobId, jobInfos.First().Id);
         }
 
@@ -114,12 +109,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             byte queueType = (byte)TestQueueType.GivenJobsWithSameDefinition_WhenEnqueueWithGroupId_ThenGroupIdShouldBeCorrect;
 
             long groupId = new Random().Next(int.MinValue, int.MaxValue);
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            IEnumerable<JobInfo> jobInfos = await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, groupId, false, false, CancellationToken.None);
+            IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, groupId, false, false, CancellationToken.None);
             Assert.Equal(2, jobInfos.Count());
             Assert.Equal(groupId, jobInfos.First().GroupId);
             Assert.Equal(groupId, jobInfos.Last().GroupId);
-            jobInfos = await sqlQueueClient.EnqueueAsync(queueType, new[] { "job3", "job4" }, groupId, false, false, CancellationToken.None);
+            jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job3", "job4"}, groupId, false, false, CancellationToken.None);
             Assert.Equal(2, jobInfos.Count());
             Assert.Equal(groupId, jobInfos.First().GroupId);
             Assert.Equal(groupId, jobInfos.Last().GroupId);
@@ -130,16 +124,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobsEnqueue_WhenDequeue_ThenAllJobsShouldBeReturned;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
-            await sqlQueueClient.EnqueueAsync(queueType, new[] { "job2" }, null, false, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(queueType, new[] { "job2" }, null, false, false, CancellationToken.None);
 
             List<string> definitions = new List<string>();
-            JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
             definitions.Add(jobInfo1.Definition);
-            JobInfo jobInfo2 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
+            JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
             definitions.Add(jobInfo2.Definition);
-            Assert.Null(await sqlQueueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None));
+            Assert.Null(await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None));
 
             Assert.Contains("job1", definitions);
             Assert.Contains("job2", definitions);
@@ -150,14 +143,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobWithExpiredHeartbeat_WhenDequeue_ThenJobWithResultShouldBeReturned;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
 
-            JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
             jobInfo1.QueueType = queueType;
             jobInfo1.Result = "current-result";
             await JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
-                sqlQueueClient,
+                _queueClient,
                 jobInfo1,
                 async cancelSource =>
                 {
@@ -167,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 TimeSpan.FromSeconds(0.1),
                 new CancellationTokenSource());
             await Task.Delay(TimeSpan.FromSeconds(1));
-            JobInfo jobInfo2 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
             Assert.Equal(jobInfo1.Result, jobInfo2.Result);
         }
 
@@ -176,16 +168,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenRunningJobCancelled_WhenHeartbeat_ThenCancelRequestedShouldBeReturned;
 
-            var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await client.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
 
-            var job = await client.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
+            var job = await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
             job.QueueType = queueType;
-            await client.CancelJobByGroupIdAsync(queueType, job.GroupId, CancellationToken.None);
+            await _queueClient.CancelJobByGroupIdAsync(queueType, job.GroupId, CancellationToken.None);
             try
             {
                 await JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
-                    client,
+                    _queueClient,
                     job,
                     async cancelSource =>
                     {
@@ -201,7 +192,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             Assert.Equal(JobStatus.Running, job.Status);
-            job = await client.GetJobByIdAsync(queueType, job.Id, false, CancellationToken.None);
+            job = await _queueClient.GetJobByIdAsync(queueType, job.Id, false, CancellationToken.None);
             Assert.True(job.CancelRequested);
         }
 
@@ -210,13 +201,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenJobNotHeartbeat_WhenDequeue_ThenJobShouldBeReturnedAgain;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
 
-            JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
             await Task.Delay(TimeSpan.FromSeconds(1));
-            JobInfo jobInfo2 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
-            Assert.Null(await sqlQueueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None));
+            JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            Assert.Null(await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None));
 
             Assert.Equal(jobInfo1.Id, jobInfo2.Id);
             Assert.True(jobInfo1.Version < jobInfo2.Version);
@@ -227,24 +217,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCompleteJob_ThenJobsShouldBeCompleted;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, null, false, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2" }, null, false, false, CancellationToken.None);
 
-            JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
-            JobInfo jobInfo2 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
 
             Assert.Equal(JobStatus.Running, jobInfo1.Status);
             jobInfo1.Status = JobStatus.Failed;
             jobInfo1.Result = "Failed for cancellation";
-            await sqlQueueClient.CompleteJobAsync(jobInfo1, false, CancellationToken.None);
-            JobInfo jobInfo = await sqlQueueClient.GetJobByIdAsync(queueType, jobInfo1.Id, false, CancellationToken.None);
+            await _queueClient.CompleteJobAsync(jobInfo1, false, CancellationToken.None);
+            JobInfo jobInfo = await _queueClient.GetJobByIdAsync(queueType, jobInfo1.Id, false, CancellationToken.None);
             Assert.Equal(JobStatus.Failed, jobInfo.Status);
             Assert.Equal(jobInfo1.Result, jobInfo.Result);
 
             jobInfo2.Status = JobStatus.Completed;
             jobInfo2.Result = "Completed";
-            await sqlQueueClient.CompleteJobAsync(jobInfo2, false, CancellationToken.None);
-            jobInfo = await sqlQueueClient.GetJobByIdAsync(queueType, jobInfo2.Id, false, CancellationToken.None);
+            await _queueClient.CompleteJobAsync(jobInfo2, false, CancellationToken.None);
+            jobInfo = await _queueClient.GetJobByIdAsync(queueType, jobInfo2.Id, false, CancellationToken.None);
             Assert.Equal(JobStatus.Completed, jobInfo.Status);
             Assert.Equal(jobInfo2.Result, jobInfo.Result);
         }
@@ -254,26 +243,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsByGroupId_ThenAllJobsShouldBeCancelled;
 
-            SqlQueueClient sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
 
-            JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
-            JobInfo jobInfo2 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
 
-            await sqlQueueClient.CancelJobByGroupIdAsync(queueType, jobInfo1.GroupId, CancellationToken.None);
-            Assert.True((await sqlQueueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status == JobStatus.Cancelled || (t.Status == JobStatus.Running && t.CancelRequested)));
+            await _queueClient.CancelJobByGroupIdAsync(queueType, jobInfo1.GroupId, CancellationToken.None);
+            Assert.True((await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status == JobStatus.Cancelled || (t.Status == JobStatus.Running && t.CancelRequested)));
 
             jobInfo1.Status = JobStatus.Failed;
             jobInfo1.Result = "Failed for cancellation";
-            await sqlQueueClient.CompleteJobAsync(jobInfo1, false, CancellationToken.None);
-            JobInfo jobInfo = await sqlQueueClient.GetJobByIdAsync(queueType, jobInfo1.Id, false, CancellationToken.None);
+            await _queueClient.CompleteJobAsync(jobInfo1, false, CancellationToken.None);
+            JobInfo jobInfo = await _queueClient.GetJobByIdAsync(queueType, jobInfo1.Id, false, CancellationToken.None);
             Assert.Equal(JobStatus.Failed, jobInfo.Status);
             Assert.Equal(jobInfo1.Result, jobInfo.Result);
 
             jobInfo2.Status = JobStatus.Completed;
             jobInfo2.Result = "Completed";
-            await sqlQueueClient.CompleteJobAsync(jobInfo2, false, CancellationToken.None);
-            jobInfo = await sqlQueueClient.GetJobByIdAsync(queueType, jobInfo2.Id, false, CancellationToken.None);
+            await _queueClient.CompleteJobAsync(jobInfo2, false, CancellationToken.None);
+            jobInfo = await _queueClient.GetJobByIdAsync(queueType, jobInfo2.Id, false, CancellationToken.None);
             Assert.Equal(JobStatus.Cancelled, jobInfo.Status);
             Assert.Equal(jobInfo2.Result, jobInfo.Result);
         }
@@ -283,14 +271,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled;
 
-            var sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            IEnumerable<JobInfo> jobs = await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
+            IEnumerable<JobInfo> jobs = await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
 
-            await sqlQueueClient.CancelJobByIdAsync(queueType, jobs.First().Id, CancellationToken.None);
-            Assert.Equal(JobStatus.Cancelled, (await sqlQueueClient.GetJobByIdAsync(queueType, jobs.First().Id, false, CancellationToken.None)).Status);
+            await _queueClient.CancelJobByIdAsync(queueType, jobs.First().Id, CancellationToken.None);
+            Assert.Equal(JobStatus.Cancelled, (await _queueClient.GetJobByIdAsync(queueType, jobs.First().Id, false, CancellationToken.None)).Status);
 
-            JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
-            JobInfo jobInfo2 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
 
             Assert.False(jobInfo1.CancelRequested);
             Assert.False(jobInfo2.CancelRequested);
@@ -301,15 +288,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled;
 
-            var sqlQueueClient = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, _logger);
-            await sqlQueueClient.EnqueueAsync(queueType, new[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
+            await _queueClient.EnqueueAsync(queueType, new[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
 
-            JobInfo jobInfo1 = await sqlQueueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
             jobInfo1.Status = JobStatus.Failed;
             jobInfo1.Result = "Failed for critical error";
 
-            await sqlQueueClient.CompleteJobAsync(jobInfo1, true, CancellationToken.None);
-            Assert.True((await sqlQueueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status is (JobStatus?)JobStatus.Cancelled or (JobStatus?)JobStatus.Failed));
+            await _queueClient.CompleteJobAsync(jobInfo1, true, CancellationToken.None);
+            Assert.True((await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status is (JobStatus?)JobStatus.Cancelled or (JobStatus?)JobStatus.Failed));
         }
 
         [Fact]

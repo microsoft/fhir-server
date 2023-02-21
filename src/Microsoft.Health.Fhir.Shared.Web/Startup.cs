@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -18,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
@@ -116,8 +118,9 @@ namespace Microsoft.Health.Fhir.Web
                 .AsImplementedInterfaces();
             services.Configure<TaskHostingConfiguration>(options => Configuration.GetSection("TaskHosting").Bind(options));
 
-            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
+            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ExportOrchestratorJob>()
                 .AssignableTo<IJob>()
+                .Where(t => t.Type.Name.Contains("Import", StringComparison.Ordinal) == false)
                 .Transient()
                 .AsSelf();
 

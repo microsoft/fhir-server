@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using MediatR;
@@ -11,6 +12,8 @@ using MediatR.Pipeline;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -25,6 +28,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -248,6 +252,17 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             services.AddHostedService<WatchdogsBackgroundService>();
+
+            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
+                .AssignableTo<IJob>()
+                .Where(t => t.Type.Name.Contains("Import", StringComparison.Ordinal))
+                .Transient()
+                .AsSelf();
+
+            foreach (TypeRegistrationBuilder job in jobs)
+            {
+                job.AsDelegate<Func<IJob>>();
+            }
 
             return fhirServerBuilder;
         }
