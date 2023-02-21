@@ -61,6 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
+        private readonly IFhirDataStore _fhirDataStore;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -102,6 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
+            _fhirDataStore = fhirDataStore;
         }
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -350,7 +352,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         return searchResult;
                     }
 
-                    var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
+                    var resources = new List<Tuple<SearchResultEntry, long?, int?>>(sqlSearchOptions.MaxItemCount);
                     short? newContinuationType = null;
                     long? newContinuationId = null;
                     bool moreResults = false;
@@ -359,6 +361,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     string sortValue = null;
                     var isResultPartial = false;
                     int numberOfColumnsRead = 0;
+
+                    var missingResourceRefs = new List<Tuple<long, int>>();
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
@@ -374,22 +378,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isPartialEntry,
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
-                            out Stream rawResourceStream);
+                            out Stream rawResourceStream,
+                            out long? transactionId,
+                            out int? offsetInFile);
                         numberOfColumnsRead = reader.FieldCount;
 
-                        string rawResource;
-                        await using (rawResourceStream)
+                        var rawResource = string.Empty;
+                        if (rawResourceStream == null)
                         {
-                            // If we get to this point, we know there are more results so we need a continuation token
-                            // Additionally, this resource shouldn't be included in the results
-                            if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
+                            missingResourceRefs.Add(Tuple.Create(transactionId.Value, offsetInFile.Value));
+                        }
+                        else
+                        {
+                            await using (rawResourceStream)
                             {
-                                moreResults = true;
+                                // If we get to this point, we know there are more results so we need a continuation token
+                                // Additionally, this resource shouldn't be included in the results
+                                if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
+                                {
+                                    moreResults = true;
 
-                                continue;
+                                    continue;
+                                }
+
+                                rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                             }
-
-                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         if (string.IsNullOrEmpty(rawResource))
@@ -427,24 +440,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         // should be marked as partial
                         isResultPartial = isResultPartial || isPartialEntry;
 
-                        resources.Add(new SearchResultEntry(
-                            new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                _model.GetResourceTypeName(resourceTypeId),
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                new ResourceRequest(requestMethod),
-                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                                isDeleted,
-                                null,
-                                null,
-                                null,
-                                searchParameterHash),
-                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+                        resources.Add(
+                            Tuple.Create(
+                                new SearchResultEntry(
+                                    new ResourceWrapper(
+                                        resourceId,
+                                        version.ToString(CultureInfo.InvariantCulture),
+                                        _model.GetResourceTypeName(resourceTypeId),
+                                        new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                        new ResourceRequest(requestMethod),
+                                        new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                                        isDeleted,
+                                        null,
+                                        null,
+                                        null,
+                                        searchParameterHash),
+                                    isMatch ? SearchEntryMode.Match : SearchEntryMode.Include),
+                                transactionId,
+                                offsetInFile));
                     }
 
                     // call NextResultAsync to get the info messages
                     await reader.NextResultAsync(cancellationToken);
+
+                    var missingRawResources = _fhirDataStore.GetRawResourceFromAdls(missingResourceRefs);
+                    foreach (var resource in resources)
+                    {
+                        if (resource.Item1.Resource.RawResource.Data.Length == 0)
+                        {
+                            resource.Item1.Resource.RawResource = new RawResource(missingRawResources[Tuple.Create(resource.Item2.Value, resource.Item3.Value)], resource.Item1.Resource.RawResource.Format, resource.Item1.Resource.RawResource.IsMetaSet);
+                        }
+                    }
 
                     ContinuationToken continuationToken =
                         moreResults && !exportTimeTravel // with query hints all results are returned on single page
@@ -482,7 +508,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.IsSortWithFilter = true;
                     }
 
-                    return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
+                    return new SearchResult(resources.Select(_ => _.Item1), continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
                 }
             }
         }
@@ -536,7 +562,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isPartialEntry,
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
-                            out Stream rawResourceStream);
+                            out Stream rawResourceStream,
+                            out long? transactionId,
+                            out int? offsetInFile);
 
                         string rawResource;
                         using (rawResourceStream)
@@ -724,41 +752,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out bool isPartialEntry,
             out bool isRawResourceMetaSet,
             out string searchParameterHash,
-            out Stream rawResourceStream)
+            out Stream rawResourceStream,
+            out long? transactionId,
+            out int? offsetInFile)
         {
-            searchParameterHash = null;
-
-            if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-            {
-                (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
-                    isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
-                    VLatest.Resource.ResourceTypeId,
-                    VLatest.Resource.ResourceId,
-                    VLatest.Resource.Version,
-                    VLatest.Resource.IsDeleted,
-                    VLatest.Resource.ResourceSurrogateId,
-                    VLatest.Resource.RequestMethod,
-                    _isMatch,
-                    _isPartial,
-                    VLatest.Resource.IsRawResourceMetaSet,
-                    VLatest.Resource.SearchParamHash,
-                    VLatest.Resource.RawResource);
-            }
-            else
-            {
-                (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
-                    isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
-                    VLatest.Resource.ResourceTypeId,
-                    VLatest.Resource.ResourceId,
-                    VLatest.Resource.Version,
-                    VLatest.Resource.IsDeleted,
-                    VLatest.Resource.ResourceSurrogateId,
-                    VLatest.Resource.RequestMethod,
-                    _isMatch,
-                    _isPartial,
-                    VLatest.Resource.IsRawResourceMetaSet,
-                    VLatest.Resource.RawResource);
-            }
+            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
+                isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
+                VLatest.Resource.ResourceTypeId,
+                VLatest.Resource.ResourceId,
+                VLatest.Resource.Version,
+                VLatest.Resource.IsDeleted,
+                VLatest.Resource.ResourceSurrogateId,
+                VLatest.Resource.RequestMethod,
+                _isMatch,
+                _isPartial,
+                VLatest.Resource.IsRawResourceMetaSet,
+                VLatest.Resource.SearchParamHash,
+                VLatest.Resource.RawResource);
+            transactionId = reader.Read(VLatest.Resource.TransactionId, 11);
+            offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 12);
         }
 
         [Conditional("DEBUG")]

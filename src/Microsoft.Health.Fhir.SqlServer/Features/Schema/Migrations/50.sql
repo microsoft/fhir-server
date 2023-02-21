@@ -3362,7 +3362,9 @@ BEGIN TRY
                    CONVERT (BIT, 0) AS IsPartial,
                    CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.IsRawResourceMetaSet ELSE A.IsRawResourceMetaSet END,
                    CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.SearchParamHash ELSE A.SearchParamHash END,
-                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.RawResource ELSE A.RawResource END
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.RawResource ELSE A.RawResource END,
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.TransactionId ELSE A.TransactionId END,
+                   CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.OffsetInFile ELSE A.OffsetInFile END
             FROM   dbo.Resource AS A
                    LEFT OUTER JOIN
                    @SurrogateIdMap AS B
@@ -3388,7 +3390,9 @@ BEGIN TRY
                CONVERT (BIT, 0) AS IsPartial,
                IsRawResourceMetaSet,
                SearchParamHash,
-               RawResource
+               RawResource,
+               TransactionId,
+               OffsetInFile
         FROM   dbo.Resource
         WHERE  ResourceTypeId = @ResourceTypeId
                AND ResourceSurrogateId BETWEEN @StartId AND @EndId

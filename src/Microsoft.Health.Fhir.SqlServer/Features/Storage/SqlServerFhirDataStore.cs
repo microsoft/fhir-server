@@ -375,7 +375,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return line.Split('\t')[4];
         }
 
-        private Dictionary<Tuple<long, int>, string> GetRawResourceFromAdls(List<Tuple<long, int>> resourceRefs)
+        public IDictionary<Tuple<long, int>, string> GetRawResourceFromAdls(IReadOnlyList<Tuple<long, int>> resourceRefs)
         {
             var start = DateTime.UtcNow;
             var results = new Dictionary<Tuple<long, int>, string>();
@@ -713,7 +713,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await reader.NextResultAsync(cancellationToken);
 
             var missingRawResources = GetRawResourceFromAdls(missingResourceRefs);
-
             foreach (var resource in resources)
             {
                 if (resource.Item1.RawResource.Data.Length == 0)

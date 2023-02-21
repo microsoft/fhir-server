@@ -118,6 +118,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             throw new NotImplementedException();
         }
 
+        public IDictionary<Tuple<long, int>, string> GetRawResourceFromAdls(IReadOnlyList<Tuple<long, int>> resourceRefs)
+        {
+            throw new NotImplementedException();
+        }
+
         public string GetRawResourceFromAdls(long transactionId, int offsetInFile)
         {
             throw new NotImplementedException();

@@ -49,6 +49,8 @@ BEGIN TRY
           ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.IsRawResourceMetaSet ELSE A.IsRawResourceMetaSet END
           ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.SearchParamHash ELSE A.SearchParamHash END
           ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.RawResource ELSE A.RawResource END
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.TransactionId ELSE A.TransactionId END
+          ,CASE WHEN C.ResourceSurrogateId IS NOT NULL THEN C.OffsetInFile ELSE A.OffsetInFile END
       FROM dbo.Resource A
            LEFT OUTER JOIN @SurrogateIdMap B ON B.MaxSurrogateId = A.ResourceSurrogateId
            LEFT OUTER JOIN dbo.Resource C ON C.ResourceTypeId = @ResourceTypeId AND C.ResourceSurrogateId = MaxSurrogateId
@@ -58,7 +60,10 @@ BEGIN TRY
         AND A.IsDeleted = 0
   END
   ELSE
-    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource 
+    SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash
+          ,RawResource 
+          ,TransactionId
+          ,OffsetInFile
       FROM dbo.Resource 
       WHERE ResourceTypeId = @ResourceTypeId 
         AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
