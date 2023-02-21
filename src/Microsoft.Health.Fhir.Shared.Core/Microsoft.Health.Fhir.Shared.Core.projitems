@@ -11,7 +11,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\FhirMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\OperationDefinitionMediatorExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Extensions\PreferHeaderExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexJobRecordExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
