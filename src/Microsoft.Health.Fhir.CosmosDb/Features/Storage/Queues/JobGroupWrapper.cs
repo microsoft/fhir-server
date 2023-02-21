@@ -14,7 +14,7 @@ public class JobGroupWrapper : SystemData
     public const string JobInfoPartitionKey = "__jobs__";
 
     [JsonProperty("groupId")]
-    public long GroupId { get; set; }
+    public string GroupId { get; set; }
 
     [JsonProperty(KnownDocumentProperties.PartitionKey)]
     public string PartitionKey { get; } = JobInfoPartitionKey;
@@ -23,7 +23,7 @@ public class JobGroupWrapper : SystemData
     public byte QueueType { get; set; }
 
     [JsonProperty("priority")]
-    public long Priority { get; set; }
+    public int Priority { get; set; }
 
     [JsonProperty("definitions")]
     public IList<JobDefinitionWrapper> Definitions { get; } = new List<JobDefinitionWrapper>();

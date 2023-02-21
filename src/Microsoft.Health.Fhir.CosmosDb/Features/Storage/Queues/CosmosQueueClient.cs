@@ -121,7 +121,7 @@ public class CosmosQueueClient : IQueueClient
         {
             Id = id.ToString(),
             QueueType = queueType,
-            GroupId = groupId ?? id,
+            GroupId = groupId?.ToString() ?? id.ToString(),
             CreateDate = Clock.UtcNow,
             TimeToLive = (int)TimeSpan.FromDays(30).TotalSeconds,
         };
@@ -132,7 +132,7 @@ public class CosmosQueueClient : IQueueClient
         {
             var definitionInfo = new JobDefinitionWrapper
             {
-                JobId = jobId++,
+                JobId = (jobId++).ToString(),
                 Status = isCompleted ? (byte)JobStatus.Completed : (byte)JobStatus.Created,
                 Definition = item,
                 DefinitionHash = item.ComputeHash(),
@@ -177,7 +177,7 @@ public class CosmosQueueClient : IQueueClient
             });
     }
 
-    private async Task<IReadOnlyCollection<JobInfo>> DequeueItemsInternalAsync(JobGroupWrapper item, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
+    private async Task<IReadOnlyCollection<JobInfo>> DequeueItemsInternalAsync(JobGroupWrapper item, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, string jobId = null)
     {
         var scan = item.Definitions
             .Where(x => x.JobId == jobId
@@ -405,7 +405,7 @@ public class CosmosQueueClient : IQueueClient
     {
             QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE c FROM root c
            WHERE c.groupId = @groupId and c.queueType = @queueType")
-                .WithParameter("@groupId", groupId)
+                .WithParameter("@groupId", groupId.ToString())
                 .WithParameter("@queueType", queueType);
 
             FeedResponse<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, 1, cancellationToken);
@@ -417,17 +417,18 @@ public class CosmosQueueClient : IQueueClient
     {
         QueryDefinition sqlQuerySpec = new QueryDefinition(@$"SELECT VALUE c FROM root c JOIN d in c.definitions
            WHERE c.queueType = @queueType 
-           AND ARRAY_CONTAINS([{string.Join(",", jobIds)}], d.jobId)")
+           AND ARRAY_CONTAINS([{string.Join(",", jobIds.Select(x => $"'{x}'"))}], d.jobId)")
             .WithParameter("@queueType", queueType);
 
         FeedResponse<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, jobIds.Length, cancellationToken);
 
         var infos = new List<(JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob)>();
+        var jobIdsString = jobIds.Select(x => x.ToString()).ToHashSet();
 
         foreach (JobGroupWrapper item in response)
         {
             var scan = item.Definitions
-                .Where(x => jobIds.Contains(x.JobId))
+                .Where(x => jobIdsString.Contains(x.JobId))
                 .ToList();
 
             infos.Add((item, scan));

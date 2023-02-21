@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 public class JobDefinitionWrapper
 {
     [JsonProperty("jobId")]
-    public long JobId { get; set; }
+    public string JobId { get; set; }
 
     [JsonProperty("status")]
     public byte? Status { get; set; }

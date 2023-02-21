@@ -20,10 +20,10 @@ public static class JobInfoExtensions
     {
         return items.Select(jobInfoWrapperItem => new JobInfo
         {
-            Id = jobInfoWrapperItem.JobId,
+            Id = long.Parse(jobInfoWrapperItem.JobId),
             QueueType = jobGroupWrapper.QueueType,
             Status = jobInfoWrapperItem.Status.HasValue ? (JobStatus?)jobInfoWrapperItem.Status.Value : null,
-            GroupId = jobGroupWrapper.GroupId,
+            GroupId = long.Parse(jobGroupWrapper.GroupId),
             Definition = jobInfoWrapperItem.Definition,
             Result = jobInfoWrapperItem.Result,
             Data = jobInfoWrapperItem.Data,
