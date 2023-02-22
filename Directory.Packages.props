@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>6.2.15</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.2.32</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -28,11 +28,11 @@
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.0.1" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
-    <PackageVersion Include="Azure.Identity" Version="1.8.1" />
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.14.1" />
+    <PackageVersion Include="Azure.Identity" Version="1.8.2" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.15.0" />
     <PackageVersion Include="coverlet.collector" Version="3.2.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
-    <PackageVersion Include="FluentValidation" Version="11.4.0" />
+    <PackageVersion Include="FluentValidation" Version="11.5.1" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R5" Version="$(Hl7FhirVersion)" />
@@ -45,7 +45,7 @@
     <PackageVersion Include="Hl7.Fhir.Support.Poco" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.FhirPath" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="IdentityServer4" Version="4.1.2" />
-    <PackageVersion Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
+    <PackageVersion Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.1.0" />
     <PackageVersion Include="MediatR" Version="11.1.0" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.20.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
@@ -56,7 +56,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.31.2" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.32.0" />
     <PackageVersion Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
@@ -68,7 +68,7 @@
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="7.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="7.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.20.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
@@ -87,16 +87,16 @@
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.4.1" />
+    <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.3.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
-    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.6374.0" />
-    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.12.0" />
+    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.8089.0" />
+    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.13.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.14" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.2" />
-    <PackageVersion Include="NSubstitute" Version="4.4.0" />
+    <PackageVersion Include="NSubstitute" Version="5.0.0" />
     <PackageVersion Include="Polly" Version="7.2.3" />
-    <PackageVersion Include="prometheus-net.AspNetCore" Version="7.0.0" />
+    <PackageVersion Include="prometheus-net.AspNetCore" Version="8.0.0" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.0" />
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="2.0.0" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.435" />

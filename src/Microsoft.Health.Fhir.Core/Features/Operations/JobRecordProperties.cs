@@ -127,6 +127,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string TargetResourceTypes = "targetResourceTypes";
 
+        public const string TargetSearchParameterTypes = "targetSearchParameterTypes";
+
+        public const string SearchParameterResourceTypes = "searchParameterResourceTypes";
+
         public const string CreatedChild = "createdChild";
 
         public const string Till = "till";

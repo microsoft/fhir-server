@@ -9,9 +9,11 @@
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory                   bit                 NOT NULL,
 )
-
+GO
+ALTER TABLE dbo.CompartmentAssignment ADD CONSTRAINT DF_CompartmentAssignment_IsHistory DEFAULT 0 FOR IsHistory
+GO
 ALTER TABLE dbo.CompartmentAssignment SET ( LOCK_ESCALATION = AUTO )
-
+GO
 CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId
 ON dbo.CompartmentAssignment
 (
@@ -23,3 +25,4 @@ ON dbo.CompartmentAssignment
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+GO
