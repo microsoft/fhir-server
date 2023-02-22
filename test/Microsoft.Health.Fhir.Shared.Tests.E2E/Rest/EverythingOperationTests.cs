@@ -108,11 +108,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenStartOrEndSpecified_WhenSearched_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?end=2010";
-#if R5
+
             await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Appointment, Fixture.Device);
-#else
-            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Appointment);
-#endif
         }
 
         [Fact]

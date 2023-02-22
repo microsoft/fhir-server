@@ -96,13 +96,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string queryUrl = searchUrl;
             bool numberOfResourcesIsGreaterThanExpected = false;
-            int pageNumber = 0;
-            bool checkedAllResources = false;
 
             List<Resource> allResourcesReturned = new List<Resource>();
             FhirResponse<Bundle> firstBundle = null;
             do
             {
+                // Part 1 - Query FHIR for results.
                 FhirResponse<Bundle> fhirBundleResponse = null;
                 try
                 {
@@ -128,6 +127,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     firstBundle = fhirBundleResponse;
                 }
 
+                // Part 2 - Identify the correct 'selfLink' to be used during validations.
                 string validationSelfLink;
                 if (_continuationToken.Match(queryUrl).Success)
                 {
@@ -139,9 +139,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     validationSelfLink = selfLink;
                 }
 
+                // Part 3 - Validade bundle.
                 int numberOfResourcesReturned = fhirBundleResponse.Resource.Entry.Count;
                 if (allResourcesReturned.Count + numberOfResourcesReturned > expectedResources.Length)
                 {
+                    // If more records then the expected are returned, no validation is required. There is already something wrong.
                     numberOfResourcesIsGreaterThanExpected = true;
                 }
                 else
@@ -152,15 +154,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 allResourcesReturned.AddRange(fhirBundleResponse.Resource.Entry.Select(e => e.Resource));
                 queryUrl = fhirBundleResponse.Resource.NextLink?.ToString();
-
-                if ((expectedResources.Count() - allResourcesReturned.Count) <= pageSize)
-                {
-                    checkedAllResources = true;
-                }
-
-                pageNumber++;
             }
-            while (queryUrl != null && !checkedAllResources);
+            while (queryUrl != null);
 
             if (numberOfResourcesIsGreaterThanExpected)
             {

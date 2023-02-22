@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
             }
 
-            await (_metadataSemaphore?.WaitAsync(CancellationToken.None) ?? Task.CompletedTask);
+            await (_metadataSemaphore?.WaitAsync(cancellationToken) ?? Task.CompletedTask);
             try
             {
                 _metadata = null;
@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             // The semaphore is only used for building the metadata because claiming it before the GetCapabilityStatementOnStartup was leading to deadlocks where the creation
             // of metadata could trigger a rebuild. The rebuild handler had to wait on the metadata semaphore, which wouldn't be released until the metadata could be built.
             // But the metadata builder was waiting on the rebuild handler.
-            await (_metadataSemaphore?.WaitAsync(CancellationToken.None) ?? Task.CompletedTask);
+            await (_metadataSemaphore?.WaitAsync(cancellationToken) ?? Task.CompletedTask);
             try
             {
                 _metadata = _builder.Build().ToResourceElement();
