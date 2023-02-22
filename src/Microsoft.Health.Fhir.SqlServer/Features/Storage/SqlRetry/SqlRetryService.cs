@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 logger,
                 logMessage,
                 cancellationToken);
-        }
+        }*/
 
         public async Task ExecuteWithRetries(RetriableAction action, CancellationToken cancellationToken)
         {
@@ -210,8 +210,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await Task.Delay(_retryMillisecondsDelay, cancellationToken);
             }
         }
-        */
-        /******************/
 
         public async Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
         {

@@ -78,13 +78,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         {
-            await SingleConnectionRetryTest(SqlConnectionError, CreateTestStoredProcedureToReadDBData);
+            await SingleConnectionRetryTest(SqlConnectionError, CreateTestStoredProcedureWithSingleConnectionError);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesAreRun()
         {
-            await AllConnectionRetriesTest(SqlConnectionError, CreateTestStoredProcedureToReadDBData);
+            await AllConnectionRetriesTest(SqlConnectionError, CreateTestStoredProcedureWithAllConnectionErrors);
         }
 
         [Fact]
@@ -118,14 +118,36 @@ SELECT TOP 10 RowId = row_number() OVER (ORDER BY object_id) FROM sys.objects
              ");
         }
 
-        private async Task CreateTestStoredProcedureToReadDBData(string storedProcedureName, string tableName)
+        private async Task CreateTestStoredProcedureWithAllConnectionErrors(string storedProcedureName, string tableName)
         {
             await TestInitializationExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
 -- Use CROSS JOIN to make sure there's enough data to fill at least one comm buffer so test code has to go to the network again after the buffer is read. This is when network exception will happen.
-SELECT CAST(@@SPID AS BIGINT) AS 'ID', SYSTEM_USER AS 'Login Name', USER AS 'User Name', * FROM sys.objects CROSS JOIN sys.objects AS X
+-- Row with RowId = 0 will trigger network exception logic.
+SELECT RowId = row_number() OVER (ORDER BY X.object_id) - 1, CAST(@@SPID AS BIGINT) AS 'SessionId', SYSTEM_USER AS 'Login Name', USER AS 'User Name', * FROM sys.objects CROSS JOIN sys.objects AS X
+             ");
+        }
+
+        private async Task CreateTestStoredProcedureWithSingleConnectionError(string storedProcedureName, string tableName)
+        {
+            await TestInitializationExecuteSql(@$"
+CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
+AS
+set nocount on
+IF NOT EXISTS (SELECT * FROM dbo.{tableName})
+BEGIN
+  INSERT INTO dbo.{tableName} (Id) SELECT 'TestError'
+-- Use CROSS JOIN to make sure there's enough data to fill at least one comm buffer so test code has to go to the network again after the buffer is read. This is when network exception will happen.
+-- Row with RowId = 0 will trigger network exception logic.
+  SELECT RowId = row_number() OVER (ORDER BY X.object_id) - 1, CAST(@@SPID AS BIGINT) AS 'SessionId', SYSTEM_USER AS 'Login Name', USER AS 'User Name', * FROM sys.objects CROSS JOIN sys.objects AS X
+END
+ELSE
+BEGIN
+-- In the case of no comm error, no need to send large amount of data to fill the client comm buffer.
+  SELECT TOP 10 RowId = row_number() OVER (ORDER BY object_id), CAST(@@SPID AS BIGINT) AS 'SessionId' FROM sys.objects
+END
              ");
         }
 
@@ -239,7 +261,7 @@ END
             }
         }
 
-        private async Task<SqlRetryService> InitializeTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool sqlConnectionBuilderWithFailure = false, bool failOnAllRetries = false)
+        private async Task<SqlRetryService> InitializeTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionInitializationFailure = false, bool failOnAllRetries = false)
         {
             await CreateTestTable(testTableName);
             await testStoredProc(storedProcedureName, testTableName);
@@ -248,9 +270,9 @@ END
             sqlRetryServiceOptions.AddTransientErrors.Add(sqlErrorNumber);
             sqlRetryServiceOptions.RetryMillisecondsDelay = 10;
             sqlRetryServiceOptions.MaxRetries = 3;
-            if (sqlConnectionBuilderWithFailure)
+            if (testConnectionInitializationFailure)
             {
-                return new SqlRetryService(new SqlConnectionBuilderWithFailure(_fixture.SqlConnectionBuilder, failOnAllRetries), Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, failOnAllRetries), Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
             }
             else
             {
@@ -258,35 +280,28 @@ END
             }
         }
 
-        private async Task SingleConnectionRetryTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, bool sqlConnectionBuilderWithFailure = false)
+        private async Task SingleConnectionRetryTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure = false)
         {
             MakeStoredProcedureAndTableName(false, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, sqlConnectionBuilderWithFailure);
+                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure);
                 var logger = new TestLogger();
 
-                var sqlCommandFuncWithRetriesObject = new SqlCommandFuncWithRetriesObject(this, storedProcedureName);
-                List<long> result = await sqlRetryService.ExecuteSqlCommandFuncWithRetries<List<long>, SqlRetryService>(
-                    sqlConnectionBuilderWithFailure ? sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetries : sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetriesAndKillConnection,
+                using SqlCommand sqlCommand = new SqlCommand();
+                sqlCommand.CommandText = $"dbo.{storedProcedureName}";
+                List<long> result = await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
+                    sqlCommand,
+                    testConnectionInitializationFailure ? SqlCommandFuncWithRetries : SqlCommandFuncWithRetriesAndKillConnection,
                     logger,
                     "log message",
                     CancellationToken.None);
 
-                if (sqlConnectionBuilderWithFailure)
+                const int resultCount = 10;
+                Assert.Equal(resultCount, result.Count);
+                for (int i = 0; i < resultCount; i++)
                 {
-                    // We are testing connection initialization.
-                    const int resultCount = 10;
-                    Assert.Equal(resultCount, result.Count);
-                    for (int i = 0; i < resultCount; i++)
-                    {
-                        Assert.Equal(i + 1, result[i]);
-                    }
-                }
-                else
-                {
-                    // We are testing connection that breaks.
-                    Assert.Single(result); // If we are here that means connecion was not killed on last retry. In that case test read only the first row.
+                    Assert.Equal(i + 1, result[i]);
                 }
 
                 Assert.Single(logger.LogRecords);
@@ -301,18 +316,20 @@ END
             }
         }
 
-        private async Task AllConnectionRetriesTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, bool sqlConnectionBuilderWithFailure = false)
+        private async Task AllConnectionRetriesTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure = false)
         {
             MakeStoredProcedureAndTableName(true, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, sqlConnectionBuilderWithFailure, true);
+                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure, true);
                 var logger = new TestLogger();
 
+                using SqlCommand sqlCommand = new SqlCommand();
+                sqlCommand.CommandText = $"dbo.{storedProcedureName}";
                 SqlException ex;
-                var sqlCommandFuncWithRetriesObject = new SqlCommandFuncWithRetriesObject(this, storedProcedureName, true);
-                ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlCommandFuncWithRetries<List<long>, SqlRetryService>(
-                    sqlConnectionBuilderWithFailure ? sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetries : sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetriesAndKillConnection,
+                ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
+                    sqlCommand,
+                    testConnectionInitializationFailure ? SqlCommandFuncWithRetries : SqlCommandFuncWithRetriesAndKillConnection,
                     logger,
                     "log message",
                     CancellationToken.None));
@@ -346,11 +363,14 @@ END
                 SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName);
                 var logger = new TestLogger();
 
+                using SqlCommand sqlCommand = new SqlCommand();
+                sqlCommand.CommandText = $"dbo.{storedProcedureName}";
+
                 if (func)
                 {
-                    var sqlCommandFuncWithRetriesObject = new SqlCommandFuncWithRetriesObject(this, storedProcedureName);
-                    List<long> result = await sqlRetryService.ExecuteSqlCommandFuncWithRetries(
-                        sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetries,
+                    List<long> result = await sqlRetryService.ExecuteSqlDataReader(
+                        sqlCommand,
+                        SqlCommandFuncWithRetries,
                         logger,
                         "log message",
                         CancellationToken.None);
@@ -363,9 +383,9 @@ END
                 }
                 else
                 {
-                    var sqlCommandFuncWithRetriesObject = new SqlCommandFuncWithRetriesObject(this, storedProcedureName);
-                    await sqlRetryService.ExecuteSqlCommandActionWithRetries(
-                        sqlCommandFuncWithRetriesObject.SqlCommandActionWithRetries,
+                    await sqlRetryService.ExecuteSql(
+                        sqlCommand,
+                        SqlCommandActionWithRetries,
                         logger,
                         "log message",
                         CancellationToken.None);
@@ -391,21 +411,24 @@ END
                 SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName);
                 var logger = new TestLogger();
 
+                using SqlCommand sqlCommand = new SqlCommand();
+                sqlCommand.CommandText = $"dbo.{storedProcedureName}";
+
                 SqlException ex;
                 if (func)
                 {
-                    var sqlCommandFuncWithRetriesObject = new SqlCommandFuncWithRetriesObject(this, storedProcedureName);
-                    ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlCommandFuncWithRetries(
-                        sqlCommandFuncWithRetriesObject.SqlCommandFuncWithRetries,
+                    ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlDataReader(
+                        sqlCommand,
+                        SqlCommandFuncWithRetries,
                         logger,
                         "log message",
                         CancellationToken.None));
                 }
                 else
                 {
-                    var sqlCommandFuncWithRetriesObject = new SqlCommandFuncWithRetriesObject(this, storedProcedureName);
-                    ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlCommandActionWithRetries(
-                        sqlCommandFuncWithRetriesObject.SqlCommandActionWithRetries,
+                    ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSql(
+                        sqlCommand,
+                        SqlCommandActionWithRetries,
                         logger,
                         "log message",
                         CancellationToken.None));
@@ -432,7 +455,29 @@ END
             }
         }
 
-        private class SqlCommandFuncWithRetriesObject
+        private async Task SqlCommandActionWithRetries(SqlCommand sqlCommand, CancellationToken cancellationToken)
+        {
+            await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private long SqlCommandFuncWithRetries(SqlDataReader sqlDataReader)
+        {
+            return sqlDataReader.GetInt64(0);
+        }
+
+        private long SqlCommandFuncWithRetriesAndKillConnection(SqlDataReader sqlDataReader)
+        {
+            long rowId = sqlDataReader.GetInt64(0);
+            long sessionId = sqlDataReader.GetInt64(1);
+            if (rowId == 0)
+            {
+                TestInitializationExecuteSql($"KILL {sessionId}").Wait();
+            }
+
+            return rowId;
+        }
+
+        /*private class SqlCommandFuncWithRetriesObject
         {
             private readonly SqlRetryServiceTests _sqlRetryServiceTests;
             private readonly string _storedProcedureName;
@@ -507,15 +552,15 @@ END
 
                 return results;
             }
-        }
+        }*/
 
-        private class SqlConnectionBuilderWithFailure : ISqlConnectionBuilder
+        private class SqlConnectionBuilderWithConnectionInitializationFailure : ISqlConnectionBuilder
         {
             private readonly bool _failOnAllRetries;
             private int _retryCount;
             private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
 
-            public SqlConnectionBuilderWithFailure(ISqlConnectionBuilder sqlConnectionBuilder, bool failOnAllRetries)
+            public SqlConnectionBuilderWithConnectionInitializationFailure(ISqlConnectionBuilder sqlConnectionBuilder, bool failOnAllRetries)
             {
                 _sqlConnectionBuilder = sqlConnectionBuilder;
                 _failOnAllRetries = failOnAllRetries;
