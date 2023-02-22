@@ -99,6 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             List<Resource> allResourcesReturned = new List<Resource>();
             FhirResponse<Bundle> firstBundle = null;
+            Dictionary<string, int> pagingStatistics = new Dictionary<string, int>();
             do
             {
                 // Part 1 - Query FHIR for results.
@@ -141,6 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Part 3 - Validade bundle.
                 int numberOfResourcesReturned = fhirBundleResponse.Resource.Entry.Count;
+                pagingStatistics.Add($"Page {pagingStatistics.Count}", numberOfResourcesReturned);
                 if (allResourcesReturned.Count + numberOfResourcesReturned > expectedResources.Length)
                 {
                     // If more records then the expected are returned, no validation is required. There is already something wrong.
@@ -159,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             if (numberOfResourcesIsGreaterThanExpected)
             {
-                ThrowInvalidBundleResultXunitException(expectedResources, allResourcesReturned);
+                ThrowInvalidBundleResultXunitException(expectedResources, allResourcesReturned, pagingStatistics: pagingStatistics);
             }
 
             return firstBundle;
@@ -251,17 +253,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        private void ThrowInvalidBundleResultXunitException(IReadOnlyList<Resource> expectedResources, IReadOnlyList<Resource> actualResources)
+        private void ThrowInvalidBundleResultXunitException(IReadOnlyList<Resource> expectedResources, IReadOnlyList<Resource> actualResources, IDictionary<string, int> pagingStatistics = null)
         {
             var sb = new StringBuilder("Expected count to be ");
             sb.Append(expectedResources.Count);
             sb.Append(" but was ");
             sb.Append(actualResources.Count);
-            sb.AppendLine(" . Contents:");
+            sb.AppendLine(" .");
+
+            if (pagingStatistics != null && pagingStatistics.Any())
+            {
+                sb.AppendLine("Paging statistics: ");
+                foreach (KeyValuePair<string, int> pageStatistics in pagingStatistics)
+                {
+                    sb.AppendLine($"   - {pageStatistics.Key} - Number of records: {pageStatistics.Value}");
+                }
+            }
 
             var fhirJsonSerializer = new FhirJsonSerializer(new SerializerSettings() { AppendNewLine = false, Pretty = false });
             using var sw = new StringWriter(sb);
-
             sb.AppendLine("Actual collection as below -");
             foreach (var element in actualResources)
             {

@@ -154,10 +154,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                         ? await SearchCompartment(resourceId, parentPatientId, since, types, encodedInternalContinuationToken, token, cancellationToken)
                         : await SearchCompartmentWithoutDate(resourceId, parentPatientId, since, types, encodedInternalContinuationToken, token, cancellationToken);
 
-                    if (!searchResult.Results.Any())
+                    // Starting from FHIR R5, "Devices" are included as part of Compartment Search.
+                    // Previous versions of FHIR should still query for "Devices" explicitly.
+                    if (ModelInfoProvider.Version < FhirSpecification.R5)
                     {
-                        phase = 3;
-                        goto case 3;
+                        if (!searchResult.Results.Any())
+                        {
+                            phase = 3;
+                            goto case 3;
+                        }
                     }
 
                     break;
@@ -178,8 +183,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
                 nextContinuationToken = token.ToJson();
             }
-            else if (phase < 3)
+            else if (phase < 2 || (ModelInfoProvider.Version < FhirSpecification.R5 && phase == 2))
             {
+                // Starting from FHIR R5, "Devices" are included as part of Compartment Search.
+                // No need to run Phase 3 for FHIR R5.
+
                 token.Phase = phase + 1;
                 token.InternalContinuationToken = null;
 
