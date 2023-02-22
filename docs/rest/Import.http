@@ -9,6 +9,10 @@
 @hostname = localhost:44348
 @storageUri = http://localhost:10000/devstoreaccount1/import
 
+# Set the filenames to import
+@patientFilename = Patient-1.ndjson
+@observationFilename = Observation-1.ndjson
+
 ### Get the bearer token, if authentication is enabled
 # @name bearer
 POST https://{{hostname}}/connect/token
@@ -19,7 +23,8 @@ grant_type=client_credentials
 &client_secret=globalAdminServicePrincipal
 &scope=fhir-api
 
-
+### Record import id
+@importLocation = {{import.response.headers.Content-Location}}
 
 ### Create Import request
 # @name import
@@ -48,7 +53,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                 },
                 {
                     "name": "url",
-                    "valueUri": "{{storageUri}}/Patient-1.ndjson"
+                    "valueUri": "{{storageUri}}/{{patientFilename}}"
                 }
             ]
         },
@@ -61,9 +66,13 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                 },
                 {
                     "name": "url",
-                    "valueUri": "{{storageUri}}/Observation-1.ndjson"
+                    "valueUri": "{{storageUri}}/{{observationFilename}}"
                 }
             ]
         }
     ]
 }
+
+### Get Import request
+GET {{importLocation}}
+Authorization: Bearer {{bearer.response.body.access_token}}
