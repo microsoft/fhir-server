@@ -11,6 +11,8 @@
     IsMax bit CONSTRAINT date_IsMax_Constraint DEFAULT 0 NOT NULL
 )
 
+ALTER TABLE dbo.DateTimeSearchParam ADD CONSTRAINT DF_DateTimeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
+
 ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
@@ -91,3 +93,4 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND IsLongerThanADay = 1
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+

@@ -39,13 +39,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ExecuteSql(@"
 BEGIN TRANSACTION
 CREATE TABLE DefragTestTable (Id int IDENTITY(1, 1), Data char(500) NOT NULL PRIMARY KEY(Id))
-INSERT INTO DefragTestTable (Data) SELECT TOP 50000 '' FROM syscolumns A1, syscolumns A2
+INSERT INTO DefragTestTable (Data) SELECT TOP 100000 '' FROM syscolumns A1, syscolumns A2
 DELETE FROM DefragTestTable WHERE Id % 10 IN (0,1,2,3,4,5,6,7,8)
 COMMIT TRANSACTION
 EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
                 ");
+
+            await Task.Delay(10000);
+
             var sizeBefore = GetSize();
             var current = GetDateTime();
+
+            // Empty queue
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
 
             var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             var wd = new DefragWatchdog(
@@ -119,7 +125,6 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             using var cmd = new SqlCommand("SELECT TOP 10 Definition, Status FROM dbo.JobQueue WHERE QueueType = @QueueType AND CreateDate > @Current ORDER BY JobId DESC", conn);
             cmd.Parameters.AddWithValue("@QueueType", Core.Features.Operations.QueueType.Defrag);
             cmd.Parameters.AddWithValue("@Current", current);
-            cmd.CommandTimeout = 120;
             using SqlDataReader reader = cmd.ExecuteReader();
             var coordCompleted = false;
             var coordArchived = false;

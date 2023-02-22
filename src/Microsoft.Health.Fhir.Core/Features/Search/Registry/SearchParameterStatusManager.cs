@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using static System.Net.WebRequestMethods;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {

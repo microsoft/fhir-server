@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -146,10 +147,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             serviceCollection.AddSingleton(sqlServerFhirModel);
             serviceCollection.AddSingleton<ISqlServerFhirModel>(sqlServerFhirModel);
             serviceCollection.AddSingleton(searchParameterToSearchValueTypeMap);
+            var converter = (ICompressedRawResourceConverter)new CompressedRawResourceConverter();
+            serviceCollection.AddSingleton(converter);
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var mergeResourcesTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>>>();
             var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
@@ -171,11 +175,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
                 upsertResourceTvpGeneratorVLatest,
+                mergeResourcesTvpGeneratorVLatest,
                 reindexResourceTvpGeneratorVLatest,
                 bulkReindexResourceTvpGeneratorVLatest,
                 options,
                 SqlConnectionWrapperFactory,
-                new CompressedRawResourceConverter(),
+                converter,
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 SchemaInformation,
                 ModelInfoProvider.Instance,
