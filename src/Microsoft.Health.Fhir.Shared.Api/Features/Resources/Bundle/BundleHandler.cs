@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
-        private async Task ExecuteAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle)
+        private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
         {
             // List is not created initially since it doesn't create a list with _requestCount elements
             responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
@@ -167,35 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EntryComponent throttledEntryComponent = null;
             foreach (HTTPVerb verb in _verbExecutionOrder)
             {
-                throttledEntryComponent = await ExecuteRequestsAsync(responseBundle, verb, throttledEntryComponent);
-            }
-        }
-
-        private async Task ExecuteAllRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
-        {
-            // List is not created initially since it doesn't create a list with _requestCount elements
-            responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
-            foreach (int emptyRequestOrder in _emptyRequestsOrder)
-            {
-                var entryComponent = new EntryComponent
-                {
-                    Response = new ResponseComponent
-                    {
-                        Status = ((int)HttpStatusCode.BadRequest).ToString(),
-                        Outcome = CreateOperationOutcome(
-                            OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.Invalid,
-                            "Request is empty"),
-                    },
-                };
-                responseBundle.Entry[emptyRequestOrder] = entryComponent;
-            }
-
-            // Besides the need to run requests in parallel, the verb execution order should still be respected.
-            EntryComponent throttledEntryComponent = null;
-            foreach (HTTPVerb verb in _verbExecutionOrder)
-            {
-                throttledEntryComponent = await ExecuteRequestsInParallelAsync(responseBundle, verb, throttledEntryComponent);
+                throttledEntryComponent = await ExecuteRequests(responseBundle, verb, throttledEntryComponent);
             }
         }
 
@@ -233,7 +205,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
-                    await ExecuteAllRequestsInParallelAsync(responseBundle, cancellationToken);
+                    await ExecuteAllRequests(responseBundle);
                     var response = new BundleResponse(responseBundle.ToResourceElement());
 
                     await PublishNotification(responseBundle, BundleType.Batch);
@@ -295,7 +267,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 using (var transaction = _transactionHandler.BeginTransaction())
                 {
-                    await ExecuteAllRequestsAsync(responseBundle);
+                    await ExecuteAllRequests(responseBundle);
 
                     transaction.Complete();
                 }
@@ -442,7 +414,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private async Task<EntryComponent> ExecuteRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
+        private async Task<EntryComponent> ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
         {
             const int GCCollectTrigger = 150;
 
@@ -495,7 +467,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         _resourceIdProvider.Create = originalResourceIdProvider;
 
-                        entryComponent = CreateEntryComponent(_fhirJsonParser, httpContext);
+                        entryComponent = CreateEntryComponent(httpContext);
 
                         foreach (string headerName in HeadersToAccumulate)
                         {
@@ -547,118 +519,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return throttledEntryComponent;
         }
 
-        private async Task<EntryComponent> ExecuteRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
-        {
-            IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
-            IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext;
-            RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
-            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
-            ResourceIdProvider resourceIdProvider = _resourceIdProvider;
-            FhirJsonParser fhirJsonParser = _fhirJsonParser;
-
-            foreach ((RouteContext request, int entryIndex, string persistedId) in _requests[httpVerb])
-            {
-                EntryComponent entryComponent;
-
-                if (request.Handler != null)
-                {
-                    if (throttledEntryComponent != null)
-                    {
-                        // A previous action was throttled.
-                        // Skip executing subsequent actions and include the 429 response.
-                        entryComponent = throttledEntryComponent;
-                    }
-                    else
-                    {
-                        HttpContext httpContext = request.HttpContext;
-
-                        SetupContexts(request, httpContext, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
-
-                        Func<string> originalResourceIdProvider = resourceIdProvider.Create;
-
-                        if (!string.IsNullOrWhiteSpace(persistedId))
-                        {
-                            resourceIdProvider.Create = () => persistedId;
-                        }
-
-                        // Attempt 1.
-                        await request.Handler.Invoke(httpContext);
-
-                        // Should we continue retrying HTTP 429s?
-                        // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
-                        // -----------
-                        // We will retry a 429 one time per request in the bundle
-                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
-                        {
-                            _logger.LogTrace("BundleHandler received 429 message, attempting retry.  HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", httpVerb, _requestCount, entryIndex);
-                            int retryDelay = 2;
-                            var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
-                            if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
-                            {
-                                retryDelay = retryHeaderValue;
-                            }
-
-                            await Task.Delay(retryDelay * 1000); // multiply by 1000 as retry-header specifies delay in seconds
-
-                            // Attempt 2.
-                            await request.Handler.Invoke(httpContext);
-                        }
-
-                        resourceIdProvider.Create = originalResourceIdProvider;
-
-                        entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
-
-                        foreach (string headerName in HeadersToAccumulate)
-                        {
-                            if (httpContext.Response.Headers.TryGetValue(headerName, out var values))
-                            {
-                                _originalFhirRequestContext.ResponseHeaders[headerName] = values;
-                            }
-                        }
-
-                        if (_bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
-                        {
-                            _logger.LogTrace("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", httpVerb, _requestCount, entryIndex);
-
-                            // this action was throttled. Capture the entry and reuse it for subsequent actions.
-                            throttledEntryComponent = entryComponent;
-                        }
-                    }
-                }
-                else
-                {
-                    entryComponent = new EntryComponent
-                    {
-                        Response = new ResponseComponent
-                        {
-                            Status = ((int)HttpStatusCode.NotFound).ToString(),
-                            Outcome = CreateOperationOutcome(
-                                OperationOutcome.IssueSeverity.Error,
-                                OperationOutcome.IssueType.NotFound,
-                                string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
-                        },
-                    };
-                }
-
-                if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
-                {
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, request.HttpContext.Request.Method, request.HttpContext.Request.Path);
-
-                    if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
-                    {
-                        httpStatusCode = HttpStatusCode.BadRequest;
-                    }
-
-                    TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
-                }
-
-                responseBundle.Entry[entryIndex] = entryComponent;
-            }
-
-            return throttledEntryComponent;
-        }
-
-        private static EntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)
+        private EntryComponent CreateEntryComponent(HttpContext httpContext)
         {
             httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
             using var reader = new StreamReader(httpContext.Response.Body);
@@ -679,7 +540,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (!string.IsNullOrWhiteSpace(bodyContent))
             {
-                var entryComponentResource = fhirJsonParser.Parse<Resource>(bodyContent);
+                var entryComponentResource = _fhirJsonParser.Parse<Resource>(bodyContent);
 
                 if (entryComponentResource.TypeName == KnownResourceTypes.OperationOutcome)
                 {
@@ -737,47 +598,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             foreach (string headerName in HeadersToAccumulate)
             {
                 if (_originalFhirRequestContext.ResponseHeaders.TryGetValue(headerName, out var values))
-                {
-                    newFhirRequestContext.ResponseHeaders.Add(headerName, values);
-                }
-            }
-        }
-
-        private static void SetupContexts(
-            RouteContext request,
-            HttpContext httpContext,
-            IFhirRequestContext requestContext,
-            IAuditEventTypeMapping auditEventTypeMapping,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            IBundleHttpContextAccessor bundleHttpContextAccessor)
-        {
-            request.RouteData.Values.TryGetValue("controller", out object controllerName);
-            request.RouteData.Values.TryGetValue("action", out object actionName);
-            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
-
-            var newFhirRequestContext = new FhirRequestContext(
-                httpContext.Request.Method,
-                httpContext.Request.GetDisplayUrl(),
-                requestContext.BaseUri.OriginalString,
-                requestContext.CorrelationId,
-                httpContext.Request.Headers,
-                httpContext.Response.Headers)
-            {
-                Principal = requestContext.Principal,
-                ResourceType = resourceType?.ToString(),
-                AuditEventType = auditEventTypeMapping.GetAuditEventType(
-                    controllerName?.ToString(),
-                    actionName?.ToString()),
-                ExecutingBatchOrTransaction = true,
-            };
-
-            requestContextAccessor.RequestContext = newFhirRequestContext;
-
-            bundleHttpContextAccessor.HttpContext = httpContext;
-
-            foreach (string headerName in HeadersToAccumulate)
-            {
-                if (requestContext.ResponseHeaders.TryGetValue(headerName, out var values))
                 {
                     newFhirRequestContext.ResponseHeaders.Add(headerName, values);
                 }
