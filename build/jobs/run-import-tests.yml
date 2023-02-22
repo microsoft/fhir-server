@@ -26,9 +26,9 @@ jobs:
         $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
 
-        $appServiceName = "$(resourceGroupRoot)-${{parameters.version}}"
+        $appServiceName = "$(resourceGroupRoot)-${{parameters.version}}-sql"
         if("${{parameters.version}}" -eq "Stu3"){
-          $appServiceName = "$(resourceGroupRoot)"
+          $appServiceName = "$(resourceGroupRoot)-sql"
         }
 
         $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
