@@ -253,17 +253,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddHostedService<WatchdogsBackgroundService>();
 
-            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
-                .AssignableTo<IJob>()
-                .Where(t => t.Type.Name.Contains("Import", StringComparison.Ordinal))
-                .Transient()
-                .AsSelf();
-
-            foreach (TypeRegistrationBuilder job in jobs)
-            {
-                job.AsDelegate<Func<IJob>>();
-            }
-
             return fhirServerBuilder;
         }
 

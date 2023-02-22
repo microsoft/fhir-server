@@ -120,7 +120,6 @@ namespace Microsoft.Health.Fhir.Web
 
             IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ExportOrchestratorJob>()
                 .AssignableTo<IJob>()
-                .Where(t => t.Type.Name.Contains("Import", StringComparison.Ordinal) == false)
                 .Transient()
                 .AsSelf();
 
