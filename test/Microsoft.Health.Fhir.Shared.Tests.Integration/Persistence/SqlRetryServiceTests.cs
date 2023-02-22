@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await AllConnectionRetriesTest(SqlLoginError, CreateTestStoredProcedureToReadTop10, true);
         }
 
-        private async Task TestInitializationExecuteSql(string commandText)
+        private async Task ExecuteSql(string commandText)
         {
             using SqlConnection sqlConnection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync();
             using SqlCommand sqlCommand = sqlConnection.CreateCommand();
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task CreateTestStoredProcedureToReadTop10(string storedProcedureName, string tableName)
         {
-            await TestInitializationExecuteSql(@$"
+            await ExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
@@ -120,7 +120,7 @@ SELECT TOP 10 RowId = row_number() OVER (ORDER BY object_id) FROM sys.objects
 
         private async Task CreateTestStoredProcedureWithAllConnectionErrors(string storedProcedureName, string tableName)
         {
-            await TestInitializationExecuteSql(@$"
+            await ExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
@@ -132,7 +132,7 @@ SELECT RowId = row_number() OVER (ORDER BY X.object_id) - 1, CAST(@@SPID AS BIGI
 
         private async Task CreateTestStoredProcedureWithSingleConnectionError(string storedProcedureName, string tableName)
         {
-            await TestInitializationExecuteSql(@$"
+            await ExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
@@ -153,7 +153,7 @@ END
 
         private async Task CreateTestStoredProcedureWithAllFatalErrors(string storedProcedureName, string tableName)
         {
-            await TestInitializationExecuteSql(@$"
+            await ExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
@@ -163,7 +163,7 @@ RAISERROR('TestError', 20, 127) WITH LOG
 
         private async Task CreateTestStoredProcedureWithSingleFatalError(string storedProcedureName, string tableName)
         {
-            await TestInitializationExecuteSql(@$"
+            await ExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
@@ -178,7 +178,7 @@ END
 
         private async Task CreateTestStoredProcedureWithSingleErrorBeforeSelect(string storedProcedureName, string tableName)
         {
-            await TestInitializationExecuteSql(@$"
+            await ExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
@@ -194,7 +194,7 @@ SELECT TOP 10 RowId = row_number() OVER (ORDER BY object_id) FROM sys.objects
 
         private async Task CreateTestStoredProcedureWithSingleErrorInSelect(string storedProcedureName, string tableName)
         {
-            await TestInitializationExecuteSql(@$"
+            await ExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
@@ -211,7 +211,7 @@ SELECT RowId / CASE WHEN RowId = 6 AND @RaiseError = 1 THEN 0 ELSE 1 END -- cond
 
         private async Task CreateTestStoredProcedureWithSingleErrorAfterSelect(string storedProcedureName, string tableName)
         {
-            await TestInitializationExecuteSql(@$"
+            await ExecuteSql(@$"
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
@@ -233,7 +233,7 @@ END
         {
             if (tableName != null)
             {
-                await TestInitializationExecuteSql(@$"CREATE TABLE dbo.{tableName} (Id varchar(100) PRIMARY KEY)");
+                await ExecuteSql(@$"CREATE TABLE dbo.{tableName} (Id varchar(100) PRIMARY KEY)");
             }
         }
 
@@ -241,10 +241,10 @@ END
         {
             if (tableName != null)
             {
-                await TestInitializationExecuteSql(@$"IF object_id('dbo.{tableName}') IS NOT NULL DROP TABLE dbo.{tableName}");
+                await ExecuteSql(@$"IF object_id('dbo.{tableName}') IS NOT NULL DROP TABLE dbo.{tableName}");
             }
 
-            await TestInitializationExecuteSql($"IF object_id('dbo.{storedProcedureName}') IS NOT NULL DROP PROCEDURE dbo.{storedProcedureName}");
+            await ExecuteSql($"IF object_id('dbo.{storedProcedureName}') IS NOT NULL DROP PROCEDURE dbo.{storedProcedureName}");
         }
 
         private void MakeStoredProcedureAndTableName(bool allRetriesFail, out string storedProcedureName, out string testTableName)
@@ -471,88 +471,11 @@ END
             long sessionId = sqlDataReader.GetInt64(1);
             if (rowId == 0)
             {
-                TestInitializationExecuteSql($"KILL {sessionId}").Wait();
+                ExecuteSql($"KILL {sessionId}").Wait();
             }
 
             return rowId;
         }
-
-        /*private class SqlCommandFuncWithRetriesObject
-        {
-            private readonly SqlRetryServiceTests _sqlRetryServiceTests;
-            private readonly string _storedProcedureName;
-            private readonly bool _killConnectionOnAllRetries;
-            private int _retryCount;
-
-            public SqlCommandFuncWithRetriesObject(SqlRetryServiceTests sqlRetryServiceTests, string storedProcedureName, bool killConnectionOnAllRetries = false)
-            {
-                _sqlRetryServiceTests = sqlRetryServiceTests;
-                _storedProcedureName = storedProcedureName;
-                _killConnectionOnAllRetries = killConnectionOnAllRetries;
-                _retryCount = 0;
-            }
-
-            public async Task SqlCommandActionWithRetries(SqlCommand sqlCommand, CancellationToken cancellationToken)
-            {
-                sqlCommand.CommandText = $"dbo.{_storedProcedureName}";
-
-                await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            public async Task<List<long>> SqlCommandFuncWithRetries(SqlCommand sqlCommand, CancellationToken cancellationToken)
-            {
-                sqlCommand.CommandText = $"dbo.{_storedProcedureName}";
-
-                using SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
-                var results = new List<long>();
-                while (await sqlDataReader.ReadAsync(cancellationToken))
-                {
-                    long r = sqlDataReader.GetInt64(0);
-                    results.Add(r);
-                }
-
-                await sqlDataReader.NextResultAsync(cancellationToken);
-
-                return results;
-            }
-
-            public async Task<List<long>> SqlCommandFuncWithRetriesAndKillConnection(SqlCommand sqlCommand, CancellationToken cancellationToken)
-            {
-                bool killSent = false;
-                _retryCount++;
-
-                sqlCommand.CommandText = $"dbo.{_storedProcedureName}";
-
-                using SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
-                var results = new List<long>();
-                while (await sqlDataReader.ReadAsync(cancellationToken))
-                {
-                    long r = sqlDataReader.GetInt64(0); // Get SQL session ID.
-                    results.Add(r);
-
-                    if (_killConnectionOnAllRetries || _retryCount == 1)
-                    {
-                        // On this try/retry we are killing the connection!
-                        if (!killSent) // Send KILL command to the server only once!
-                        {
-                            killSent = true;
-
-                            // Among other things, kills the connection from the server side. Once we are done reading the current buffer and go to the network we encounter broken connection condition.
-                            await _sqlRetryServiceTests.TestInitializationExecuteSql($"KILL {r}");
-                        }
-                    }
-                    else
-                    {
-                        // If we are not killing the connection on this try/retry no need to read the whole table from the server. Just read the first row and end.
-                        break;
-                    }
-                }
-
-                await sqlDataReader.NextResultAsync(cancellationToken);
-
-                return results;
-            }
-        }*/
 
         private class SqlConnectionBuilderWithConnectionInitializationFailure : ISqlConnectionBuilder
         {

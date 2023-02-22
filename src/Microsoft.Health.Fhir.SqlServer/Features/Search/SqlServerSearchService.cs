@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
             SearchResult searchResult = null;
-            await _sqlRetryService.ExecuteWithRetries(
+            await _sqlRetryService.ExecuteSql(
                 async (cancellationToken) =>
                 {
                     using (SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false))

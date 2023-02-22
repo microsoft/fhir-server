@@ -9,17 +9,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using static Microsoft.Health.Fhir.SqlServer.Features.Storage.SqlRetryService;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public interface ISqlRetryService
     {
-        /*Task<TResult> ExecuteSqlCommandFuncWithRetries<TResult, TLogger>(RetriableSqlCommandFunc<TResult> func, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken);
-
-        Task ExecuteSqlCommandActionWithRetries<TLogger>(RetriableSqlCommandAction action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken);*/
-
-        Task ExecuteWithRetries(RetriableAction action, CancellationToken cancellationToken);
+        Task ExecuteSql(Func<CancellationToken, Task> action, CancellationToken cancellationToken);
 
         Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken);
 

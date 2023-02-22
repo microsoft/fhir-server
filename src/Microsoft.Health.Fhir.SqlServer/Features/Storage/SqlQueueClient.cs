@@ -302,7 +302,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             private readonly ParameterDefinition<long?> _jobId = new ParameterDefinition<long?>("@JobId", global::System.Data.SqlDbType.BigInt, true);
             private readonly BigintListTableValuedParameterDefinition _jobIds = new BigintListTableValuedParameterDefinition("@JobIds");
             private readonly ParameterDefinition<long?> _groupId = new ParameterDefinition<long?>("@GroupId", global::System.Data.SqlDbType.BigInt, true);
-            private readonly ParameterDefinition<bool?> _returnDefinition = new ParameterDefinition<bool?>("@ReturnDefinition", global::System.Data.SqlDbType.Bit, true);
 
             internal GetJobsProcedure()
                 : base("dbo.GetJobs")
@@ -317,7 +316,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _jobId.AddParameter(sqlCommand.Parameters, jobId);
                 _jobIds.AddParameter(sqlCommand.Parameters, jobIds);
                 _groupId.AddParameter(sqlCommand.Parameters, groupId);
-                _returnDefinition.AddParameter(sqlCommand.Parameters, returnDefinition);
             }
         }
     }

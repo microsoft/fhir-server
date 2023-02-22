@@ -84,12 +84,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public delegate bool IsExceptionRetriable(Exception ex);
 
-        public delegate Task RetriableAction(CancellationToken cancellationToken);
-
-        public delegate Task RetriableSqlCommandAction(SqlCommand sqlCommand, CancellationToken cancellationToken);
-
-        public delegate Task<T> RetriableSqlCommandFunc<T>(SqlCommand sqlCommand, CancellationToken cancellationToken);
-
         private static bool DefaultIsExceptionRetriable(Exception ex)
         {
             if (ex is SqlException sqlEx)
@@ -133,61 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return false;
         }
 
-        /*
-        public async Task<TResult> ExecuteSqlCommandFuncWithRetries<TResult, TLogger>(RetriableSqlCommandFunc<TResult> func, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(func, nameof(func));
-
-            int retry = 0;
-            while (true)
-            {
-                try
-                {
-                    using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = sqlConnection.CreateCommand(); // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
-
-                    // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
-                    // Connection is never open but RetryLogicProvider is set to the old retry implementation. According to the .NET spec, RetryLogicProvider must be set before opening connection to take effect.
-                    // Therefore we must reset it to null here before opening the connection.
-                    sqlConnection.RetryLogicProvider = null; // Before opening connection, reset old retry logic to null! To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await sqlConnection.OpenAsync(cancellationToken);
-
-                    return await func(sqlCommand, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    if (!RetryTest(ex))
-                    {
-                        throw;
-                    }
-
-                    if (++retry >= _maxRetries)
-                    {
-                        logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        throw;
-                    }
-
-                    logger.LogInformation(ex, $"Attempt {retry}: {logMessage}");
-                }
-
-                await Task.Delay(_retryMillisecondsDelay, cancellationToken);
-            }
-        }
-
-        public async Task ExecuteSqlCommandActionWithRetries<TLogger>(RetriableSqlCommandAction action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
-        {
-            await ExecuteSqlCommandFuncWithRetries(
-                async (sqlCommand, cancellationToken) =>
-                {
-                    await action(sqlCommand, cancellationToken);
-                    return Task.FromResult(0);
-                },
-                logger,
-                logMessage,
-                cancellationToken);
-        }*/
-
-        public async Task ExecuteWithRetries(RetriableAction action, CancellationToken cancellationToken)
+        public async Task ExecuteSql(Func<CancellationToken, Task> action, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
