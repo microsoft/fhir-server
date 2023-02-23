@@ -14,6 +14,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -984,7 +985,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            await TestRuntime.RunAsync(new Func<Task>(async () =>
+            await this.RetryAsync(new Func<Task>(async () =>
             {
                 List<int> values = new();
                 int count = 0;
@@ -1029,7 +1030,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            await TestRuntime.RunAsync(new Func<Task>(async () =>
+            await this.RetryAsync(new Func<Task>(async () =>
             {
                 List<int> values = new();
                 int count = 0;

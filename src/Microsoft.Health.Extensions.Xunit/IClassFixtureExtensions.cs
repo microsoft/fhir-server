@@ -9,14 +9,16 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Xunit;
 
-namespace Microsoft.Health.Fhir.Tests.Common
+namespace Microsoft.Health.Extensions.Xunit
 {
-    public static class TestRuntime
+    public static class IClassFixtureExtensions
     {
         private const int MaxNumberOfAttempts = 3;
 
-        public static void Run(Action action)
+        public static void Retry<T>(this IClassFixture<T> fixture, Action action)
+            where T : class
         {
             int currentExecution = 0;
             do
@@ -44,7 +46,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
             while (true);
         }
 
-        public static async Task RunAsync(Func<Task> func)
+        public static async Task RetryAsync<T>(this IClassFixture<T> fixture, Func<Task> func)
+            where T : class
         {
             int currentExecution = 0;
             do
