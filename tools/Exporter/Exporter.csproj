@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Storage.Blobs" />
+    <PackageReference Include="Azure.Storage.Files.DataLake" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
     <PackageReference Include="System.Data.SqlClient" />
   </ItemGroup>

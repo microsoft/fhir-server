@@ -10,10 +10,12 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using Azure.Storage.Files.DataLake;
 using Microsoft.Health.Fhir.Store.Utils;
 
 namespace Microsoft.Health.Fhir.Store.Export
@@ -48,21 +50,122 @@ namespace Microsoft.Health.Fhir.Store.Export
 
         public static void Main(string[] args)
         {
-            Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
-            if (args.Length > 0 && args[0] == "noqueue")
+            if (args.Length == 0 || args[0] == "storage")
             {
-                ExportNoQueue();
+                var count = args.Length > 1 ? int.Parse(args[1]) : 100;
+                var bufferKB = args.Length > 2 ? int.Parse(args[2]) : 20;
+                var parall = args.Length > 3 ? int.Parse(args[3]) : 1;
+                WriteAndReadAdls(count, bufferKB);
+                WriteAndReadBlob(count, bufferKB, parall);
             }
             else
             {
-                Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
-                if (RebuildWorkQueue)
+                Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
+                if (args.Length > 0 && args[0] == "noqueue")
                 {
-                    PopulateJobQueue(ResourceType, UnitSize);
+                    ExportNoQueue();
                 }
+                else
+                {
+                    Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
+                    if (RebuildWorkQueue)
+                    {
+                        PopulateJobQueue(ResourceType, UnitSize);
+                    }
 
-                Export();
+                    Export();
+                }
             }
+        }
+
+        public static void WriteAndReadAdls(int count, int bufferKB)
+        {
+            GetContainer(BlobConnectionString, "testadls");
+
+            var fileName = "test/test/test.txt";
+
+            var swGlobal = Stopwatch.StartNew();
+
+            var fileClient = new DataLakeFileClient(BlobConnectionString, "testadls", fileName);
+
+            var offests = new List<int>();
+            var offset = 0;
+            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+
+            var baseLine = string.Concat(Enumerable.Repeat("0123456789", 200)); // 2KB
+
+            using var writeStream = fileClient.OpenWrite(true);
+            using var writer = new StreamWriter(writeStream);
+            for (var i = 0; i < count; i++)
+            {
+                offests.Add(offset);
+                var line = $"{offset}\t{baseLine}";
+                offset += Encoding.UTF8.GetByteCount(line) + eol;
+                writer.WriteLine(line);
+            }
+
+            writer.Flush();
+            Console.WriteLine($"ADLS.Write.{count}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
+
+            swGlobal = Stopwatch.StartNew();
+            fileClient = new DataLakeFileClient(BlobConnectionString, "testadls", fileName);
+            using var stream = fileClient.OpenRead(bufferSize: 1024 * bufferKB);
+            using var reader = new StreamReader(stream);
+            foreach (var pos in offests)
+            {
+                var sw = Stopwatch.StartNew();
+                reader.DiscardBufferedData();
+                stream.Position = pos;
+                var line = reader.ReadLine();
+                var readOffset = line.Split('\t')[0];
+                Console.WriteLine($"ADLS.Read.{count}.buffer={bufferKB}: {sw.Elapsed.TotalMilliseconds} msec (input,read)=({pos},{readOffset})");
+            }
+
+            Console.WriteLine($"ADLS.Read.{count}.buffer={bufferKB}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
+        }
+
+        public static void WriteAndReadBlob(int count, int bufferKB, int parall)
+        {
+            var fileName = "test/test/test.txt";
+
+            var swGlobal = Stopwatch.StartNew();
+
+            var container = GetContainer(BlobConnectionString, "testblob");
+
+            var offests = new List<int>();
+            var offset = 0;
+            var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+
+            var baseLine = string.Concat(Enumerable.Repeat("0123456789", 200)); // 2KB
+
+            using var writeStream = container.GetBlockBlobClient(fileName).OpenWrite(true);
+            using var writer = new StreamWriter(writeStream);
+            for (var i = 0; i < count; i++)
+            {
+                offests.Add(offset);
+                var line = $"{offset}\t{baseLine}";
+                offset += Encoding.UTF8.GetByteCount(line) + eol;
+                writer.WriteLine(line);
+            }
+
+            writer.Flush();
+
+            Console.WriteLine($"BLOB.Write.{count}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
+
+            swGlobal = Stopwatch.StartNew();
+            container = GetContainer(BlobConnectionString, "testblob");
+            var blobClient = container.GetBlobClient(fileName);
+            Parallel.ForEach(offests, new ParallelOptions { MaxDegreeOfParallelism = parall }, (pos) =>
+            {
+                var sw = Stopwatch.StartNew();
+                using var readStream = blobClient.OpenRead(pos, bufferSize: 1024 * bufferKB);
+                using var reader = new StreamReader(readStream);
+                var line = reader.ReadLine();
+                var readOffset = line.Split('\t')[0];
+                Console.WriteLine($"BLOB.Read.{count}: {sw.Elapsed.TotalMilliseconds} msec (input,read)=({pos},{readOffset})");
+            });
+
+            Console.WriteLine($"BLOB.Read.{count}.buffer={bufferKB}.parall={parall}: total={swGlobal.Elapsed.TotalMilliseconds} msec perLine={swGlobal.Elapsed.TotalMilliseconds / count} msec");
         }
 
         public static void ExportNoQueue()
