@@ -58,8 +58,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var parserToUse = _parser;
 
-            if (request.Method == "POST"
-               && request.Path.Value.EndsWith("/", System.StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(request.Method, HttpMethods.Post, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(context.Metadata.Name, KnownActionParameterNames.Bundle, StringComparison.Ordinal))
             {
                 var newsettings = _parser.Settings.Clone();
                 newsettings.AllowUnrecognizedEnums = true;
