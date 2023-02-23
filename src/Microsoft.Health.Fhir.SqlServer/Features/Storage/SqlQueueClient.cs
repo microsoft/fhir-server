@@ -166,12 +166,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
             }
 
-            return await _sqlRetryService.ExecuteSqlDataReaderFirstRow(
+            JobInfo jobInfo = await _sqlRetryService.ExecuteSqlDataReaderFirstRow(
                 sqlCommand,
                 JobInfoExtensions.LoadJobInfo,
                 _logger,
                 "DequeueAsync failed.",
                 cancellationToken);
+            if (jobInfo != null)
+            {
+                jobInfo.QueueType = queueType;
+            }
+
+            return jobInfo;
         }
 
         public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
