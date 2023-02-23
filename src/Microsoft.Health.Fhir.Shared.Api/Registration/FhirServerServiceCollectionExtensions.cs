@@ -67,8 +67,14 @@ namespace Microsoft.Extensions.DependencyInjection
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
+            string logStmt = "Inside AddFhirServer" + DateTime.Now.ToShortDateString();
+            Console.WriteLine(logStmt + " 1 ");
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
+
+            Console.WriteLine(logStmt + " 1 " + fhirServerConfiguration.Security);
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CoreFeatures));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
