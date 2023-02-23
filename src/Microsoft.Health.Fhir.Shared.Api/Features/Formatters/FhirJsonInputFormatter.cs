@@ -10,8 +10,10 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
@@ -58,8 +60,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var parserToUse = _parser;
 
-            if (request.Method == "POST"
-               && request.Path.Value.EndsWith("/", System.StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(request.Method, HttpMethods.Post, StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(context.Metadata.Name, KnownActionParameterNames.Bundle, StringComparison.Ordinal))
             {
                 var newsettings = _parser.Settings.Clone();
                 newsettings.AllowUnrecognizedEnums = true;
