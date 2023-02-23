@@ -797,19 +797,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _logger.LogInformation("{SqlQuery}", sb.ToString());
         }
 
-        protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+        protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken, bool forceReindex = false)
         {
+            if (forceReindex)
+            {
+                string resourceType = GetForceReindexResourceType(searchOptions);
+                if (string.IsNullOrWhiteSpace(resourceType))
+                {
+                    throw new BadRequestException(Resources.MissingResourceTypeForForceReindexOperation);
+                }
+
+                return await SearchForReindexCountInternalAsync(resourceType, cancellationToken);
+            }
+
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
             return await SearchImpl(sqlSearchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
         }
 
-        protected async override Task<SearchResultReindex> SearchForReindexCountInternalAsync(SearchOptions searchOptions, string resourceType, CancellationToken cancellationToken)
+        protected async Task<SearchResult> SearchForReindexCountInternalAsync(string resourceType, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             sqlCommandWrapper.Parameters.AddWithValue("@p0", _model.GetResourceTypeId(resourceType));
             sqlCommandWrapper.CommandText = @"
-SELECT COUNT_BIG(*), MIN(r.ResourceSurrogateId) MinId, MAX(r.ResourceSurrogateId) MaxId
+SELECT COUNT_BIG(*)
 FROM dbo.Resource r
 WHERE r.ResourceTypeId = @p0
     AND r.IsHistory = 0
@@ -818,14 +829,25 @@ WHERE r.ResourceTypeId = @p0
             using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             await reader.ReadAsync(cancellationToken);
             long count = reader.GetInt64(0);
-            long startId = reader.GetInt64(1);
-            long endId = reader.GetInt64(2);
-            var searchResult = new SearchResultReindex(resourceType, (int)count, startId, endId);
+
+            var searchResult = new SearchResult((int)count, Array.Empty<Tuple<string, string>>());
 
             // call NextResultAsync to get the info messages
             await reader.NextResultAsync(cancellationToken);
 
             return searchResult;
+        }
+
+        private static string GetForceReindexResourceType(SearchOptions searchOptions)
+        {
+            string resourceType = string.Empty;
+            var spe = searchOptions.Expression as SearchParameterExpression;
+            if (spe != null && spe.Parameter.Name == KnownQueryParameterNames.Type)
+            {
+                resourceType = (spe.Expression as StringExpression)?.Value;
+            }
+
+            return resourceType;
         }
     }
 }

@@ -178,14 +178,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 return Task.FromResult(SearchImplementation(searchOptions));
             }
 
-            protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+            protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken, bool forceReindex = false)
             {
                 return Task.FromResult(SearchImplementation(searchOptions));
-            }
-
-            protected override Task<SearchResultReindex> SearchForReindexCountInternalAsync(SearchOptions searchOptions, string resourceType, CancellationToken cancellationToken)
-            {
-                return Task.FromResult(SearchReindexCountImplementation(searchOptions));
             }
         }
     }

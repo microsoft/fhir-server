@@ -83,18 +83,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="countOnly">Indicates that the query should return only count of the total resources</param>
         /// <param name="cancellationToken">The cancellation token</param>
         /// <param name="isAsyncOperation">Whether the search is part of an async operation.</param>
+        /// <param name="forceReindex">Special handling to force a reindex job.</param>
         /// <returns>A collection of resources matching the query parameters</returns>
         Task<SearchResult> SearchForReindexAsync(
             IReadOnlyList<Tuple<string, string>> queryParameters,
             string searchParameterHash,
             bool countOnly,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false);
-
-        Task<SearchResultReindex> SearchForReindexCountAsync(
-            string resourcetype,
-            CancellationToken cancellationToken,
-            bool isAsyncOperation = false);
+            bool isAsyncOperation = false,
+            bool forceReindex = false);
 
         Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
             string resourceType,

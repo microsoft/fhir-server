@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -172,6 +173,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// </summary>
         [JsonProperty(JobRecordProperties.TargetSearchParameterTypes)]
         public IReadOnlyCollection<string> TargetSearchParameterTypes { get; private set; } = new List<string>();
+
+        [JsonIgnore]
+        public bool ForceReindex => TargetSearchParameterTypes.Any() && SearchParameterResourceTypes.Any();
 
         /// <summary>
         /// This will be the base resource types from the <see cref="TargetSearchParameterTypes"/>
