@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -30,25 +29,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly IMediator _mediator;
 
         public CreateReindexRequestHandler(
             IFhirOperationDataStore fhirOperationDataStore,
             IAuthorizationService<DataActions> authorizationService,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            ISearchParameterOperations searchParameterOperations)
+            ISearchParameterOperations searchParameterOperations,
+            IMediator mediator)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(reindexJobConfiguration, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterOperations = searchParameterOperations;
+            _mediator = mediator;
         }
 
         public async Task<CreateReindexResponse> Handle(CreateReindexRequest request, CancellationToken cancellationToken)
@@ -78,10 +81,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // resource types. With the resource types we can now identify from our SearchParameterHashMap
             // any matches and reset the hash value with a new guid thereby kicking off a new reindex job.
             // Of course if we don't find a match then we leave the hash value unaffected and pass it through.
-            Dictionary<string, string> hashMap = null;
+
+            // Dictionary<string, string> hashMap = null;
             var searchParameterResourceTypes = new HashSet<string>();
             if (request.TargetSearchParameterTypes.Any())
             {
+                // var updated = new List<SearchParameterInfo>();
                 foreach (var searchParameterUrl in request.TargetSearchParameterTypes)
                 {
                     SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParameterUrl);
@@ -90,10 +95,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         throw new RequestNotValidException(Core.Resources.SearchParameterByDefinitionUriNotSupported, searchParameterUrl);
                     }
 
+                    // updated.Add(searchParameterInfo);
                     searchParameterResourceTypes.UnionWith(searchParameterInfo.BaseResourceTypes);
                 }
 
-                hashMap = new Dictionary<string, string>();
+                /*
+                if (updated.Any())
+                {
+                    await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                }
+                */
+
+                // hashMap = new Dictionary<string, string>();
+                /*
                 foreach (var searchParamHash in _searchParameterDefinitionManager.SearchParameterHashMap)
                 {
                     if (searchParameterResourceTypes.Contains(searchParamHash.Key))
@@ -105,10 +120,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         hashMap[searchParamHash.Key] = searchParamHash.Value;
                     }
                 }
+                */
             }
 
+            /* hashMap.Count > 0 ? hashMap : _searchParameterDefinitionManager.SearchParameterHashMap,*/
             var jobRecord = new ReindexJobRecord(
-            hashMap?.Count > 0 ? hashMap : _searchParameterDefinitionManager.SearchParameterHashMap,
+            _searchParameterDefinitionManager.SearchParameterHashMap,
             request.TargetResourceTypes,
             request.TargetSearchParameterTypes,
             searchParameterResourceTypes,

@@ -162,6 +162,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             public Func<SearchOptions, SearchResult> SearchImplementation { get; set; }
 
+            public Func<SearchOptions, SearchResultReindex> SearchReindexCountImplementation { get; set; }
+
             public override Task<SearchResult> SearchAsync(
                 SearchOptions searchOptions,
                 CancellationToken cancellationToken)
@@ -179,6 +181,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
             {
                 return Task.FromResult(SearchImplementation(searchOptions));
+            }
+
+            protected override Task<SearchResultReindex> SearchForReindexCountInternalAsync(SearchOptions searchOptions, string resourceType, CancellationToken cancellationToken)
+            {
+                return Task.FromResult(SearchReindexCountImplementation(searchOptions));
             }
         }
     }

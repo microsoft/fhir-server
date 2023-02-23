@@ -91,6 +91,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool isAsyncOperation = false);
 
+        Task<SearchResultReindex> SearchForReindexCountAsync(
+            string resourcetype,
+            CancellationToken cancellationToken,
+            bool isAsyncOperation = false);
+
         Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
             string resourceType,
             long startId,

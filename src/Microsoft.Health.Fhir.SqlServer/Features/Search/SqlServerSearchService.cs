@@ -783,7 +783,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     .Append(p)
                     .Append(' ')
                     .Append(p.SqlDbType)
-                    .Append(p.Value is string ? (p.Size == -1 ? "(MAX)" : $"({p.Size})") : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
+                    .Append(p.Value is string ? (p.Size <= 0 ? "(MAX)" : $"({p.Size})") : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
                     .Append(" = ")
                     .Append(p.SqlDbType == SqlDbType.NChar || p.SqlDbType == SqlDbType.NText || p.SqlDbType == SqlDbType.NVarChar ? "N" : null)
                     .Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : p.Value.ToString())
@@ -801,6 +801,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
             return await SearchImpl(sqlSearchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
+        }
+
+        protected async override Task<SearchResultReindex> SearchForReindexCountInternalAsync(SearchOptions searchOptions, string resourceType, CancellationToken cancellationToken)
+        {
+            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            sqlCommandWrapper.Parameters.AddWithValue("@p0", _model.GetResourceTypeId(resourceType));
+            sqlCommandWrapper.CommandText = @"
+SELECT COUNT_BIG(*), MIN(r.ResourceSurrogateId) MinId, MAX(r.ResourceSurrogateId) MaxId
+FROM dbo.Resource r
+WHERE r.ResourceTypeId = @p0
+    AND r.IsHistory = 0
+    AND r.IsDeleted = 0
+";
+            using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+            await reader.ReadAsync(cancellationToken);
+            long count = reader.GetInt64(0);
+            long startId = reader.GetInt64(1);
+            long endId = reader.GetInt64(2);
+            var searchResult = new SearchResultReindex(resourceType, (int)count, startId, endId);
+
+            // call NextResultAsync to get the info messages
+            await reader.NextResultAsync(cancellationToken);
+
+            return searchResult;
         }
     }
 }

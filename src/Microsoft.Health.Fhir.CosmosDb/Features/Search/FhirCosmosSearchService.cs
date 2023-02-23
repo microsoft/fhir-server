@@ -753,5 +753,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             return true;
         }
+
+        protected override Task<SearchResultReindex> SearchForReindexCountInternalAsync(SearchOptions searchOptions, string resourceType, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
