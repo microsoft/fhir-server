@@ -1,0 +1,44 @@
+# .github/release.yml
+# see https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+
+changelog:
+  categories:
+    - title: Breaking Changes & Warnings 🛠
+      labels:
+        - KI-Breaking
+        - KI-Warning
+        
+    - title: Azure API for FHIR (Cosmos)
+      labels:
+        - "Azure API for FHIR"
+      exclude:
+        labels:
+          - "Azure Healthcare APIs"
+
+    - title: Azure Health Data Services (SQL)
+      labels:
+        - "Azure Healthcare APIs"
+      exclude:
+        labels:
+          - "Azure API for FHIR"
+    
+    - title: Common to both Azure API for FHIR and Azure Health Data Services
+      labels:
+        - "Azure Healthcare APIs"
+        - "Azure API for FHIR"
+
+    - title: Other Changes
+      labels:
+        - "*"
+      exclude:
+        labels:
+          - Documentation
+          - Dependencies
+
+    - title: Documentation
+      labels:
+        - Documentation
+
+    - title: Package Updates
+      labels:
+        - Dependencies
