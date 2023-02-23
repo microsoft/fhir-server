@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private const int _defaultNumberOfColumnsReadFromResult = 11;
+        private const int _defaultNumberOfColumnsReadFromResult = 13;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly IFhirDataStore _fhirDataStore;
 
@@ -383,6 +383,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out int? offsetInFile);
                         numberOfColumnsRead = reader.FieldCount;
 
+                        // If we get to this point, we know there are more results so we need a continuation token
+                        // Additionally, this resource shouldn't be included in the results
+                        if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
+                        {
+                            moreResults = true;
+
+                            continue;
+                        }
+
                         var rawResource = string.Empty;
                         if (rawResourceStream == null)
                         {
@@ -392,24 +401,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             await using (rawResourceStream)
                             {
-                                // If we get to this point, we know there are more results so we need a continuation token
-                                // Additionally, this resource shouldn't be included in the results
-                                if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
-                                {
-                                    moreResults = true;
-
-                                    continue;
-                                }
-
                                 rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                             }
                         }
 
-                        if (string.IsNullOrEmpty(rawResource))
-                        {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
+                        ////if (string.IsNullOrEmpty(rawResource))
+                        ////{
+                        ////    rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                        ////    _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                        ////}
 
                         // See if this resource is a continuation token candidate and increase the count
                         if (isMatch)
