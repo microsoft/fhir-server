@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -23,14 +24,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlRetryServiceTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private readonly SqlServerFhirStorageTestsFixture _fixture;
+        private readonly ITestOutputHelper _output;
         private const int SqlConnectionError = 233;
         private const int SqlLoginError = 4060;
         private const int SqlDivByZeroErrorNumber = 8134;
         private const int SqlDefaultErrorNumber = 50000;
 
-        public SqlRetryServiceTests(SqlServerFhirStorageTestsFixture fixture)
+        public SqlRetryServiceTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
+            _output = output;
         }
 
         [Fact]
@@ -304,6 +307,35 @@ END
                     Assert.Equal(i + 1, result[i]);
                 }
 
+                _output.WriteLine("#### START COMM EXCEPTION INFO ###################################");
+                if (logger.LogRecords.Count <= 0 || logger.LogRecords[0].Exception == null)
+                {
+                    _output.WriteLine("  Exception: null");
+                }
+                else
+                {
+                    Exception ex = logger.LogRecords[0].Exception;
+                    _output.WriteLine($"  Exception type: {ex.GetType().FullName}");
+                    _output.WriteLine($"  Exception message: {ex.Message}");
+                    if (ex is SqlException sqlEx)
+                    {
+                        _output.WriteLine($"  Exception number: {sqlEx.Number}");
+                    }
+
+                    Exception innerEx = ex.InnerException;
+                    if (innerEx == null)
+                    {
+                        _output.WriteLine("    Inner exception: null");
+                    }
+                    else
+                    {
+                        _output.WriteLine($"    Inner exception type: {innerEx.GetType().FullName}");
+                        _output.WriteLine($"    Inner exception message: {innerEx.Message}");
+                    }
+                }
+
+                _output.WriteLine("#### END COMM EXCEPTION INFO #####################################");
+
                 Assert.Single(logger.LogRecords);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
@@ -333,6 +365,34 @@ END
                     logger,
                     "log message",
                     CancellationToken.None));
+
+                _output.WriteLine("#### START COMM EXCEPTION INFO ###################################");
+                if (ex == null)
+                {
+                    _output.WriteLine("  Exception: null");
+                }
+                else
+                {
+                    _output.WriteLine($"  Exception type: {ex.GetType().FullName}");
+                    _output.WriteLine($"  Exception message: {ex.Message}");
+                    if (ex is SqlException sqlEx)
+                    {
+                        _output.WriteLine($"  Exception number: {sqlEx.Number}");
+                    }
+
+                    Exception innerEx = ex.InnerException;
+                    if (innerEx == null)
+                    {
+                        _output.WriteLine("    Inner exception: null");
+                    }
+                    else
+                    {
+                        _output.WriteLine($"    Inner exception type: {innerEx.GetType().FullName}");
+                        _output.WriteLine($"    Inner exception message: {innerEx.Message}");
+                    }
+                }
+
+                _output.WriteLine("#### END COMM EXCEPTION INFO #####################################");
 
                 Assert.Equal(sqlErrorNumber, ex.Number);
                 Assert.Equal(3, logger.LogRecords.Count);
