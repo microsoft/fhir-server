@@ -1062,6 +1062,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 lock (_databaseAccessLocker)
                 {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
                     _isEnabled = IsEnabledInDatabase();
                     _lastUpdated = DateTime.UtcNow;
                 }
