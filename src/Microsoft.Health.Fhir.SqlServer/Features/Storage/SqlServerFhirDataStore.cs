@@ -9,11 +9,13 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Resources;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using Azure.Storage.Files.DataLake;
 using EnsureThat;
 using Hl7.Fhir.Utility;
 using Microsoft.Data.SqlClient;
@@ -384,22 +386,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return results;
             }
 
-            var prevTran = -1L;
-            BlobClient blobClient = null;
-            foreach (var resourceRef in resourceRefs)
-            {
-                var transactionId = resourceRef.Item1;
-                var offsetInFile = resourceRef.Item2;
-                var blobName = GetBlobName(transactionId);
-                if (transactionId != prevTran)
-                {
-                    blobClient = _adlsClient.GetBlobClient(blobName);
-                }
+            ////var prevTran = -1L;
+            ////BlobClient blobClient = null;
+            ////foreach (var resourceRef in resourceRefs)
+            ////{
+            ////    var transactionId = resourceRef.Item1;
+            ////    var offsetInFile = resourceRef.Item2;
+            ////    var blobName = GetBlobName(transactionId);
+            ////    if (transactionId != prevTran)
+            ////    {
+            ////        blobClient = _adlsClient.GetBlobClient(blobName);
+            ////    }
 
-                using var reader = new StreamReader(blobClient.OpenRead(offsetInFile));
-                var line = reader.ReadLine();
-                results.Add(resourceRef, line.Split('\t')[4]);
-                prevTran = transactionId;
+            ////    using var reader = new StreamReader(blobClient.OpenRead(offsetInFile));
+            ////    var line = reader.ReadLine();
+            ////    results.Add(resourceRef, line.Split('\t')[4]);
+            ////    prevTran = transactionId;
+            ////}
+
+            var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.Item1);
+            foreach (var group in resourceRefsByTransaction)
+            {
+                var transactionId = group.Key;
+                var blobName = GetBlobName(transactionId);
+                var fileClient = new DataLakeFileClient(_adlsConnectionString, _adlsContainer, blobName);
+                using var stream = fileClient.OpenRead(bufferSize: 1024 * 20);
+                using var reader = new StreamReader(stream);
+                foreach (var resourceRef in group.Select(_ => _))
+                {
+                    reader.DiscardBufferedData();
+                    stream.Position = resourceRef.Item2;
+                    var line = reader.ReadLine();
+                    results.Add(resourceRef, line.Split('\t')[4]);
+                }
             }
 
             TryLogEvent("GetRawResourceFromAdls", "Warn", null, (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={results.Count}", start, CancellationToken.None).Wait();
