@@ -304,7 +304,7 @@ END
                         // On Windows we get correct error number.
                         return true;
                     }
-                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("transport", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
                     {
                         // On Linux we get 0 error number for various connection problems so we check message string as well.
                         return true;
@@ -317,7 +317,7 @@ END
                         // On Windows we get correct error number.
                         return true;
                     }
-                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("transport", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
                     {
                         // On Linux we get 0 error number for various connection problems so we check message string as well.
                         return true;
