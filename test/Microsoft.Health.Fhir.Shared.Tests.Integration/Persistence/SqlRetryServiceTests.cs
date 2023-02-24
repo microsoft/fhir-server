@@ -25,8 +25,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly SqlServerFhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
-        private const int SqlConnectionError = 233;
-        private const int SqlLoginError = 4060;
         private const int SqlDivByZeroErrorNumber = 8134;
         private const int SqlDefaultErrorNumber = 50000;
 
@@ -35,6 +33,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fixture = fixture;
             _output = output;
         }
+
+        // SQL fatal error tests.
 
         [Fact]
         public async Task GivenSqlCommandAction_WhenFatalError_SingleRetryIsRun()
@@ -47,6 +47,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await SingleRetryTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithSingleFatalError, true, 0);
         }
+
+        [Fact]
+        public async Task GivenSqlCommandAction_WhenErrorAfterSelect_AllRetriesAreRun()
+        {
+            await AllRetriesTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, false);
+        }
+
+        [Fact]
+        public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_AllRetriesAreRun()
+        {
+            await AllRetriesTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, true);
+        }
+
+        // SQL SELECT retry tests.
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenErrorBeforeSelect_SingleRetryIsRun()
@@ -66,40 +80,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorAfterSelect, true, 10);
         }
 
-        [Fact]
-        public async Task GivenSqlCommandAction_WhenErrorAfterSelect_AllRetriesAreRun()
-        {
-            await AllRetriesTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, false);
-        }
-
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_AllRetriesAreRun()
-        {
-            await AllRetriesTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, true);
-        }
+        // Connection error retry tests.
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         {
-            await SingleConnectionRetryTest(SqlConnectionError, CreateTestStoredProcedureWithSingleConnectionError);
+            await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesAreRun()
         {
-            await AllConnectionRetriesTest(SqlConnectionError, CreateTestStoredProcedureWithAllConnectionErrors);
+            await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         {
-            await SingleConnectionRetryTest(SqlLoginError, CreateTestStoredProcedureToReadTop10, true);
+            await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesAreRun()
         {
-            await AllConnectionRetriesTest(SqlLoginError, CreateTestStoredProcedureToReadTop10, true);
+            await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
         }
 
         private async Task ExecuteSql(string commandText)
@@ -160,7 +164,8 @@ END
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
-RAISERROR('TestError', 20, 127) WITH LOG
+--RAISERROR('TestError', 20, 127) WITH LOG
+RAISERROR('TestError', 18, 127)
              ");
         }
 
@@ -174,7 +179,8 @@ DECLARE @RaiseError bit = 0
 IF NOT EXISTS (SELECT * FROM dbo.{tableName})
 BEGIN
   INSERT INTO dbo.{tableName} (Id) SELECT 'TestError' 
-  RAISERROR('TestError', 20, 127) WITH LOG
+--  RAISERROR('TestError', 20, 127) WITH LOG
+  RAISERROR('TestError', 18, 127)
 END
              ");
         }
@@ -264,13 +270,17 @@ END
             }
         }
 
-        private async Task<SqlRetryService> InitializeTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionInitializationFailure = false, bool failOnAllRetries = false)
+        private async Task<SqlRetryService> InitializeTest(int? sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionInitializationFailure = false, bool failOnAllRetries = false)
         {
             await CreateTestTable(testTableName);
             await testStoredProc(storedProcedureName, testTableName);
 
             var sqlRetryServiceOptions = new SqlRetryServiceOptions();
-            sqlRetryServiceOptions.AddTransientErrors.Add(sqlErrorNumber);
+            if (sqlErrorNumber != null)
+            {
+            sqlRetryServiceOptions.AddTransientErrors.Add((int)sqlErrorNumber);
+            }
+
             sqlRetryServiceOptions.RetryMillisecondsDelay = 10;
             sqlRetryServiceOptions.MaxRetries = 3;
             if (testConnectionInitializationFailure)
@@ -283,12 +293,47 @@ END
             }
         }
 
-        private async Task SingleConnectionRetryTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure = false)
+        private bool IsConnectionFailedException(Exception ex, bool testConnectionInitializationFailure)
+        {
+            if (ex is SqlException sqlEx)
+            {
+                if (testConnectionInitializationFailure)
+                {
+                    if (sqlEx.Number == 4060)
+                    {
+                        // On Windows we get correct error number.
+                        return true;
+                    }
+                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("transport", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // On Linux we get 0 error number for various connection problems so we check message string as well.
+                        return true;
+                    }
+                }
+                else
+                {
+                    if (sqlEx.Number == 233)
+                    {
+                        // On Windows we get correct error number.
+                        return true;
+                    }
+                    else if (sqlEx.Number == 0 && sqlEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) && sqlEx.Message.Contains("error", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // On Linux we get 0 error number for various connection problems so we check message string as well.
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private async Task SingleConnectionRetryTest(Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure = false)
         {
             MakeStoredProcedureAndTableName(false, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure);
+                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure);
                 var logger = new TestLogger();
 
                 using SqlCommand sqlCommand = new SqlCommand();
@@ -340,7 +385,7 @@ END
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
                 Assert.IsType<SqlException>(logger.LogRecords[0].Exception);
-                Assert.Equal(sqlErrorNumber, ((SqlException)logger.LogRecords[0].Exception).Number);
+                Assert.True(IsConnectionFailedException(logger.LogRecords[0].Exception, testConnectionInitializationFailure));
             }
             finally
             {
@@ -348,12 +393,12 @@ END
             }
         }
 
-        private async Task AllConnectionRetriesTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure = false)
+        private async Task AllConnectionRetriesTest(Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure = false)
         {
             MakeStoredProcedureAndTableName(true, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure, true);
+                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure, true);
                 var logger = new TestLogger();
 
                 using SqlCommand sqlCommand = new SqlCommand();
@@ -394,20 +439,20 @@ END
 
                 _output.WriteLine("#### END COMM EXCEPTION INFO #####################################");
 
-                Assert.Equal(sqlErrorNumber, ex.Number);
+                Assert.True(IsConnectionFailedException(ex, testConnectionInitializationFailure));
                 Assert.Equal(3, logger.LogRecords.Count);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
                 Assert.IsType<SqlException>(logger.LogRecords[0].Exception);
-                Assert.Equal(sqlErrorNumber, ((SqlException)logger.LogRecords[0].Exception).Number);
+                Assert.True(IsConnectionFailedException(logger.LogRecords[0].Exception, testConnectionInitializationFailure));
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[1].LogLevel);
                 Assert.IsType<SqlException>(logger.LogRecords[1].Exception);
-                Assert.Equal(sqlErrorNumber, ((SqlException)logger.LogRecords[1].Exception).Number);
+                Assert.True(IsConnectionFailedException(logger.LogRecords[1].Exception, testConnectionInitializationFailure));
 
                 Assert.Equal(LogLevel.Error, logger.LogRecords[2].LogLevel);
                 Assert.IsType<SqlException>(logger.LogRecords[2].Exception);
-                Assert.Equal(sqlErrorNumber, ((SqlException)logger.LogRecords[2].Exception).Number);
+                Assert.True(IsConnectionFailedException(logger.LogRecords[2].Exception, testConnectionInitializationFailure));
             }
             finally
             {
