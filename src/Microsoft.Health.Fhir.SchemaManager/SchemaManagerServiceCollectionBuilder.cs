@@ -42,7 +42,7 @@ public static class SchemaManagerServiceCollectionBuilder
         services.AddSingleton<BaseSchemaRunner>();
         services.AddSingleton<IBaseSchemaRunner, FhirBaseSchemaRunner>();
 
-        services.AddMediatR(typeof(SchemaUpgradedNotification).Assembly);
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(SchemaUpgradedNotification).Assembly));
 
         services.AddSingleton<ISchemaClient, FhirSchemaClient>();
         services.AddSingleton<ISchemaManager, SqlSchemaManager>();
