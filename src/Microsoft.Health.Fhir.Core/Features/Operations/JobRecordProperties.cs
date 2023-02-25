@@ -73,8 +73,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string EndResourceSurrogateId = "endResourceSurrogateId";
 
-        public const string StartResourceSurrogateId = "startResourceSurrogateId";
-
         public const string StorageAccountConnectionHash = "storageAccountConnectionHash";
 
         public const string StorageAccountUri = "storageAccountUri";
