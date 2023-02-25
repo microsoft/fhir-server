@@ -12,6 +12,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -48,6 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             };
 
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
+        private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private readonly IsExceptionRetriable _defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
         private readonly bool _defaultIsExceptionRetriableOff;
         private readonly IsExceptionRetriable _customIsExceptionRetriable;
@@ -56,12 +58,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
+            IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
             SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions)
         {
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
+            _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
 
@@ -163,16 +167,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false); // TODO: check for transaction
-
                     // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
-                    // Connection is never open but RetryLogicProvider is set to the old retry implementation. According to the .NET spec, RetryLogicProvider must be set before opening connection to take effect.
-                    // Therefore we must reset it to null here before opening the connection.
-                    sqlConnection.RetryLogicProvider = null; // Before opening connection, reset old retry logic to null! To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+                    using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                    // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, depreciated retry implementation. According to the .NET spec, RetryLogicProvider
+                    // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
+                    sqlConnection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
                     await sqlConnection.OpenAsync(cancellationToken);
 
-                    // sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds; // TODO:
+                    sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
                     sqlCommand.Connection = sqlConnection;
 
                     await action(sqlCommand, cancellationToken);

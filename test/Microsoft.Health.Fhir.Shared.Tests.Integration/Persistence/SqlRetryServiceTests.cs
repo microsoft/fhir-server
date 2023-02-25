@@ -164,7 +164,6 @@ END
 CREATE OR ALTER PROCEDURE dbo.{storedProcedureName}
 AS
 set nocount on
---RAISERROR('TestError', 20, 127) WITH LOG
 RAISERROR('TestError', 18, 127)
              ");
         }
@@ -179,7 +178,6 @@ DECLARE @RaiseError bit = 0
 IF NOT EXISTS (SELECT * FROM dbo.{tableName})
 BEGIN
   INSERT INTO dbo.{tableName} (Id) SELECT 'TestError' 
---  RAISERROR('TestError', 20, 127) WITH LOG
   RAISERROR('TestError', 18, 127)
 END
              ");
@@ -278,18 +276,18 @@ END
             var sqlRetryServiceOptions = new SqlRetryServiceOptions();
             if (sqlErrorNumber != null)
             {
-            sqlRetryServiceOptions.AddTransientErrors.Add((int)sqlErrorNumber);
+                sqlRetryServiceOptions.AddTransientErrors.Add((int)sqlErrorNumber);
             }
 
             sqlRetryServiceOptions.RetryMillisecondsDelay = 10;
             sqlRetryServiceOptions.MaxRetries = 3;
             if (testConnectionInitializationFailure)
             {
-                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, failOnAllRetries), Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, failOnAllRetries), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
             }
             else
             {
-                return new SqlRetryService(_fixture.SqlConnectionBuilder, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
             }
         }
 
@@ -352,35 +350,6 @@ END
                     Assert.Equal(i + 1, result[i]);
                 }
 
-                _output.WriteLine("#### START COMM EXCEPTION INFO ###################################");
-                if (logger.LogRecords.Count <= 0 || logger.LogRecords[0].Exception == null)
-                {
-                    _output.WriteLine("  Exception: null");
-                }
-                else
-                {
-                    Exception ex = logger.LogRecords[0].Exception;
-                    _output.WriteLine($"  Exception type: {ex.GetType().FullName}");
-                    _output.WriteLine($"  Exception message: {ex.Message}");
-                    if (ex is SqlException sqlEx)
-                    {
-                        _output.WriteLine($"  Exception number: {sqlEx.Number}");
-                    }
-
-                    Exception innerEx = ex.InnerException;
-                    if (innerEx == null)
-                    {
-                        _output.WriteLine("    Inner exception: null");
-                    }
-                    else
-                    {
-                        _output.WriteLine($"    Inner exception type: {innerEx.GetType().FullName}");
-                        _output.WriteLine($"    Inner exception message: {innerEx.Message}");
-                    }
-                }
-
-                _output.WriteLine("#### END COMM EXCEPTION INFO #####################################");
-
                 Assert.Single(logger.LogRecords);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
@@ -410,34 +379,6 @@ END
                     logger,
                     "log message",
                     CancellationToken.None));
-
-                _output.WriteLine("#### START COMM EXCEPTION INFO ###################################");
-                if (ex == null)
-                {
-                    _output.WriteLine("  Exception: null");
-                }
-                else
-                {
-                    _output.WriteLine($"  Exception type: {ex.GetType().FullName}");
-                    _output.WriteLine($"  Exception message: {ex.Message}");
-                    if (ex is SqlException sqlEx)
-                    {
-                        _output.WriteLine($"  Exception number: {sqlEx.Number}");
-                    }
-
-                    Exception innerEx = ex.InnerException;
-                    if (innerEx == null)
-                    {
-                        _output.WriteLine("    Inner exception: null");
-                    }
-                    else
-                    {
-                        _output.WriteLine($"    Inner exception type: {innerEx.GetType().FullName}");
-                        _output.WriteLine($"    Inner exception message: {innerEx.Message}");
-                    }
-                }
-
-                _output.WriteLine("#### END COMM EXCEPTION INFO #####################################");
 
                 Assert.True(IsConnectionFailedException(ex, testConnectionInitializationFailure));
                 Assert.Equal(3, logger.LogRecords.Count);

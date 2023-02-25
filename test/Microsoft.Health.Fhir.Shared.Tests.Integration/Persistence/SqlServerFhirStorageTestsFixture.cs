@@ -15,7 +15,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -83,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = Options.Create(new SqlServerDataStoreConfiguration
+            SqlServerDataStoreConfiguration = Options.Create(new SqlServerDataStoreConfiguration
             {
                 ConnectionString = TestConnectionString,
                 Initialize = true,
@@ -99,13 +98,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
-            var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
+            var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(SqlServerDataStoreConfiguration);
             SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
 
             var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
             sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(TestConnectionString)));
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnection, sqlRetryLogicBaseProvider, config);
-            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnection, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
+            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, SqlServerDataStoreConfiguration, NullLogger<SchemaManagerDataStore>.Instance);
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => _schemaUpgradeRunner;
@@ -119,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);
             var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
-            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, config, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
+            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 
@@ -128,7 +127,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 SchemaInformation,
@@ -190,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var queueClient = new TestQueueClient();
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
-            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
+            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
             var sqlQueueClient = new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
             _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
@@ -233,7 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlConnectionWrapperFactory,
                 SqlConnectionBuilder,
                 SqlRetryService,
-                config,
+                SqlServerDataStoreConfiguration,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
@@ -257,6 +256,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlTransactionHandler SqlTransactionHandler { get; }
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
+
+        internal IOptions<SqlServerDataStoreConfiguration> SqlServerDataStoreConfiguration { get; }
 
         internal ISqlConnectionBuilder SqlConnectionBuilder { get; }
 

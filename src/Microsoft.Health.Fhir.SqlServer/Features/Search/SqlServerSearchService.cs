@@ -314,9 +314,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
                         // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
-                        // Connection is never open but RetryLogicProvider is set to the old retry implementation. According to the .NET spec, RetryLogicProvider must be set before opening connection to take effect.
-                        // Therefore we must reset it to null here before opening the connection.
-                        connection.RetryLogicProvider = null; // Before opening connection, reset old retry logic to null! To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+                        // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, depreciated retry implementation. According to the .NET spec, RetryLogicProvider
+                        // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
+                        connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
                         await connection.OpenAsync(cancellationToken);
 
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
@@ -348,7 +348,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             // Command text contains no direct user input.
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
                             sqlCommand.CommandText = stringBuilder.ToString();
-    #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
+#pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
                         LogSqlCommand(sqlCommand);
