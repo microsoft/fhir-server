@@ -199,8 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string searchParameterHash,
             bool countOnly,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false,
-            bool forceReindex = false)
+            bool isAsyncOperation = false)
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters, isAsyncOperation);
 
@@ -209,12 +208,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.CountOnly = true;
             }
 
-            var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken, forceReindex);
+            var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
 
             return results;
         }
 
-        public virtual Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
+        public virtual Task<IReadOnlyList<(long StartId, long EndId, long Count)>> GetSurrogateIdRanges(
             string resourceType,
             long startId,
             long endId,
@@ -248,7 +247,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         protected abstract Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
             string searchParameterHash,
-            CancellationToken cancellationToken,
-            bool forceReindex = false);
+            CancellationToken cancellationToken);
      }
 }

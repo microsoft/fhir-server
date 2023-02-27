@@ -180,8 +180,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<bool> TryPopulateNewJobFields(CancellationToken cancellationToken)
         {
-            // TODO: query just the count of resource types using our sql without searchparamhash
-
             // Build query based on new search params
             // Find supported, but not yet searchable params
             var possibleNotYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
@@ -445,6 +443,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await _jobSemaphore.WaitAsync(cancellationToken);
                 try
                 {
+                    // TODO: change to SearchBySurrogateIdRange
+                    // and then save the query.CurrentSurrogateId value
+                    // replace ct logic with a next surrogateId and keep the CreatedChild logic
+                    // query.CurrentSurrogateId
                     results = await ExecuteReindexQueryAsync(query, countOnly: false, cancellationToken);
 
                     // If continuation token then update next query but only if parent query haven't been in pipeline.
@@ -478,8 +480,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await _jobSemaphore.WaitAsync(cancellationToken);
                     try
                     {
-                        _logger.LogInformation("Reindex job updating progress, current result count: {Count}", results.Results.Count());
-                        _reindexJobRecord.Progress += results.Results.Count();
+                        if (results != null)
+                        {
+                            _logger.LogInformation("Reindex job updating progress, current result count: {Count}", results.Results.Count());
+                            _reindexJobRecord.Progress += results.Results.Count();
+                        }
+
                         query.Status = OperationStatus.Completed;
 
                         // Remove oldest completed queryStatus object if count > 10
@@ -604,6 +610,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
+        private async Task GetReindexCountsAsync(string resourceType, CancellationToken cancellationToken)
+        {
+            // todo
+            long startId = 0;
+            long endId = 42;
+            int range = 50000;
+            using IScoped<ISearchService> searchService = _searchServiceFactory();
+            var results = await searchService.Value.GetSurrogateIdRanges(resourceType, startId, endId, range, 1, true, cancellationToken);
+        }
+
         private async Task<SearchResult> ExecuteReindexQueryAsync(ReindexJobQueryStatus queryStatus, bool countOnly, CancellationToken cancellationToken)
         {
             var queryParametersList = new List<Tuple<string, string>>()
@@ -627,7 +643,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly, cancellationToken, true, countOnly && _reindexJobRecord.ForceReindex);
+                    return await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly, cancellationToken, true);
                 }
                 catch (Exception ex)
                 {
@@ -661,8 +677,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task CalculateAndSetTotalAndResourceCounts()
         {
-            int totalCount = 0;
-            var results = new List<SearchResultReindex>();
+            long totalCount = 0;
             foreach (string resourceType in _reindexJobRecord.Resources)
             {
                 var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)

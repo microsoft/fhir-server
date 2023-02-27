@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ConcurrentDictionary<string, int> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, int>();
 
         [JsonProperty(JobRecordProperties.Count)]
-        public int Count { get; set; }
+        public long Count { get; set; }
 
         [JsonProperty(JobRecordProperties.Progress)]
         public int Progress { get; set; }

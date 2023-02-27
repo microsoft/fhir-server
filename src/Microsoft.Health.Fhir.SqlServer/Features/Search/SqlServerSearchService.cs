@@ -507,7 +507,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <param name="windowStartId">The lower bound for the window of time to consider for historical records</param>
         /// <param name="windowEndId">The upper bound for the window of time to consider for historical records</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>All resources with surrogate ids greater than or equal to startId and less than endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
+        /// <returns>All resources with surrogate ids greater than or equal to startId and less than or equal to endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
         public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
@@ -579,10 +579,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<(long StartId, long EndId, long Count)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            var ranges = new List<(long start, long end)>(numberOfRanges);
+            var ranges = new List<(long start, long end, long count)>(numberOfRanges);
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             sqlCommandWrapper.CommandTimeout = 1200; // Should be >> average execution time which for 100K resources is ~3 minutes.
@@ -590,7 +590,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
-                ranges.Add((reader.GetInt64(1), reader.GetInt64(2)));
+                ranges.Add((reader.GetInt64(1), reader.GetInt64(2), reader.GetInt64(3)));
             }
 
             return ranges;
@@ -797,30 +797,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _logger.LogInformation("{SqlQuery}", sb.ToString());
         }
 
-        protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken, bool forceReindex = false)
+        protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
-            if (forceReindex)
+            if (searchOptions.CountOnly)
             {
                 string resourceType = GetForceReindexResourceType(searchOptions);
-                if (string.IsNullOrWhiteSpace(resourceType))
+                _model.TryGetResourceTypeId(resourceType, out short resourceTypeId);
+                if (string.IsNullOrWhiteSpace(resourceType) || resourceTypeId == 0)
                 {
                     throw new BadRequestException(Resources.MissingResourceTypeForForceReindexOperation);
                 }
 
-                return await SearchForReindexCountInternalAsync(resourceType, cancellationToken);
+                return await SearchForReindexCountInternalAsync(resourceTypeId, cancellationToken);
             }
 
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
             return await SearchImpl(sqlSearchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
         }
 
-        protected async Task<SearchResult> SearchForReindexCountInternalAsync(string resourceType, CancellationToken cancellationToken)
+        protected async Task GetInitialReindexValues(string resourceType, CancellationToken cancellationToken)
+        {
+            // need to do the following
+            // step 1
+            var till = DateTime.UtcNow;
+            var maxId = GetSurrogateId(till);
+            var range = (await GetSurrogateIdRanges(resourceType, 0, maxId, 100, 1, true, cancellationToken))[0];
+        }
+
+        protected async Task<SearchResult> SearchForReindexCountInternalAsync(short resourceTypeId, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            sqlCommandWrapper.Parameters.AddWithValue("@p0", _model.GetResourceTypeId(resourceType));
+            sqlCommandWrapper.Parameters.AddWithValue("@p0", resourceTypeId);
             sqlCommandWrapper.CommandText = @"
-SELECT COUNT_BIG(*)
+SELECT COUNT_BIG(*), MAX(r.ResourceSurrogateId)
 FROM dbo.Resource r
 WHERE r.ResourceTypeId = @p0
     AND r.IsHistory = 0
@@ -829,6 +839,7 @@ WHERE r.ResourceTypeId = @p0
             using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             await reader.ReadAsync(cancellationToken);
             long count = reader.GetInt64(0);
+            long endResourceSurrogateId = reader.GetInt64(1);
 
             var searchResult = new SearchResult((int)count, Array.Empty<Tuple<string, string>>());
 

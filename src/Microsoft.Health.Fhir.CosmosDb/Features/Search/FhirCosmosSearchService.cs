@@ -348,8 +348,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         protected override async Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
             string searchParameterHash,
-            CancellationToken cancellationToken,
-            bool forceReindex = false)
+            CancellationToken cancellationToken)
         {
             QueryDefinition queryDefinition = _queryBuilder.GenerateReindexSql(searchOptions, searchParameterHash);
 
