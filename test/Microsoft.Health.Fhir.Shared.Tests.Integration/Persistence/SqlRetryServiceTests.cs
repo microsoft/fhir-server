@@ -323,6 +323,32 @@ END
                 }
             }
 
+            _output.WriteLine("Error, unrecognized exception.");
+            if (ex == null)
+            {
+                _output.WriteLine("  Exception: null");
+            }
+            else
+            {
+                _output.WriteLine($"  Exception type: {ex.GetType().FullName}");
+                _output.WriteLine($"  Exception message: {ex.Message}");
+                if (ex is SqlException sqlException)
+                {
+                    _output.WriteLine($"  Exception number: {sqlException.Number}");
+                }
+
+                Exception innerEx = ex.InnerException;
+                if (innerEx == null)
+                {
+                    _output.WriteLine("    Inner exception: null");
+                }
+                else
+                {
+                    _output.WriteLine($"    Inner exception type: {innerEx.GetType().FullName}");
+                    _output.WriteLine($"    Inner exception message: {innerEx.Message}");
+                }
+            }
+
             return false;
         }
 
