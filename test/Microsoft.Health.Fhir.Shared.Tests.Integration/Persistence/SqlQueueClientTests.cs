@@ -49,11 +49,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlQueueClientTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
-        private readonly HashSet<Type> _retriableExceptions = new HashSet<Type>()
-        {
-            typeof(RetriableJobException),
-        };
-
         private readonly SqlServerFhirStorageTestsFixture _fixture;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlQueueClient> _logger = Substitute.For<ILogger<SqlQueueClient>>();
@@ -362,8 +357,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                     Assert.Equal(job.Id, jobInt.Id);
                     Assert.True(dequeueDate >= execDate, $"dequeue:{dequeueDate} >= exec:{execDate}");
-                },
-                additionalRetriableExceptions: _retriableExceptions);
+                });
         }
 
         [Fact]
@@ -409,8 +403,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                     Assert.Equal(job.Id, jobInt.Id);
                     Assert.True(dequeueDate >= execDate, $"dequeue:{dequeueDate} >= exec:{execDate}");
-                },
-                additionalRetriableExceptions: _retriableExceptions);
+                });
         }
     }
 }

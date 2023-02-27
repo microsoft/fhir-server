@@ -153,7 +153,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
         {
             const int MaxNumberOfIcMs = 3;
-
             int attempt = 0;
             do
             {
@@ -206,7 +205,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
                 }
-            } while (true);
+            }
+            while (true);
         }
 
         public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
