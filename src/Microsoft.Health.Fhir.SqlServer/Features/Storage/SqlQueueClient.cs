@@ -152,41 +152,61 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
         {
-            try
+            const int MaxNumberOfIcMs = 3;
+
+            int attempt = 0;
+            do
             {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                // cannot use VLatest as it incorrectly asks for optional @InputJobId
-                sqlCommandWrapper.CommandText = "dbo.DequeueJob";
-                sqlCommandWrapper.CommandType = System.Data.CommandType.StoredProcedure;
-                sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
-                sqlCommandWrapper.Parameters.AddWithValue("@Worker", worker);
-                sqlCommandWrapper.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
-                if (jobId.HasValue)
+                try
                 {
-                    sqlCommandWrapper.Parameters.AddWithValue("@InputJobId", jobId.Value);
-                }
+                    using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                    using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-                JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
-                if (jobInfo != null)
+                    // cannot use VLatest as it incorrectly asks for optional @InputJobId
+                    sqlCommandWrapper.CommandText = "dbo.DequeueJob";
+                    sqlCommandWrapper.CommandType = System.Data.CommandType.StoredProcedure;
+                    sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
+                    sqlCommandWrapper.Parameters.AddWithValue("@Worker", worker);
+                    sqlCommandWrapper.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
+                    if (jobId.HasValue)
+                    {
+                        sqlCommandWrapper.Parameters.AddWithValue("@InputJobId", jobId.Value);
+                    }
+
+                    await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                    JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
+                    if (jobInfo != null)
+                    {
+                        jobInfo.QueueType = queueType;
+                    }
+
+                    return jobInfo;
+                }
+                catch (Exception ex)
                 {
-                    jobInfo.QueueType = queueType;
-                }
+                    attempt++;
+                    bool isRetriable = ex.IsRetryable();
 
-                return jobInfo;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "DequeueAsync failed.");
-                if (ex.IsRetryable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
+                    _logger.LogError(ex, "DequeueAsync failed. Attempt {AttemptNumber}. Is retriable: {IsRetriable}", attempt, isRetriable);
 
-                throw;
-            }
+                    if (!isRetriable)
+                    {
+                        throw;
+                    }
+
+                    if (attempt >= MaxNumberOfIcMs)
+                    {
+                        if (isRetriable)
+                        {
+                            throw new RetriableJobException(ex.Message, ex);
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
+                }
+            } while (true);
         }
 
         public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)

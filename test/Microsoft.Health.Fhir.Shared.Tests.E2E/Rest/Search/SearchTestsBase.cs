@@ -275,13 +275,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             sb.AppendLine("Actual collection as below -");
             foreach (var element in actualResources)
             {
-                sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
+                sb.AppendLine(element.ToJson());
             }
 
             sb.AppendLine("Expected Collection as below -");
             foreach (var element in expectedResources)
             {
-                sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
+                sb.AppendLine(element.ToJson());
             }
 
             throw new XunitException(sb.ToString());
