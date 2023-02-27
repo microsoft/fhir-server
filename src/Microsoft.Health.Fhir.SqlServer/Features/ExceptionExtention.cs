@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("connected host has failed to respond", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("operation on a socket could not be performed", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("transport-level error", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("connection is closed", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("severe error occurred", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("connection timeout expired", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("existing connection was forcibly closed by the remote host", StringComparison.OrdinalIgnoreCase)

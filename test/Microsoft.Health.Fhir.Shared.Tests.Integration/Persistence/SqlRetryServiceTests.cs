@@ -322,6 +322,17 @@ END
                     }
                 }
             }
+            else if (ex != null)
+            {
+                if (!testConnectionInitializationFailure)
+                {
+                    // On Linux sometimes non-SqlException is thrown.
+                    if (ex is InvalidOperationException invOpEx && invOpEx.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) && invOpEx.Message.Contains("closed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
 
             _output.WriteLine("Error, unrecognized exception.");
             if (ex == null)
@@ -360,7 +371,7 @@ END
                 SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure);
                 var logger = new TestLogger();
 
-                using SqlCommand sqlCommand = new SqlCommand();
+                using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
                 List<long> result = await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
                     sqlCommand,
@@ -396,17 +407,26 @@ END
                 SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure, true);
                 var logger = new TestLogger();
 
-                using SqlCommand sqlCommand = new SqlCommand();
+                using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
-                SqlException ex;
-                ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
-                    sqlCommand,
-                    testConnectionInitializationFailure ? SqlCommandFuncWithRetries : SqlCommandFuncWithRetriesAndKillConnection,
-                    logger,
-                    "log message",
-                    CancellationToken.None));
+                try
+                {
+                    await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
+                        sqlCommand,
+                        testConnectionInitializationFailure ? SqlCommandFuncWithRetries : SqlCommandFuncWithRetriesAndKillConnection,
+                        logger,
+                        "log message",
+                        CancellationToken.None);
 
-                Assert.True(IsConnectionFailedException(ex, testConnectionInitializationFailure));
+                    // In this test exception should be thrown. This point should never be reached.
+                    // We use this pattern instead of Assert.ThrowsAsync<T> because different exception types could be thrown if connection is broken (SqlException, InvalidOperationException).
+                    Assert.True(false);
+                }
+                catch (Exception ex)
+                {
+                    Assert.True(IsConnectionFailedException(ex, testConnectionInitializationFailure));
+                }
+
                 Assert.Equal(3, logger.LogRecords.Count);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
@@ -435,7 +455,7 @@ END
                 SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName);
                 var logger = new TestLogger();
 
-                using SqlCommand sqlCommand = new SqlCommand();
+                using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
 
                 if (func)
@@ -483,7 +503,7 @@ END
                 SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName);
                 var logger = new TestLogger();
 
-                using SqlCommand sqlCommand = new SqlCommand();
+                using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
 
                 SqlException ex;
