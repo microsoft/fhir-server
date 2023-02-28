@@ -10,6 +10,7 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using Azure.Storage.Files.DataLake;
 using Microsoft.Health.Fhir.Store.Utils;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Store.Export
 {
@@ -50,7 +52,12 @@ namespace Microsoft.Health.Fhir.Store.Export
 
         public static void Main(string[] args)
         {
-            if (args.Length == 0 || args[0] == "storage")
+            if (args.Length == 0 || args[0] == "random")
+            {
+                var count = args.Length > 1 ? int.Parse(args[1]) : 100;
+                RandomReads(count);
+            }
+            else if (args[0] == "storage")
             {
                 var count = args.Length > 1 ? int.Parse(args[1]) : 100;
                 var bufferKB = args.Length > 2 ? int.Parse(args[2]) : 20;
@@ -76,6 +83,91 @@ namespace Microsoft.Health.Fhir.Store.Export
                     Export();
                 }
             }
+        }
+
+        public static void RandomReads(int count)
+        {
+            var ranges = Source.GetSurrogateIdRanges(96, 0, 5104998046807519719, 10000, 1000);
+            var refs = new List<(long TransactionId, int OffsetInFile)>();
+            foreach (var range in ranges)
+            {
+                refs.AddRange(Source.GetRefs(96, range.StartId, range.EndId));
+            }
+
+            var blobDurations = new List<double>();
+            var fileDurations = new List<double>();
+            for (var l = 0; l < 10; l++)
+            {
+                var subSetRefs = refs.OrderBy(_ => RandomNumberGenerator.GetInt32(10000000)).Take(count).ToList();
+                var sw = Stopwatch.StartNew();
+                var resources = GetRawResourceFromAdls(subSetRefs, true);
+                blobDurations.Add(sw.Elapsed.TotalMilliseconds);
+                Console.WriteLine($"BLOB.RandomRead.{resources.Count}.buffer={20}.parall=16: total={sw.Elapsed.TotalMilliseconds} msec perLine={sw.Elapsed.TotalMilliseconds / resources.Count} msec");
+                sw = Stopwatch.StartNew();
+                resources = GetRawResourceFromAdls(subSetRefs, false);
+                fileDurations.Add(sw.Elapsed.TotalMilliseconds);
+                Console.WriteLine($"ADLS.RandomRead.{resources.Count}.buffer={20}.parall=16: total={sw.Elapsed.TotalMilliseconds} msec perLine={sw.Elapsed.TotalMilliseconds / resources.Count} msec");
+            }
+
+            Console.WriteLine($"BLOB.RandomRead.buffer={20}.parall=16: total={blobDurations.Sum() / 10} msec");
+            Console.WriteLine($"ADLS.RandomRead.buffer={20}.parall=16: total={fileDurations.Sum() / 10} msec");
+        }
+
+        public static IReadOnlyList<string> GetRawResourceFromAdls(IReadOnlyList<(long TransactionId, int OffsetInFile)> resourceRefs, bool isBlob)
+        {
+            var start = DateTime.UtcNow;
+            var results = new List<string>();
+            if (resourceRefs == null || resourceRefs.Count == 0)
+            {
+                return results;
+            }
+
+            if (isBlob)
+            {
+                var container = GetContainer(BlobConnectionString, BlobContainerName);
+                Parallel.ForEach(resourceRefs, new ParallelOptions { MaxDegreeOfParallelism = 16 }, (resourceRef) =>
+                {
+                    var blobName = GetBlobName(resourceRef.TransactionId);
+                    var blobClient = container.GetBlobClient(blobName);
+                    using var reader = new StreamReader(blobClient.OpenRead(resourceRef.OffsetInFile));
+                    var line = reader.ReadLine();
+                    lock (results)
+                    {
+                        results.Add(line.Split('\t')[4]);
+                    }
+                });
+            }
+            else
+            {
+                var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.TransactionId);
+                Parallel.ForEach(resourceRefsByTransaction, new ParallelOptions { MaxDegreeOfParallelism = 16 }, (group) =>
+                {
+                    var transactionId = group.Key;
+                    var blobName = GetBlobName(transactionId);
+                    var fileClient = new DataLakeFileClient(BlobConnectionString, BlobContainerName, blobName);
+                    using var stream = fileClient.OpenRead(bufferSize: 1024 * 20);
+                    using var reader = new StreamReader(stream);
+                    foreach (var resourceRef in group.Select(_ => _))
+                    {
+                        reader.DiscardBufferedData();
+                        stream.Position = resourceRef.OffsetInFile;
+                        var line = reader.ReadLine();
+                        lock (results)
+                        {
+                            results.Add(line.Split('\t')[4]);
+                        }
+                    }
+                });
+            }
+
+            Source.LogEvent("GetRawResourceFromAdls", "Warn", null, rows: (int)(DateTime.UtcNow - start).TotalMilliseconds, text: $"Resources={results.Count}", startTime: start);
+
+            return results;
+        }
+
+        private static string GetBlobName(long transactionId)
+        {
+            return $"transaction-{transactionId}.tjson";
         }
 
         public static void WriteAndReadAdls(int count, int bufferKB)
@@ -173,7 +265,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             var startId = LastUpdatedToResourceSurrogateId(StartDate);
             var endId = LastUpdatedToResourceSurrogateId(EndDate);
             var resourceTypeId = Source.GetResourceTypeId(ResourceType);
-            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, UnitSize).ToList();
+            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, UnitSize, (int)(2e9 / UnitSize)).ToList();
             Console.WriteLine($"ExportNoQueue.{ResourceType}: ranges={ranges.Count}.");
             var container = GetContainer(BlobConnectionString, BlobContainerName);
             foreach (var range in ranges)
@@ -372,8 +464,9 @@ namespace Microsoft.Health.Fhir.Store.Export
             var startId = LastUpdatedToResourceSurrogateId(StartDate);
             var endId = LastUpdatedToResourceSurrogateId(EndDate);
             var resourceTypeId = Source.GetResourceTypeId(resourceType);
-            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, unitSize);
-            var strings = ranges.Select(_ => $"{_.UnitId};{resourceTypeId};{_.StartId};{_.EndId};{_.ResourceCount}").ToList();
+            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, unitSize, (int)(2e9 / unitSize));
+
+            var strings = ranges.Select(_ => $"{0};{resourceTypeId};{_.StartId};{_.EndId};{0}").ToList();
 
             var queueConn = new SqlConnection(Queue.ConnectionString);
             queueConn.Open();

@@ -168,21 +168,44 @@ namespace Microsoft.Health.Fhir.Store.Export
             }
         }
 
-        internal IEnumerable<(int UnitId, long StartId, long EndId, int ResourceCount)> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int unitSize)
+        internal IReadOnlyList<(long TransactionId, int OffsetInFile)> GetRefs(short resourceTypeId, long startId, long endId)
         {
+            var results = new List<(long TransactionId, int OffsetInFile)>();
+            using var conn = new SqlConnection(ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("SELECT TransactionId, OffsetInFile FROM Resource_2 WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId BETWEEN @StartId AND @EndId", conn) { CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+            cmd.Parameters.AddWithValue("@StartId", startId);
+            cmd.Parameters.AddWithValue("@EndId", endId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                results.Add((reader.GetInt64(0), reader.GetInt32(1)));
+            }
+
+            return results;
+        }
+
+        public IReadOnlyList<(long StartId, long EndId)> GetSurrogateIdRanges(short resourceTypeId, long startId, long endId, int rangeSize, int numberOfRanges)
+        {
+            var ranges = new List<(long start, long end)>(numberOfRanges);
+
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
             using var cmd = new SqlCommand("dbo.GetResourceSurrogateIdRanges", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 3600 };
             cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             cmd.Parameters.AddWithValue("@StartId", startId);
             cmd.Parameters.AddWithValue("@EndId", endId);
-            cmd.Parameters.AddWithValue("@UnitSize", unitSize);
-            cmd.Parameters.AddWithValue("@NumberOfRanges", (int)(2e9 / unitSize));
+            cmd.Parameters.AddWithValue("@RangeSize", rangeSize);
+            cmd.Parameters.AddWithValue("@NumberOfRanges", numberOfRanges);
+
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                yield return (reader.GetInt32(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3));
+                ranges.Add((reader.GetInt64(1), reader.GetInt64(2)));
             }
+
+            return ranges;
         }
 
         internal short GetResourceTypeId(string resourceType)
