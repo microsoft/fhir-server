@@ -14,6 +14,7 @@ changelog:
       exclude:
         labels:
           - "Azure Healthcare APIs"
+          - Dependencies
 
     - title: Azure Health Data Services (SQL)
       labels:
@@ -21,11 +22,15 @@ changelog:
       exclude:
         labels:
           - "Azure API for FHIR"
+          - Dependencies
     
     - title: Common to both Azure API for FHIR and Azure Health Data Services
       labels:
         - "Azure Healthcare APIs"
         - "Azure API for FHIR"
+      exclude:
+        labels:
+          - Dependencies
 
     - title: Other Changes
       labels:

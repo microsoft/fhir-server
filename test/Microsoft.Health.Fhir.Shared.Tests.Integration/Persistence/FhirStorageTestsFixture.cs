@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ServiceProvider services = collection.BuildServiceProvider();
 
-            Mediator = new Mediator(type => services.GetService(type));
+            Mediator = new Mediator(services);
 
             Deserializer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
