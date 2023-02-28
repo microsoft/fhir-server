@@ -912,7 +912,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await SearchAndValidateBundleAsync(
                 ResourceType.Organization,
                 query,
-                Fixture.Organization,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.AdamsMedicationRequest,
