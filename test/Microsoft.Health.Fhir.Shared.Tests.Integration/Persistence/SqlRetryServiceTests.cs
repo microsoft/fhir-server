@@ -85,25 +85,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError);
+            await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, true, false);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesAreRun()
         {
-            await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors);
+            await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, true, false);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
+            await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, false, true);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesAreRun()
         {
-            await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
+            await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, false, true);
         }
 
         private async Task ExecuteSql(string commandText)
@@ -268,7 +268,7 @@ END
             }
         }
 
-        private async Task<SqlRetryService> InitializeTest(int? sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionInitializationFailure = false, bool failOnAllRetries = false)
+        private async Task<SqlRetryService> InitializeTest(int? sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionNoPooling, bool testConnectionInitializationFailure, bool testConnectionInitializationFailOnAllRetries)
         {
             await CreateTestTable(testTableName);
             await testStoredProc(storedProcedureName, testTableName);
@@ -281,9 +281,13 @@ END
 
             sqlRetryServiceOptions.RetryMillisecondsDelay = 10;
             sqlRetryServiceOptions.MaxRetries = 3;
-            if (testConnectionInitializationFailure)
+            if (testConnectionNoPooling)
             {
-                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, failOnAllRetries), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+            }
+            else if (testConnectionInitializationFailure)
+            {
+                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationFailOnAllRetries), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
             }
             else
             {
@@ -363,12 +367,12 @@ END
             return false;
         }
 
-        private async Task SingleConnectionRetryTest(Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure = false)
+        private async Task SingleConnectionRetryTest(Func<string, string, Task> testStoredProc, bool testConnectionNoPooling, bool testConnectionInitializationFailure)
         {
             MakeStoredProcedureAndTableName(false, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure);
+                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionNoPooling, testConnectionInitializationFailure, false);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
@@ -390,7 +394,6 @@ END
                 Assert.Single(logger.LogRecords);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
-                Assert.IsType<SqlException>(logger.LogRecords[0].Exception);
                 Assert.True(IsConnectionFailedException(logger.LogRecords[0].Exception, testConnectionInitializationFailure));
             }
             finally
@@ -399,12 +402,12 @@ END
             }
         }
 
-        private async Task AllConnectionRetriesTest(Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure = false)
+        private async Task AllConnectionRetriesTest(Func<string, string, Task> testStoredProc, bool testConnectionNoPooling, bool testConnectionInitializationFailure)
         {
             MakeStoredProcedureAndTableName(true, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionInitializationFailure, true);
+                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionNoPooling, testConnectionInitializationFailure, true);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
@@ -430,15 +433,12 @@ END
                 Assert.Equal(3, logger.LogRecords.Count);
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
-                Assert.IsType<SqlException>(logger.LogRecords[0].Exception);
                 Assert.True(IsConnectionFailedException(logger.LogRecords[0].Exception, testConnectionInitializationFailure));
 
                 Assert.Equal(LogLevel.Information, logger.LogRecords[1].LogLevel);
-                Assert.IsType<SqlException>(logger.LogRecords[1].Exception);
                 Assert.True(IsConnectionFailedException(logger.LogRecords[1].Exception, testConnectionInitializationFailure));
 
                 Assert.Equal(LogLevel.Error, logger.LogRecords[2].LogLevel);
-                Assert.IsType<SqlException>(logger.LogRecords[2].Exception);
                 Assert.True(IsConnectionFailedException(logger.LogRecords[2].Exception, testConnectionInitializationFailure));
             }
             finally
@@ -452,7 +452,7 @@ END
             MakeStoredProcedureAndTableName(false, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName);
+                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, false, false, false);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
@@ -500,7 +500,7 @@ END
             MakeStoredProcedureAndTableName(true, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName);
+                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, false, false, false);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
@@ -592,6 +592,25 @@ END
                 {
                     return await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, cancellationToken);
                 }
+            }
+        }
+
+        private class SqlConnectionBuilderNoPooling : ISqlConnectionBuilder
+        {
+            private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
+
+            public SqlConnectionBuilderNoPooling(ISqlConnectionBuilder sqlConnectionBuilder)
+            {
+                _sqlConnectionBuilder = sqlConnectionBuilder;
+            }
+
+            public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, CancellationToken cancellationToken = default)
+            {
+                SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, cancellationToken);
+                var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString);
+                sqlConnectionStringBuilder.Pooling = false;
+                sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                return sqlConnection;
             }
         }
 
