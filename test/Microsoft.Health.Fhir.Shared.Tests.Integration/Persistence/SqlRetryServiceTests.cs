@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         // Connection error retry tests.
-        */
+        run 2*/
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         {
