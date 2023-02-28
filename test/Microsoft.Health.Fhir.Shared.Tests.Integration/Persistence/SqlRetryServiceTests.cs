@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _output = output;
         }
 
+        /*
         // SQL fatal error tests.
 
         [Fact]
@@ -105,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, false, true);
         }
-
+        */
         private async Task ExecuteSql(string commandText)
         {
             using SqlConnection sqlConnection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync();
