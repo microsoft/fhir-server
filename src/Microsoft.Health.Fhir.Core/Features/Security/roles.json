@@ -1,0 +1,83 @@
+﻿{
+    "$schema": "../Microsoft.Health.Fhir.Core/Features/Security/roles.schema.json",
+    "roles": [
+        {
+            "name": "globalReader",
+            "dataActions": [
+                "read",
+                "resourceValidate"
+            ],
+            "notDataActions": [],
+            "scopes": [
+                "/"
+            ]
+        },
+        {
+            "name": "globalExporter",
+            "dataActions": [
+                "read",
+                "export"
+            ],
+            "notDataActions": [],
+            "scopes": [
+                "/"
+            ]
+        },
+        {
+            "name": "globalConverter",
+            "dataActions": [
+                "read",
+                "convertData"
+            ],
+            "notDataActions": [],
+            "scopes": [
+                "/"
+            ]
+        },
+        {
+            "name": "globalImporter",
+            "dataActions": [
+                "read",
+                "import"
+            ],
+            "notDataActions": [],
+            "scopes": [
+                "/"
+            ]
+        },
+        {
+            "name": "globalWriter",
+            "dataActions": [
+                "*"
+            ],
+            "notDataActions": [
+                "hardDelete",
+                "editProfileDefinitions"
+            ],
+            "scopes": [
+                "/"
+            ]
+        },
+        {
+            "name": "globalAdmin",
+            "dataActions": [
+                "*"
+            ],
+            "notDataActions": [],
+            "scopes": [
+                "/"
+            ]
+        },
+        {
+            "name": "smartUser",
+            "dataActions": [
+                "*",
+                "smart"
+            ],
+            "notDataActions": [],
+            "scopes": [
+                "/"
+            ]
+        }
+    ]
+}
