@@ -42,6 +42,7 @@ public class CosmosQueueClient : IQueueClient
 
     public bool IsInitialized() => true;
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(
         byte queueType,
         string[] definitions,
@@ -55,31 +56,37 @@ public class CosmosQueueClient : IQueueClient
         var id = GetLongId();
         var jobInfos = new List<JobInfo>();
 
-        var definitionHashes = definitions.Select(d => $"'{d.ComputeHash()}'").ToList();
-
         using IScoped<Container> container = _containerFactory.Invoke();
+
+        // Check if there are any existing jobs with the same definition
+        var definitionHashes = definitions
+            .Distinct()
+            .ToDictionary(d => d.ComputeHash(), d => d);
 
         QueryDefinition existingJobsSpec = new QueryDefinition(@$"SELECT VALUE c FROM root c
              JOIN d in c.definitions
              WHERE c.queueType = @queueType 
               AND (c.groupId = @groupId OR @groupId = null)
               AND ARRAY_CONTAINS([0, 1], d.status)
-              AND ARRAY_CONTAINS([{string.Join(",", definitionHashes)}], d.definitionHash)")
+              AND ARRAY_CONTAINS([{string.Join(",", definitionHashes.Select(x => $"'{x.Key}'"))}], d.definitionHash)")
             .WithParameter("@queueType", queueType)
             .WithParameter("@groupId", groupId);
 
-        var existingJobs = await ExecuteQueryAsync(existingJobsSpec, 100, cancellationToken);
-
+        // Add existing job records to the list of job infos
+        IReadOnlyList<JobGroupWrapper> existingJobs = await ExecuteQueryAsync(existingJobsSpec, 100, cancellationToken);
         if (existingJobs.Count > 0)
         {
             IEnumerable<JobInfo> existingJobInfos =
-                existingJobs.SelectMany(x => x.ToJobInfo(x.Definitions.Where(y => definitions.Contains(y.Definition))));
+                existingJobs.SelectMany(x => x.ToJobInfo(x.Definitions.Where(y => definitionHashes.ContainsKey(y.DefinitionHash))));
 
             jobInfos.AddRange(existingJobInfos);
         }
 
-        var newDefinitions = definitions.Except(jobInfos.Select(x => x.Definition)).ToArray();
+        // Filter new job definitions
+        var existingJobHashes = existingJobs.SelectMany(x => x.Definitions).Select(x => x.DefinitionHash).ToHashSet();
+        var newDefinitions = definitionHashes.Where(x => !existingJobHashes.Contains(x.Key)).Select(x => x.Value).ToArray();
 
+        // If forceOneActiveJobGroup is true, then check if there are any existing active jobs with the same queue type
         if (forceOneActiveJobGroup)
         {
             await using ICosmosDbDistributedLock distributedLock = _distributedLockFactory.Create(container.Value, "__jobQueue:" + queueType);
@@ -125,6 +132,7 @@ public class CosmosQueueClient : IQueueClient
             TimeToLive = (int)TimeSpan.FromDays(30).TotalSeconds,
         };
 
+        // The first JobId is the same as the JobGroupWrapper.Id and is sequentially incremented
         var jobId = id;
 
         foreach (var item in definitions)
@@ -146,6 +154,7 @@ public class CosmosQueueClient : IQueueClient
         return result.Resource.ToJobInfo().ToList();
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyCollection<JobInfo>> DequeueJobsAsync(
         byte queueType,
         int numberOfJobsToDequeue,
@@ -181,6 +190,7 @@ public class CosmosQueueClient : IQueueClient
 
     private async Task<IReadOnlyCollection<JobInfo>> DequeueItemsInternalAsync(JobGroupWrapper item, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, string jobId = null)
     {
+        // Filter Job Definitions needing to be dequeued
         var scan = item.Definitions
             .Where(x => x.JobId == jobId
                  || (jobId == null &&
@@ -219,6 +229,8 @@ public class CosmosQueueClient : IQueueClient
                 job.Worker = worker;
                 job.DequeueCount += 1;
                 job.StartDate ??= Clock.UtcNow;
+
+                // Job Version is used to detect if the job has been updated while it was running (used by Heartbeat)
                 job.Version = GenerateVersion();
 
                 toReturn.Add(job);
@@ -230,6 +242,7 @@ public class CosmosQueueClient : IQueueClient
         return item.ToJobInfo(toReturn).ToList();
     }
 
+    /// <inheritdoc />
     public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
     {
         if (jobId == null)
@@ -247,6 +260,7 @@ public class CosmosQueueClient : IQueueClient
         throw new JobNotExistException("Job not found.");
     }
 
+    /// <inheritdoc />
     public async Task<JobInfo> GetJobByIdAsync(byte queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken)
     {
         IReadOnlyList<JobInfo> job = await GetJobsByIdsAsync(queueType, new[] { jobId }, returnDefinition, cancellationToken);
@@ -264,6 +278,7 @@ public class CosmosQueueClient : IQueueClient
         return null;
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
     {
         var jobs = await GetJobsByIdsInternalAsync(queueType, jobIds, returnDefinition, cancellationToken);
@@ -277,12 +292,14 @@ public class CosmosQueueClient : IQueueClient
         return infos;
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
     {
         IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
         return jobs.SelectMany(job => job.ToJobInfo(job.Definitions)).ToList();
     }
 
+    /// <inheritdoc />
     public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
     {
         return await _retryPolicy.ExecuteAsync(async () =>
@@ -318,6 +335,7 @@ public class CosmosQueueClient : IQueueClient
         });
     }
 
+    /// <inheritdoc />
     public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
     {
         IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
@@ -340,6 +358,7 @@ public class CosmosQueueClient : IQueueClient
         }
     }
 
+    /// <inheritdoc />
     public async Task CancelJobByIdAsync(byte queueType, long jobId, CancellationToken cancellationToken)
     {
         var jobs = await GetJobsByIdsInternalAsync(queueType, new[] { jobId }, false, cancellationToken);
@@ -358,6 +377,7 @@ public class CosmosQueueClient : IQueueClient
         }
     }
 
+    /// <inheritdoc />
     public async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
     {
         var jobs = await GetJobsByIdsInternalAsync(jobInfo.QueueType, new[] { jobInfo.Id }, false, cancellationToken);
@@ -369,6 +389,7 @@ public class CosmosQueueClient : IQueueClient
         {
             if (jobInfo.Status == JobStatus.Failed)
             {
+                // If a job fails with requestCancellationOnFailure, all other jobs in the group should be cancelled.
                 if (requestCancellationOnFailure)
                 {
                     foreach (JobDefinitionWrapper jobDefinition in definitionTuple.JobGroup.Definitions)
