@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _output = output;
         }
 
-        /*
+        /* Run 2
         // SQL fatal error tests.
 
         [Fact]
