@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _output = output;
         }
 
-        /* Run 3
+        /*
         // SQL fatal error tests.
 
         [Fact]
@@ -82,13 +82,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         // Connection error retry tests.
-
+        */
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         {
             await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, true, false);
         }
 
+        /*
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesAreRun()
         {
