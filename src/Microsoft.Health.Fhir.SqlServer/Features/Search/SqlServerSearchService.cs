@@ -45,6 +45,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSearchService : SearchService
     {
+        private static readonly GetResourceSurrogateIdRangesProcedure GetResourceSurrogateIdRanges = new GetResourceSurrogateIdRangesProcedure();
+
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
 
@@ -617,21 +619,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        private static (long StartId, long EndId) ReaderToSurogateIdRange(SqlDataReader sqlDataReader)
+        {
+            return (sqlDataReader.GetInt64(1), sqlDataReader.GetInt64(2));
+        }
+
         public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
         {
-            var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            var ranges = new List<(long start, long end)>(numberOfRanges);
-            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            sqlCommandWrapper.CommandTimeout = 1200; // Should be >> average execution time which for 100K resources is ~3 minutes.
-            VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
-            using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                ranges.Add((reader.GetInt64(1), reader.GetInt64(2)));
-            }
+            // TODO: this code will not set capacity for the result list!
 
-            return ranges;
+            var resourceTypeId = _model.GetResourceTypeId(resourceType);
+            using SqlCommand sqlCommand = new SqlCommand();
+            sqlCommand.CommandTimeout = 1200; // Should be >> average execution time which for 100K resources is ~3 minutes.
+            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
+            return await _sqlRetryService.ExecuteSqlDataReader(
+                sqlCommand,
+                ReaderToSurogateIdRange,
+                _logger,
+                "GetSurrogateIdRanges failed.",
+                cancellationToken);
         }
 
         public override long GetSurrogateId(DateTime dateTime)
@@ -839,6 +845,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
             return await SearchImpl(sqlSearchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
+        }
+
+        // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .
+        private class GetResourceSurrogateIdRangesProcedure : StoredProcedure
+        {
+            private readonly ParameterDefinition<short> _resourceTypeId = new ParameterDefinition<short>("@ResourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<long> _startId = new ParameterDefinition<long>("@StartId", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<long> _endId = new ParameterDefinition<long>("@EndId", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<int> _rangeSize = new ParameterDefinition<int>("@RangeSize", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<int?> _numberOfRanges = new ParameterDefinition<int?>("@NumberOfRanges", global::System.Data.SqlDbType.Int, true);
+            private readonly ParameterDefinition<bool?> _up = new ParameterDefinition<bool?>("@Up", global::System.Data.SqlDbType.Bit, true);
+
+            internal GetResourceSurrogateIdRangesProcedure()
+                : base("dbo.GetResourceSurrogateIdRanges")
+            {
+            }
+
+            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up)
+            {
+                sqlCommand.CommandType = global::System.Data.CommandType.StoredProcedure;
+                sqlCommand.CommandText = "dbo.GetResourceSurrogateIdRanges";
+                _resourceTypeId.AddParameter(sqlCommand.Parameters, resourceTypeId);
+                _startId.AddParameter(sqlCommand.Parameters, startId);
+                _endId.AddParameter(sqlCommand.Parameters, endId);
+                _rangeSize.AddParameter(sqlCommand.Parameters, rangeSize);
+                _numberOfRanges.AddParameter(sqlCommand.Parameters, numberOfRanges);
+                _up.AddParameter(sqlCommand.Parameters, up);
+            }
         }
     }
 }
