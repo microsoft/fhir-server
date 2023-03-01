@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool isAsyncOperation = false);
 
-        Task<IReadOnlyList<(long StartId, long EndId, long Count)>> GetSurrogateIdRanges(
+        Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
             string resourceType,
             long startId,
             long endId,

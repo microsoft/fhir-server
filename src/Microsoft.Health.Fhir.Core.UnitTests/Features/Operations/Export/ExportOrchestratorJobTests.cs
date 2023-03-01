@@ -193,16 +193,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
                 int numRanges = x.ArgAt<int>(4);
-                var ranges = new List<(long StartId, long EndId, long Count)>();
+                var ranges = new List<(long StartId, long EndId)>();
                 if (x.ArgAt<long>(1) <= x.ArgAt<long>(2)) // start <= end to break internal loop
                 {
                     for (int i = 0; i < numRanges; i++)
                     {
-                        ranges.Add((long.MaxValue - 1, long.MaxValue - 1, 1));
+                        ranges.Add((long.MaxValue - 1, long.MaxValue - 1));
                     }
                 }
 
-                return Task.FromResult<IReadOnlyList<(long StartId, long EndId, long Count)>>(ranges);
+                return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(ranges);
             });
 
             _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(x =>
