@@ -58,10 +58,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
                 object newResource = new object();
                 job.AppendResource(newResource);
 
-                Assert.Equal(BatchOrchestratorJobStatus.Waiting, job.Status);
+                if (i == (numberOfResources - 1))
+                {
+                    Assert.Equal(BatchOrchestratorJobStatus.Processing, job.Status);
+                }
+                else
+                {
+                    Assert.Equal(BatchOrchestratorJobStatus.Waiting, job.Status);
+                }
             }
-
-            Assert.Equal(BatchOrchestratorJobStatus.Processing, job.Status);
         }
     }
 }

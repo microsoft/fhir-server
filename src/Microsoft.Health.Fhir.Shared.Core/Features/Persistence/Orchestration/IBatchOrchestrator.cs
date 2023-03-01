@@ -8,6 +8,7 @@ using System;
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
     internal interface IBatchOrchestrator<T>
+        where T : class
     {
         BatchOrchestratorJob<T> CreateNewJob(string label, int expectedNumberOfResources);
 
