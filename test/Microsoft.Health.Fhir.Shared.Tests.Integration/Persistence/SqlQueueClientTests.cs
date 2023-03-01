@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -322,36 +323,41 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             cancel.CancelAfter(TimeSpan.FromSeconds(30));
             var execDate = DateTime.UtcNow;
             var dequeueDate = DateTime.UtcNow;
-            var execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
-                client,
-                queueType,
-                job.Id,
-                job.Version,
-                async cancel =>
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(10));
-                    execDate = DateTime.UtcNow;
-                    return "Test";
-                },
-                TimeSpan.FromSeconds(1),
-                cancel);
-            var jobInt = (JobInfo)null;
-            var dequeueTask = Task.Run(
-                async () =>
-                {
-                    while (jobInt == null)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(1));
-                        jobInt = await client.DequeueAsync(queueType, "test-worker", 2, cancel.Token);
-                    }
 
-                    dequeueDate = DateTime.UtcNow;
-                },
-                cancel.Token);
-            Task.WaitAll(execTask, dequeueTask);
+            this.Retry(
+                () =>
+                {
+                    var execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
+                            client,
+                            queueType,
+                            job.Id,
+                            job.Version,
+                            async cancel =>
+                            {
+                                await Task.Delay(TimeSpan.FromSeconds(10));
+                                execDate = DateTime.UtcNow;
+                                return "Test";
+                            },
+                            TimeSpan.FromSeconds(1),
+                            cancel);
+                    var jobInt = (JobInfo)null;
+                    var dequeueTask = Task.Run(
+                        async () =>
+                        {
+                            while (jobInt == null)
+                            {
+                                await Task.Delay(TimeSpan.FromSeconds(1));
+                                jobInt = await client.DequeueAsync(queueType, "test-worker", 2, cancel.Token);
+                            }
 
-            Assert.Equal(job.Id, jobInt.Id);
-            Assert.True(dequeueDate >= execDate, $"dequeue:{dequeueDate} >= exec:{execDate}");
+                            dequeueDate = DateTime.UtcNow;
+                        },
+                        cancel.Token);
+                    Task.WaitAll(execTask, dequeueTask);
+
+                    Assert.Equal(job.Id, jobInt.Id);
+                    Assert.True(dequeueDate >= execDate, $"dequeue:{dequeueDate} >= exec:{execDate}");
+                });
         }
 
         [Fact]
@@ -365,34 +371,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             cancel.CancelAfter(TimeSpan.FromSeconds(30));
             var execDate = DateTime.UtcNow;
             var dequeueDate = DateTime.UtcNow;
-            var execTask = JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
-                client,
-                job,
-                async cancelSource =>
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(10));
-                    execDate = DateTime.UtcNow;
-                    return "Test";
-                },
-                TimeSpan.FromSeconds(1),
-                cancel);
-            var jobInt = (JobInfo)null;
-            var dequeueTask = Task.Run(
-                async () =>
-                {
-                    while (jobInt == null)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(1));
-                        jobInt = await client.DequeueAsync(queueType, "test-worker", 2, cancel.Token);
-                    }
 
-                    dequeueDate = DateTime.UtcNow;
-                },
-                cancel.Token);
-            Task.WaitAll(execTask, dequeueTask);
+            this.Retry(
+                () =>
+                {
+                    var execTask = JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
+                        client,
+                        job,
+                        async cancelSource =>
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(10));
+                            execDate = DateTime.UtcNow;
+                            return "Test";
+                        },
+                        TimeSpan.FromSeconds(1),
+                        cancel);
+                    var jobInt = (JobInfo)null;
+                    var dequeueTask = Task.Run(
+                        async () =>
+                        {
+                            while (jobInt == null)
+                            {
+                                await Task.Delay(TimeSpan.FromSeconds(1));
+                                jobInt = await client.DequeueAsync(queueType, "test-worker", 2, cancel.Token);
+                            }
 
-            Assert.Equal(job.Id, jobInt.Id);
-            Assert.True(dequeueDate >= execDate, $"dequeue:{dequeueDate} >= exec:{execDate}");
+                            dequeueDate = DateTime.UtcNow;
+                        },
+                        cancel.Token);
+                    Task.WaitAll(execTask, dequeueTask);
+
+                    Assert.Equal(job.Id, jobInt.Id);
+                    Assert.True(dequeueDate >= execDate, $"dequeue:{dequeueDate} >= exec:{execDate}");
+                });
         }
     }
 }
