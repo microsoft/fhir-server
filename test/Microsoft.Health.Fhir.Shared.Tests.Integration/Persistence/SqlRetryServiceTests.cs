@@ -85,25 +85,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, true, false);
+            await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, false);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesAreRun()
         {
-            await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, true, false);
+            await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, false, true);
+            await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
         }
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesAreRun()
         {
-            await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, false, true);
+            await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
         }
 
         private async Task ExecuteSql(string commandText)
@@ -279,7 +279,7 @@ END
                 sqlRetryServiceOptions.AddTransientErrors.Add((int)sqlErrorNumber);
             }
 
-            sqlRetryServiceOptions.RetryMillisecondsDelay = 10;
+            sqlRetryServiceOptions.RetryMillisecondsDelay = 200;
             sqlRetryServiceOptions.MaxRetries = 3;
             if (testConnectionNoPooling)
             {
@@ -367,12 +367,12 @@ END
             return false;
         }
 
-        private async Task SingleConnectionRetryTest(Func<string, string, Task> testStoredProc, bool testConnectionNoPooling, bool testConnectionInitializationFailure)
+        private async Task SingleConnectionRetryTest(Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure)
         {
             MakeStoredProcedureAndTableName(false, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionNoPooling, testConnectionInitializationFailure, false);
+                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, !testConnectionInitializationFailure, testConnectionInitializationFailure, false);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
@@ -399,16 +399,28 @@ END
             finally
             {
                 await DropTestObjecs(storedProcedureName, testTableName);
-                await Task.Delay(30 * 1000);
+                if (!testConnectionInitializationFailure)
+                {
+                    // Looks like there's a bug in vstest. If connecion is being killed that may end the test process because code may not ba aware on time that socket is being closed.
+                    // In that test process is terminated and we get:
+                    // --->System.Exception: Unable to read beyond the end of the stream.
+                    //    at System.IO.BinaryReader.Read7BitEncodedInt()
+                    //    at System.IO.BinaryReader.ReadString()
+                    //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.LengthPrefixCommunicationChannel.NotifyDataAvailable()
+                    //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.TcpClientExtensions.MessageLoopAsync(TcpClient client, ICommunicationChannel channel, Action`1 errorHandler, CancellationToken cancellationToken)
+                    //    -- - End of inner exception stack trace-- -.
+                    // For that reason we add this delay at the end of the test:
+                    await Task.Delay(30 * 1000);
+                }
             }
         }
 
-        private async Task AllConnectionRetriesTest(Func<string, string, Task> testStoredProc, bool testConnectionNoPooling, bool testConnectionInitializationFailure)
+        private async Task AllConnectionRetriesTest(Func<string, string, Task> testStoredProc, bool testConnectionInitializationFailure)
         {
             MakeStoredProcedureAndTableName(true, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, testConnectionNoPooling, testConnectionInitializationFailure, true);
+                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, !testConnectionInitializationFailure, testConnectionInitializationFailure, true);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
@@ -445,7 +457,19 @@ END
             finally
             {
                 await DropTestObjecs(storedProcedureName, testTableName);
-                await Task.Delay(30 * 1000);
+                if (!testConnectionInitializationFailure)
+                {
+                    // Looks like there's a bug in vstest. If connecion is being killed that may end the test process because code may not ba aware on time that socket is being closed.
+                    // In that test process is terminated and we get:
+                    // --->System.Exception: Unable to read beyond the end of the stream.
+                    //    at System.IO.BinaryReader.Read7BitEncodedInt()
+                    //    at System.IO.BinaryReader.ReadString()
+                    //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.LengthPrefixCommunicationChannel.NotifyDataAvailable()
+                    //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.TcpClientExtensions.MessageLoopAsync(TcpClient client, ICommunicationChannel channel, Action`1 errorHandler, CancellationToken cancellationToken)
+                    //    -- - End of inner exception stack trace-- -.
+                    // For that reason we add this delay at the end of the test:
+                    await Task.Delay(30 * 1000);
+                }
             }
         }
 
