@@ -168,7 +168,4 @@
   <data name="ResourceNotAvailable" xml:space="preserve">
     <value>Resource with type {0} and ID {1} is not available.</value>
   </data>
-  <data name="MissingResourceTypeForForceReindexOperation" xml:space="preserve">
-    <value>A resource type was not found when attempting to run a force reindex operation.</value>
-  </data>
 </root>

@@ -124,15 +124,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A resource type was not found when attempting to run a force reindex operation..
-        /// </summary>
-        internal static string MissingResourceTypeForForceReindexOperation {
-            get {
-                return ResourceManager.GetString("MissingResourceTypeForForceReindexOperation", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Only &apos;_type&apos; and &apos;_lastUpdated&apos; can be used together as sorting parameters (and in that order)..
         /// </summary>
         internal static string OnlyTypeAndLastUpdatedSupportedForCompoundSort {
