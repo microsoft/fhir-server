@@ -34,7 +34,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _output = output;
         }
 
-        /*
         // SQL fatal error tests.
 
         [Fact]
@@ -82,14 +81,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         // Connection error retry tests.
-        run 2*/
+
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         {
             await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, true, false);
         }
 
-        /*
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesAreRun()
         {
@@ -107,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, false, true);
         }
-        */
+
         private async Task ExecuteSql(string commandText)
         {
             using SqlConnection sqlConnection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync();
@@ -401,6 +399,7 @@ END
             finally
             {
                 await DropTestObjecs(storedProcedureName, testTableName);
+                await Task.Delay(30 * 1000);
             }
         }
 
@@ -446,6 +445,7 @@ END
             finally
             {
                 await DropTestObjecs(storedProcedureName, testTableName);
+                await Task.Delay(30 * 1000);
             }
         }
 
