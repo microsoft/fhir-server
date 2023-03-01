@@ -35,6 +35,7 @@
     </Content>
     <Content Include="$(MSBuildThisFileDirectory)roles.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>        
     </Content>
   </ItemGroup>
 </Project>
