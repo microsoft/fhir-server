@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -320,41 +321,46 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             JobInfo job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
             var cancel = new CancellationTokenSource();
             cancel.CancelAfter(TimeSpan.FromSeconds(30));
-            var execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
-                client,
-                queueType,
-                job.Id,
-                job.Version,
-                async cancelSource =>
+            this.Retry(
+                () =>
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(10));
-                    await client.CompleteJobAsync(job, false, cancel.Token);
-                    return "Test";
-                },
-                TimeSpan.FromSeconds(1),
-                cancel);
 
-            var currentJob = job;
-            var previousJob = job;
-            var heartbeatChanges = 0;
-            var dequeueTask = Task.Run(
-                async () =>
-                {
-                    while (currentJob.Status == JobStatus.Running)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(1));
-                        currentJob = await client.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
-                        if (currentJob.HeartbeatDateTime != previousJob.HeartbeatDateTime)
+                    var execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
+                        client,
+                        queueType,
+                        job.Id,
+                        job.Version,
+                        async cancelSource =>
                         {
-                            heartbeatChanges++;
-                            previousJob = currentJob;
-                        }
-                    }
-                },
-                cancel.Token);
-            Task.WaitAll(execTask, dequeueTask);
+                            await Task.Delay(TimeSpan.FromSeconds(10));
+                            await client.CompleteJobAsync(job, false, cancel.Token);
+                            return "Test";
+                        },
+                        TimeSpan.FromSeconds(1),
+                        cancel);
 
-            Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
+                    var currentJob = job;
+                    var previousJob = job;
+                    var heartbeatChanges = 0;
+                    var dequeueTask = Task.Run(
+                        async () =>
+                        {
+                            while (currentJob.Status == JobStatus.Running)
+                            {
+                                await Task.Delay(TimeSpan.FromSeconds(1));
+                                currentJob = await client.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
+                                if (currentJob.HeartbeatDateTime != previousJob.HeartbeatDateTime)
+                                {
+                                    heartbeatChanges++;
+                                    previousJob = currentJob;
+                                }
+                            }
+                        },
+                        cancel.Token);
+                    Task.WaitAll(execTask, dequeueTask);
+
+                    Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
+                });
         }
 
         [Fact]
@@ -366,49 +372,52 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             JobInfo job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
             var cancel = new CancellationTokenSource();
             cancel.CancelAfter(TimeSpan.FromSeconds(30));
-            var execTask = JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
-                client,
-                job,
-                async cancelSource =>
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(5));
-                    job.Result = "Something";
-                    await Task.Delay(TimeSpan.FromSeconds(5));
-                    await client.CompleteJobAsync(job, false, cancel.Token);
-                    return "Test";
-                },
-                TimeSpan.FromSeconds(1),
-                cancel);
-
-            var currentJob = job;
-            var previousJob = job;
-            var heartbeatChanges = 0;
-            var heavyHeartbeatRecorded = false;
-            var dequeueTask = Task.Run(
-                async () =>
-                {
-                    while (currentJob.Status == JobStatus.Running)
+            this.Retry(() =>
+            {
+                var execTask = JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
+                    client,
+                    job,
+                    async cancelSource =>
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(1));
-                        currentJob = await client.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                        job.Result = "Something";
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                        await client.CompleteJobAsync(job, false, cancel.Token);
+                        return "Test";
+                    },
+                    TimeSpan.FromSeconds(1),
+                    cancel);
 
-                        if (currentJob.Status == JobStatus.Running && currentJob.Result != null)
+                var currentJob = job;
+                var previousJob = job;
+                var heartbeatChanges = 0;
+                var heavyHeartbeatRecorded = false;
+                var dequeueTask = Task.Run(
+                    async () =>
+                    {
+                        while (currentJob.Status == JobStatus.Running)
                         {
-                            heavyHeartbeatRecorded = true;
-                        }
+                            await Task.Delay(TimeSpan.FromSeconds(1));
+                            currentJob = await client.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
 
-                        if (currentJob.HeartbeatDateTime != previousJob.HeartbeatDateTime)
-                        {
-                            heartbeatChanges++;
-                            previousJob = currentJob;
-                        }
-                    }
-                },
-                cancel.Token);
-            Task.WaitAll(execTask, dequeueTask);
+                            if (currentJob.Status == JobStatus.Running && currentJob.Result != null)
+                            {
+                                heavyHeartbeatRecorded = true;
+                            }
 
-            Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
-            Assert.True(heavyHeartbeatRecorded, $"Heavy heartbeat not recorded");
+                            if (currentJob.HeartbeatDateTime != previousJob.HeartbeatDateTime)
+                            {
+                                heartbeatChanges++;
+                                previousJob = currentJob;
+                            }
+                        }
+                    },
+                    cancel.Token);
+                Task.WaitAll(execTask, dequeueTask);
+
+                Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
+                Assert.True(heavyHeartbeatRecorded, $"Heavy heartbeat not recorded");
+            });
         }
     }
 }

@@ -41,6 +41,19 @@ namespace Microsoft.Health.Fhir.Client
             GC.SuppressFinalize(this);
         }
 
+        public string GetActivityId()
+        {
+            if (Response?.Headers != null)
+            {
+                if (Response.Headers.TryGetValues("X-Request-Id", out var values))
+                {
+                    return values.First();
+                }
+            }
+
+            return "NO_FHIR_ACTIVITY_ID_FOR_THIS_TRANSACTION";
+        }
+
         protected virtual void Dispose(bool disposing)
         {
             if (disposing)
@@ -76,16 +89,6 @@ namespace Microsoft.Health.Fhir.Client
             message.AppendLine("==============================================");
 
             return message.ToString();
-        }
-
-        private string GetActivityId()
-        {
-            if (Response.Headers.TryGetValues("X-Request-Id", out var values))
-            {
-                return values.First();
-            }
-
-            return "NO_FHIR_ACTIVITY_ID_FOR_THIS_TRANSACTION";
         }
     }
 }
