@@ -7,6 +7,7 @@ using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Shared.Web
 {
@@ -23,7 +24,10 @@ namespace Microsoft.Health.Fhir.Shared.Web
         {
             if (telemetry is RequestTelemetry requestTelemetry)
             {
-                requestTelemetry.Context.User.UserAgent = _httpContextAccessor.HttpContext.Request.Headers["User-Agent"];
+                if (_httpContextAccessor.HttpContext.Request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
+                {
+                    requestTelemetry.Properties.Add(HeaderNames.UserAgent, userAgent);
+                }
             }
         }
     }
