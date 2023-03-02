@@ -324,7 +324,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             this.Retry(
                 () =>
                 {
-
                     var execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
                         client,
                         queueType,
