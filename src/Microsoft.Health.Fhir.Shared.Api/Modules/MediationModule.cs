@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using EnsureThat;
 using MediatR;
+using MediatR.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -23,7 +24,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddMediatR(KnownAssemblies.All);
+            services.AddMediatR(cfg =>
+                cfg.RegisterServicesFromAssemblies(KnownAssemblies.All)
+                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionActionProcessorBehavior<,>))
+                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionProcessorBehavior<,>))
+                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestPreProcessorBehavior<,>))
+                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestPostProcessorBehavior<,>)));
 
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]

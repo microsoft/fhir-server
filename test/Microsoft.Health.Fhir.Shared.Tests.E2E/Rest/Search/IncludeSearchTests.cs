@@ -5,7 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -24,6 +27,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class IncludeSearchTests : SearchTestsBase<IncludeSearchTestFixture>
     {
+        private static readonly Regex ContinuationTokenRegex = new Regex("&ct=");
+
         public IncludeSearchTests(IncludeSearchTestFixture fixture)
             : base(fixture)
         {
@@ -34,16 +39,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_include=Location:organization:Organization&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Location,
+                query,
                 Fixture.Organization,
                 Fixture.Location);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Location);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Location, query, bundle.Link[0].Url);
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_summary=count");
@@ -62,16 +62,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_include=Location:organization:Organization&_tag={Fixture.Tag}&_id={Fixture.Location.Id}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Location,
+                query,
                 Fixture.Organization,
                 Fixture.Location);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Location);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Location, query, bundle.Link[0].Url);
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_summary=count");
@@ -130,16 +125,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string lastUpdated = HttpUtility.UrlEncode($"{locationResponse2.Resource.Meta.LastUpdated:o}");
             var query = $"_include=Location:organization:Organization&_lastUpdated=lt{lastUpdated}&_tag={guid}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Location,
+                query,
                 organizationResponse.Resource,
                 locationResponse.Resource);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Location);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Location, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -147,18 +137,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.DiagnosticReport,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.DiagnosticReport, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -166,16 +151,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&specimen:missing=true";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.DiagnosticReport,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
         [Fact]
@@ -183,14 +165,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.DiagnosticReport,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
 
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
@@ -207,18 +186,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:*&code=429858000";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.DiagnosticReport,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient,
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient,
                 Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
         [Fact]
@@ -226,20 +202,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.DiagnosticReport,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient,
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient,
                 Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.DiagnosticReport, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -259,20 +230,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string lastUpdated = HttpUtility.UrlEncode($"{Fixture.PatientGroup.Meta.LastUpdated:o}");
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000&_lastUpdated=lt{lastUpdated}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.DiagnosticReport,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient,
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient,
                 Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.DiagnosticReport, query, bundle.Link[0].Url);
 
             // delete the extra entry added
             await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
@@ -283,10 +249,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=Observation:performer";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
                 Fixture.AdamsLoincObservation,
                 Fixture.SmithLoincObservation,
                 Fixture.SmithSnomedObservation,
@@ -295,8 +260,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.ObservationWithUntypedReferences,
                 Fixture.Practitioner,
                 Fixture.Organization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
         [Fact]
@@ -304,23 +267,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_id={Fixture.ObservationWithUntypedReferences.Id}&_include=Observation:*";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
                 Fixture.ObservationWithUntypedReferences);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
         [Fact]
         public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedOrUpdatedResources()
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&_include=Patient:organization");
+            string query = $"_tag={Fixture.Tag}&_include=Patient:organization";
 
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.PatiPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -332,11 +292,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnRevIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedResources()
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&_revinclude=Device:patient");
+            string query = $"_tag={Fixture.Tag}&_revinclude=Device:patient";
 
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.PatiPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -351,10 +311,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Ask for reverse include to get all Locations which reference an org
             string query = $"_revinclude=Location:organization&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Organization,
+                query,
                 Fixture.Location,
                 Fixture.Organization,
                 Fixture.LabAOrganization,
@@ -363,10 +322,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.LabDOrganization,
                 Fixture.LabEOrganization,
                 Fixture.LabFOrganization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Organization);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Organization, query, bundle.Link[0].Url);
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_summary=count");
@@ -401,18 +356,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Observation);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Observation, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -420,14 +370,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000&_count=1";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Observation);
 
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
@@ -444,16 +391,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:*&code=429858000";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
         [Fact]
@@ -461,17 +405,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=Observation:patient&family=Truman";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.TrumanPatient,
                 Fixture.TrumanSnomedObservation,
                 Fixture.TrumanLoincObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -479,19 +418,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:patient&_revinclude=Observation:patient&family=Truman";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.TrumanPatient,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanSnomedObservation,
                 Fixture.TrumanLoincDiagnosticReport,
                 Fixture.TrumanLoincObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
         [InlineData("_include")]
@@ -501,16 +435,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_id={Fixture.LocationPartOfSelf.Id}&{includeType}=Location:partof";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
-
             // The matched resource shouldn't be returned as an include
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Location,
+                query,
                 Fixture.LocationPartOfSelf);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Location);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Location, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -530,17 +459,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string lastUpdated = HttpUtility.UrlEncode($"{Fixture.PatientGroup.Meta.LastUpdated:o}");
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000&_lastUpdated=lt{lastUpdated}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanSnomedObservation,
                 newDiagnosticReportResponse.Resource);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Observation);
 
             // delete the extra entry added
             await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
@@ -553,17 +479,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // not created in this fixture.
             string query = $"_tag={Fixture.Tag}&_revinclude=Appointment:actor";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.PatiPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
                 Fixture.AdamsPatient,
                 Fixture.PatientWithDeletedOrganization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
 
         // Include Iterate
@@ -575,10 +498,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration- Single iteration (_include:iterate)
             string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest,
@@ -586,10 +508,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.MedicationDispense, $"{query}&_summary=count");
@@ -607,10 +525,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration- Single iteration (_include:recurse)
             string query = $"_include=MedicationDispense:prescription&_include:recurse=MedicationRequest:patient&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest,
@@ -618,10 +535,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -631,17 +544,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Single iteration (_include:iterate)
             string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_id={Fixture.AdamsMedicationDispense.Id}&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.AdamsMedicationRequest,
                 Fixture.AdamsPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -651,10 +559,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Multiple iterations
             string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_include:iterate=Patient:organization&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest,
@@ -665,10 +572,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.Organization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -678,10 +581,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Iteration order doesn't matter
             string query = $"_include:iterate=Patient:organization&_include:iterate=Patient:general-practitioner&_include:iterate=MedicationRequest:patient&_include=MedicationDispense:prescription&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest,
@@ -692,10 +594,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.Organization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -705,10 +603,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Single reference to multiple target types: MedicationRequest:subject could be Patient or Group
             string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:subject&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest,
@@ -718,8 +615,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithPatient,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
         [Fact]
@@ -729,10 +624,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
             string query = $"_include=CareTeam:participant:Patient&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.CareTeam, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.CareTeam,
+                query,
                 Fixture.CareTeam,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
@@ -740,8 +634,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner);
-
-            ValidateSearchEntryMode(bundle, ResourceType.CareTeam);
         }
 
         [Fact]
@@ -751,10 +643,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Specific target type: CareTeam:participant:Patient
             string query = $"_include=CareTeam:participant:Patient&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.CareTeam, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.CareTeam,
+                query,
                 Fixture.CareTeam,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
@@ -762,8 +653,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner);
-
-            ValidateSearchEntryMode(bundle, ResourceType.CareTeam);
         }
 
         [Fact]
@@ -773,10 +662,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Multi-type target reference type already included: MedicationDispense:patient and MedicationRequest:subject
             string query = $"_include=MedicationDispense:patient&_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:subject&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest,
@@ -788,8 +676,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
         [Fact]
@@ -799,10 +685,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Multiple result sets: MedicationDispense:patient and MedicationRequest:patient
             string query = $"_include=MedicationDispense:patient&_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest,
@@ -814,8 +699,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
         [Fact]
@@ -824,10 +707,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=MedicationRequest:*&_include:iterate=Patient:general-practitioner";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationRequest, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationRequest,
+                query,
 #if R5
                 Fixture.PercocetMedication,
 #endif
@@ -837,8 +719,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithPatient,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationRequest);
         }
 
         [Fact]
@@ -847,10 +727,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=MedicationRequest:*&_include:iterate=Patient:*";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationRequest, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationRequest,
+                query,
 #if R5
                 Fixture.PercocetMedication,
 #endif
@@ -861,8 +740,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.Organization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationRequest);
         }
 
         [Fact]
@@ -871,10 +748,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_tag={Fixture.Tag}&_include=MedicationRequest:patient&_include:iterate=Patient:*";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationRequest, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationRequest,
+                query,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsPatient,
@@ -882,8 +758,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.Organization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationRequest);
         }
 
         [Fact]
@@ -892,10 +766,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_include=MedicationDispense:medication&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
 #if R5
                 // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.TramadolMedication,
@@ -903,8 +776,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
         // RecInclude Iterate
@@ -915,10 +786,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Single iteration (_revinclude:iterate)
             string query = $"_revinclude=MedicationRequest:patient&_revinclude:iterate=MedicationDispense:prescription&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
@@ -928,10 +798,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_summary=count");
@@ -949,10 +815,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Single iteration (_revinclude:iterate)
             string query = $"_revinclude=MedicationRequest:patient&_revinclude:iterate=MedicationDispense:prescription&_tag={Fixture.Tag}&_sort=birthdate";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
@@ -962,10 +827,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_summary=count");
@@ -983,10 +844,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Single iteration (_revinclude:recurse)
             string query = $"_revinclude=MedicationRequest:patient&_revinclude:recurse=MedicationDispense:prescription&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
@@ -996,10 +856,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -1009,17 +865,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Single iteration (_revinclude:iterate)
             string query = $"_revinclude=MedicationRequest:patient&_revinclude:iterate=MedicationDispense:prescription&_id={Fixture.AdamsPatient.Id}&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.AdamsMedicationRequest,
                 Fixture.AdamsPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
 #if Stu3
@@ -1031,10 +882,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Multiple iterations
             string query = $"_revinclude:iterate=MedicationDispense:prescription&_revinclude:iterate=MedicationRequest:patient&_revinclude=Patient:organization&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Organization,
+                query,
                 Fixture.Organization,
                 Fixture.LabAOrganization,
                 Fixture.LabBOrganization,
@@ -1050,10 +900,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Organization);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Organization, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -1063,10 +909,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Iteration order doesn't matter
             string query = $"_revinclude:iterate=MedicationDispense:prescription&_revinclude:iterate=MedicationRequest:patient&_revinclude=Patient:organization&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Organization,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.AdamsMedicationRequest,
@@ -1082,10 +927,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.LabDOrganization,
                 Fixture.LabEOrganization,
                 Fixture.LabFOrganization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Organization);
-
-            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Organization, query, bundle.Link[0].Url);
         }
 #endif
 
@@ -1096,10 +937,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Single reference to multiple target types: MedicationRequest:subject could be Patient or Group
             string query = $"_revinclude:iterate=MedicationDispense:prescription&_revinclude:iterate=MedicationRequest:subject:Patient&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Practitioner, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Practitioner,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.AdamsMedicationRequest,
@@ -1113,8 +953,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
                 Fixture.Practitioner);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Practitioner);
         }
 
         [Fact]
@@ -1125,10 +963,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // CareTeam:participant is a circular reference, however CareTeam:participant:Patient isn't, so we're not expecting an informational Issue
             string query = $"_revinclude:iterate=CareTeam:participant:Patient&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Practitioner, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Practitioner,
+                query,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
@@ -1139,8 +976,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient,
                 Fixture.PatientWithDeletedOrganization,
                 Fixture.CareTeam);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Practitioner);
         }
 
         [Fact]
@@ -1150,10 +985,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Non-recursive iteration - Multiple result sets: MedicationDispense:performer:Practitioner and MedicationRequest:requester:Practitioner
             string query = $"_include=MedicationDispense:performer:Practitioner&_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:requester:Practitioner&_revinclude:iterate=Patient:general-practitioner:Practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.MedicationDispense,
+                query,
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispenseWithoutRequest,
@@ -1166,8 +1000,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithPatient,
                 Fixture.PatientWithDeletedOrganization,
                 Fixture.PatiPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
         [Fact]
@@ -1192,10 +1024,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_revinclude=MedicationDispense:medication&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Medication, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Medication,
+                query,
 #if R5
                 // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.AdamsMedicationDispense,
@@ -1204,8 +1035,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
                 Fixture.TramadolMedication,
                 Fixture.PercocetMedication);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Medication);
         }
 
 #if Stu3
@@ -1216,10 +1045,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_revinclude=Patient:*&_revinclude:iterate=MedicationRequest:patient&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Practitioner, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Practitioner,
+                query,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
@@ -1231,8 +1059,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.PatientWithDeletedOrganization,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Practitioner);
         }
 #endif
 
@@ -1242,10 +1068,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_revinclude:iterate=MedicationRequest:*&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Practitioner, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Practitioner,
+                query,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
@@ -1255,8 +1080,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Practitioner);
         }
 
         [Fact]
@@ -1265,10 +1088,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_revinclude:iterate=MedicationDispense:*&_revinclude=MedicationRequest:*&_tag={Fixture.Tag}";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
+                query,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
                 Fixture.PatiPatient,
@@ -1276,8 +1098,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
                 Fixture.PatientWithDeletedOrganization);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
 
         // Circular Reference - Iteration executed once
@@ -1409,6 +1229,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Assert.Equal(expectedSearchEntryModes[entry.Resource.Id], entry.Search.Mode);
             }
+        }
+
+        private async Task<Bundle> SearchAndValidateBundleAsync(ResourceType resourceType, string query, params Resource[] expectedResources)
+        {
+            Bundle bundle = null;
+            try
+            {
+                bundle = await Client.SearchAsync(resourceType, query);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
+            }
+
+            Assert.True(bundle != null, "The bundle is null. This is a non-expected scenario for this test. Review the existing test code and flow.");
+
+            ValidateBundle(bundle, expectedResources);
+
+            ValidateSearchEntryMode(bundle, resourceType);
+
+            string bundleUrl = bundle.Link[0].Url;
+            MatchCollection matches = ContinuationTokenRegex.Matches(bundleUrl);
+            if (!matches.Any())
+            {
+                ValidateBundleUrl(Client.HttpClient.BaseAddress, resourceType, query, bundleUrl);
+            }
+            else
+            {
+                int matchIndex = matches.First().Index;
+                string bundleUriWithNoContinuationToken = bundleUrl.Substring(0, matchIndex);
+                ValidateBundleUrl(Client.HttpClient.BaseAddress, resourceType, query, bundleUriWithNoContinuationToken);
+            }
+
+            return bundle;
         }
     }
 }
