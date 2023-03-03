@@ -318,7 +318,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await this.RetryAsync(
                 async () =>
                 {
-                    var queueType = (byte)TestQueueType.ExecuteWithHeartbeatsHeavy;
+                    var queueType = (byte)TestQueueType.ExecuteWithHeartbeat;
                     var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
                     await client.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
                     JobInfo job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
