@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -48,10 +49,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.EndTime, new FhirDateTime(job.EndTime.Value));
             }
 
-            decimal progress;
+            parametersResource.Add(JobRecordProperties.LastModified, new FhirDateTime(job.LastModified));
+
+            decimal progress = 0;
             if (job.Count > 0 && job.Progress > 0)
             {
                 progress = (decimal)job.Progress / job.Count * 100;
+            }
+            else if (job.ResourceCounts.Any())
+            {
+                progress = job.ResourceCounts.Values.Select(e => (((decimal)e.CurrentResourceSurrogateId - e.StartResourceSurrogateId) / ((decimal)e.EndResourceSurrogateId - e.StartResourceSurrogateId) * 100)).Sum() / job.ResourceCounts.Count;
             }
             else
             {
@@ -59,7 +66,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime));
-            parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(job.Count));
+            if (job.Count > 0)
+            {
+                parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(job.Count));
+            }
+
             parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(job.Progress));
             parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(Math.Round(progress, 1)));
             parametersResource.Add(JobRecordProperties.Status, new FhirString(job.Status.ToString()));

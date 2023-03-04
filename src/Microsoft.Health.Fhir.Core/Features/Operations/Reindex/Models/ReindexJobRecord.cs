@@ -10,6 +10,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
@@ -120,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ConcurrentDictionary<ReindexJobQueryStatus, byte> QueryList { get; private set; } = new ConcurrentDictionary<ReindexJobQueryStatus, byte>();
 
         [JsonProperty(JobRecordProperties.ResourceCounts)]
-        public ConcurrentDictionary<string, int> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, int>();
+        public ConcurrentDictionary<string, SearchResultReindex> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, SearchResultReindex>();
 
         [JsonProperty(JobRecordProperties.Count)]
         public long Count { get; set; }

@@ -439,7 +439,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null,
                                 null,
                                 null,
-                                searchParameterHash),
+                                searchParameterHash,
+                                resourceSurrogateId),
                             isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                     }
 
@@ -562,7 +563,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null,
                                 null,
                                 null,
-                                searchParameterHash),
+                                searchParameterHash,
+                                resourceSurrogateId),
                             isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                     }
 
@@ -579,10 +581,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
-        public override async Task<IReadOnlyList<(long StartId, long EndId, long Count)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            var ranges = new List<(long start, long end, long count)>(numberOfRanges);
+            var ranges = new List<(long start, long end)>(numberOfRanges);
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             sqlCommandWrapper.CommandTimeout = 1200; // Should be >> average execution time which for 100K resources is ~3 minutes.
@@ -590,7 +592,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
-                ranges.Add((reader.GetInt64(1), reader.GetInt64(2), reader.GetInt64(3)));
+                ranges.Add((reader.GetInt64(1), reader.GetInt64(2)));
             }
 
             return ranges;
@@ -799,52 +801,85 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
+            string resourceType = GetForceReindexResourceType(searchOptions);
             if (searchOptions.CountOnly)
             {
-                string resourceType = GetForceReindexResourceType(searchOptions);
                 _model.TryGetResourceTypeId(resourceType, out short resourceTypeId);
-                if (string.IsNullOrWhiteSpace(resourceType) || resourceTypeId == 0)
-                {
-                    throw new BadRequestException(Resources.MissingResourceTypeForForceReindexOperation);
-                }
-
-                return await SearchForReindexCountInternalAsync(resourceTypeId, cancellationToken);
+                return await SearchForReindexSurrogateIdsAsync(resourceTypeId, cancellationToken);
             }
 
-            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            return await SearchImpl(sqlSearchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
+            /*
+            // TODO:
+            if (!string.IsNullOrWhiteSpace(searchParameterHash))
+            {
+                foreach (var resource in results.Results)
+                {
+                    if (resource.Resource.SearchParameterHash == searchParameterHash)
+                    {
+                        // this should be removed
+                    }
+                }
+            }
+            */
+
+            var queryHints = searchOptions.QueryHints;
+            long startId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.StartSurrogateId).Value);
+            long endId = long.Parse(queryHints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
+            IReadOnlyList<(long StartId, long EndId)> ranges = await GetSurrogateIdRanges(resourceType, startId, endId, searchOptions.MaxItemCount, 1, true, cancellationToken);
+
+            SearchResult results = null;
+            if (ranges?.Count > 0)
+            {
+                results = await SearchBySurrogateIdRange(
+                    resourceType,
+                    ranges[0].StartId,
+                    ranges[0].EndId,
+                    null,
+                    null,
+                    cancellationToken);
+
+                results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+            }
+            else
+            {
+                results = new SearchResult(0, new List<Tuple<string, string>>());
+            }
+
+            return results;
         }
 
-        protected async Task GetInitialReindexValues(string resourceType, CancellationToken cancellationToken)
+        private async Task<SearchResult> SearchForReindexSurrogateIdsAsync(short resourceTypeId, CancellationToken cancellationToken)
         {
-            // need to do the following
-            // step 1
-            var till = DateTime.UtcNow;
-            var maxId = GetSurrogateId(till);
-            var range = (await GetSurrogateIdRanges(resourceType, 0, maxId, 100, 1, true, cancellationToken))[0];
-        }
-
-        protected async Task<SearchResult> SearchForReindexCountInternalAsync(short resourceTypeId, CancellationToken cancellationToken)
-        {
+            // can't use totalCount for reindex on extremely large dbs because we don't have an
+            // index on Resource.SearchParamHash which would be necessary to calculate an accurate count
+            int totalCount = 0;
+            long startResourceSurrogateId = 0;
+            long endResourceSurrogateId = 0;
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
             sqlCommandWrapper.Parameters.AddWithValue("@p0", resourceTypeId);
             sqlCommandWrapper.CommandText = @"
-SELECT COUNT_BIG(*), MAX(r.ResourceSurrogateId)
-FROM dbo.Resource r
-WHERE r.ResourceTypeId = @p0
-    AND r.IsHistory = 0
-    AND r.IsDeleted = 0
+SELECT ISNULL(MIN(ResourceSurrogateId), 0), ISNULL(MAX(ResourceSurrogateId), 0)
+FROM dbo.Resource
+WHERE ResourceTypeId = @p0
+    AND IsHistory = 0
+    AND IsDeleted = 0
 ";
             using var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
             await reader.ReadAsync(cancellationToken);
-            long count = reader.GetInt64(0);
-            long endResourceSurrogateId = reader.GetInt64(1);
+            if (reader.HasRows)
+            {
+                startResourceSurrogateId = reader.GetInt64(0);
+                endResourceSurrogateId = reader.GetInt64(1);
+            }
 
-            var searchResult = new SearchResult((int)count, Array.Empty<Tuple<string, string>>());
-
-            // call NextResultAsync to get the info messages
-            await reader.NextResultAsync(cancellationToken);
+            var searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
+            searchResult.ReindexResult = new SearchResultReindex()
+            {
+                StartResourceSurrogateId = startResourceSurrogateId,
+                EndResourceSurrogateId = endResourceSurrogateId,
+                CurrentResourceSurrogateId = startResourceSurrogateId,
+            };
 
             return searchResult;
         }
