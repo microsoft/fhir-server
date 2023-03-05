@@ -80,6 +80,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.TargetResourceTypes, new FhirString(job.TargetResourceTypeList));
             }
 
+            if (!string.IsNullOrEmpty(job.TargetSearchParameterTypeList))
+            {
+                parametersResource.Add(JobRecordProperties.TargetSearchParameterTypes, new FhirString(job.TargetSearchParameterTypeList));
+            }
+
             if (!string.IsNullOrEmpty(job.TargetDataStoreUsagePercentage.ToString()))
             {
                 parametersResource.Add(JobRecordProperties.TargetDataStoreUsagePercentage, new FhirDecimal(job.TargetDataStoreUsagePercentage));

@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
         public async Task GivenATargetRUConsumption_WhenConsumedRUsIsTooHigh_QueryDelayIsIncreased()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
-            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), new List<string>(), targetDataStoreUsagePercentage: 80);
+            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), new List<string>(), new List<string>(), new List<string>(), targetDataStoreUsagePercentage: 80);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, 1000);
 
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
         public async Task GivenATargetRUConsumption_WhenConsumedRUsDecreases_QueryDelayIsDecreased()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
-            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), new List<string>(), targetDataStoreUsagePercentage: 80);
+            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), new List<string>(), new List<string>(), new List<string>(), targetDataStoreUsagePercentage: 80);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, 1000);
 
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
             Assert.Equal(0, throttleController.GetThrottleBasedDelay());
 
-            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), new List<string>(), targetDataStoreUsagePercentage: null);
+            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), new List<string>(), new List<string>(), new List<string>(), targetDataStoreUsagePercentage: null);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, null);
             Assert.Equal(0, throttleController.GetThrottleBasedDelay());
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
         public void GivenBatchSizeCostAboveTarget_WhenGetBatchSizeCalled_ReducedBatchSizeReturned()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
-            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), new List<string>(), targetDataStoreUsagePercentage: 80);
+            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), new List<string>(), new List<string>(), new List<string>(), targetDataStoreUsagePercentage: 80);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, 1000);
 

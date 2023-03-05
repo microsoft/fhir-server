@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using MediatR;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -64,7 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 bundle.Entries.Select(e => e.Resource).ToList(),
                 UrlLookup,
                 TypeLookup,
-                _modelInfoProvider);
+                _modelInfoProvider,
+                _logger);
         }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
@@ -161,7 +161,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchParameters,
                 UrlLookup,
                 TypeLookup,
-                _modelInfoProvider);
+                _modelInfoProvider,
+                _logger);
 
             if (calculateHash)
             {
@@ -254,7 +255,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                 new List<ITypedElement>() { searchParam },
                                 UrlLookup,
                                 TypeLookup,
-                                _modelInfoProvider);
+                                _modelInfoProvider,
+                                _logger);
                         }
                         catch (SearchParameterNotSupportedException ex)
                         {

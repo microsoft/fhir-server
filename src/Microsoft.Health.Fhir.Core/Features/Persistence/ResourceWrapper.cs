@@ -75,10 +75,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         [JsonProperty(KnownResourceWrapperProperties.LastModified)]
-        public DateTimeOffset LastModified { get; protected set; }
+        public DateTimeOffset LastModified { get; internal set; }
 
         [JsonProperty(KnownResourceWrapperProperties.RawResource)]
-        public RawResource RawResource { get; set; }
+        public RawResource RawResource { get; internal set; }
 
         [JsonProperty(KnownResourceWrapperProperties.Request)]
         public ResourceRequest Request { get; protected set; }
@@ -110,9 +110,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
         public string SearchParameterHash { get; set; }
 
-        public ResourceKey ToResourceKey()
+        public ResourceKey ToResourceKey(bool ignoreVersion = false)
         {
-            return new ResourceKey(ResourceTypeName, ResourceId, Version);
+            return new ResourceKey(ResourceTypeName, ResourceId, ignoreVersion ? null : Version);
         }
 
         public virtual void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)

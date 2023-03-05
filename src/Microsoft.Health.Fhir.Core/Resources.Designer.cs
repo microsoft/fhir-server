@@ -1088,6 +1088,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reindex targets are mutually exclusive. Please only use one at a time..
+        /// </summary>
+        internal static string ReindexMultipleTargetsNotSupported {
+            get {
+                return ResourceManager.GetString("ReindexMultipleTargetsNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested action is not allowed..
         /// </summary>
         internal static string RequestedActionNotAllowed {

@@ -349,10 +349,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             AddHeaderIfNeeded(HeaderNames.IfNoneMatch, entry.Request.IfNoneMatch, httpContext);
             AddHeaderIfNeeded(KnownHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
-            if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.ContainsKey(KnownHeaders.ProfileValidation)
-                    && _fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var hValue))
+            if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var profileValidationValue))
             {
-                AddHeaderIfNeeded(KnownHeaders.ProfileValidation, hValue, httpContext);
+                AddHeaderIfNeeded(KnownHeaders.ProfileValidation, profileValidationValue, httpContext);
+            }
+
+            if (_fhirRequestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var preferValue))
+            {
+                AddHeaderIfNeeded(KnownHeaders.Prefer, preferValue, httpContext);
             }
 
             if (requestMethod == HTTPVerb.POST
@@ -585,7 +589,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     actionName?.ToString()),
                 ExecutingBatchOrTransaction = true,
             };
+            foreach (var scopeRestriction in _originalFhirRequestContext.AccessControlContext.AllowedResourceActions)
+            {
+                newFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(scopeRestriction);
+            }
 
+            newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = _originalFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl;
             _fhirRequestContextAccessor.RequestContext = newFhirRequestContext;
 
             _bundleHttpContextAccessor.HttpContext = httpContext;

@@ -40,21 +40,12 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
 
             var searchParameterDefinitionManager = new MinimalSearchParameterDefinitionManager(modelInfoProvider);
 
-            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(searchParameterDefinitionManager, fhirRequestContextAccessor);
-
             var supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(searchParameterDefinitionManager);
-
-            var filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(searchParameterDefinitionManager, modelInfoProvider);
 
             var codeSystemResolver = new CodeSystemResolver(modelInfoProvider);
             var fhirTypedElementConverters = MakeConverters(fhirRequestContextAccessor, codeSystemResolver);
             var fhirTypedElementToSearchValueConverterManager = new FhirTypedElementToSearchValueConverterManager(fhirTypedElementConverters);
 
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(referenceSearchValueParser);
-            var contextAccessor = new FhirRequestContextAccessor();
-            var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser, contextAccessor);
-
-            // var searchOptionsFactory = new SearchOptionsFactory();
             var referenceToElementResolver = new LightweightReferenceToElementResolver(referenceSearchValueParser, modelInfoProvider);
 
             var logger = new NullLogger<TypedElementSearchIndexer>();

@@ -9,11 +9,14 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
@@ -58,12 +61,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _sortingValidator = Substitute.For<ISortingValidator>();
 
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = _defaultFhirRequestContext.SetupAccessor();
             _factory = new SearchOptionsFactory(
                 _expressionParser,
                 () => searchParameterDefinitionManager,
                 new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
-                _defaultFhirRequestContext.SetupAccessor(),
+                contextAccessor,
                 _sortingValidator,
+                new ExpressionAccessControl(contextAccessor),
                 NullLogger<SearchOptionsFactory>.Instance);
         }
 

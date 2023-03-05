@@ -11,9 +11,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -49,12 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
             Assert.Equal(1, result.ResourcesDeleted);
 
-            await _fhirDataStore.Received().UpsertAsync(
-                Arg.Is<ResourceWrapper>(x => x.IsDeleted),
-                Arg.Any<WeakETag>(),
-                true,
-                true,
-                Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.IsDeleted), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -69,12 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
             Assert.Equal(1, result.ResourcesDeleted);
 
-            await _fhirDataStore.DidNotReceive().UpsertAsync(
-                Arg.Any<ResourceWrapper>(),
-                Arg.Any<WeakETag>(),
-                true,
-                true,
-                Arg.Any<CancellationToken>());
+            await _fhirDataStore.DidNotReceive().UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>());
 
             await _fhirDataStore.Received().HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
@@ -115,12 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
             Assert.Equal(2, result.ResourcesDeleted);
 
-            await _fhirDataStore.Received(2).UpsertAsync(
-                Arg.Is<ResourceWrapper>(x => x.IsDeleted),
-                Arg.Any<WeakETag>(),
-                true,
-                true,
-                Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received(2).UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.IsDeleted), Arg.Any<CancellationToken>());
         }
 
         private ConditionalDeleteResourceRequest SetupConditionalDelete(
@@ -139,8 +122,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             }
             else
             {
-                _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                    .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Updated));
+                _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                    .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
             }
 
             var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, count);

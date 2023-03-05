@@ -531,6 +531,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenSingleWrittenObservation_WhenSearched_ThenObservationWithMatchingIdAndLastUpdatedIsReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var written = (await AddObservationToPatient(null, "1990-01-01", tag))[0];
+            var read = (await Client.SearchAsync($"Observation?_tag={tag}", null)).Resource.Entry[0].Resource;
+            Assert.Equal(written.Id, read.Id);
+            Assert.Equal(written.Meta.LastUpdated, read.Meta.LastUpdated);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithObservation_WhenSearchedForItemsWithSubjectAndSort_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
