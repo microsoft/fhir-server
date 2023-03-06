@@ -16,6 +16,16 @@ using Microsoft.Health.SqlServer.Configs;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
+    /// <summary>
+    /// <para>This class implements ISqlRetryService interface that is used to execute retriable SQL commands. If SQL command fails
+    /// either because of a connection error or SQL error and the error is determined to be retriable, then methods in this class
+    /// will retry the command.</para>
+    /// <para>This class is designetd to operate as .NET service and should be initialized as such in a standard .NET way, for
+    /// example in Startup.cs or equivalent source file.</para>
+    /// <para>This class does not support Microsoft.Data.SqlClient.SqlTransaction class used to execute SQL transactions. However,
+    /// SQL transactions can still be executed if, for example, defined in the SqlCommand.CommandText property of the SqlCommand
+    /// that is passed as a parameter when calling one of the methods of this class.</para>
+    /// </summary>
     public class SqlRetryService : ISqlRetryService
     {
         // Default errors copied from src/Microsoft.Data.SqlClient/src/Microsoft/Data/SqlClient/Reliability/SqlConfigurableRetryFactory.cs .
@@ -56,6 +66,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly int _maxRetries;
         private readonly int _retryMillisecondsDelay;
 
+        /// <summary>
+        /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
+        /// is designed to operate as a standard .NET service and all of the parameters to the constructor are passed using
+        /// .NET dependency injection.
+        /// </summary>
+        /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
+        /// <param name="sqlServerDataStoreConfiguration">Internal FHIR server interface used initialize this class.</param>
+        /// <param name="sqlRetryServiceOptions"></param>
+        /// <param name="sqlRetryServiceDelegateOptions"></param>
         public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
@@ -86,8 +105,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
         }
 
+        /// <summary>
+        /// Defines a custom delegate that can be used instead of or in addition to IsExceptionRetriable method to examine if thrown
+        /// exception <paramref name="ex"/> represent a retriable error.
+        /// </summary>
+        /// <param name="ex">Exception to be examined.</param>
+        /// <returns>Returns true if the exception <paramref name="ex"/> represent an retriable error.</returns>
+        /// <see cref="SqlRetryServiceDelegateOptions"/>
         public delegate bool IsExceptionRetriable(Exception ex);
 
+        /// <summary>
+        /// This method examines exception <paramref name="ex"/> and determines if the exception represent an retriable error.
+        /// In this case the code that caused the exception is executed again.
+        /// </summary>
+        /// <param name="ex">Exception to be examined.</param>
+        /// <returns>Returns true if the exception <paramref name="ex"/> represent an retriable error.</returns>
         private static bool DefaultIsExceptionRetriable(Exception ex)
         {
             if (ex is SqlException sqlEx)
@@ -131,6 +163,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return false;
         }
 
+        /// <summary>
+        /// Executes delegate <paramref name="action"/> and retries it's execution if retriable error is encountered error.
+        /// In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
+        /// </summary>
+        /// <param name="action">Delegate to be executed.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
         public async Task ExecuteSql(Func<CancellationToken, Task> action, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(action, nameof(action));
@@ -155,6 +195,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        /// <summary>
+        /// Creates and opens SQL connection and assigns it to <paramref name="sqlCommand"/>. Then executes delegate <paramref name="action"/>
+        /// and retries entire process on SQL error or failed SQL connection error. In the case if non-retriable exception or if the last retry failed
+        /// tha same exception is thrown.
+        /// </summary>
+        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
+        /// <param name="sqlCommand">SQL command to be executed.</param>
+        /// <param name="action">Delegate to be executed by passing <paramref name="sqlCommand"/> as input parameter.</param>
+        /// <param name="logger">Logger used on first try error or retry error.</param>
+        /// <param name="logMessage">Message to be logged on error.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
+        /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
         public async Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
@@ -167,7 +220,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
                     using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -232,11 +284,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return results;
         }
 
+        /// <summary>
+        /// Executes <paramref name="sqlCommand"/> and reads all the rows. Translates the read rows by using <paramref name="readerToResult"/>
+        /// into the <typeparamref name="TResult"/> data type and returns them. Retries execution of <paramref name="sqlCommand"/> on SQL error or failed
+        /// SQL connection error. In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
+        /// </summary>
+        /// <remarks>This method does not suport .NET database transactions.</remarks>
+        /// <typeparam name="TResult">Defines data type for the returned SQL rows.</typeparam>
+        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
+        /// <param name="sqlCommand">SQL command to be executed.</param>
+        /// <param name="readerToResult">Translation delegate that translates the row returned by <paramref name="sqlCommand"/> execution into the <typeparamref name="TResult"/> data type.</param>
+        /// <param name="logger">Logger used on first try error or retry error.</param>
+        /// <param name="logMessage">Message to be logged on error.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation that returns all the rows that result from <paramref name="sqlCommand"/> execution. The rows are translated by <paramref name="readerToResult"/> delegate
+        /// into <typeparamref name="TResult"/> data type.</returns>
+        /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
         public async Task<List<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
         {
             return await ExecuteSqlDataReader(sqlCommand, readerToResult, logger, logMessage, true, cancellationToken);
         }
 
+        /// <summary>
+        /// Executes <paramref name="sqlCommand"/> and reads the first row only. Translates the read row by using <paramref name="readerToResult"/>
+        /// into the returned <typeparamref name="TResult"/> data type. Retries execution of <paramref name="sqlCommand"/> on SQL error or failed
+        /// SQL connection error. In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
+        /// </summary>
+        /// <remarks>This method does not suport .NET database transactions.</remarks>
+        /// <typeparam name="TResult">Defines data type for the returned SQL row.</typeparam>
+        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
+        /// <param name="sqlCommand">SQL command to be executed.</param>
+        /// <param name="readerToResult">Translation delegate that translates the row returned by <paramref name="sqlCommand"/> execution into the <typeparamref name="TResult"/> data type.</param>
+        /// <param name="logger">Logger used on first try error or retry error.</param>
+        /// <param name="logMessage">Message to be logged on error.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation that returns the first row that results from <paramref name="sqlCommand"/> execution. The row is translated by <paramref name="readerToResult"/> delegate
+        /// into <typeparamref name="TResult"/> data type.</returns>
+        /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
         public async Task<TResult> ExecuteSqlDataReaderFirstRow<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
             where TResult : class
         {
