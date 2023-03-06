@@ -8,11 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.Xunit;
-using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
@@ -305,20 +301,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () =>
                 {
                     var queueType = (byte)TestQueueType.ExecuteWithHeartbeat;
-                    var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
-                    await client.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
-                    JobInfo job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
+                    await _queueClient.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
+                    JobInfo job = await _queueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
                     var cancel = new CancellationTokenSource();
                     cancel.CancelAfter(TimeSpan.FromSeconds(30));
-                    var execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
-                        client,
+                    Task<string> execTask = JobHosting.ExecuteJobWithHeartbeatsAsync(
+                        _queueClient,
                         queueType,
                         job.Id,
                         job.Version,
                         async cancelSource =>
                         {
-                            await Task.Delay(TimeSpan.FromSeconds(10));
-                            await client.CompleteJobAsync(job, false, cancel.Token);
+                            await Task.Delay(TimeSpan.FromSeconds(10), cancelSource.Token);
+                            await _queueClient.CompleteJobAsync(job, false, cancelSource.Token);
                             return "Test";
                         },
                         TimeSpan.FromSeconds(1),
@@ -332,8 +327,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         {
                             while (currentJob.Status == JobStatus.Running)
                             {
-                                await Task.Delay(TimeSpan.FromSeconds(1));
-                                currentJob = await client.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
+                                await Task.Delay(TimeSpan.FromSeconds(1), cancel.Token);
+                                currentJob = await _queueClient.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
                                 if (currentJob.HeartbeatDateTime != previousJob.HeartbeatDateTime)
                                 {
                                     heartbeatChanges++;
@@ -355,20 +350,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () =>
                 {
                     var queueType = (byte)TestQueueType.ExecuteWithHeartbeatsHeavy;
-                    var client = new SqlQueueClient(_fixture.SqlConnectionWrapperFactory, _schemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
-                    await client.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
-                    JobInfo job = await client.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
+                    await _queueClient.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
+                    JobInfo job = await _queueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
                     var cancel = new CancellationTokenSource();
                     cancel.CancelAfter(TimeSpan.FromSeconds(30));
                     var execTask = JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
-                        client,
+                        _queueClient,
                         job,
                         async cancelSource =>
                         {
-                            await Task.Delay(TimeSpan.FromSeconds(5));
+                            await Task.Delay(TimeSpan.FromSeconds(5), cancelSource.Token);
                             job.Result = "Something";
                             await Task.Delay(TimeSpan.FromSeconds(5));
-                            await client.CompleteJobAsync(job, false, cancel.Token);
+                            await _queueClient.CompleteJobAsync(job, false, cancelSource.Token);
                             return "Test";
                         },
                         TimeSpan.FromSeconds(1),
@@ -384,7 +378,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                             while (currentJob.Status == JobStatus.Running)
                             {
                                 await Task.Delay(TimeSpan.FromSeconds(1));
-                                currentJob = await client.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
+                                currentJob = await _queueClient.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
 
                                 if (currentJob.Status == JobStatus.Running && currentJob.Result != null)
                                 {

@@ -385,35 +385,32 @@ public class CosmosQueueClient : IQueueClient
         (JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob) definitionTuple = jobs.Single();
         JobDefinitionWrapper item = definitionTuple.MatchingJob.Single();
 
-        if (item != null)
+        if (jobInfo.Status == JobStatus.Failed)
         {
-            if (jobInfo.Status == JobStatus.Failed)
+            // If a job fails with requestCancellationOnFailure, all other jobs in the group should be cancelled.
+            if (requestCancellationOnFailure)
             {
-                // If a job fails with requestCancellationOnFailure, all other jobs in the group should be cancelled.
-                if (requestCancellationOnFailure)
+                foreach (JobDefinitionWrapper jobDefinition in definitionTuple.JobGroup.Definitions)
                 {
-                    foreach (JobDefinitionWrapper jobDefinition in definitionTuple.JobGroup.Definitions)
-                    {
-                        CancelJobDefinition(jobDefinition);
-                    }
+                    CancelJobDefinition(jobDefinition);
                 }
-
-                item.Status = (byte)JobStatus.Failed;
-            }
-            else if (item.CancelRequested)
-            {
-                item.Status = (byte)JobStatus.Cancelled;
-            }
-            else
-            {
-                item.Status = (byte?)jobInfo.Status ?? (byte?)JobStatus.Completed;
             }
 
-            item.EndDate = Clock.UtcNow;
-            item.Result = jobInfo.Result;
-
-            await SaveJobGroupAsync(definitionTuple.JobGroup, cancellationToken);
+            item.Status = (byte)JobStatus.Failed;
         }
+        else if (item.CancelRequested)
+        {
+            item.Status = (byte)JobStatus.Cancelled;
+        }
+        else
+        {
+            item.Status = (byte?)JobStatus.Completed;
+        }
+
+        item.EndDate = Clock.UtcNow;
+        item.Result = jobInfo.Result;
+
+        await SaveJobGroupAsync(definitionTuple.JobGroup, cancellationToken);
     }
 
     private async Task<IReadOnlyList<JobGroupWrapper>> GetGroupInternalAsync(
