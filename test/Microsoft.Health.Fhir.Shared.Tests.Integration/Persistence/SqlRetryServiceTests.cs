@@ -49,15 +49,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenSqlCommandAction_WhenErrorAfterSelect_AllRetriesAreRun()
+        public async Task GivenSqlCommandAction_WhenErrorAfterSelect_AllRetriesFail()
         {
-            await AllRetriesTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, false);
+            await AllRetriesFailTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, false);
         }
 
         [Fact]
-        public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_AllRetriesAreRun()
+        public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_AllRetriesFail()
         {
-            await AllRetriesTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, true);
+            await AllRetriesFailTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, true);
         }
 
         // SQL SELECT retry tests.
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesAreRun()
+        public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
         }
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesAreRun()
+        public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
         }
@@ -268,7 +268,7 @@ END
             }
         }
 
-        private async Task<SqlRetryService> InitializeTest(int? sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionNoPooling, bool testConnectionInitializationFailure, bool testConnectionInitializationFailOnAllRetries)
+        private async Task<SqlRetryService> InitializeTest(int? sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionNoPooling, bool testConnectionInitializationFailure, bool testConnectionInitializationAllRetriesFail)
         {
             await CreateTestTable(testTableName);
             await testStoredProc(storedProcedureName, testTableName);
@@ -287,7 +287,7 @@ END
             }
             else if (testConnectionInitializationFailure)
             {
-                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationFailOnAllRetries), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
             }
             else
             {
@@ -521,7 +521,7 @@ END
             }
         }
 
-        private async Task AllRetriesTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, bool func)
+        private async Task AllRetriesFailTest(int sqlErrorNumber, Func<string, string, Task> testStoredProc, bool func)
         {
             MakeStoredProcedureAndTableName(true, out string storedProcedureName, out string testTableName);
             try
@@ -597,20 +597,20 @@ END
 
         private class SqlConnectionBuilderWithConnectionInitializationFailure : ISqlConnectionBuilder
         {
-            private readonly bool _failOnAllRetries;
+            private readonly bool _allRetriesFail;
             private int _retryCount;
             private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
 
-            public SqlConnectionBuilderWithConnectionInitializationFailure(ISqlConnectionBuilder sqlConnectionBuilder, bool failOnAllRetries)
+            public SqlConnectionBuilderWithConnectionInitializationFailure(ISqlConnectionBuilder sqlConnectionBuilder, bool allRetriesFail)
             {
                 _sqlConnectionBuilder = sqlConnectionBuilder;
-                _failOnAllRetries = failOnAllRetries;
+                _allRetriesFail = allRetriesFail;
             }
 
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, CancellationToken cancellationToken = default)
             {
                 _retryCount++;
-                if (_failOnAllRetries || _retryCount == 1)
+                if (_allRetriesFail || _retryCount == 1)
                 {
                     return new SqlConnection("Data Source=(local);Initial Catalog=FHIRINTEGRATIONTEST_DATABASE_DOES_NOT_EXIST;Integrated Security=True;Trust Server Certificate=True");
                 }
