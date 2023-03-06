@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <para>This class implements ISqlRetryService interface that is used to execute retriable SQL commands. If SQL command fails
     /// either because of a connection error or SQL error and the error is determined to be retriable, then methods in this class
     /// will retry the command.</para>
-    /// <para>This class is designetd to operate as .NET service and should be initialized as such in a standard .NET way, for
+    /// <para>This class is designed to operate as .NET service and should be initialized as such in a standard .NET way, for
     /// example in Startup.cs or equivalent source file.</para>
     /// <para>This class does not support Microsoft.Data.SqlClient.SqlTransaction class used to execute SQL transactions. However,
     /// SQL transactions can still be executed if, for example, defined in the SqlCommand.CommandText property of the SqlCommand
@@ -68,13 +68,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
-        /// is designed to operate as a standard .NET service and all of the parameters to the constructor are passed using
-        /// .NET dependency injection.
+        /// is designed to operate as a standard .NET service and all of the parameters to the constructor are passed
+        /// using .NET dependency injection.
         /// </summary>
         /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
         /// <param name="sqlServerDataStoreConfiguration">Internal FHIR server interface used initialize this class.</param>
-        /// <param name="sqlRetryServiceOptions"></param>
-        /// <param name="sqlRetryServiceDelegateOptions"></param>
+        /// <param name="sqlRetryServiceOptions">Initializes various retry parameters. <see cref="SqlRetryServiceOptions"/></param>
+        /// <param name="sqlRetryServiceDelegateOptions">Initializes custom delegate that is used to examine if the thrown exception represent a retriable error. <see cref="SqlRetryServiceDelegateOptions"/></param>
         public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
@@ -289,7 +289,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// into the <typeparamref name="TResult"/> data type and returns them. Retries execution of <paramref name="sqlCommand"/> on SQL error or failed
         /// SQL connection error. In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
         /// </summary>
-        /// <remarks>This method does not suport .NET database transactions.</remarks>
         /// <typeparam name="TResult">Defines data type for the returned SQL rows.</typeparam>
         /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
         /// <param name="sqlCommand">SQL command to be executed.</param>
@@ -310,7 +309,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// into the returned <typeparamref name="TResult"/> data type. Retries execution of <paramref name="sqlCommand"/> on SQL error or failed
         /// SQL connection error. In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
         /// </summary>
-        /// <remarks>This method does not suport .NET database transactions.</remarks>
         /// <typeparam name="TResult">Defines data type for the returned SQL row.</typeparam>
         /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
         /// <param name="sqlCommand">SQL command to be executed.</param>
