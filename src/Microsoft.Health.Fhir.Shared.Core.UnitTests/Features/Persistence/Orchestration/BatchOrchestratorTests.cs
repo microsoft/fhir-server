@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             const int numberOfResources = 10;
 
             var batchOrchestrator = new BatchOrchestrator<object>();
-            BatchOrchestratorJob<object> job = batchOrchestrator.CreateNewJob("INSERT", numberOfResources);
+            BatchOrchestratorJob<object> job = batchOrchestrator.CreateNewJob("PUT", numberOfResources);
 
             Assert.Equal(BatchOrchestratorJobStatus.Open, job.Status);
 
