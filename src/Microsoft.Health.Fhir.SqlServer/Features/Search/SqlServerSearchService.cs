@@ -838,7 +838,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             sb.AppendLine();
 
-            sb.AppendLine(sqlCommandWrapper.CommandText);
+            sb.AppendLine(sqlCommand.CommandText);
             _logger.LogInformation("{SqlQuery}", sb.ToString());
         }
 
