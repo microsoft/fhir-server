@@ -106,15 +106,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.Throws<StructuralTypeException>(() => Deserializers.ResourceDeserializer.Deserialize(wrapper));
         }
 
-        [Fact]
-        public async Task GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdNotSet_UpdatedWithVersionIdFromResourceWrapper()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdNotSet_UpdatedWithVersionIdFromResourceWrapper(bool pretty)
         {
             var patient = Samples.GetDefaultPatient().UpdateVersion("3").UpdateLastUpdated(Clock.UtcNow - TimeSpan.FromDays(30));
 
             var wrapper = new ResourceWrapper(patient, _rawResourceFactory.Create(patient, keepMeta: false), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
             wrapper.Version = "2";
 
-            var rawString = await SerializeToJsonString(new RawResourceElement(wrapper));
+            var rawString = await SerializeToJsonString(new RawResourceElement(wrapper), pretty);
             Assert.NotNull(rawString);
 
             var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);
@@ -123,8 +125,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.Equal(wrapper.LastModified, deserialized.Meta.LastUpdated);
         }
 
-        [Fact]
-        public async Task GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdSet_MaintainsVersionIdInRawResourceString()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdSet_MaintainsVersionIdInRawResourceString(bool pretty)
         {
             var lastUpdated = Clock.UtcNow - TimeSpan.FromDays(30);
             var patient = Samples.GetDefaultPatient().UpdateVersion("3").UpdateLastUpdated(lastUpdated);
@@ -132,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var wrapper = new ResourceWrapper(patient, _rawResourceFactory.Create(patient, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
             wrapper.Version = "2";
 
-            var rawString = await SerializeToJsonString(new RawResourceElement(wrapper));
+            var rawString = await SerializeToJsonString(new RawResourceElement(wrapper), pretty);
             Assert.NotNull(rawString);
 
             var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);
@@ -141,12 +145,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             Assert.Equal(lastUpdated, deserialized.Meta.LastUpdated);
         }
 
-        private async Task<string> SerializeToJsonString(RawResourceElement rawResourceElement)
+        private async Task<string> SerializeToJsonString(RawResourceElement rawResourceElement, bool pretty)
         {
             using (var ms = new MemoryStream())
             using (var sr = new StreamReader(ms))
             {
-                await rawResourceElement.SerializeToStreamAsUtf8Json(ms);
+                await rawResourceElement.SerializeToStreamAsUtf8Json(ms, pretty);
                 ms.Seek(0, SeekOrigin.Begin);
                 return await sr.ReadToEndAsync();
             }

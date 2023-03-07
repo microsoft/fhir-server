@@ -29,7 +29,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageVersioningPolicyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterStatusDataStoreTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlRetryServiceTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerMemberMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSetMergeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerWatchdogTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSchemaUpgradeTests.cs" />

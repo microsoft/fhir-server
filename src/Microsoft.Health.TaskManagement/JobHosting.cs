@@ -161,7 +161,7 @@ namespace Microsoft.Health.JobManagement
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
+                _logger.LogError(ex, "Job {JobId} failed with generic exception.", jobInfo.Id);
 
                 object error = new { message = ex.Message, stackTrace = ex.StackTrace };
                 jobInfo.Result = JsonConvert.SerializeObject(error);
@@ -169,7 +169,7 @@ namespace Microsoft.Health.JobManagement
 
                 try
                 {
-                    await _queueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 }
                 catch (Exception completeEx)
                 {

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Newtonsoft.Json;
@@ -56,6 +57,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var request = context.HttpContext.Request;
 
+            var parserToUse = _parser;
+
+            if (string.Equals(request.Method, HttpMethods.Post, StringComparison.OrdinalIgnoreCase) &&
+                request.Path.Value.Equals("/", System.StringComparison.OrdinalIgnoreCase))
+            {
+                var newsettings = _parser.Settings.Clone();
+                newsettings.AllowUnrecognizedEnums = true;
+                newsettings.AcceptUnknownMembers = true;
+                newsettings.ExceptionHandler = (source, args) =>
+                {
+                    context.ModelState.TryAddModelError(string.Empty, string.Format(Api.Resources.ParsingError, args.Message));
+                };
+
+                /*Current parser is initialized with a setting (TruncateDateTimeToDate) that was marked as Obsolete.
+                 To avoid changing existing behavior, same settings (one that was Obsolete) are used below. So, code added to
+                disable the warning.*/
+                #pragma warning disable CS0618 // Type or member is obsolete
+                var jsonParserForBundle = new FhirJsonParser(newsettings);
+                #pragma warning disable CS0618 // Type or member is obsolete
+
+                parserToUse = jsonParserForBundle;
+            }
+
             using (var streamReader = context.ReaderFactory(request.Body, encoding))
             using (var jsonReader = new JsonTextReader(streamReader))
             {
@@ -69,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 try
                 {
-                    model = await _parser.ParseAsync<Resource>(jsonReader);
+                    model = await parserToUse.ParseAsync<Resource>(jsonReader);
                 }
                 catch (Exception ex)
                 {
