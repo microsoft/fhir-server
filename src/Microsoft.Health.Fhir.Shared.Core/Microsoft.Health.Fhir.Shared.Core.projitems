@@ -32,9 +32,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestrator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorException.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorJob.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorJobResource.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorJobStatus.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorOperation.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorOperationResource.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorOperationStatus.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\IBatchOrchestrator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />

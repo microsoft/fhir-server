@@ -17,24 +17,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// the job should be removed from this dictionary.
         /// Jobs are indexed by their respective IDs.
         /// </summary>
-        private readonly ConcurrentDictionary<Guid, BatchOrchestratorJob<T>> _jobsById;
+        private readonly ConcurrentDictionary<Guid, BatchOrchestratorOperation<T>> _jobsById;
 
         private readonly object _dataLayer;
 
         public BatchOrchestrator()
         {
-            _jobsById = new ConcurrentDictionary<Guid, BatchOrchestratorJob<T>>();
+            _jobsById = new ConcurrentDictionary<Guid, BatchOrchestratorOperation<T>>();
 
             // Todo: Inject the data layer in use (Cosmos, SQL).
             _dataLayer = null;
         }
 
-        public BatchOrchestratorJob<T> CreateNewJob(string label, int expectedNumberOfResources)
+        public BatchOrchestratorOperation<T> CreateNewJob(string label, int expectedNumberOfResources)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
-            var newJob = new BatchOrchestratorJob<T>(label, expectedNumberOfResources, _dataLayer);
+            var newJob = new BatchOrchestratorOperation<T>(label, expectedNumberOfResources, _dataLayer);
 
             if (!_jobsById.TryAdd(newJob.Id, newJob))
             {
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         public bool RemoveJob(Guid id)
         {
-            if (!_jobsById.TryRemove(id, out BatchOrchestratorJob<T> job))
+            if (!_jobsById.TryRemove(id, out BatchOrchestratorOperation<T> job))
             {
                 throw new BatchOrchestratorException($"A job with ID '{id}' was not found or unable to be removed from {nameof(BatchOrchestrator<T>)}.");
             }
