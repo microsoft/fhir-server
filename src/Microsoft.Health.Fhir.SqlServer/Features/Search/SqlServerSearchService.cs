@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -391,6 +391,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
+
+                        _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
 
                         if (string.IsNullOrEmpty(rawResource))
                         {

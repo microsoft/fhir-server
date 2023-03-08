@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     /// </summary>
     public class PatientEverythingService : IPatientEverythingService
     {
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
 
         public PatientEverythingService(
+            IModelInfoProvider modelInfoProvider,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISearchOptionsFactory searchOptionsFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
@@ -64,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -74,6 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
+            _modelInfoProvider = modelInfoProvider;
             _searchServiceFactory = searchServiceFactory;
             _searchOptionsFactory = searchOptionsFactory;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
@@ -154,10 +158,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                         ? await SearchCompartment(resourceId, parentPatientId, since, types, encodedInternalContinuationToken, token, cancellationToken)
                         : await SearchCompartmentWithoutDate(resourceId, parentPatientId, since, types, encodedInternalContinuationToken, token, cancellationToken);
 
-                    if (!searchResult.Results.Any())
+                    // Starting from FHIR R5, "Devices" are included as part of Compartment Search.
+                    // Previous versions of FHIR should still query for "Devices" explicitly.
+                    if (_modelInfoProvider.Version < FhirSpecification.R5)
                     {
-                        phase = 3;
-                        goto case 3;
+                        if (!searchResult.Results.Any())
+                        {
+                            phase = 3;
+                            goto case 3;
+                        }
                     }
 
                     break;
@@ -178,8 +187,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
                 nextContinuationToken = token.ToJson();
             }
-            else if (phase < 3)
+            else if (phase < 2 || (_modelInfoProvider.Version < FhirSpecification.R5 && phase == 2))
             {
+                // Starting from FHIR R5, "Devices" are included as part of Compartment Search.
+                // No need to run Phase 3 for FHIR R5.
+
                 token.Phase = phase + 1;
                 token.InternalContinuationToken = null;
 
@@ -425,7 +437,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             // R5 include device into compartment so no sence to do search.
             // But if we expand _revinclude to be a list this should be revisted!
-            if ((ModelInfoProvider.Version == FhirSpecification.R5) ||
+            if ((_modelInfoProvider.Version == FhirSpecification.R5) ||
                 (types.Any() && !types.Contains(_revinclude.resourceType)))
             {
                 return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());

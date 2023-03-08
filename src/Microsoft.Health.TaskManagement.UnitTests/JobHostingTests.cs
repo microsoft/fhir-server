@@ -79,10 +79,15 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             string definition1 = "definition1";
             string definition2 = "definition2";
+            string groupDefinition1 = "groupDefinition1";
+            string groupDefinition2 = "groupDefinition2";
 
             TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { definition1 }, null, false, false, CancellationToken.None)).First();
-            JobInfo job2 = (await queueClient.EnqueueAsync(0, new string[] { definition2 }, null, false, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { definition1 }, 1, false, false, CancellationToken.None)).First();
+            JobInfo job2 = (await queueClient.EnqueueAsync(0, new string[] { definition2 }, 2, false, false, CancellationToken.None)).First();
+
+            JobInfo jobGroup1 = (await queueClient.EnqueueAsync(0, new string[] { groupDefinition1 }, 1, false, false, CancellationToken.None)).First();
+            JobInfo jobGroup2 = (await queueClient.EnqueueAsync(0, new string[] { groupDefinition2 }, 2, false, false, CancellationToken.None)).First();
 
             int executeCount = 0;
             TestJobFactory factory = new TestJobFactory(t =>
@@ -90,21 +95,29 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 if (definition1.Equals(t.Definition))
                 {
                     return new TestJob(
-                            (progress, token) =>
-                            {
-                                Interlocked.Increment(ref executeCount);
+                        (progress, token) =>
+                        {
+                            Interlocked.Increment(ref executeCount);
 
-                                throw new JobExecutionException(errorMessage, error);
-                            });
+                            throw new JobExecutionException(errorMessage, error);
+                        });
+                }
+                else if (definition2.Equals(t.Definition))
+                {
+                    return new TestJob(
+                        (progress, token) =>
+                        {
+                            Interlocked.Increment(ref executeCount);
+                            throw new Exception(errorMessage);
+                        });
                 }
                 else
                 {
                     return new TestJob(
-                            (progress, token) =>
-                            {
-                                Interlocked.Increment(ref executeCount);
-                                throw new Exception(errorMessage);
-                            });
+                        (progress, token) =>
+                        {
+                            return Task.FromResult("end");
+                        });
                 }
             });
 
@@ -121,10 +134,13 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             Assert.Equal(JobStatus.Failed, job1.Status);
             Assert.Equal(JsonConvert.SerializeObject(error), job1.Result);
+            Assert.Equal(JobStatus.Completed, jobGroup1.Status);
+
             Assert.Equal(JobStatus.Failed, job2.Status);
 
             // Job2's error includes the stack trace with can't be easily added to the expected value, so we just look for the message.
             Assert.Contains(errorMessage, job2.Result);
+            Assert.Equal(JobStatus.Cancelled, jobGroup2.Status);
         }
 
         [Fact]

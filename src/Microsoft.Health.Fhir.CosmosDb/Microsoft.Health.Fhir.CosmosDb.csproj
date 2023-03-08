@@ -6,7 +6,6 @@
     <EmbeddedResource Include="Features\Storage\StoredProcedures\Replace\replaceSingleResource.js" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="Microsoft.Azure.Cosmos" />
     <PackageReference Include="System.Private.ServiceModel" /><!-- Microsoft.Azure.Cosmos.Direct is referencing an insecure version of System.Private.ServiceModel (4.5.0) -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
