@@ -261,9 +261,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // Generate separate queries for each resource type and add them to query list.
-            foreach (string resourceType in _reindexJobRecord.Resources)
+            foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
             {
-                var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                var query = new ReindexJobQueryStatus(resourceType.Key, continuationToken: null)
                 {
                     LastModified = Clock.UtcNow,
                     Status = OperationStatus.Queued,
@@ -474,7 +474,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
-                    await UpdateJobAsync();
                     _throttleController.UpdateDatastoreUsage();
                 }
                 finally
@@ -623,9 +622,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<SearchResult> ExecuteReindexQueryAsync(ReindexJobQueryStatus queryStatus, bool countOnly, CancellationToken cancellationToken)
         {
-            // if it exists then use that otherwise default back to the status quo
-            var queryParametersList = new List<Tuple<string, string>>();
             SearchResultReindex searchResultReindex = GetSearchResultReindex(queryStatus.ResourceType);
+            var queryParametersList = new List<Tuple<string, string>>()
+            {
+                Tuple.Create(KnownQueryParameterNames.Count, _throttleController.GetThrottleBatchSize().ToString(CultureInfo.InvariantCulture)),
+                Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
+            };
+
+            // This should never be cosmos
             if (searchResultReindex != null && searchResultReindex.CurrentResourceSurrogateId > 0)
             {
                 // if queryStatus has value then it's a continuation otherwise first time for the resource type
@@ -633,25 +637,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 queryParametersList.AddRange(new[]
                 {
-                    Tuple.Create(KnownQueryParameterNames.Count, _throttleController.GetThrottleBatchSize().ToString(CultureInfo.InvariantCulture)),
-                    Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, startResourceSurrogateId.ToString()),
                     Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 });
-            }
-            else
-            {
-                queryParametersList.AddRange(new[]
-                {
-                    Tuple.Create(KnownQueryParameterNames.Count, _throttleController.GetThrottleBatchSize().ToString(CultureInfo.InvariantCulture)),
-                    Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
-                });
 
-                if (queryStatus.ContinuationToken != null)
+                if (!countOnly)
                 {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, queryStatus.ContinuationToken));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
                 }
+            }
+
+            if (queryStatus.ContinuationToken != null)
+            {
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, queryStatus.ContinuationToken));
             }
 
             string searchParameterHash = string.Empty;
@@ -708,12 +707,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 };
 
                 SearchResult searchResult = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, _cancellationToken);
+                totalCount += searchResult != null ? searchResult.TotalCount.Value : 0;
 
                 if (searchResult?.ReindexResult?.StartResourceSurrogateId > 0)
                 {
                     SearchResultReindex reindexResults = searchResult.ReindexResult;
                     _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex()
                     {
+                        Count = reindexResults.Count,
                         CurrentResourceSurrogateId = reindexResults.CurrentResourceSurrogateId,
                         EndResourceSurrogateId = reindexResults.EndResourceSurrogateId,
                         StartResourceSurrogateId = reindexResults.StartResourceSurrogateId,
@@ -724,7 +725,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // No action needs to be taken if an entry for this resource fails to get added to the dictionary
                     // We will reindex all resource types that do not have a dictionary entry
                     _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex(searchResult.TotalCount.Value));
-                    totalCount += searchResult.TotalCount.Value;
                 }
                 else
                 {
@@ -744,9 +744,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             int totalCount = 0;
             var resourcesTypes = new List<string>();
 
-            foreach (string resourceType in _reindexJobRecord.Resources)
+            foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
             {
-                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                var queryForCount = new ReindexJobQueryStatus(resourceType.Key, continuationToken: null)
                 {
                     LastModified = Clock.UtcNow,
                     Status = OperationStatus.Queued,
@@ -757,7 +757,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (countOnlyResults?.TotalCount != null)
                 {
                     totalCount += countOnlyResults.TotalCount.Value;
-                    resourcesTypes.Add(resourceType);
+                    resourcesTypes.Add(resourceType.Key);
                 }
             }
 
