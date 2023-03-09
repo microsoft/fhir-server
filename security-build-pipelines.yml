@@ -95,7 +95,7 @@ stages:
 
     - task: CredScan@3
       inputs:
-        scanFolder: ${{ parameters.credScanDirectory }}
+        scanFolder: '$(Build.SourcesDirectory)'
         outputFormat: 'sarif'
         suppressionsFile: 'CredScanSuppressions.json'
         verboseOutput: true
