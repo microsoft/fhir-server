@@ -859,7 +859,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     cancellationToken,
                     searchOptions.IgnoreSearchParamHash ? null : searchParameterHash);
 
-                results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+                if (results.Results.Any())
+                {
+                    results.MaxResourceSurrogateId = results.Results.Max(e => e.Resource.ResourceSurrogateId);
+                }
             }
             else
             {
