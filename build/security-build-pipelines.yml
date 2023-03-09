@@ -3,6 +3,9 @@
 
 trigger: none
 
+variables:
+- template: build-variables.yml
+
 stages:
 - stage: CodeQlBuild
   displayName: 'Code QL Build'
