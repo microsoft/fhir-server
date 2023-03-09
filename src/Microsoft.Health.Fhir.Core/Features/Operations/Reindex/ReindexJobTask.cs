@@ -474,6 +474,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
+                    await UpdateJobAsync();
                     _throttleController.UpdateDatastoreUsage();
                 }
                 finally
@@ -582,10 +583,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // all queries marked as complete, reindex job is done, check success or failure
                 if (_reindexJobRecord.QueryList.Keys.All(q => q.Status == OperationStatus.Completed))
                 {
-                    // TODO: For a force reindex do we need to also use a range of ResourceSurrogateIds with that ResourceType for searching counts?
-                    // so that we don't cause sql timeouts on large dbs of approx 1TB and larger
-                    // Since this is a force reindex and we skip the SearchParameterHash check we can also skip getting counts based
-                    // on a SearchParameterHash as well.
+                    // Since this is a force reindex and we skip the SearchParameterHash check we can skip getting counts based
+                    // on a SearchParameterHash because we never used that as a filter to start the reindex job with
                     if (_reindexJobRecord.ForceReindex)
                     {
                         await UpdateParametersAndCompleteJob();

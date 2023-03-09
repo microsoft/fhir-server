@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -55,10 +54,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             if (job.Count > 0 && job.Progress > 0)
             {
                 progress = (decimal)job.Progress / job.Count * 100;
-            }
-            else if (job.ResourceCounts.Any())
-            {
-                progress = job.ResourceCounts.Values.Select(e => (((decimal)e.CurrentResourceSurrogateId - e.StartResourceSurrogateId) / ((decimal)e.EndResourceSurrogateId - e.StartResourceSurrogateId) * 100)).Sum() / job.ResourceCounts.Count;
             }
             else
             {
