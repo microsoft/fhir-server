@@ -78,23 +78,31 @@ steps:
     verbosity: 'Verbose'
     alertWarningLevel: 'High'
 
-- task: RoslynAnalyzers@3
-  inputs:
-    userProvideBuildInfo: 'autoMsBuildInfo'
-    setupCommandlinePicker: 'vs2022'
-    rulesetName: 'Multiple'
-    multipleRulesetRequired: true
-    multipleRulesetRecommended: true
-    customRuleset: 'CustomAnalysisRules.ruleset'
-    suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
-  env:
-    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-
 - task: CSRF@1
   inputs:
       Path: '$(Build.SourcesDirectory)'
       ToolVersion: Latest
       
+- task: RoslynAnalyzers@3
+  inputs:
+    userProvideBuildInfo: 'msBuildInfo'
+    msBuildVersion: '16.0'
+    msBuildArchitecture: 'x64'
+    setupCommandlinePicker: 'vs2022'
+    msBuildCommandline: $(System.DefaultWorkingDirectory)
+
+# - task: RoslynAnalyzers@3
+#   inputs:
+#     userProvideBuildInfo: 'autoMsBuildInfo'
+#     setupCommandlinePicker: 'vs2022'
+#     rulesetName: 'Multiple'
+#     multipleRulesetRequired: true
+#     multipleRulesetRecommended: true
+#     customRuleset: 'CustomAnalysisRules.ruleset'
+#     suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
+#   env:
+#     SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
 - task: CodeInspector@2
   displayName: Run Code Inspector
   inputs:
