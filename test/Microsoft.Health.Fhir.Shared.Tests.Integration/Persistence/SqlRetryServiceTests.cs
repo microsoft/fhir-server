@@ -399,19 +399,6 @@ END
             finally
             {
                 await DropTestObjecs(storedProcedureName, testTableName);
-                if (!testConnectionInitializationFailure)
-                {
-                    // Looks like there's a bug in vstest. If connecion is being killed that may end the test process because code may not ba aware on time that socket is being closed.
-                    // In that test process is terminated and we get:
-                    // --->System.Exception: Unable to read beyond the end of the stream.
-                    //    at System.IO.BinaryReader.Read7BitEncodedInt()
-                    //    at System.IO.BinaryReader.ReadString()
-                    //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.LengthPrefixCommunicationChannel.NotifyDataAvailable()
-                    //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.TcpClientExtensions.MessageLoopAsync(TcpClient client, ICommunicationChannel channel, Action`1 errorHandler, CancellationToken cancellationToken)
-                    //    -- - End of inner exception stack trace-- -.
-                    // For that reason we add this delay at the end of the test:
-                    await Task.Delay(30 * 1000);
-                }
             }
         }
 
@@ -427,12 +414,14 @@ END
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
                 try
                 {
+                    _output.WriteLine($"{DateTime.Now:O}: Start executing ExecuteSqlDataReader.");
                     await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
                         sqlCommand,
                         testConnectionInitializationFailure ? SqlCommandFuncWithRetries : SqlCommandFuncWithRetriesAndKillConnection,
                         logger,
                         "log message",
                         CancellationToken.None);
+                    _output.WriteLine($"{DateTime.Now:O}: End executing ExecuteSqlDataReader.");
 
                     // In this test exception should be thrown. This point should never be reached.
                     // We use this pattern instead of Assert.ThrowsAsync<T> because different exception types could be thrown if connection is broken (SqlException, InvalidOperationException).
@@ -440,6 +429,7 @@ END
                 }
                 catch (Exception ex)
                 {
+                    _output.WriteLine($"{DateTime.Now:O}: ExecuteSqlDataReader throws.");
                     Assert.True(IsConnectionFailedException(ex, testConnectionInitializationFailure));
                 }
 
@@ -457,19 +447,6 @@ END
             finally
             {
                 await DropTestObjecs(storedProcedureName, testTableName);
-                if (!testConnectionInitializationFailure)
-                {
-                    // Looks like there's a bug in vstest. If connecion is being killed that may end the test process because code may not ba aware on time that socket is being closed.
-                    // In that test process is terminated and we get:
-                    // --->System.Exception: Unable to read beyond the end of the stream.
-                    //    at System.IO.BinaryReader.Read7BitEncodedInt()
-                    //    at System.IO.BinaryReader.ReadString()
-                    //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.LengthPrefixCommunicationChannel.NotifyDataAvailable()
-                    //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.TcpClientExtensions.MessageLoopAsync(TcpClient client, ICommunicationChannel channel, Action`1 errorHandler, CancellationToken cancellationToken)
-                    //    -- - End of inner exception stack trace-- -.
-                    // For that reason we add this delay at the end of the test:
-                    await Task.Delay(30 * 1000);
-                }
             }
         }
 
@@ -589,10 +566,36 @@ END
             long sessionId = sqlDataReader.GetInt64(1);
             if (rowId == 0)
             {
-                ExecuteSql($"KILL {sessionId}").Wait();
+                // ExecuteSql($"KILL {sessionId}").Wait();
+                _output.WriteLine($"{DateTime.Now:O}: Start KillConnection.");
+                KillConnection(sessionId);
+                _output.WriteLine($"{DateTime.Now:O}: End KillConnection.");
+                Task.Delay(5000).Wait();
+                _output.WriteLine($"{DateTime.Now:O}: Continue reading DB.");
             }
 
             return rowId;
+        }
+
+        private void KillConnection(long sessionId)
+        {
+            var t = new Thread(new ThreadStart(() =>
+            {
+                _output.WriteLine($"{DateTime.Now:O}: Start KillConnection thread.");
+                using SqlConnection sqlConnection = _fixture.SqlConnectionBuilder.GetSqlConnectionAsync().GetAwaiter().GetResult();
+                var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                {
+                    Pooling = false,
+                };
+                sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                using SqlCommand sqlCommand = sqlConnection.CreateCommand();
+                sqlConnection.Open();
+                sqlCommand.CommandText = $"KILL {sessionId}";
+                sqlCommand.ExecuteNonQuery();
+                _output.WriteLine($"{DateTime.Now:O}: End KillConnection thread.");
+            }));
+            t.Start();
+            Thread.Sleep(0);
         }
 
         private class SqlConnectionBuilderWithConnectionInitializationFailure : ISqlConnectionBuilder
