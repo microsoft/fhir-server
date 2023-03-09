@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using Microsoft.Health.Core.Features.Audit;
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+namespace Microsoft.Health.Fhir.Core.Features.Audit
 {
     /// <summary>
     /// Provides mechanism to log audit event.
