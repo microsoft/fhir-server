@@ -4,6 +4,7 @@
 trigger: none
 
 variables:
+- template: pr-variables.yml
 - template: build-variables.yml
 
 stages:
