@@ -8,43 +8,6 @@ variables:
 - template: build-variables.yml
 
 stages:
-- stage: UpdateVersion
-  displayName: 'Determine Semver'
-  dependsOn: []
-  jobs:
-  - job: Semver
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: ./jobs/update-semver.yml  
-    - powershell: |
-
-        $buildNumber = "$(semVer)".replace(".", "").replace("-", "")
-        $buildNumber = $buildNumber.subString(0, [System.Math]::Min(15, $buildNumber.Length))
-
-        Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
-        Write-Host "Updated  build number to '$buildNumber"
-      name: SetBuildVersion
-
-- stage: UpdateRandom
-  displayName: 'Determine Random String'
-  dependsOn:
-  - UpdateVersion
-  variables:
-    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
-    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
-    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
-    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
-    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
-  jobs:
-  - job: Password
-    pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
-    steps:
-    - template: ./jobs/update-sqlAdminPassword.yml
-
 - stage: CodeQlBuild
   displayName: 'Code QL Build'
   jobs:
