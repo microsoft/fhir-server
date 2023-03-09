@@ -1,0 +1,170 @@
+# DESCRIPTION: 	
+# Builds and Run Code QL for Security
+
+trigger: none
+
+stages:
+- stage: CodeQlBuild
+  displayName: 'Code QL Build'
+  jobs:
+  - job: Windows_dotnet7
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        targetBuildFramework: $(defaultBuildFramework)
+        unitTest: false
+        codeCoverage: true
+  - job: Linux_dotnet6
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        targetBuildFramework: 'net6.0'
+  - job: Linux_BuildAndPackage
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        codeCoverage: false
+        unitTest: false
+        componentGovernance: true
+        packageArtifacts: true
+        packageIntegrationTests: true
+
+  - job: Guardian
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - task: DownloadBuildArtifacts@0
+      displayName: 'Download Binaries'
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(Agent.TempDirectory)/artifacts'
+        artifactName: 'deploy'
+
+    - task: DownloadBuildArtifacts@0
+      displayName: 'Download NuGet Packages'
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(Build.SourcesDirectory)/artifacts'
+        artifactName: 'nuget'
+      
+    - task: ExtractFiles@1
+      displayName: 'Extract Stu3 Web Server Binaries'
+      inputs:
+        archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.Stu3.Web.zip'
+        destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/Stu3'
+    - task: ExtractFiles@1
+      displayName: 'Extract R4 Web Server Binaries'
+      inputs:
+        archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R4.Web.zip'
+        destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r4'
+    - task: ExtractFiles@1
+      displayName: 'Extract R4B Web Server Binaries'
+      inputs:
+        archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R4B.Web.zip'
+        destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r4b'
+    - task: ExtractFiles@1
+      displayName: 'Extract R5 Web Server Binaries'
+      inputs:
+        archiveFilePatterns: '$(Agent.TempDirectory)/artifacts/deploy/Microsoft.Health.Fhir.R5.Web.zip'
+        destinationFolder: '$(Build.SourcesDirectory)/artifacts/web/r5'
+    - task: AntiMalware@4
+      inputs:
+        InputType: 'Basic'
+        ScanType: 'CustomScan'
+        FileDirPath: '$(Build.SourcesDirectory)'
+        EnableServices: true
+        TreatSignatureUpdateFailureAs: 'Standard'
+        SignatureFreshness: 'OneDay'
+        TreatStaleSignatureAs: 'Error'
+
+    - task: Armory@2
+      inputs:
+        targetDirectory: '$(Build.SourcesDirectory)\samples\templates'
+        targetFiles: 'f|*.json'
+        excludePassesFromLog: false
+
+    - task: CredScan@3
+      inputs:
+        scanFolder: ${{ parameters.credScanDirectory }}
+        outputFormat: 'sarif'
+        suppressionsFile: 'CredScanSuppressions.json'
+        verboseOutput: true
+
+    - task: ComponentGovernanceComponentDetection@0
+      displayName: Component Detection
+      inputs:
+        scanType: 'Register'
+        verbosity: 'Verbose'
+        alertWarningLevel: 'High'
+
+    - task: CSRF@1
+      inputs:
+          Path: '$(Build.SourcesDirectory)'
+          ToolVersion: Latest
+          
+    - task: RoslynAnalyzers@3
+      inputs:
+        userProvideBuildInfo: 'autoMsBuildInfo'
+        setupCommandlinePicker: 'vs2022'
+        rulesetName: 'Multiple'
+        multipleRulesetRequired: true
+        multipleRulesetRecommended: true
+        customRuleset: 'CustomAnalysisRules.ruleset'
+        suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+    - task: CodeInspector@2
+      displayName: Run Code Inspector
+      inputs:
+          ProductId: 4ca9125a-9eaa-4bb4-a473-cfccec0f3c63
+
+    - task: SdtReport@2
+      inputs:
+        GdnExportAllTools: false
+        GdnExportGdnToolArmory: true
+        GdnExportGdnToolCredScan: true
+
+    - task: PublishSecurityAnalysisLogs@3
+      inputs:
+        ArtifactName: 'CodeAnalysisLogs'
+        ArtifactType: 'Container'
+        AllTools: false
+        AntiMalware: true
+        APIScan: false
+        Armory: true
+        Bandit: false
+        BinSkim: false
+        CodesignValidation: false
+        CredScan: true
+        CSRF: false
+        ESLint: false
+        Flawfinder: false
+        FortifySCA: false
+        FxCop: false
+        ModernCop: false
+        MSRD: false
+        PoliCheck: false
+        RoslynAnalyzers: false
+        SDLNativeRules: false
+        Semmle: false
+        SpotBugs: false
+        TSLint: false
+        WebScout: false
+        ToolLogsNotFoundAction: 'Standard'
+
+    - task: PostAnalysis@2
+      inputs:
+        GdnBreakAllTools: false
+        GdnBreakGdnToolArmory: true
+        GdnBreakGdnToolCredScan: true
