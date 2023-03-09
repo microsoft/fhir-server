@@ -71,6 +71,35 @@ steps:
     suppressionsFile: 'CredScanSuppressions.json'
     verboseOutput: true
 
+- task: ComponentGovernanceComponentDetection@0
+  displayName: Component Detection
+  inputs:
+    scanType: 'Register'
+    verbosity: 'Verbose'
+    alertWarningLevel: 'High'
+
+- task: RoslynAnalyzers@3
+  inputs:
+    userProvideBuildInfo: 'autoMsBuildInfo'
+    setupCommandlinePicker: 'vs2022'
+    rulesetName: 'Multiple'
+    multipleRulesetRequired: true
+    multipleRulesetRecommended: true
+    customRuleset: 'CustomAnalysisRules.ruleset'
+    suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+- task: CSRF@1
+  inputs:
+      Path: '$(Build.SourcesDirectory)'
+      ToolVersion: Latest
+      
+- task: CodeInspector@2
+  displayName: Run Code Inspector
+  inputs:
+      ProductId: 4ca9125a-9eaa-4bb4-a473-cfccec0f3c63
+
 - task: SdtReport@2
   inputs:
     GdnExportAllTools: false
