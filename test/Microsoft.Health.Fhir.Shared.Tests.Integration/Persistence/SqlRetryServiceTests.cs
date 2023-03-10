@@ -570,7 +570,6 @@ END
                 _output.WriteLine($"{DateTime.Now:O}: Start KillConnection.");
                 KillConnection(sessionId);
                 _output.WriteLine($"{DateTime.Now:O}: End KillConnection.");
-                Task.Delay(5000).Wait();
                 _output.WriteLine($"{DateTime.Now:O}: Continue reading DB.");
             }
 
@@ -579,6 +578,16 @@ END
 
         private void KillConnection(long sessionId)
         {
+            // We kill the SQL connection in a separate thread and using a separate SQL connection, not from task thread pool or SQL
+            // connection pool, otherwise when running on Linux we may encounter a deadlock situation with vstest process timing out
+            // and terminating with the following stack trace:
+            // --->System.Exception: Unable to read beyond the end of the stream.
+            //    at System.IO.BinaryReader.Read7BitEncodedInt()
+            //    at System.IO.BinaryReader.ReadString()
+            //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.LengthPrefixCommunicationChannel.NotifyDataAvailable()
+            //    at Microsoft.VisualStudio.TestPlatform.CommunicationUtilities.TcpClientExtensions.MessageLoopAsync(TcpClient client, ICommunicationChannel channel, Action`1 errorHandler, CancellationToken cancellationToken)
+            //    -- - End of inner exception stack trace-- -.
+
             var t = new Thread(new ThreadStart(() =>
             {
                 _output.WriteLine($"{DateTime.Now:O}: Start KillConnection thread.");
@@ -596,6 +605,7 @@ END
             }));
             t.Start();
             Thread.Sleep(0);
+            t.Join();
         }
 
         private class SqlConnectionBuilderWithConnectionInitializationFailure : ISqlConnectionBuilder
