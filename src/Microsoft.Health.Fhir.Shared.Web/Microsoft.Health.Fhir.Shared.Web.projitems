@@ -9,6 +9,7 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Web</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AuthenticationSchemeManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)CloudRoleNameTelemetryInitializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderApplicationConfiguration.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderConfiguration.cs" />

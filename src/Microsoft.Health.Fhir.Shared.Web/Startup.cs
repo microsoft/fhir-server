@@ -5,8 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
@@ -16,11 +16,15 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Azure;
+using Microsoft.Health.Fhir.Cloud.FhirService.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
+/*using Microsoft.IdentityModel.S2S;
+using Microsoft.IdentityModel.S2S.Configuration;*/
+using Microsoft.IdentityModel.S2S.Extensions.AspNetCore;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -38,6 +42,11 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public virtual void ConfigureServices(IServiceCollection services)
         {
+            services.Add<AuthenticationSchemeManager>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             instanceId = $"{Configuration["WEBSITE_ROLE_INSTANCE_ID"]}--{Configuration["WEBSITE_INSTANCE_ID"]}--{Guid.NewGuid()}";
 
             services.AddDevelopmentIdentityProvider(Configuration);
@@ -168,7 +177,7 @@ namespace Microsoft.Health.Fhir.Web
             }
         }
 
-        private static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
+        /*private static void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
         {
             services.AddAuthentication(options =>
             {
@@ -182,6 +191,47 @@ namespace Microsoft.Health.Fhir.Web
                     options.Audience = securityConfiguration.Authentication.Audience;
                     options.RequireHttpsMetadata = true;
                     options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
+                });
+        }*/
+
+        private void AddAuthenticationLibrary(IServiceCollection services, SecurityConfiguration securityConfiguration)
+        {
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = S2SAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = S2SAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultScheme = S2SAuthenticationDefaults.AuthenticationScheme;
+            })
+                .AddMiseWithDefaultAuthentication(Configuration, options =>
+                {
+                    // options.Authority = securityConfiguration.Authentication.Authority;
+                    // options.Audience = securityConfiguration.Authentication.Audience;
+                    // options.ClientId = securityConfiguration.ServicePrincipalClientId;
+
+                    // Microsoft.IdentityModel.S2S.Extensions.AspNetCore.S2SAuthenticationOptions
+
+                    // options.Authority = "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/";
+                    // options.Audience = "https://fhirService.internal.mshapis.com";
+                    // options.ClientId = "f66afbed-a8b0-4ed4-a507-9ea6b0011567";
+
+                    options.Authority = securityConfiguration.Authentication.Authority;
+                    options.Audience = securityConfiguration.Authentication.Audience;
+                    /*options.ClientId = securityConfiguration.ServicePrincipalClientId;*/
+                    options.ClientId = "f66afbed-a8b0-4ed4-a507-9ea6b0011567";
+                    /*options.ForwardChallenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";*/
+                    /*options.ForwardChallenge = $"S2SAuthentication authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";*/
+                    /*options.ForwardChallenge = $"S2SAuthentication";*/
+
+                    options.Events = new S2SAuthenticationEvents()
+                    {
+                        OnChallenge = (context) =>
+                        {
+                            context.HttpContext.Response.StatusCode = 401;
+                            context.HttpContext.Response.Headers.Add("WWW-Authenticate", $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"");
+                            context.HandleResponse();
+                            return Task.CompletedTask;
+                        },
+                    };
                 });
         }
     }

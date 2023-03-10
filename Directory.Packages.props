@@ -48,6 +48,9 @@
     <PackageVersion Include="MediatR" Version="12.0.1" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.20.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
+    <PackageVersion Include="Microsoft.Identity.ServiceEssentials.AspNetCore" Version="1.8.1" />
+    <PackageVersion Include="Microsoft.Identity.ServiceEssentials.SDK" Version="1.8.1" />
+    <PackageVersion Include="Microsoft.IdentityModel.S2S.Configuration" Version="3.29.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
     <PackageVersion Include="Microsoft.AspNetCore.JsonPatch" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="$(AspNetPackageVersion)" />
