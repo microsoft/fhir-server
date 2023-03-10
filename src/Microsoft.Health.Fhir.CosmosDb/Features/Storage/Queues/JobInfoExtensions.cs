@@ -22,7 +22,7 @@ public static class JobInfoExtensions
         {
             Id = long.Parse(jobInfoWrapperItem.JobId),
             QueueType = jobGroupWrapper.QueueType,
-            Status = jobInfoWrapperItem.Status.HasValue ? (JobStatus?)jobInfoWrapperItem.Status.Value : null,
+            Status = (JobStatus?)jobInfoWrapperItem.Status,
             GroupId = long.Parse(jobGroupWrapper.GroupId),
             Definition = jobInfoWrapperItem.Definition,
             Result = jobInfoWrapperItem.Result,

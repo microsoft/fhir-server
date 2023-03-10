@@ -15,16 +15,16 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorJobDataStoreOperation
     {

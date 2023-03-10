@@ -40,6 +40,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.JobManagement.UnitTests;
 using NSubstitute;
 using Xunit;
 
@@ -66,6 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SearchParameterStatusManager _searchParameterStatusManager;
         private CosmosClient _cosmosClient;
         private CosmosQueueClient _queueClient;
+        private CosmosFhirOperationDataStore _cosmosFhirOperationDataStore;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -173,13 +175,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new Lazy<ISupportedSearchParameterDefinitionManager>(_supportedSearchParameterDefinitionManager),
                 ModelInfoProvider.Instance);
 
-            _fhirOperationDataStore = new CosmosFhirOperationDataStore(
+            _queueClient = new CosmosQueueClient(
+                () => _container.CreateMockScope(),
+                new CosmosQueryFactory(Substitute.For<ICosmosResponseProcessor>(), Substitute.For<ICosmosQueryLogger>()),
+                new CosmosDbDistributedLockFactory(() => _container.CreateMockScope(), NullLogger<CosmosDbDistributedLock>.Instance));
+
+            _cosmosFhirOperationDataStore = new CosmosFhirOperationDataStore(
+                _queueClient,
                 documentClient,
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 retryExceptionPolicyFactory,
                 new CosmosQueryFactory(responseProcessor, new NullFhirCosmosQueryLogger()),
-                NullLogger<CosmosFhirOperationDataStore>.Instance);
+                NullLogger<CosmosFhirOperationDataStore>.Instance,
+                NullLoggerFactory.Instance);
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
@@ -219,12 +228,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
-            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container);
+            var queueClient = new TestQueueClient();
+            _fhirOperationDataStore = new CosmosFhirOperationDataStore(
+                queueClient,
+                documentClient,
+                _cosmosDataStoreConfiguration,
+                optionsMonitor,
+                retryExceptionPolicyFactory,
+                new CosmosQueryFactory(responseProcessor, new NullFhirCosmosQueryLogger()),
+                NullLogger<CosmosFhirOperationDataStore>.Instance,
+                NullLoggerFactory.Instance);
 
-            _queueClient = new CosmosQueueClient(
-                () => _container.CreateMockScope(),
-                new CosmosQueryFactory(Substitute.For<ICosmosResponseProcessor>(), Substitute.For<ICosmosQueryLogger>()),
-                new CosmosDbDistributedLockFactory(() => _container.CreateMockScope(), NullLogger<CosmosDbDistributedLock>.Instance));
+            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container, queueClient);
         }
 
         public async Task DisposeAsync()
@@ -247,6 +262,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IFhirOperationDataStore))
             {
                 return _fhirOperationDataStore;
+            }
+
+            if (serviceType == typeof(CosmosFhirOperationDataStore))
+            {
+                return _cosmosFhirOperationDataStore;
             }
 
             if (serviceType == typeof(IFhirStorageTestHelper))

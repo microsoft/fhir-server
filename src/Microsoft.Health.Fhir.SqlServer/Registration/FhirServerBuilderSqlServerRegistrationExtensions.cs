@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using MediatR;
@@ -25,6 +26,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -258,6 +260,16 @@ namespace Microsoft.Extensions.DependencyInjection
             // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
             services.AddSingleton<ISqlRetryService, SqlRetryService>();
+
+            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
+                .AssignableTo<IJob>()
+                .Transient()
+                .AsSelf();
+
+            foreach (TypeRegistrationBuilder job in jobs)
+            {
+                job.AsDelegate<Func<IJob>>();
+            }
 
             return fhirServerBuilder;
         }

@@ -18,11 +18,13 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     [JobTypeId((int)JobType.ImportOrchestrator)]
     public class ImportOrchestratorJob : IJob
@@ -363,7 +365,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Models.InputResource input, JobInfo jobInfo, ImportOrchestratorJobInputData inputData, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Core.Features.Operations.Import.Models.InputResource input, JobInfo jobInfo, ImportOrchestratorJobInputData inputData, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
             Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
             long blobSizeInBytes = (long)properties[IntegrationDataStoreClientConstants.BlobPropertyLength];

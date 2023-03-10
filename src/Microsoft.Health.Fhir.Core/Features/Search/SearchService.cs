@@ -225,15 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
-        public virtual long GetSurrogateId(DateTime dateTime)
-        {
-            throw new NotImplementedException();
-        }
-
-        public virtual Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
+        public abstract Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(
