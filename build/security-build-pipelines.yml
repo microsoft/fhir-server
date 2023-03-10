@@ -17,6 +17,7 @@ stages:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
+    - task: CodeQL3000Init@0
     - template: ./jobs/update-semver.yml  
     - powershell: |
 
