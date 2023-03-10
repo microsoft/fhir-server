@@ -8,7 +8,6 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;

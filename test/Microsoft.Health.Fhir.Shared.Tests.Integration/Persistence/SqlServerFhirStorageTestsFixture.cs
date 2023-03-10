@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -67,6 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly SqlQueueClient _sqlQueueClient;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
@@ -249,6 +251,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient);
+
+            _sqlQueueClient = new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, NullLogger<SqlQueueClient>.Instance);
         }
 
         public string TestConnectionString { get; }
@@ -367,6 +371,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(RequestContextAccessor<IFhirRequestContext>))
             {
                 return _fhirRequestContextAccessor;
+            }
+
+            if (serviceType == typeof(IQueueClient))
+            {
+                return _sqlQueueClient;
             }
 
             return null;
