@@ -87,6 +87,9 @@ steps:
   inputs:
     userProvideBuildInfo: 'autoMsBuildInfo'
     setupCommandlinePicker: 'vs2022'
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
 
 # - task: RoslynAnalyzers@3
 #   inputs:
