@@ -35,7 +35,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorOperation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorOperationResource.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorOperationStatus.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BatchOrchestratorOperationType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\IBatchOrchestrator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\IBatchOrchestratorOperation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ConditionalResourceHandler.cs" />

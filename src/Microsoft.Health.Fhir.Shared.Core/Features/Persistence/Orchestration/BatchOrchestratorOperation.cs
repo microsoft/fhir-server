@@ -12,9 +12,11 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public sealed class BatchOrchestratorOperation<T>
+    public sealed class BatchOrchestratorOperation<T> : IBatchOrchestratorOperation<T>
         where T : class
     {
+        private const int DelayTimeInMilliseconds = 10;
+
         /// <summary>
         /// List of resource to be sent to the data layer.
         /// </summary>
@@ -40,12 +42,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private Task _mergeAsyncTask;
 
-        public BatchOrchestratorOperation(string label, int expectedNumberOfResources, object dataLayer)
+        public BatchOrchestratorOperation(BatchOrchestratorOperationType type, string label, int expectedNumberOfResources, object dataLayer)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
             Id = Guid.NewGuid();
+            Type = type;
             Label = label;
             CreationTime = DateTime.UtcNow;
             Status = BatchOrchestratorOperationStatus.Open;
@@ -62,6 +65,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         }
 
         public Guid Id { get; private set; }
+
+        public BatchOrchestratorOperationType Type { get; private set; }
 
         public string Label { get; private set; }
 
@@ -97,8 +102,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 _resources.Add(resource);
 
                 InitializeMergeTaskSafe(cancellationToken);
-
-                await _mergeAsyncTask;
             }
             catch (Exception)
             {
@@ -107,6 +110,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 // Add logging.
                 throw;
             }
+
+            await _mergeAsyncTask;
         }
 
         public async Task ReleaseResourceAsync(string reason, CancellationToken cancellationToken)
@@ -121,8 +126,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 Interlocked.Decrement(ref _currentExpectedNumberOfResources);
 
                 InitializeMergeTaskSafe(cancellationToken);
-
-                await _mergeAsyncTask;
             }
             catch (Exception)
             {
@@ -131,6 +134,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 // Add logging.
                 throw;
             }
+
+            await _mergeAsyncTask;
         }
 
         private void InitializeMergeTaskSafe(CancellationToken cancellationToken)
@@ -151,7 +156,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 do
                 {
-                    await Task.Delay(millisecondsDelay: 1, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    await Task.Delay(millisecondsDelay: DelayTimeInMilliseconds, cancellationToken);
                 }
                 while (_resources.Count != CurrentExpectedNumberOfResources);
 
@@ -163,10 +170,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 {
                     SetStatusSafe(BatchOrchestratorOperationStatus.Processing);
 
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     SetStatusSafe(BatchOrchestratorOperationStatus.Completed);
                 }
 
                 await Task.CompletedTask; // To be removed.
+            }
+            catch (OperationCanceledException)
+            {
+                SetStatusSafe(BatchOrchestratorOperationStatus.Canceled);
+
+                // Add logging.
+                throw;
             }
             catch (Exception)
             {
