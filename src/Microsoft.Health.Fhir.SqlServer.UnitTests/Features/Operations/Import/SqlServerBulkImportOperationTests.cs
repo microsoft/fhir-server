@@ -9,6 +9,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -23,7 +24,7 @@ using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
+namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 {
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]

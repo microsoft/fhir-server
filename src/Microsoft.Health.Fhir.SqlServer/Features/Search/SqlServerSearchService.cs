@@ -608,11 +608,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return ranges;
         }
 
-        public override long GetSurrogateId(DateTime dateTime)
-        {
-            return ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(dateTime);
-        }
-
         public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
             var resourceTypes = new List<(short ResourceTypeId, string Name)>();

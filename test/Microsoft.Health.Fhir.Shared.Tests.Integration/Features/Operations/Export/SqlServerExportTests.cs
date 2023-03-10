@@ -9,11 +9,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Export;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -51,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 PrepareData(); // 1000 patients + 1000 observations + 1000 claims. !!! RawResource is invalid.
 
-                var coordJob = new ExportOrchestratorJob(_queueClient, _searchService);
+                var coordJob = new SqlExportOrchestratorJob(_queueClient, _searchService);
                 //// surrogate id range size is set via max number of resources per query on coord record
                 coordJob.NumberOfSurrogateIdRanges = 5; // 100*5=500 is 50% of 1000, so there are 2 insert transactions in JobQueue per each resource type
 
@@ -71,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private async Task RunExportWithCancel(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
+        private async Task RunExportWithCancel(string resourceType, SqlExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
         {
             var coorId = await RunExport(resourceType, coordJob, totalJobs, totalJobsAfterFailure);
             var record = (await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None)).JobRecord;
@@ -83,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
         }
 
-        private async Task<string> RunExport(string resourceType, ExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
+        private async Task<string> RunExport(string resourceType, SqlExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
         {
             var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, maximumNumberOfResourcesPerQuery: 100);
             var result = await _operationDataStore.CreateExportJobAsync(coordRecord, CancellationToken.None);
@@ -95,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return coordId.ToString();
         }
 
-        private async Task RunCoordinator(ExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs, int? totalJobsAfterFailure)
+        private async Task RunCoordinator(SqlExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs, int? totalJobsAfterFailure)
         {
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(300));
@@ -143,7 +145,7 @@ END
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
-            var surrId = _searchService.GetSurrogateId(DateTime.UtcNow);
+            var surrId = DateTime.UtcNow.DateToId();
             ExecuteSql(@$"
 INSERT INTO Resource 
   SELECT ResourceTypeId

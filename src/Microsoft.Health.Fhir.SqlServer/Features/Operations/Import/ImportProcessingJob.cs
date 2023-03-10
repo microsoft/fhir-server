@@ -13,10 +13,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     [JobTypeId((int)JobType.ImportProcessing)]
     public class ImportProcessingJob : IJob

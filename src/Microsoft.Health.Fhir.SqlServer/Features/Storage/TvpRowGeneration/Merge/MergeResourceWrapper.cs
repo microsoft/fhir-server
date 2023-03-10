@@ -5,7 +5,7 @@
 
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge
 {
     internal class MergeResourceWrapper
     {

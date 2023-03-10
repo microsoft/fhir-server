@@ -124,7 +124,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             if (addExportWorker)
             {
-                fhirServerBuilder.Services.AddHostedService<ExportJobWorkerBackgroundService>();
+                fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
             }
 
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();

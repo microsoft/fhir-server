@@ -100,8 +100,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool up,
             CancellationToken cancellationToken);
 
-        long GetSurrogateId(DateTime dateTime);
-
         Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken);
     }
 }

@@ -16,6 +16,8 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
 using Polly;

@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Export;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
@@ -21,7 +22,7 @@ using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
+namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, exportJobType: exportJobType)[0];
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
 
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: false).First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true).First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
@@ -91,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation").First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
@@ -185,11 +186,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private void SetupMockQueue(int numExpectedJobsPerResourceType, long orchestratorJobId, bool failure = false)
         {
-            _mockSearchService.GetSurrogateId(Arg.Any<DateTime>()).Returns(x =>
-            {
-                return long.MaxValue - 1;
-            });
-
             _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
                 int numRanges = x.ArgAt<int>(4);
@@ -213,13 +209,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 list.Add((2, "Encounter"));
 
                 return list;
-            });
-
-            _mockSearchService.GetSurrogateId(Arg.Any<DateTime>()).Returns(x =>
-            {
-                DateTime dateTime = x.ArgAt<DateTime>(0);
-                long id = dateTime.TruncateToMillisecond().Ticks << 3;
-                return id;
             });
 
             _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), orchestratorJobId, false, false, Arg.Any<CancellationToken>()).Returns(x =>

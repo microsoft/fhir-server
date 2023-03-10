@@ -67,6 +67,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "true";
             configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "true";
 
+            // Enable background jobs.
+            configuration["TaskHosting:Enabled"] = "true";
+            configuration["TaskHosting:MaxRunningTaskCount"] = "2";
+
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
                 // Alter the configuration so that the server will create a new, isolated database/container.
@@ -77,8 +81,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     var connectionStringBuilder = new SqlConnectionStringBuilder(configuration["SqlServer:ConnectionString"]);
                     var databaseName = connectionStringBuilder.InitialCatalog += "_" + startupType.Name;
                     configuration["SqlServer:ConnectionString"] = connectionStringBuilder.ToString();
-                    configuration["TaskHosting:Enabled"] = "true";
-                    configuration["TaskHosting:MaxRunningTaskCount"] = "2";
 
                     _cleanupDatabase = async () =>
                     {

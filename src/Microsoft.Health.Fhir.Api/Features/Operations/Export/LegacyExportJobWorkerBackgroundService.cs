@@ -14,19 +14,19 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 namespace Microsoft.Health.Fhir.Api.Features.Operations.Export
 {
     /// <summary>
-    /// The background service used to host the <see cref="ExportJobWorker"/>.
+    /// The background service used to host the <see cref="LegacyExportJobWorker"/>.
     /// </summary>
-    public class ExportJobWorkerBackgroundService : BackgroundService
+    public class LegacyExportJobWorkerBackgroundService : BackgroundService
     {
-        private readonly ExportJobWorker _exportJobWorker;
+        private readonly LegacyExportJobWorker _legacyExportJobWorker;
         private readonly ExportJobConfiguration _exportJobConfiguration;
 
-        public ExportJobWorkerBackgroundService(ExportJobWorker exportJobWorker, IOptions<ExportJobConfiguration> exportJobConfiguration)
+        public LegacyExportJobWorkerBackgroundService(LegacyExportJobWorker legacyExportJobWorker, IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
-            EnsureArg.IsNotNull(exportJobWorker, nameof(exportJobWorker));
+            EnsureArg.IsNotNull(legacyExportJobWorker, nameof(legacyExportJobWorker));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
 
-            _exportJobWorker = exportJobWorker;
+            _legacyExportJobWorker = legacyExportJobWorker;
             _exportJobConfiguration = exportJobConfiguration.Value;
         }
 
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Export
         {
             if (_exportJobConfiguration.Enabled)
             {
-                await _exportJobWorker.ExecuteAsync(stoppingToken);
+                await _legacyExportJobWorker.ExecuteAsync(stoppingToken);
             }
         }
     }

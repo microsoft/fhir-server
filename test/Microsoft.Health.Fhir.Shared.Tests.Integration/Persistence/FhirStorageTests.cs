@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Empty(results.Results);
 
             // add magic parameters
-            var maxId = _fixture.SearchService.GetSurrogateId(till);
+            var maxId = till.DateToId();
             var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
             queryParameters = new[]
             {
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.False(resource.IsHistory); // current
 
             // use surr id interval that covers all changes
-            maxId = _fixture.SearchService.GetSurrogateId(DateTime.UtcNow);
+            maxId = DateTime.UtcNow.DateToId();
             range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
             queryParameters = new[]
             {
