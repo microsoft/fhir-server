@@ -85,7 +85,7 @@ steps:
       
 - task: RoslynAnalyzers@3
   inputs:
-    userProvideBuildInfo: 'autoMsBuildInfo'
+    userProvideBuildInfo: 'auto'
     setupCommandlinePicker: 'vs2022'
     rulesetName: 'Multiple'
     multipleRulesetRequired: true
