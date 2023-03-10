@@ -30,7 +30,7 @@ steps:
       workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if eq(parameters.targetBuildFramework, '') }}:
-- task: RoslynAnalyzers@3
+  - task: RoslynAnalyzers@3
   inputs:
     userProvideBuildInfo: 'auto'
     setupCommandlinePicker: 'vs2022'
