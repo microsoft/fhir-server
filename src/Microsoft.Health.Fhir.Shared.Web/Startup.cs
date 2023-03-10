@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
@@ -166,6 +167,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
                 services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
+                services.AddSingleton<ITelemetryInitializer, UserAgentHeaderTelemetryInitializer>();
                 services.AddLogging(loggingBuilder => loggingBuilder.AddApplicationInsights(instrumentationKey));
             }
         }
