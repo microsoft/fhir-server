@@ -18,6 +18,7 @@ steps:
     displayName: 'dotnet build $(buildConfiguration)'
     inputs:
       command: build
+      projects: '**/*.csproj'
       arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
@@ -29,6 +30,7 @@ steps:
       arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{parameters.targetBuildFramework}}'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
+- ${{ if eq(parameters.targetBuildFramework, '') }}:
 - task: RoslynAnalyzers@3
   inputs:
     userProvideBuildInfo: 'auto'
@@ -40,7 +42,7 @@ steps:
     suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
   env:
     SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-    
+
 - ${{ if eq(parameters.componentGovernance, 'true') }}:
   - task: ComponentGovernanceComponentDetection@0
     inputs:
