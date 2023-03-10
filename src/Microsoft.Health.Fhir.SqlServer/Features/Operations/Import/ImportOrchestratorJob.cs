@@ -20,11 +20,13 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     [JobTypeId((int)JobType.ImportOrchestrator)]
     public class ImportOrchestratorJob : IJob

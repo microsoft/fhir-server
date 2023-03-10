@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;

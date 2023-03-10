@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
+namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
