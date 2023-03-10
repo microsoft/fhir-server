@@ -87,21 +87,13 @@ steps:
   inputs:
     userProvideBuildInfo: 'autoMsBuildInfo'
     setupCommandlinePicker: 'vs2022'
-    env:
-      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-
-
-# - task: RoslynAnalyzers@3
-#   inputs:
-#     userProvideBuildInfo: 'autoMsBuildInfo'
-#     setupCommandlinePicker: 'vs2022'
-#     rulesetName: 'Multiple'
-#     multipleRulesetRequired: true
-#     multipleRulesetRecommended: true
-#     customRuleset: 'CustomAnalysisRules.ruleset'
-#     suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
-#   env:
-#     SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+    rulesetName: 'Multiple'
+    multipleRulesetRequired: true
+    multipleRulesetRecommended: true
+    customRuleset: 'CustomAnalysisRules.ruleset'
+    suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
 - task: CodeInspector@2
   displayName: Run Code Inspector
