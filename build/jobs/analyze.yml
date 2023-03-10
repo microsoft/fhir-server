@@ -71,13 +71,6 @@ steps:
     suppressionsFile: 'CredScanSuppressions.json'
     verboseOutput: true
 
-- task: ComponentGovernanceComponentDetection@0
-  displayName: Component Detection
-  inputs:
-    scanType: 'Register'
-    verbosity: 'Verbose'
-    alertWarningLevel: 'High'
-
 - task: CSRF@1
   inputs:
       Path: '$(Build.SourcesDirectory)'
