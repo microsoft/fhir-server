@@ -85,11 +85,8 @@ steps:
       
 - task: RoslynAnalyzers@3
   inputs:
-    userProvideBuildInfo: 'msBuildInfo'
-    msBuildVersion: '16.0'
-    msBuildArchitecture: 'x64'
+    userProvideBuildInfo: 'autoMsBuildInfo'
     setupCommandlinePicker: 'vs2022'
-    msBuildCommandline: $(System.DefaultWorkingDirectory)
 
 # - task: RoslynAnalyzers@3
 #   inputs:
