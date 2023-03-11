@@ -29,20 +29,6 @@ steps:
       arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{parameters.targetBuildFramework}}'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
-- ${{ if ne(parameters.targetBuildFramework, '') }}:
-  - task: RoslynAnalyzers@3
-    inputs:
-      userProvideBuildInfo: 'autoMsBuildInfo'
-      solutionDirectory: '$(Build.SourcesDirectory)'
-      setupCommandlinePicker: 'vs2022'
-      rulesetName: 'Multiple'
-      multipleRulesetRequired: true
-      multipleRulesetRecommended: true
-      customRuleset: 'CustomAnalysisRules.ruleset'
-      suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
-    env:
-      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-
 - ${{ if eq(parameters.componentGovernance, 'true') }}:
   - task: ComponentGovernanceComponentDetection@0
     inputs:

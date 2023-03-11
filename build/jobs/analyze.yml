@@ -75,10 +75,11 @@ steps:
   inputs:
       Path: '$(Build.SourcesDirectory)'
       ToolVersion: Latest
-      
+      `
 - task: RoslynAnalyzers@3
   inputs:
-    userProvideBuildInfo: 'auto'
+    userProvideBuildInfo: 'autoMsBuildInfo'
+    solutionDirectory: '$(Build.SourcesDirectory)'
     setupCommandlinePicker: 'vs2022'
     rulesetName: 'Multiple'
     multipleRulesetRequired: true
