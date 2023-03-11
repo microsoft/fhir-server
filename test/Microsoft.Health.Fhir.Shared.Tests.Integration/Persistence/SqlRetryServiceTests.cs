@@ -379,7 +379,7 @@ END
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
                 List<long> result = await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
                     sqlCommand,
-                    testConnectionInitializationFailure ? SqlCommandFuncWithRetries : SqlCommandFuncWithRetriesAndKillConnection,
+                    testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
                     logger,
                     "log message",
                     CancellationToken.None);
@@ -417,7 +417,7 @@ END
                     _output.WriteLine($"{DateTime.Now:O}: Start executing ExecuteSqlDataReader.");
                     await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
                         sqlCommand,
-                        testConnectionInitializationFailure ? SqlCommandFuncWithRetries : SqlCommandFuncWithRetriesAndKillConnection,
+                        testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
                         logger,
                         "log message",
                         CancellationToken.None);
@@ -465,7 +465,7 @@ END
                 {
                     List<long> result = await sqlRetryService.ExecuteSqlDataReader(
                         sqlCommand,
-                        SqlCommandFuncWithRetries,
+                        ReaderToResult,
                         logger,
                         "log message",
                         CancellationToken.None);
@@ -514,7 +514,7 @@ END
                 {
                     ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlDataReader(
                         sqlCommand,
-                        SqlCommandFuncWithRetries,
+                        ReaderToResult,
                         logger,
                         "log message",
                         CancellationToken.None));
@@ -555,12 +555,12 @@ END
             await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        private long SqlCommandFuncWithRetries(SqlDataReader sqlDataReader)
+        private long ReaderToResult(SqlDataReader sqlDataReader)
         {
             return sqlDataReader.GetInt64(0);
         }
 
-        private long SqlCommandFuncWithRetriesAndKillConnection(SqlDataReader sqlDataReader)
+        private long ReaderToResultAndKillConnection(SqlDataReader sqlDataReader)
         {
             long rowId = sqlDataReader.GetInt64(0);
             long sessionId = sqlDataReader.GetInt64(1);
@@ -576,9 +576,9 @@ END
 
         private void KillConnection(long sessionId)
         {
-            // We kill the SQL connection in a separate thread and using a separate SQL connection, not from task thread pool or SQL
-            // connection pool, otherwise when running on Linux we may encounter a deadlock situation with vstest process timing out
-            // and terminating with the following stack trace:
+            // We kill the SQL connection in a separate thread and using a separate SQL connection, not from task thread pool and SQL
+            // connection pool. Otherwise when running on Linux we may encounter a deadlock situation with test timing out and causing
+            // vstest process to terminate with the following stack trace:
             // --->System.Exception: Unable to read beyond the end of the stream.
             //    at System.IO.BinaryReader.Read7BitEncodedInt()
             //    at System.IO.BinaryReader.ReadString()
@@ -620,15 +620,18 @@ END
 
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, CancellationToken cancellationToken = default)
             {
+                SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, cancellationToken);
                 _retryCount++;
                 if (_allRetriesFail || _retryCount == 1)
                 {
-                    return new SqlConnection("Data Source=(local);Initial Catalog=FHIRINTEGRATIONTEST_DATABASE_DOES_NOT_EXIST;Integrated Security=True;Trust Server Certificate=True");
+                    var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                    {
+                        InitialCatalog = "FHIRINTEGRATIONTEST_DATABASE_DOES_NOT_EXIST",
+                    };
+                    sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
                 }
-                else
-                {
-                    return await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, cancellationToken);
-                }
+
+                return sqlConnection;
             }
         }
 
@@ -644,8 +647,10 @@ END
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, CancellationToken cancellationToken = default)
             {
                 SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, cancellationToken);
-                var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString);
-                sqlConnectionStringBuilder.Pooling = false;
+                var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                {
+                    Pooling = false,
+                };
                 sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
                 return sqlConnection;
             }
