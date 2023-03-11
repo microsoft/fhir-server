@@ -33,6 +33,7 @@ steps:
   - task: RoslynAnalyzers@3
     inputs:
       userProvideBuildInfo: 'autoMsBuildInfo'
+      solutionDirectory: '$(Build.SourcesDirectory)'
       setupCommandlinePicker: 'vs2022'
       rulesetName: 'Multiple'
       multipleRulesetRequired: true
