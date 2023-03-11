@@ -566,11 +566,9 @@ END
             long sessionId = sqlDataReader.GetInt64(1);
             if (rowId == 0)
             {
-                // ExecuteSql($"KILL {sessionId}").Wait();
                 _output.WriteLine($"{DateTime.Now:O}: Start KillConnection.");
                 KillConnection(sessionId);
                 _output.WriteLine($"{DateTime.Now:O}: End KillConnection.");
-                _output.WriteLine($"{DateTime.Now:O}: Continue reading DB.");
             }
 
             return rowId;
