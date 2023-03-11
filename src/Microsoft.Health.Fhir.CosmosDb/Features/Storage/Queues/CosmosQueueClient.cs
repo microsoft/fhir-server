@@ -245,19 +245,23 @@ public class CosmosQueueClient : IQueueClient
     /// <inheritdoc />
     public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
     {
-        if (jobId == null)
+        return await _retryPolicy.ExecuteAsync(async () =>
         {
-            var job = await DequeueJobsAsync(queueType, 1, worker, heartbeatTimeoutSec, cancellationToken);
-            return job?.FirstOrDefault();
-        }
+            if (jobId == null)
+            {
+                var job = await DequeueJobsAsync(queueType, 1, worker, heartbeatTimeoutSec, cancellationToken);
+                return job?.FirstOrDefault();
+            }
 
-        var jobs = await GetJobsByIdsInternalAsync(queueType, new[] { jobId.Value }, false, cancellationToken);
-        if (jobs.Count == 1)
-        {
-            var job = await DequeueItemsInternalAsync(jobs[0].JobGroup, 1, worker, heartbeatTimeoutSec, cancellationToken);
-        }
+            var jobs = await GetJobsByIdsInternalAsync(queueType, new[] { jobId.Value }, false, cancellationToken);
+            if (jobs.Count == 1)
+            {
+                var job = await DequeueItemsInternalAsync(jobs[0].JobGroup, 1, worker, heartbeatTimeoutSec, cancellationToken);
+                return job?.FirstOrDefault();
+            }
 
-        throw new JobNotExistException("Job not found.");
+            throw new JobNotExistException("Job not found.");
+        });
     }
 
     /// <inheritdoc />
@@ -338,79 +342,88 @@ public class CosmosQueueClient : IQueueClient
     /// <inheritdoc />
     public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
     {
-        IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
-
-        foreach (JobGroupWrapper job in jobs)
+        await _retryPolicy.ExecuteAsync(async () =>
         {
-            foreach (JobDefinitionWrapper item in job.Definitions)
-            {
-                if (item.Status == (byte)JobStatus.Running)
-                {
-                    item.CancelRequested = true;
-                }
-                else if (item.Status == (byte)JobStatus.Created)
-                {
-                    item.Status = (byte)JobStatus.Cancelled;
-                }
-            }
+            IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
 
-            await SaveJobGroupAsync(job, cancellationToken);
-        }
+            foreach (JobGroupWrapper job in jobs)
+            {
+                foreach (JobDefinitionWrapper item in job.Definitions)
+                {
+                    if (item.Status == (byte)JobStatus.Running)
+                    {
+                        item.CancelRequested = true;
+                    }
+                    else if (item.Status == (byte)JobStatus.Created)
+                    {
+                        item.Status = (byte)JobStatus.Cancelled;
+                    }
+                }
+
+                await SaveJobGroupAsync(job, cancellationToken);
+            }
+        });
     }
 
     /// <inheritdoc />
     public async Task CancelJobByIdAsync(byte queueType, long jobId, CancellationToken cancellationToken)
     {
-        var jobs = await GetJobsByIdsInternalAsync(queueType, new[] { jobId }, false, cancellationToken);
-
-        if (jobs.Count == 1)
+        await _retryPolicy.ExecuteAsync(async () =>
         {
-            (JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob) job = jobs[0];
-            JobDefinitionWrapper item = job.MatchingJob[0];
+            var jobs = await GetJobsByIdsInternalAsync(queueType, new[] { jobId }, false, cancellationToken);
 
-            if (item != null)
+            if (jobs.Count == 1)
             {
-                CancelJobDefinition(item);
+                (JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob) job = jobs[0];
+                JobDefinitionWrapper item = job.MatchingJob[0];
 
-                await SaveJobGroupAsync(job.JobGroup, cancellationToken);
+                if (item != null)
+                {
+                    CancelJobDefinition(item);
+
+                    await SaveJobGroupAsync(job.JobGroup, cancellationToken);
+                }
             }
-        }
+        });
     }
 
     /// <inheritdoc />
     public async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
     {
-        var jobs = await GetJobsByIdsInternalAsync(jobInfo.QueueType, new[] { jobInfo.Id }, false, cancellationToken);
-
-        (JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob) definitionTuple = jobs.Single();
-        JobDefinitionWrapper item = definitionTuple.MatchingJob.Single();
-
-        if (jobInfo.Status == JobStatus.Failed)
+        await _retryPolicy.ExecuteAsync(async () =>
         {
-            // If a job fails with requestCancellationOnFailure, all other jobs in the group should be cancelled.
-            if (requestCancellationOnFailure)
+            var jobs = await GetJobsByIdsInternalAsync(jobInfo.QueueType, new[] { jobInfo.Id }, false, cancellationToken);
+
+            (JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob) definitionTuple = jobs.Single();
+            JobDefinitionWrapper item = definitionTuple.MatchingJob.Single();
+
+            if (jobInfo.Status == JobStatus.Failed)
             {
-                foreach (JobDefinitionWrapper jobDefinition in definitionTuple.JobGroup.Definitions)
+                // If a job fails with requestCancellationOnFailure, all other jobs in the group should be cancelled.
+                if (requestCancellationOnFailure)
                 {
-                    CancelJobDefinition(jobDefinition);
+                    foreach (JobDefinitionWrapper jobDefinition in definitionTuple.JobGroup.Definitions)
+                    {
+                        CancelJobDefinition(jobDefinition);
+                    }
                 }
+
+                item.Status = (byte)JobStatus.Failed;
+            }
+            else if (item.CancelRequested)
+            {
+                item.Status = (byte)JobStatus.Cancelled;
+            }
+            else
+            {
+                item.Status = (byte?)JobStatus.Completed;
             }
 
-            item.Status = (byte)JobStatus.Failed;
-        }
-        else if (item.CancelRequested)
-        {
-            item.Status = (byte)JobStatus.Cancelled;
-        }
-        else
-        {
-            item.Status = (byte?)JobStatus.Completed;
-        }
+            item.EndDate = Clock.UtcNow;
+            item.Result = jobInfo.Result;
 
-        item.EndDate = Clock.UtcNow;
-        item.Result = jobInfo.Result;
-
-        await SaveJobGroupAsync(definitionTuple.JobGroup, cancellationToken);
+            await SaveJobGroupAsync(definitionTuple.JobGroup, cancellationToken);
+        });
     }
 
     private async Task<IReadOnlyList<JobGroupWrapper>> GetGroupInternalAsync(
