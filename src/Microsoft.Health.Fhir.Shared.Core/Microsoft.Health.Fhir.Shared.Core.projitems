@@ -40,6 +40,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\Async\CancelConditionalDeleteResourceAsyncHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\Async\ConditionalDeleteResourceAsyncHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\Async\GetConditionalDeleteResourceAsyncHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ConditionalDeleteResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ConditionalDeleteResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceHandler.cs" />

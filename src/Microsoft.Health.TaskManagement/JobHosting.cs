@@ -165,7 +165,7 @@ namespace Microsoft.Health.JobManagement
             {
                 _logger.LogError(ex, "Job {JobId} failed with generic exception.", jobInfo.Id);
 
-                object error = new { message = ex.Message, stackTrace = ex.StackTrace };
+                var error = new JobErrorInfo(ex.Message, ex.StackTrace);
                 jobInfo.Result = JsonConvert.SerializeObject(error);
                 jobInfo.Status = JobStatus.Failed;
 

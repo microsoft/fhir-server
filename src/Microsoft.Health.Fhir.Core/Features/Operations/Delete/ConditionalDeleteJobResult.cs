@@ -3,16 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+using Newtonsoft.Json;
+
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Delete;
+
+public class ConditionalDeleteJobResult
 {
-    public enum JobType : int
-    {
-        Unknown = 0, // should not be used
-        ImportProcessing = 1,
-        ImportOrchestrator = 2,
-        ExportProcessing = 3,
-        ExportOrchestrator = 4,
-        ConditionalDeleteProcessing = 5,
-        ConditionalDeleteOrchestrator = 6,
-    }
+    [JsonProperty("totalItemsDeleted")]
+    public long TotalItemsDeleted { get; set; }
+
+    [JsonProperty("ct")]
+    public string ContinuationToken { get; set; }
 }

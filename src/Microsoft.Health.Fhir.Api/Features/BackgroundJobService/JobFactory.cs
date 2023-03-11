@@ -5,8 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
@@ -18,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     {
         private readonly Dictionary<int, Func<IJob>> _jobFactoryLookup;
 
-        public JobFactory(IEnumerable<Func<IJob>> jobFactories)
+        public JobFactory(IEnumerable<Func<IJob>> jobFactories, ILogger<JobFactory> logger)
         {
             EnsureArg.IsNotNull(jobFactories, nameof(jobFactories));
 
@@ -26,14 +28,25 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 
             foreach (Func<IJob> jobFunc in jobFactories)
             {
-                var instance = jobFunc.Invoke();
-                if (instance.GetType().GetCustomAttribute(typeof(JobTypeIdAttribute), false) is JobTypeIdAttribute jobTypeAttr)
+                try
                 {
-                    _jobFactoryLookup.Add(jobTypeAttr.JobTypeId, jobFunc);
+                    IJob instance = jobFunc.Invoke();
+                    if (instance.GetType().GetCustomAttribute(typeof(JobTypeIdAttribute), false) is JobTypeIdAttribute jobTypeAttr)
+                    {
+                        _jobFactoryLookup.Add(jobTypeAttr.JobTypeId, jobFunc);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Job type {instance.GetType().Name} does not have {nameof(JobTypeIdAttribute)}.");
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Job type {instance.GetType().Name} does not have {nameof(JobTypeIdAttribute)}.");
+                    string failedToCreateJobFactory = "Failed to create job factory.";
+                    logger.LogError(ex, failedToCreateJobFactory);
+
+                    // Alert if debugging.
+                    Debug.Fail(failedToCreateJobFactory);
                 }
             }
         }

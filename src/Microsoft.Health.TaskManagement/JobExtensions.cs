@@ -3,16 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+using Newtonsoft.Json;
+
+namespace Microsoft.Health.JobManagement;
+
+public static class JobExtensions
 {
-    public enum JobType : int
+    public static string SerializedResult(object result)
     {
-        Unknown = 0, // should not be used
-        ImportProcessing = 1,
-        ImportOrchestrator = 2,
-        ExportProcessing = 3,
-        ExportOrchestrator = 4,
-        ConditionalDeleteProcessing = 5,
-        ConditionalDeleteOrchestrator = 6,
+        return JsonConvert.SerializeObject(result);
     }
 }

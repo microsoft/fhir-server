@@ -256,6 +256,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.PatientEverything:
                     routeName = RouteNames.PatientEverythingById;
                     break;
+                case OperationsConstants.ConditionalDelete:
+                    routeName = RouteNames.ConditionalDeleteAsyncJobById;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }

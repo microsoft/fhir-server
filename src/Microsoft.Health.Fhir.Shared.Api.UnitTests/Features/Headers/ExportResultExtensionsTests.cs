@@ -7,6 +7,7 @@ using System;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var urlResolver = Substitute.For<IUrlResolver>();
             urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(exportOperationUrl);
 
-            var exportResult = ExportResult.Accepted().SetContentLocationHeader(urlResolver, opName, id);
+            var exportResult = JobResult<ExportJobResult>.Accepted().SetContentLocationHeader(urlResolver, opName, id);
 
             Assert.Equal(exportOperationUrl.AbsoluteUri, exportResult.Headers[HeaderNames.ContentLocation]);
         }
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         public void GivenAnExportResult_WhenSettingAContentTypeHeader_ThenExportResultHasAContentTypeHeader()
         {
             string contentTypeValue = "application/json";
-            var exportResult = ExportResult.Accepted().SetContentTypeHeader(contentTypeValue);
+            var exportResult = JobResult<ExportJobResult>.Accepted().SetContentTypeHeader(contentTypeValue);
 
             Assert.Equal(contentTypeValue, exportResult.Headers[HeaderNames.ContentType]);
         }

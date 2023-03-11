@@ -3,16 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+using EnsureThat;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Delete;
+
+public class ConditionalDeleteResourceAsyncResponse
 {
-    public enum JobType : int
+    public ConditionalDeleteResourceAsyncResponse(string jobId)
     {
-        Unknown = 0, // should not be used
-        ImportProcessing = 1,
-        ImportOrchestrator = 2,
-        ExportProcessing = 3,
-        ExportOrchestrator = 4,
-        ConditionalDeleteProcessing = 5,
-        ConditionalDeleteOrchestrator = 6,
+        EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+
+        JobId = jobId;
     }
+
+    public string JobId { get; }
 }

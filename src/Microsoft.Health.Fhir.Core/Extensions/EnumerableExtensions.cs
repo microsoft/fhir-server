@@ -3,7 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
@@ -37,6 +40,20 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             {
                 yield return batch;
             }
+        }
+
+        public static IEnumerable<TResult> SelectParallel<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, TResult> selector, int degreeOfParallelism)
+        {
+            if (degreeOfParallelism < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(degreeOfParallelism));
+            }
+
+            OrderablePartitioner<TSource> partitioner = Partitioner.Create(source);
+
+            return partitioner.AsParallel()
+                .WithDegreeOfParallelism(degreeOfParallelism)
+                .Select(selector);
         }
     }
 }

@@ -28,6 +28,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool SupportsTransaction { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether async-Conditional Delete is enabled.
+        /// </summary>
+        public bool SupportsAsyncConditionalDelete { get; set; }
+
+        /// <summary>
         /// Gets or sets the default value for IncludeTotal in search bundles.
         /// </summary>
         public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;

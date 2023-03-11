@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             if (jobInfo.Status == JobManagement.JobStatus.Completed || jobInfo.Status == JobManagement.JobStatus.Cancelled || jobInfo.Status == JobManagement.JobStatus.Failed)
             {
-                throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
+                throw new OperationFailedException(Core.Resources.OperationAlreadyCompleted, HttpStatusCode.Conflict);
             }
 
             await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Import, jobInfo.GroupId, cancellationToken);

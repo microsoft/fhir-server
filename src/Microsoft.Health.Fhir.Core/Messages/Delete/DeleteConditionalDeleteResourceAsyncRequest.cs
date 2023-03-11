@@ -3,16 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+using MediatR;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Delete;
+
+public class DeleteConditionalDeleteResourceAsyncRequest : IRequest<DeleteConditionalDeleteResourceAsyncResponse>
 {
-    public enum JobType : int
+    public DeleteConditionalDeleteResourceAsyncRequest(long groupId)
     {
-        Unknown = 0, // should not be used
-        ImportProcessing = 1,
-        ImportOrchestrator = 2,
-        ExportProcessing = 3,
-        ExportOrchestrator = 4,
-        ConditionalDeleteProcessing = 5,
-        ConditionalDeleteOrchestrator = 6,
+        GroupId = groupId;
     }
+
+    public long GroupId { get; }
 }

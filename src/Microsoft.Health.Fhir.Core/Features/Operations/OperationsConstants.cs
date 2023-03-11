@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Import = "import";
 
+        public const string ConditionalDelete = "conditional-delete";
+
         public const string BulkImportContentTypeHeaderValue = "application/json";
 
         public const string SearchParameterStatus = "search-parameter-status";

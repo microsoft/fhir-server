@@ -80,3 +80,19 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 DELETE https://{{hostname}}/Patient?identifier=1032704&hardDelete=true&_count=100
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Record job id
+@jobLocation = {{asyncJob.response.headers.Content-Location}}
+
+###
+# @name asyncJob
+# Hard Delete multiple resources asynchronously
+DELETE https://{{hostname}}/Patient?identifier=1032704&hardDelete=true
+content-type: application/json
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Conditional delete with async will start a job, check the status
+GET {{jobLocation}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}

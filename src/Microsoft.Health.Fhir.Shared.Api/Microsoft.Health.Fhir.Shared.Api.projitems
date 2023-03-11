@@ -9,6 +9,7 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Api</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConditionalDeleteAsyncController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\EverythingController.cs" />

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using MediatR;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -18,7 +19,10 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -119,7 +123,12 @@ namespace Microsoft.Health.Fhir.Web
                 .AsSelf();
             services.AddFactory<IScoped<JobHosting>>();
 
-            services.AddHostedService<HostingBackgroundService>();
+            services.RemoveServiceTypeExact<HostingBackgroundService, INotificationHandler<StorageInitializedNotification>>()
+                .Add<HostingBackgroundService>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<JobFactory>()
                 .Scoped()
                 .AsSelf()

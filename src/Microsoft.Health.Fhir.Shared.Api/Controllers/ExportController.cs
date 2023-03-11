@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
@@ -210,15 +211,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // If the job is complete, we need to return 200 along with the completed data to the client.
             // Else we need to return 202 - Accepted.
-            ExportResult exportActionResult;
+            JobResult<ExportJobResult> exportActionResult;
             if (getExportResult.StatusCode == HttpStatusCode.OK)
             {
-                exportActionResult = ExportResult.Ok(getExportResult.JobResult);
+                exportActionResult = JobResult<ExportJobResult>.Ok(getExportResult.JobResult);
                 exportActionResult.SetContentTypeHeader(OperationsConstants.ExportContentTypeHeaderValue);
             }
             else
             {
-                exportActionResult = ExportResult.Accepted();
+                exportActionResult = JobResult<ExportJobResult>.Accepted();
             }
 
             return exportActionResult;
@@ -231,7 +232,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CancelExportResponse response = await _mediator.CancelExportAsync(idParameter, HttpContext.RequestAborted);
 
-            return new ExportResult(response.StatusCode);
+            return new JobResult<ExportJobResult>(response.StatusCode);
         }
 
         private async Task<IActionResult> SendExportRequest(
@@ -264,7 +265,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 anonymizationConfigFileETag,
                 HttpContext.RequestAborted);
 
-            var exportResult = ExportResult.Accepted();
+            var exportResult = JobResult<ExportJobResult>.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
             return exportResult;
         }

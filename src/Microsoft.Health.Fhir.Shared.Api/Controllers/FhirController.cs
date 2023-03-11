@@ -13,7 +13,6 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -32,6 +31,8 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Models;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -65,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<FhirController> _logger;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
+        private readonly IOptions<CoreFeatureConfiguration> _coreConfiguration;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -74,6 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="fhirRequestContextAccessor">The FHIR request context accessor.</param>
         /// <param name="urlResolver">The urlResolver.</param>
         /// <param name="uiConfiguration">The UI configuration.</param>
+        /// <param name="coreConfiguration">Core configuration.</param>
         /// <param name="authorizationService">The authorization service.</param>
         public FhirController(
             IMediator mediator,
@@ -81,20 +84,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
+            IOptions<CoreFeatureConfiguration> coreConfiguration,
             IAuthorizationService authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            EnsureArg.IsNotNull(uiConfiguration, nameof(uiConfiguration));
-            EnsureArg.IsNotNull(uiConfiguration.Value, nameof(uiConfiguration));
+            EnsureArg.IsNotNull(uiConfiguration?.Value, nameof(uiConfiguration));
+            EnsureArg.IsNotNull(coreConfiguration?.Value, nameof(coreConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
 
             _mediator = mediator;
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
+            _coreConfiguration = coreConfiguration;
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -430,6 +435,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
+            if (Request.Headers.TryGetValue(KnownHeaders.Prefer, out StringValues preferValues) && preferValues.Contains("respond-async"))
+            {
+                if (_coreConfiguration.Value.SupportsAsyncConditionalDelete)
+                {
+                    ConditionalDeleteResourceAsyncResponse asyncResponse = await _mediator.Send(new ConditionalDeleteResourceAsyncRequest(typeParameter, conditionalParameters, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete), HttpContext.RequestAborted);
+
+                    return JobResult<Parameters>.Accepted()
+                        .SetContentLocationHeader(_urlResolver, OperationsConstants.ConditionalDelete, asyncResponse.JobId);
+                }
+
+                throw new MethodNotAllowedException(Core.Resources.RequestedActionNotAllowed);
+            }
+
             Guid? bundleOperationId = GetBundleOperationId();
             DeleteResourceResponse response = await _mediator.Send(
                 new ConditionalDeleteResourceRequest(
@@ -439,7 +457,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     maxDeleteCount.GetValueOrDefault(1),
                     bundleOperationId),
                 HttpContext.RequestAborted);
-
             if (maxDeleteCount.HasValue)
             {
                 Response.Headers.Add(KnownHeaders.ItemsDeleted, (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture));
