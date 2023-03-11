@@ -75,7 +75,7 @@ steps:
   inputs:
       Path: '$(Build.SourcesDirectory)'
       ToolVersion: Latest
-      `
+
 - task: RoslynAnalyzers@3
   inputs:
     userProvideBuildInfo: 'autoMsBuildInfo'
