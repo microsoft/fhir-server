@@ -76,11 +76,16 @@ steps:
       Path: '$(Build.SourcesDirectory)'
       ToolVersion: Latest
 
+- task: UseDotNet@2
+  displayName: Use .NET Core sdk
+  inputs:
+    useGlobalJson: true
+
 - task: RoslynAnalyzers@3
   inputs:
     userProvideBuildInfo: 'msBuildInfo'
     msBuildArchitecture: 'DotNetCore'
-    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build $(Build.SourcesDirectory)\Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
+    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build $(Build.SourcesDirectory)\Microsoft.Health.Fhir.sln'
 
 # - task: RoslynAnalyzers@3
 #   inputs:
