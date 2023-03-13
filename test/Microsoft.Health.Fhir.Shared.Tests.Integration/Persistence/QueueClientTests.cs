@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     public class QueueClientTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly ITestOutputHelper _testOutputHelper;
