@@ -5,4 +5,4 @@ variables:
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
     ResourceGroupName: '$(resourceGroupRoot)'
     TestEnvironmentName: 'OSS Import'
-    ImageTag: 'master'
+    ImageTag: '$(build.BuildNumber)'
