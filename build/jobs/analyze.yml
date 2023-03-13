@@ -85,20 +85,7 @@ steps:
   inputs:
     userProvideBuildInfo: 'msBuildInfo'
     msBuildArchitecture: 'DotNetCore'
-    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build $(Build.SourcesDirectory)\Microsoft.Health.Fhir.sln'
-
-# - task: RoslynAnalyzers@3
-#   inputs:
-#     userProvideBuildInfo: 'autoMsBuildInfo'
-#     solutionDirectory: '$(Build.SourcesDirectory)'
-#     setupCommandlinePicker: 'vs2022'
-#     rulesetName: 'Multiple'
-#     multipleRulesetRequired: true
-#     multipleRulesetRecommended: true
-#     customRuleset: 'CustomAnalysisRules.ruleset'
-#     suppressionFileForCompilerWarnings: 'RoslynSuppressions.txt'
-#   env:
-#     SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build **/*.sln'
 
 - task: CodeInspector@2
   displayName: Run Code Inspector

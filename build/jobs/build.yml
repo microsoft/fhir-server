@@ -18,7 +18,7 @@ steps:
     displayName: 'dotnet build $(buildConfiguration)'
     inputs:
       command: build
-      arguments: '$(Build.SourcesDirectory)/Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
+      arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if ne(parameters.targetBuildFramework, '') }}:
