@@ -85,7 +85,7 @@ steps:
   inputs:
     userProvideBuildInfo: 'msBuildInfo'
     msBuildArchitecture: 'DotNetCore'
-    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build $(Build.SourcesDirectory)\*.sln'
+    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build $(Build.SourcesDirectory)\Microsoft.Health.Fhir.sln'
 
 - task: CodeInspector@2
   displayName: Run Code Inspector
