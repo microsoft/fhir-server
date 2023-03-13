@@ -85,7 +85,7 @@ steps:
   inputs:
     userProvideBuildInfo: 'msBuildInfo'
     msBuildArchitecture: 'DotNetCore'
-    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build **/*.sln'
+    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build $(Build.SourcesDirectory)\*.sln'
 
 - task: CodeInspector@2
   displayName: Run Code Inspector
