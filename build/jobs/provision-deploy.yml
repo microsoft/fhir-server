@@ -65,7 +65,7 @@ jobs:
         $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 1
         $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
-
+        Write-Host "webAppName is ${{parameters.webAppName}} and audience is ${{ parameters.testEnvironmentUrl }}"
         $webAppName = "${{ parameters.webAppName }}"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
