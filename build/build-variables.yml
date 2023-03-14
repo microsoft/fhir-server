@@ -15,7 +15,7 @@ variables:
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
   DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
-  TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).resoluteopensource.onmicrosoft.com'
+  TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
   # These variables are not used in the deployment scripts, but are used in the E2E tests files.
   TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.resoluteopensource.onmicrosoft.com'
   TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentName)-r4.resoluteopensource.onmicrosoft.com'
