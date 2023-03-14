@@ -2,6 +2,7 @@
 # Variables used during builds.
 
 variables:
+  tenantDomainSuffix: "resoluteopensource.onmicrosoft.com"
   buildConfiguration: 'Release' 
   defaultBuildFramework: 'net7.0' 
   azureSubscriptionEndpoint: 'docker-build'
@@ -15,21 +16,21 @@ variables:
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
   DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
-  TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).resoluteopensource.onmicrosoft.com'
+  TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).$(tenantDomainSuffix)'
   # These variables are not used in the deployment scripts, but are used in the E2E tests files.
-  TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.resoluteopensource.onmicrosoft.com'
-  TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentName)-r4.resoluteopensource.onmicrosoft.com'
-  TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentName)-r4-sql.resoluteopensource.onmicrosoft.com'
-  TestEnvironmentUrl_R4B: 'https://$(DeploymentEnvironmentName)-r4b.resoluteopensource.onmicrosoft.com'
-  TestEnvironmentUrl_R4B_Sql: 'https://$(DeploymentEnvironmentName)-r4b-sql.resoluteopensource.onmicrosoft.com'
-  TestEnvironmentUrl_R5: 'https://$(DeploymentEnvironmentName)-r5.resoluteopensource.onmicrosoft.com'
-  TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.resoluteopensource.onmicrosoft.com'
+  TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.$(tenantDomainSuffix)'
+  TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentName)-r4.$(tenantDomainSuffix)'
+  TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentName)-r4-sql.$(tenantDomainSuffix)'
+  TestEnvironmentUrl_R4B: 'https://$(DeploymentEnvironmentName)-r4b.$(tenantDomainSuffix)'
+  TestEnvironmentUrl_R4B_Sql: 'https://$(DeploymentEnvironmentName)-r4b-sql.$(tenantDomainSuffix)'
+  TestEnvironmentUrl_R5: 'https://$(DeploymentEnvironmentName)-r5.$(tenantDomainSuffix)'
+  TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.$(tenantDomainSuffix)'
   #-----------------------------------------------------------------------------------------
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'Microsoft Health Open Source Subscription'
   WindowsVmImage: 'windows-latest'
   LinuxVmImage: 'ubuntu-latest'  
-  TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
+  TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomainSuffix)'
   # The following is set by a build Pipeline variable:
   # DefaultLinuxPool: 'Azure Pipelines'
   # SharedLinuxPool: 'Azure Pipelines'
