@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class QueueClientTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly ITestOutputHelper _testOutputHelper;
@@ -156,7 +156,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CancellationTokenSource());
             await Task.Delay(TimeSpan.FromSeconds(1));
             JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
-            Assert.Equal(jobInfo1.Result, jobInfo2.Result);
+
+            Assert.Equal(jobInfo1.Result, jobInfo2?.Result);
         }
 
         [Fact]
