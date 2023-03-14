@@ -115,7 +115,6 @@ function Add-AadTestAuthEnvironment {
     Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
 
     Write-Host "Ensuring users and role assignments for API Application exist"
-    Write-Host "Using $tenantInfo.TenantDomain for tenant domain"
     $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $KeyVaultName
 
     $environmentClientApplications = @()
