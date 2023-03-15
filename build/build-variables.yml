@@ -2,7 +2,7 @@
 # Variables used during builds.
 
 variables:
-  tenantDomainSuffix: "azurewebsites.net"
+  tenantDomainSuffix: "resoluteopensource.onmicrosoft.com"
   buildConfiguration: 'Release' 
   defaultBuildFramework: 'net7.0' 
   azureSubscriptionEndpoint: 'docker-build'
