@@ -100,9 +100,9 @@ function Add-AadTestAuthEnvironment {
     Write-Host "Ensuring API application exists"
 
     $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
-
+    Write-Host "Audience found $fhirServiceAudience"
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
-
+    Write-Host "Application found $application.AppId $application"
     if (!$application) {
         $newApplication = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience
 
