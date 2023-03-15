@@ -2,7 +2,7 @@
 # Variables used during builds.
 
 variables:
-  tenantDomainSuffix: "resoluteopensource.onmicrosoft.com"
+  tenantDomainSuffix: "azurewebsites.net"
   buildConfiguration: 'Release' 
   defaultBuildFramework: 'net7.0' 
   azureSubscriptionEndpoint: 'docker-build'
@@ -30,7 +30,7 @@ variables:
   ConnectedServiceName: 'Microsoft Health Open Source Subscription'
   WindowsVmImage: 'windows-latest'
   LinuxVmImage: 'ubuntu-latest'  
-  TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomainSuffix)'
+  TestApplicationResource: 'https://$(DeploymentEnvironmentName).resoluteopensource.onmicrosoft.com'
   # The following is set by a build Pipeline variable:
   # DefaultLinuxPool: 'Azure Pipelines'
   # SharedLinuxPool: 'Azure Pipelines'
