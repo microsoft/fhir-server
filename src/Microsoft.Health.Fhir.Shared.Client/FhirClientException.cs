@@ -76,16 +76,28 @@ namespace Microsoft.Health.Fhir.Client
                 message.Append(": ").Append(diagnostic);
             }
 
+            string contentResponse = "NO_CONTENT";
+            if (Response.Content != null)
+            {
+                contentResponse = Response.Content.ReadAsStringAsync().Result;
+            }
+
+            string contentRequest = "NO_REQUEST";
+            if (Response.Response.RequestMessage.Content != null)
+            {
+                contentRequest = Response.Response.RequestMessage.Content.ReadAsStringAsync().Result;
+            }
+
             message.Append(" (").Append(operationId).AppendLine(")");
 
             message.AppendLine("==============================================");
             message.Append("Url: (").Append(Response.Response.RequestMessage?.Method.Method ?? "NO_HTTP_METHOD_AVAILABLE").Append(") ").AppendLine(Response.Response.RequestMessage?.RequestUri.ToString() ?? "NO_URI_AVAILABLE");
             message.Append("Response code: ").Append(Response.Response.StatusCode.ToString()).Append('(').Append((int)Response.Response.StatusCode).AppendLine(")");
             message.Append("Reason phrase: ").AppendLine(Response.Response.ReasonPhrase ?? "NO_REASON_PHRASE");
-            message.Append("Content: ").AppendLine(Response.Content?.ToString() ?? "NO_CONTENT");
-            message.Append("Request: ").AppendLine(Response.Response.RequestMessage.Content?.ToString() ?? "NO_REQUEST");
             message.Append("Timestamp: ").AppendLine(DateTime.UtcNow.ToString("o"));
             message.Append("Health Check Result: ").Append(HealthCheckResult.ToString()).Append('(').Append((int)HealthCheckResult).AppendLine(")");
+            message.Append("Content: ").AppendLine(contentResponse);
+            message.Append("Request: ").AppendLine(contentRequest);
             message.AppendLine("==============================================");
 
             return message.ToString();

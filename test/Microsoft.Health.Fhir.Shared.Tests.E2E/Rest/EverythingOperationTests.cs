@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    [Trait(Traits.Category, Categories.CompartmentSearch)]
+    [Trait(Traits.Category, Categories.PatientEverything)]
+    [Trait(Traits.Category, Categories.CompartmentSearch)] // Patient $everything calls Compartment Search internally.
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class EverythingOperationTests : SearchTestsBase<EverythingOperationTestFixture>
     {

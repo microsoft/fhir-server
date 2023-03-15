@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.PatientEverything)]
     public class EverythingControllerTests
     {
         private readonly EverythingController _everythingController;
