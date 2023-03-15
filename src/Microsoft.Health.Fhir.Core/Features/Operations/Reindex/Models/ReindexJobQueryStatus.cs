@@ -30,6 +30,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.ContinuationToken)]
         public string ContinuationToken { get; set; }
 
+        /// <summary>
+        /// The point at which to start a query
+        /// </summary>
+        [JsonProperty(JobRecordProperties.StartSurrogateId)]
+        public long StartResourceSurrogateId { get; set; }
+
         [JsonProperty(JobRecordProperties.Status)]
         public OperationStatus Status { get; set; }
 

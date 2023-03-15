@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public static class KnownResourceWrapperProperties
     {
+        public const string ResourceSurrogateId = "resourceSurrogateId";
+
         public const string LastModified = "lastModified";
 
         public const string RawResource = "rawResource";

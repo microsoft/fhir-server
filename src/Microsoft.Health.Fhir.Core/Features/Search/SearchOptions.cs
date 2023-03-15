@@ -61,6 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public bool CountOnly { get; internal set; }
 
         /// <summary>
+        /// This is used for sql force reindex where we need to ignore the Resource SearchParamHash field when searching
+        /// </summary>
+        public bool IgnoreSearchParamHash { get; set; }
+
+        /// <summary>
         /// Indicates if the total number of resources that match the search parameters should be calculated.
         /// </summary>
         /// <remarks>The ability to retrieve an estimate of the total is yet to be implemented.</remarks>
