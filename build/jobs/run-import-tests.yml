@@ -91,7 +91,7 @@ jobs:
     displayName: 'Import E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=Import&Category!=Authorization"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=Import&CategoryName!=Authorization"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: 'Import ${{ parameters.version }} SQL'
     env:
