@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -28,6 +29,8 @@ public class CosmosQueueClient : IQueueClient
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
     private static readonly AsyncPolicy _retryPolicy = Policy
         .Handle<RetriableJobException>()
+        .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
+        .Or<RequestRateExceededException>()
         .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(GenerateRandomNumber()));
 
     public CosmosQueueClient(
@@ -85,6 +88,12 @@ public class CosmosQueueClient : IQueueClient
         // Filter new job definitions
         var existingJobHashes = existingJobs.SelectMany(x => x.Definitions).Select(x => x.DefinitionHash).ToHashSet();
         var newDefinitions = definitionHashes.Where(x => !existingJobHashes.Contains(x.Key)).Select(x => x.Value).ToArray();
+
+        // If there are no new definitions, there is no need to create a new JobGroup record
+        if (newDefinitions.Length == 0)
+        {
+            return jobInfos;
+        }
 
         // If forceOneActiveJobGroup is true, then check if there are any existing active jobs with the same queue type
         if (forceOneActiveJobGroup)
@@ -171,20 +180,27 @@ public class CosmosQueueClient : IQueueClient
             .WithParameter("@queueType", queueType)
             .WithParameter("@heartbeatDateTimeout", Clock.UtcNow.AddSeconds(-heartbeatTimeoutSec));
 
+        var dequeuedJobs = new List<JobInfo>();
+
         return await _retryPolicy.ExecuteAsync(async () =>
             {
-                IReadOnlyList<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, 1, cancellationToken);
+                IReadOnlyList<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, numberOfJobsToDequeue, cancellationToken);
 
-                if (response.Any())
+                foreach (JobGroupWrapper item in response)
                 {
-                    JobGroupWrapper item = response[0];
-                    if (item != null)
+                    // JobGroupWrapper can convert to multiple JobsInfos.
+                    // The collection is outside the scope of the retry since once we've saved that JobGroupWrapper we have successfully dequeued those job.
+                    // This loop is to check additional JobGroupWrappers if we're trying find more jobs up to 'numberOfJobsToDequeue'.
+                    IReadOnlyCollection<JobInfo> dequeued = await DequeueItemsInternalAsync(item, numberOfJobsToDequeue - dequeuedJobs.Count, worker, heartbeatTimeoutSec, cancellationToken);
+                    dequeuedJobs.AddRange(dequeued);
+
+                    if (numberOfJobsToDequeue - dequeuedJobs.Count <= 0)
                     {
-                        return await DequeueItemsInternalAsync(item, numberOfJobsToDequeue, worker, heartbeatTimeoutSec, cancellationToken);
+                        break;
                     }
                 }
 
-                return Array.Empty<JobInfo>();
+                return dequeuedJobs;
             });
     }
 
@@ -490,12 +506,12 @@ public class CosmosQueueClient : IQueueClient
                 new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.JobInfoPartitionKey), MaxItemCount = itemCount }));
 
         var items = new List<JobGroupWrapper>();
-        FeedResponse<JobGroupWrapper> response = await query.ExecuteNextAsync(cancellationToken);
+        FeedResponse<JobGroupWrapper> response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
 
         while ((response.Any() || !string.IsNullOrEmpty(response.ContinuationToken)) && items.Count < itemCount)
         {
             items.AddRange(response);
-            response = await query.ExecuteNextAsync(cancellationToken);
+            response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
         }
 
         return items;
