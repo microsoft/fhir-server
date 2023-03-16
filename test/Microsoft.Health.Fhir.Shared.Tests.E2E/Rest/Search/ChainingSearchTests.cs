@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -300,6 +301,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.True(allPatientBundle.Entry.Count == notMaleBundle.Entry.Count + notFemaleBundle.Entry.Count);
         }
 
+#if !Stu3
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Fact]
+        public async Task GivenTwoChainedSearchExpressionsAndInclude_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"participating-organization.identifier={Fixture.OrganizationIdentifier}&_include=OrganizationAffiliation:location&participating-organization.type=practice";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.OrganizationAffiliation, query);
+            Assert.Equal(2, bundle.Entry.Count);
+        }
+#endif
+
         public class ClassFixture : HttpIntegrationTestFixture
         {
             public ClassFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
@@ -327,6 +340,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public string OrganizationCity { get; } = Guid.NewGuid().ToString();
 
+            public string OrganizationIdentifier { get; } = Guid.NewGuid().ToString();
+
             public Patient SmithPatient { get; private set; }
 
             public DiagnosticReport SmithSnomedDiagnosticReport { get; private set; }
@@ -353,7 +368,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-                var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new() { City = "Seattle" }, new() { City = OrganizationCity} } })).Resource;
+                var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Identifier = new() { new Identifier(null, OrganizationIdentifier) }, Address = new List<Address> { new() { City = "Seattle" }, new() { City = OrganizationCity} }, Type = new() { new CodeableConcept(null, "practice") } })).Resource;
+
+                var location = (await TestFhirClient.CreateAsync(new Location { Meta = meta, Address = new Address { City = "Seattle" } })).Resource;
+
+#if !Stu3
+                var affiliateOrganization = (await TestFhirClient.CreateAsync(new OrganizationAffiliation { Meta = meta, ParticipatingOrganization = new ResourceReference($"{KnownResourceTypes.Organization}/{organization.Id}"), Location = new() { new ResourceReference($"{KnownResourceTypes.Location}/{location.Id}") }})).Resource;
+#endif
 
                 AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Female, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
                 SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Gender = AdministrativeGender.Male, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
