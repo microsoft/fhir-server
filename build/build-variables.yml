@@ -2,7 +2,7 @@
 # Variables used during builds.
 
 variables:
-  tenantDomainSuffix: "resoluteopensource.onmicrosoft.com"
+  resourceTenantDomainSuffix: "azurewebsites.net"
   buildConfiguration: 'Release' 
   defaultBuildFramework: 'net7.0' 
   azureSubscriptionEndpoint: 'docker-build'
@@ -16,15 +16,15 @@ variables:
   DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
   DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
   DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
-  TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).$(tenantDomainSuffix)'
+  TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).$(resourceTenantDomainSuffix)'
   # These variables are not used in the deployment scripts, but are used in the E2E tests files.
-  TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.$(tenantDomainSuffix)'
-  TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentName)-r4.$(tenantDomainSuffix)'
-  TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentName)-r4-sql.$(tenantDomainSuffix)'
-  TestEnvironmentUrl_R4B: 'https://$(DeploymentEnvironmentName)-r4b.$(tenantDomainSuffix)'
-  TestEnvironmentUrl_R4B_Sql: 'https://$(DeploymentEnvironmentName)-r4b-sql.$(tenantDomainSuffix)'
-  TestEnvironmentUrl_R5: 'https://$(DeploymentEnvironmentName)-r5.$(tenantDomainSuffix)'
-  TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.$(tenantDomainSuffix)'
+  TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.$(resourceTenantDomainSuffix)'
+  TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentName)-r4.$(resourceTenantDomainSuffix)'
+  TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentName)-r4-sql.$(resourceTenantDomainSuffix)'
+  TestEnvironmentUrl_R4B: 'https://$(DeploymentEnvironmentName)-r4b.$(resourceTenantDomainSuffix)'
+  TestEnvironmentUrl_R4B_Sql: 'https://$(DeploymentEnvironmentName)-r4b-sql.$(resourceTenantDomainSuffix)'
+  TestEnvironmentUrl_R5: 'https://$(DeploymentEnvironmentName)-r5.$(resourceTenantDomainSuffix)'
+  TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.$(resourceTenantDomainSuffix)'
   #-----------------------------------------------------------------------------------------
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'Microsoft Health Open Source Subscription'
