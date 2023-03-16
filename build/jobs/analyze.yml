@@ -128,3 +128,12 @@ steps:
     GdnBreakGdnToolCredScan: true
     GdnBreakGdnToolCSRF: true
     GdnBreakGdnToolRoslynAnalyzers: true
+
+- task: TSAUpload@2
+  displayName: 'TSA upload'
+  inputs:
+    tsaVersion: 'TsaV2' 
+    codebase: 'NewOrUpdate'
+    GdnPublishTsaOnboard: false
+    GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
+    GdnPublishTsaExportedResultsPublishable: true
