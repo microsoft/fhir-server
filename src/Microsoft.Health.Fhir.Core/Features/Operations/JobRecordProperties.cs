@@ -71,6 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string FailureCount = "failureCount";
 
+        public const string EndResourceSurrogateId = "endResourceSurrogateId";
+
         public const string StorageAccountConnectionHash = "storageAccountConnectionHash";
 
         public const string StorageAccountUri = "storageAccountUri";
@@ -138,6 +140,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string StartSurrogateId = "startSurrogateId";
 
         public const string EndSurrogateId = "endSurrogateId";
+
+        public const string MaxResourceSurrogateId = "maxResourceSurrogateId";
 
         public const string GlobalStartSurrogateId = "globalStartSurrogateId";
 

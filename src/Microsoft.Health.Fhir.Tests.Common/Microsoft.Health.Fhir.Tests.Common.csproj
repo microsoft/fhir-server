@@ -13,10 +13,7 @@
     <NoWarn>$(NoWarn);NU5104;NU5100</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="TestFiles\Normative\Bundle-BatchWithInvalidEleEnums.json" />
-    <None Remove="TestFiles\Normative\PatientWithUnknownElements.json" />
-  </ItemGroup>
-  <ItemGroup>
+    <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />

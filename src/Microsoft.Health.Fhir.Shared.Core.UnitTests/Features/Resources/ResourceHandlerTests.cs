@@ -407,7 +407,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 null,
                 null,
                 null,
-                null);
+                null,
+                0);
         }
 
         private ResourceWrapper CreateMockResourceWrapper(ResourceElement resource, bool isDeleted)
@@ -420,7 +421,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 null,
                 null,
                 null,
-                null);
+                null,
+                0);
         }
     }
 }

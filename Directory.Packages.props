@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>6.2.43</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.2.52</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -92,7 +92,7 @@
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.8089.0" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.13.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.14" />
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.2" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NSubstitute" Version="5.0.0" />
     <PackageVersion Include="Polly" Version="7.2.3" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.0.0" />

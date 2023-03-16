@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using Microsoft.Health.Core.Features.Audit;
-using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
