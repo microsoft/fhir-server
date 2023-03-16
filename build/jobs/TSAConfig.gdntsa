@@ -1,13 +1,11 @@
 {
     "codebaseName": "AzureHealth",
     "notificationAliases": [
-        "apurvabhale@microsoft.com"
+        "bee72a5a.microsoft.com@amer.teams.ms"
     ],
     "instanceUrl": "https://microsofthealth.visualstudio.com",
     "projectName": "FhirServer",
-    "areaPath": "Health\\Healthcare APIs\\FHIR",
+    "areaPath": "Health\\Healthcare APIs\\Olympus",
     "iterationPath": "",
-    "tools": [
-        "CredScan"
-    ]
+    "allTools": true
 }
