@@ -67,8 +67,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
 
 #pragma warning disable CA2000 // Dispose objects before losing scope
-            StorageCredentials storageCredentials = new StorageCredentials("acc", "@KV");
-            storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
+            StorageCredentials storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
 #pragma warning restore CA2000 // Dispose objects before losing scope
             return new CloudBlobClient(storageAccountUri, storageCredentials);
         }
