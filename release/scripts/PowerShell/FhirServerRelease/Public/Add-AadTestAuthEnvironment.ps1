@@ -9,6 +9,8 @@ function Add-AadTestAuthEnvironment {
     Environment name used for the test environment. This is used throughout for making names unique.
     .PARAMETER TenantAdminCredential
     Credentials for a tenant admin user. Needed to grant admin consent to client apps.
+    .PARAMETER FhirServiceAudienceOverride
+    Override for the FHIR service audience. If not provided, the audience will be generated based on the Environment Name and TenantId provided.
     #>
     param
     (
@@ -35,7 +37,10 @@ function Add-AadTestAuthEnvironment {
         [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName = "$EnvironmentName-ts"
+        [string]$KeyVaultName = "$EnvironmentName-ts",
+
+        [parameter(Mandatory = $false)]
+        [string]$FhirServiceAudienceOverride = ""
     )
 
     Set-StrictMode -Version Latest
@@ -99,7 +104,12 @@ function Add-AadTestAuthEnvironment {
 
     Write-Host "Ensuring API application exists"
 
-    $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
+    if ($FhirServiceAudienceOverride) {
+        $fhirServiceAudience = $FhirServiceAudienceOverride
+    }
+    else {
+        $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
+    }
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
     if (!$application) {
         $newApplication = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience
