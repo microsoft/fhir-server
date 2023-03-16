@@ -76,16 +76,30 @@ namespace Microsoft.Health.Fhir.Client
                 message.Append(": ").Append(diagnostic);
             }
 
-            string contentResponse = "NO_CONTENT";
-            if (Response.Content != null)
+            string responseInfo = "NO_RESPONSEINFO";
+            try
             {
-                contentResponse = Response.Content.ReadAsStringAsync().Result;
+                if (Response.Content != null)
+                {
+                    responseInfo = Response.Content.ReadAsStringAsync().Result;
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                responseInfo = "RESPONSEINFO_ALREADY_DISPOSED";
             }
 
-            string contentRequest = "NO_REQUEST";
-            if (Response.Response.RequestMessage.Content != null)
+            string requestInfo = "NO_REQUESTINFO";
+            try
             {
-                contentRequest = Response.Response.RequestMessage.Content.ReadAsStringAsync().Result;
+                if (Response.Response.RequestMessage.Content != null)
+                {
+                    requestInfo = Response.Response.RequestMessage.Content.ReadAsStringAsync().Result;
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                requestInfo = "REQUESTINFO_ALREADY_DISPOSED";
             }
 
             message.Append(" (").Append(operationId).AppendLine(")");
@@ -96,8 +110,8 @@ namespace Microsoft.Health.Fhir.Client
             message.Append("Reason phrase: ").AppendLine(Response.Response.ReasonPhrase ?? "NO_REASON_PHRASE");
             message.Append("Timestamp: ").AppendLine(DateTime.UtcNow.ToString("o"));
             message.Append("Health Check Result: ").Append(HealthCheckResult.ToString()).Append('(').Append((int)HealthCheckResult).AppendLine(")");
-            message.Append("Content: ").AppendLine(contentResponse);
-            message.Append("Request: ").AppendLine(contentRequest);
+            message.Append("Response Info: ").AppendLine(responseInfo);
+            message.Append("Request Info: ").AppendLine(requestInfo);
             message.AppendLine("==============================================");
 
             return message.ToString();
