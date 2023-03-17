@@ -88,10 +88,46 @@ jobs:
         dotnet dev-certs https
 
   - task: DotNetCoreCLI@2
+    displayName: 'Import E2E ${{ parameters.version }} CosmosDB'
+    inputs:
+      command: test
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=Import"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: 'Import ${{ parameters.version }} CosmosDB'
+    env:
+      'TestEnvironmentUrl': $(TestEnvironmentUrl)
+      'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
+      'Resource': $(Resource)
+      'AllStorageAccounts': $(AllStorageAccounts)
+      'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
+      'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
+      'tenant-admin-user-name': $(tenant-admin-user-name)
+      'tenant-admin-user-password': $(tenant-admin-user-password)
+      'tenant-id': $(tenant-id)
+      'app_globalAdminServicePrincipal_id': $(app_globalAdminServicePrincipal_id)
+      'app_globalAdminServicePrincipal_secret': $(app_globalAdminServicePrincipal_secret)
+      'app_nativeClient_id': $(app_nativeClient_id)
+      'app_nativeClient_secret': $(app_nativeClient_secret)
+      'app_wrongAudienceClient_id': $(app_wrongAudienceClient_id)
+      'app_wrongAudienceClient_secret': $(app_wrongAudienceClient_secret)
+      'user_globalAdminUser_id': $(user_globalAdminUser_id)
+      'user_globalAdminUser_secret': $(user_globalAdminUser_secret)
+      'user_globalConverterUser_id': $(user_globalConverterUser_id)
+      'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
+      'user_globalExporterUser_id': $(user_globalExporterUser_id)
+      'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
+      'user_globalReaderUser_id': $(user_globalReaderUser_id)
+      'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
+      'user_globalWriterUser_id': $(user_globalWriterUser_id)
+      'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+      'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'TestIntegrationStoreKey': $(TestIntegrationStoreKey)
+
+  - task: DotNetCoreCLI@2
     displayName: 'Import E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=Import&CategoryName!=Authorization"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=Import"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: 'Import ${{ parameters.version }} SQL'
     env:
