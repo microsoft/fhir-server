@@ -126,6 +126,7 @@ steps:
 
 - task: PostAnalysis@2
   inputs:
+    GdnBreakPolicy: 'M365'
     GdnBreakAllTools: false
     GdnBreakGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnBreakGdnToolCredScan: true
