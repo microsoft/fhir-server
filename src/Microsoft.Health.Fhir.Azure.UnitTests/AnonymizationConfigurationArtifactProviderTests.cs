@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             {
                 Server = Environment.GetEnvironmentVariable("TestContainerRegistryServer"),
                 Username = Environment.GetEnvironmentVariable("TestContainerRegistryServer")?.Split('.')[0],
-                Password = Environment.GetEnvironmentVariable("TestContainerRegistryPassword"),
+                Password = "MyPassword123",
             };
 
             if (string.IsNullOrEmpty(containerRegistry.Server) || string.IsNullOrEmpty(containerRegistry.Password))
