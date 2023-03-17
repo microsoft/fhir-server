@@ -80,28 +80,6 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
 
-- stage: importRedeployStu3
-  displayName: 'Redeploy Import STU3 Site'
-  dependsOn: []
-  variables:
-  - template: import-variables.yml
-  jobs:
-  - template: ./jobs/restart-webapp.yml
-    parameters: 
-      webAppName: $(DeploymentEnvironmentName)
-      subscription: $(ConnectedServiceName)
-
-- stage: importRedeployR4
-  displayName: 'Redeploy Import R4 Site'
-  dependsOn: []
-  variables:
-  - template: import-variables.yml
-  jobs:
-  - template: ./jobs/restart-webapp.yml
-    parameters: 
-      webAppName: $(DeploymentEnvironmentNameR4)
-      subscription: $(ConnectedServiceName)
-
 - stage: importRedeployStu3Sql
   displayName: 'Redeploy Import STU3 SQL Site'
   dependsOn: []
