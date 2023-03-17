@@ -92,6 +92,8 @@ steps:
     GdnExportAllTools: false
     GdnExportGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnExportGdnToolCredScan: true
+    GdnExportGdnToolCSRF: true
+    GdnExportGdnToolRoslynAnalyzers: true
 
 - task: PublishSecurityAnalysisLogs@3
   inputs:
