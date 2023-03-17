@@ -104,8 +104,8 @@ function Add-AadTestAuthEnvironment {
 
     Write-Host "Ensuring API application exists"
 
-    if ($FhirServiceAudienceOverride) {
-        $fhirServiceAudience = $FhirServiceAudienceOverride
+    if ($FhirServiceAppRegistrationOverride) {
+        $fhirServiceAudience = $FhirServiceAppRegistrationOverride
     }
     else {
         $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
