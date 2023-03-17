@@ -9,8 +9,8 @@ function Add-AadTestAuthEnvironment {
     Environment name used for the test environment. This is used throughout for making names unique.
     .PARAMETER TenantAdminCredential
     Credentials for a tenant admin user. Needed to grant admin consent to client apps.
-    .PARAMETER FhirServiceAudienceOverride
-    Override for the FHIR service audience. If not provided, the audience will be generated based on the Environment Name and TenantId provided.
+    .PARAMETER FhirServiceAppRegistrationOverride
+    Overrides the application that is being setup for roles. If not provided, the audience will be generated based on the Environment Name and TenantId provided.
     #>
     param
     (
@@ -40,7 +40,7 @@ function Add-AadTestAuthEnvironment {
         [string]$KeyVaultName = "$EnvironmentName-ts",
 
         [parameter(Mandatory = $false)]
-        [string]$FhirServiceAudienceOverride = ""
+        [string]$FhirServiceAppRegistrationOverride = ""
     )
 
     Set-StrictMode -Version Latest

@@ -63,4 +63,4 @@ steps:
       Write-Host "Imported modules"
       $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $adminCredential -TenantId $tenantId
       Write-Host "Adding Multi Tenant auth values"
-      $output += Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $adminCredential -TenantId $tenantId -FhirServiceAudienceOverride "$environmentName.azurewebsites.net"
+      $output += Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $adminCredential -TenantId $tenantId -FhirServiceAppRegistrationOverride "https://$environmentName.azurewebsites.net/"
