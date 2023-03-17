@@ -92,6 +92,7 @@ steps:
     GdnExportAllTools: false
     GdnExportGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnExportGdnToolCredScan: true
+    GdnExportGdnToolCredScanSeverity: 'Note'
     GdnExportGdnToolCSRF: true
     GdnExportGdnToolRoslynAnalyzers: true
 
