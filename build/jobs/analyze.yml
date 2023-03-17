@@ -129,6 +129,7 @@ steps:
     GdnBreakAllTools: false
     GdnBreakGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnBreakGdnToolCredScan: true
+    GdnBreakGdnToolCredScanSeverity: 'Note'
     GdnBreakGdnToolCSRF: true
     GdnBreakGdnToolRoslynAnalyzers: true
 
