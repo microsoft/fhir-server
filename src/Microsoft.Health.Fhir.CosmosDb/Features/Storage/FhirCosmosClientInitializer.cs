@@ -50,7 +50,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            string password = "MySecretPassword123!";
             var host = configuration.Host;
             var key = configuration.Key;
 
@@ -62,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 key = CosmosDbLocalEmulator.Key;
             }
 
-            _logger.LogInformation("Creating CosmosClient instance for {DatabaseId} {Password}, Host: {Host}", configuration.DatabaseId, password, host);
+            _logger.LogInformation("Creating CosmosClient instance for {DatabaseId}, Host: {Host}", configuration.DatabaseId, host);
 
             IEnumerable<RequestHandler> requestHandlers = _requestHandlerFactory.Invoke();
 
