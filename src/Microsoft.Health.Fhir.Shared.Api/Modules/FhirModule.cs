@@ -131,6 +131,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.AddHealthChecks()
+                .AddCheck<ConformanceHealthCheck>(name: "MetadataHealthCheck");
+
             services.TypesInSameAssembly(KnownAssemblies.All)
                 .AssignableTo<IProvideCapability>()
                 .Transient()
