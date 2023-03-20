@@ -10,6 +10,7 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {

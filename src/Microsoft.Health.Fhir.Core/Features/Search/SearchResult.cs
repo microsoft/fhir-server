@@ -67,6 +67,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public int? TotalCount { get; set; }
 
         /// <summary>
+        /// The highest resource surrogateid in the results set
+        /// </summary>
+        public long MaxResourceSurrogateId { get; set; }
+
+        /// <summary>
+        /// The reindex specific information
+        /// </summary>
+        public SearchResultReindex ReindexResult { get; set; }
+
+        /// <summary>
         /// Gets the continuation token.
         /// </summary>
         public string ContinuationToken { get; }

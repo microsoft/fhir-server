@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Configs;
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+namespace Microsoft.Health.Fhir.Core.Features.Audit
 {
     /// <summary>
     /// Provides mechanism to log the audit event using default logger.
