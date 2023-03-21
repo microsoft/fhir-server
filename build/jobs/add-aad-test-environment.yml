@@ -63,4 +63,11 @@ steps:
       Write-Host "Imported modules"
       $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $adminCredential -TenantId $tenantId
       Write-Host "Adding Multi Tenant auth values"
-      $output2 = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $adminCredential -TenantId $tenantId -FhirServiceAppRegistrationOverride "https://$environmentName.$(resourceTenantDomainSuffix)/"
+      try
+      {
+        $output2 = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $adminCredential -TenantId $tenantId -FhirServiceAppRegistrationOverride "https://$environmentName.$(resourceTenantDomainSuffix)/"
+      }
+      catch
+      {
+        # This second call is only needed for the Export, Import, and CI pipelines since they still have old app registrations that use the ".azurewebsites.net". PR environments will fail when calling this.
+      }
