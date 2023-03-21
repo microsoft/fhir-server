@@ -25,21 +25,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public sealed class SystemConformanceProvider
         : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IAsyncDisposable
     {
+        private static SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
+        private static SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
+
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly int _rebuildDelay = 240; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
-        private ResourceElement _listedCapabilityStatement;
-        private ResourceElement _metadata;
-        private ICapabilityStatementBuilder _builder;
-        private Task _rebuilder;
-        private static SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
-        private static SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger _logger;
+
+        private ResourceElement _listedCapabilityStatement;
+        private ResourceElement _metadata;
+        private ICapabilityStatementBuilder _builder;
+        private Task _rebuilder;
+        private bool _disposed;
 
         public SystemConformanceProvider(
             IModelInfoProvider modelInfoProvider,
@@ -62,10 +65,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _configuration = configuration;
             _supportedProfiles = supportedProfiles;
             _logger = logger;
+            _disposed = false;
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
         {
+            if (_disposed)
+            {
+                _logger.LogWarning("SystemConformanceProvider is already disposed.");
+            }
+
             if (_listedCapabilityStatement == null)
             {
                 await _defaultCapabilitySemaphore.WaitAsync(cancellationToken);
@@ -80,7 +89,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         {
                             foreach (IProvideCapability provider in providerFactory.Value)
                             {
-                                provider.Build(_builder);
+                                try
+                                {
+                                    provider.Build(_builder);
+                                }
+                                catch (Exception e)
+                                {
+                                    _logger.LogError(e, "SystemConformanceProvider: Failed running {ProviderName} when building a new CapabilityStatement.", provider.ToString());
+                                    throw;
+                                }
                             }
                         }
 
@@ -111,6 +128,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 for (int i = 0; i < _rebuildDelay; i++)
                 {
                     await Task.Delay(TimeSpan.FromMinutes(1));
+
+                    if (_disposed)
+                    {
+                        _logger.LogWarning("SystemConformanceProvider is already disposed.");
+                    }
 
                     if (_cancellationTokenSource.IsCancellationRequested)
                     {
@@ -153,6 +175,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public async ValueTask DisposeAsync()
         {
+            _logger.LogInformation("SystemConformanceProvider: DisposeAsync invoked.");
+
             if (!_cancellationTokenSource.IsCancellationRequested)
             {
                 _cancellationTokenSource.Cancel();
@@ -169,10 +193,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _defaultCapabilitySemaphore = null;
             _metadataSemaphore?.Dispose();
             _metadataSemaphore = null;
+
+            _disposed = true;
+
+            _logger.LogInformation("SystemConformanceProvider: DisposeAsync completed.");
         }
 
         public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
+            if (_disposed)
+            {
+                _logger.LogWarning("SystemConformanceProvider is already disposed.");
+            }
+
             EnsureArg.IsNotNull(notification, nameof(notification));
 
             _logger.LogInformation("SystemConformanceProvider: Rebuild capability statement notification handled");
@@ -206,6 +239,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
         {
+            if (_disposed)
+            {
+                _logger.LogWarning("SystemConformanceProvider is already disposed.");
+            }
+
             // There is a chance that the BackgroundLoop handler sets _metadata to null between when it is checked and returned, so the value is stored in a local variable.
             ResourceElement metadata;
             if ((metadata = _metadata) != null)

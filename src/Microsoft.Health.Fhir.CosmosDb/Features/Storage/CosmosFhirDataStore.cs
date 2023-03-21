@@ -630,13 +630,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            builder.PopulateDefaultResourceInteractions()
-                .SyncSearchParameters()
-                .AddGlobalSearchParameters()
-                .SyncProfiles();
+            _logger.LogInformation("CosmosFhirDataStore. Populating Default Resource Interactions.");
+            builder = builder.PopulateDefaultResourceInteractions();
+
+            _logger.LogInformation("CosmosFhirDataStore. Syncing Search Parameters.");
+            builder = builder.SyncSearchParameters();
+
+            _logger.LogInformation("CosmosFhirDataStore. Adding Global Search Parameters.");
+            builder = builder.AddGlobalSearchParameters();
+
+            _logger.LogInformation("CosmosFhirDataStore. Syncing Profiles.");
+            builder = builder.SyncProfiles();
 
             if (_coreFeatures.SupportsBatch)
             {
+                _logger.LogInformation("CosmosFhirDataStore. Adding Global Interation.");
                 builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
             }
         }
