@@ -44,6 +44,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         {
             EnsureArg.IsNotNull(container, nameof(container));
 
+            if (_configuration.UseManagedIdentity)
+            {
+                // Managed Identity does not support updating these settings
+                return;
+            }
+
             var thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
 
             if (thisVersion.Version < CollectionSettingsVersion)

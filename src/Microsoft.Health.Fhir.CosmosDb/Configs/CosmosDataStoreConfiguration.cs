@@ -14,6 +14,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
 
         public string Key { get; set; }
 
+        /// <summary>
+        /// When true, the application will use the managed identity of the Azure resource to authenticate to Cosmos DB.
+        /// Key configuration will be ignored if this is set to true.
+        /// </summary>
+        public bool UseManagedIdentity { get; set; }
+
+        /// <summary>
+        /// ManagedIdentity does not allow Database creation
+        /// </summary>
+        public bool AllowDatabaseCreation { get; set; } = true;
+
         public string DatabaseId { get; set; }
 
         public int? InitialDatabaseThroughput { get; set; }
@@ -21,8 +32,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         public ConnectionMode ConnectionMode { get; set; } = ConnectionMode.Direct;
 
         public ConsistencyLevel? DefaultConsistencyLevel { get; set; }
-
-        public bool AllowDatabaseCreation { get; set; } = true;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a configuration class")]
         public IList<string> PreferredLocations { get; set; }

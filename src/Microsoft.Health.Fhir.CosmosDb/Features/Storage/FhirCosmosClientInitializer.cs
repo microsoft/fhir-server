@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var host = configuration.Host;
             var key = configuration.Key;
 
-            if (string.IsNullOrWhiteSpace(host) && string.IsNullOrWhiteSpace(key))
+            if (string.IsNullOrWhiteSpace(host) && string.IsNullOrWhiteSpace(key) && !configuration.UseManagedIdentity)
             {
                 _logger.LogWarning("No connection string provided, attempting to connect to local emulator.");
 
@@ -65,8 +66,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             IEnumerable<RequestHandler> requestHandlers = _requestHandlerFactory.Invoke();
 
-            var builder = new CosmosClientBuilder(host, key)
-                .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
+            CosmosClientBuilder builder;
+
+            if (configuration.UseManagedIdentity)
+            {
+                if (string.IsNullOrWhiteSpace(host))
+                {
+                    _logger.LogCritical("Host was null.");
+                }
+
+                _logger.LogInformation("Connecting to Cosmos DB using managed identity");
+                builder = new CosmosClientBuilder(host, new ManagedIdentityCredential());
+            }
+            else
+            {
+                builder = new CosmosClientBuilder(host, key);
+            }
+
+            builder = builder.WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
                 .WithCustomSerializer(new FhirCosmosSerializer(_logger))
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
                 .AddCustomHandlers(requestHandlers.ToArray());
@@ -122,7 +139,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
 
-                if (cosmosDataStoreConfiguration.AllowDatabaseCreation)
+                // Manged identity does not have permission to create database
+                if (cosmosDataStoreConfiguration.AllowDatabaseCreation && !cosmosDataStoreConfiguration.UseManagedIdentity)
                 {
                     _logger.LogInformation("CreateDatabaseIfNotExists {DatabaseId}", cosmosDataStoreConfiguration.DatabaseId);
 
@@ -134,7 +152,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                                 cancellationToken: cancellationToken));
                 }
 
-                foreach (var collectionInitializer in collectionInitializers)
+                // Manged identity does not have permission to read/update stored procedures or change collection settings
+                foreach (ICollectionInitializer collectionInitializer in collectionInitializers)
                 {
                     await collectionInitializer.InitializeCollectionAsync(client, cancellationToken);
                 }

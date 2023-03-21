@@ -9,23 +9,33 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
 {
     public class StoredProcedureInstaller : ICollectionUpdater
     {
+        private readonly CosmosDataStoreConfiguration _configuration;
         private readonly IEnumerable<IStoredProcedure> _storedProcedures;
 
-        public StoredProcedureInstaller(IEnumerable<IStoredProcedure> storedProcedures)
+        public StoredProcedureInstaller(CosmosDataStoreConfiguration configuration, IEnumerable<IStoredProcedure> storedProcedures)
         {
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
 
+            _configuration = configuration;
             _storedProcedures = storedProcedures;
         }
 
         public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
+            if (_configuration.UseManagedIdentity)
+            {
+                // Managed Identity does not support read/write stored procedures
+                return;
+            }
+
             foreach (IStoredProcedure storedProc in _storedProcedures)
             {
                 try

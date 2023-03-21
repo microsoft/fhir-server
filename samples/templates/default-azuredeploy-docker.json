@@ -242,6 +242,7 @@
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
         "acrPullRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "cosmosDbDataContributerRoleId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('serviceName'), '00000000-0000-0000-0000-000000000002')]",
         "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
         "enableIntegrationStore": "[or(parameters('enableExport'), parameters('enableImport'))]",
         "staticFhirServerConfigProperties": {
@@ -254,6 +255,7 @@
             "FhirServer__Security__EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer__Security__Authentication__Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer__Security__Authentication__Audience": "[parameters('securityAuthenticationAudience')]",
+            "CosmosDb__UseManagedIdentity": "true",
             "CosmosDb__ContinuationTokenSizeLimitInKb": "1",
             "SqlServer__Initialize": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "[if(equals(parameters('sqlSchemaAutomaticUpdatesEnabled'),'auto'), true(), false())]",
@@ -271,6 +273,7 @@
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "sqlServerDerivedName": "[if(empty(parameters('sqlServerName')),variables('serviceName'),parameters('sqlServerName'))]",
         "sqlDatabaseName": "[concat('FHIR', parameters('fhirVersion'))]",
+        "cosmosCollectionName": "[if(equals(parameters('fhirVersion'),'Stu3'), 'fhir', concat('fhir', parameters('fhirVersion')))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
         "registryName": "healthplatformregistry.azurecr.io",
@@ -406,6 +409,190 @@
             }
         },
         {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/health')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "id": "health"
+                }
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/health/', variables('cosmosCollectionName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('serviceName'), 'health')]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "id": "[variables('cosmosCollectionName')]",
+                    "indexingPolicy": {
+                        "indexingMode": "consistent",
+                        "automatic": true,
+                        "includedPaths": [
+                            {
+                                "path": "/*"
+                            }
+                        ],
+                        "excludedPaths": [
+                            {
+                                "path": "/rawResource/*"
+                            },
+                            {
+                                "path": "/\"_etag\"/?"
+                            }
+                        ]
+                    },
+                    "partitionKey": {
+                        "paths": [
+                            "/partitionKey"
+                        ],
+                        "kind": "Hash"
+                    },
+                    "defaultTtl": -1,
+                    "conflictResolutionPolicy": {
+                        "mode": "LastWriterWins",
+                        "conflictResolutionPath": "/_ts"
+                    }
+                }
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/storedProcedures",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/health/', variables('cosmosCollectionName'), '/acquireExportJobs_50FDEB206CB28339F5F5330D96076FF0DDFCE6B48AEFD066B518BFC2448662C4')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', variables('serviceName'), 'health', variables('cosmosCollectionName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('serviceName'), 'health')]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "body": "/**\n* This stored procedure acquires list of available export jobs.\n*\n* @constructor\n* @param {string} numberOfJobs - The number of jobs to fetch in string.\n* @param {string} jobHeartbeatTimeoutThresholdInSecondsInString - The number of seconds allowed before the job is considered to be stale in string.\n*/\n\nfunction acquireExportJobs(numberOfJobs, jobHeartbeatTimeoutThresholdInSecondsInString) {\n    const collection = getContext().getCollection();\n    const collectionLink = collection.getSelfLink();\n    const response = getContext().getResponse();\n\n    // Validate input\n    if (!numberOfJobs) {\n        throwArgumentValidationError(`The required parameter 'numberOfJobs' is not specified.`);\n    }\n\n    let numberOfJobsToAcquire = parseInt(numberOfJobs);\n\n    if (numberOfJobsToAcquire <= 0) {\n        throwArgumentValidationError(`The specified numberOfJobs with value '${numberOfJobs}' is invalid.`);\n    }\n\n    if (!jobHeartbeatTimeoutThresholdInSecondsInString) {\n        throwArgumentValidationError(`The required parameter 'jobHeartbeatTimeoutThresholdInSecondsInString' is not specified.`);\n    }\n\n    let jobHeartbeatTimeoutThresholdInSeconds = parseInt(jobHeartbeatTimeoutThresholdInSecondsInString);\n\n    if (jobHeartbeatTimeoutThresholdInSeconds <= 0) {\n        throwArgumentValidationError(`The specified jobHeartbeatTimeoutThresholdInSecondsInString with value '${jobHeartbeatTimeoutThresholdInSecondsInString}' is invalid.`);\n    }\n\n    // Calculate the expiration time in seconds where the job is considered to be stale.\n    let expirationTime = new Date().setMilliseconds(0) / 1000 - jobHeartbeatTimeoutThresholdInSeconds;\n\n    tryQueryAvailableJobs(numberOfJobsToAcquire);\n\n    function tryQueryAvailableJobs(limit, continuation) {\n        if (limit < 0) {\n            limit = 0;\n        }\n\n        let query = {\n            query: `SELECT TOP ${limit} * FROM ROOT r WHERE (r.jobRecord.status = 'Queued' OR (r.jobRecord.status = 'Running' AND r._ts <= ${expirationTime})) ORDER BY r._ts ASC`\n        };\n\n        let requestOptions = {\n            continuation: continuation\n        };\n\n        let isQueryAccepted = collection.queryDocuments(\n            collectionLink,\n            query,\n            requestOptions,\n            function (err, documents, responseOptions) {\n                if (err) {\n                    throw err;\n                }\n\n                if (documents.length > 0) {\n                    // Update each documents.\n                    tryAcquire(documents, 0);\n                } else if (responseOptions.continuation) {\n                    // The query came back with empty result but has continuation token, follow the token.\n                    tryQueryAvailableJobs(limit, responseOptions.continuation);\n                } else {\n                    // We don't have any documents so we are done.\n                    response.setBody([]);\n                }\n            });\n\n        if (!isQueryAccepted) {\n            // We ran out of time.\n            throwTooManyRequestsError();\n        }\n    }\n\n    function tryAcquire(documents, index) {\n        if (documents.length === index) {\n            // Finished acquiring all jobs.\n            response.setBody(documents);\n        } else {\n            let document = documents[index];\n\n            let requestOptions = {\n                etag: document._etag\n            };\n\n            // Update the state.\n            document.jobRecord.status = 'Running';\n\n            let isQueryAccepted = collection.replaceDocument(\n                document._self,\n                document,\n                requestOptions,\n                function (err, updatedDocument) {\n                    if (err) {\n                        throw err;\n                    }\n\n                    documents[index] = updatedDocument;\n                    tryAcquire(documents, index + 1);\n                });\n\n            if (!isQueryAccepted) {\n                // We ran out of time.\n                throwTooManyRequestsError();\n            }\n       }\n    }\n\n    function throwArgumentValidationError(message) {\n        throw new Error(ErrorCodes.BadRequest, message);\n    }\n\n    function throwTooManyRequestsError() {\n        throw new Error(429, `The request could not be completed.`);\n    }\n}\n",
+                    "id": "acquireExportJobs_50FDEB206CB28339F5F5330D96076FF0DDFCE6B48AEFD066B518BFC2448662C4"
+                }
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/storedProcedures",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/health/', variables('cosmosCollectionName'), '/acquireReindexJobs_594B7E5081646BBFE998B7DBFDB14C766DAF76B7C55839B0F49E64E60C0CE6E6')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', variables('serviceName'), 'health', variables('cosmosCollectionName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('serviceName'), 'health')]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "body": "/**\n* This stored procedure acquires list of available reindex jobs.\n*\n* @constructor\n* @param {string} maximumNumberOfConcurrentJobsAllowedInString - The maximum number of concurrent jobs allowed in string.\n* @param {string} jobHeartbeatTimeoutThresholdInSecondsInString - The number of seconds allowed before the job is considered to be stale in string.\n*/\n\nfunction acquireReindexJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHeartbeatTimeoutThresholdInSecondsInString) {\n    const collection = getContext().getCollection();\n    const collectionLink = collection.getSelfLink();\n    const response = getContext().getResponse();\n\n    // Validate input\n    if (!maximumNumberOfConcurrentJobsAllowedInString) {\n        throwArgumentValidationError(`The required parameter 'maximumNumberOfConcurrentJobsAllowedInString' is not specified.`);\n    }\n\n    let maximumNumberOfConcurrentJobsAllowed = parseInt(maximumNumberOfConcurrentJobsAllowedInString);\n\n    if (maximumNumberOfConcurrentJobsAllowed <= 0) {\n        throwArgumentValidationError(`The specified maximumNumberOfConcurrentJobsAllowedInString with value '${maximumNumberOfConcurrentJobsAllowedInString}' is invalid.`);\n    }\n\n    if (!jobHeartbeatTimeoutThresholdInSecondsInString) {\n        throwArgumentValidationError(`The required parameter 'jobHeartbeatTimeoutThresholdInSecondsInString' is not specified.`);\n    }\n\n    let jobHeartbeatTimeoutThresholdInSeconds = parseInt(jobHeartbeatTimeoutThresholdInSecondsInString);\n\n    if (jobHeartbeatTimeoutThresholdInSeconds <= 0) {\n        throwArgumentValidationError(`The specified jobHeartbeatTimeoutThresholdInSecondsInString with value '${jobHeartbeatTimeoutThresholdInSecondsInString}' is invalid.`);\n    }\n\n    // Calculate the expiration time in seconds where the job is considered to be stale.\n    let expirationTime = new Date().setMilliseconds(0) / 1000 - jobHeartbeatTimeoutThresholdInSeconds;\n\n    tryQueryRunningJobs();\n\n    function tryQueryRunningJobs() {\n        // Find list of active running jobs.\n        let query = {\n            query: `SELECT VALUE COUNT(1) FROM ROOT r WHERE r.jobRecord.status = 'Running' AND r._ts > ${expirationTime}`\n        };\n\n        let isQueryAccepted = collection.queryDocuments(\n            collectionLink,\n            query,\n            {},\n            function (err, resources) {\n                if (err) {\n                    throw err;\n                }\n\n                let numberOfRunningJobs = resources[0];\n\n                // Based on list of running jobs, query for list of available jobs.\n                tryQueryAvailableJobs(numberOfRunningJobs);\n            });\n\n        if (!isQueryAccepted) {\n            // We ran out of time.\n            throwTooManyRequestsError();\n        }\n    }\n\n    function tryQueryAvailableJobs(numberOfRunningJobs, continuation) {\n        let limit = maximumNumberOfConcurrentJobsAllowed - numberOfRunningJobs;\n\n        if (limit < 0) {\n            limit = 0;\n        }\n\n        let query = {\n            query: `SELECT TOP ${limit} * FROM ROOT r WHERE (r.jobRecord.status = 'Queued' OR (r.jobRecord.status = 'Running' AND r._ts <= ${expirationTime})) ORDER BY r._ts ASC`\n        };\n\n        let requestOptions = {\n            continuation: continuation\n        };\n\n        let isQueryAccepted = collection.queryDocuments(\n            collectionLink,\n            query,\n            requestOptions,\n            function (err, documents, responseOptions) {\n                if (err) {\n                    throw err;\n                }\n\n                if (documents.length > 0) {\n                    // Update each documents.\n                    tryAcquire(documents, 0);\n                } else if (responseOptions.continuation) {\n                    // The query came back with empty result but has continuation token, follow the token.\n                    tryQueryAvailableJobs(numberOfRunningJobs, responseOptions.continuation);\n                } else {\n                    // We don't have any documents so we are done.\n                    response.setBody([]);\n                }\n            });\n\n        if (!isQueryAccepted) {\n            // We ran out of time.\n            throwTooManyRequestsError();\n        }\n    }\n\n    function tryAcquire(documents, index) {\n        if (documents.length === index) {\n            // Finished acquiring all jobs.\n            response.setBody(documents);\n        } else {\n            let document = documents[index];\n\n            let requestOptions = {\n                etag: document._etag\n            };\n\n            // Update the state.\n            document.jobRecord.status = 'Running';\n\n            let isQueryAccepted = collection.replaceDocument(\n                document._self,\n                document,\n                requestOptions,\n                function (err, updatedDocument) {\n                    if (err) {\n                        throw err;\n                    }\n\n                    documents[index] = updatedDocument;\n                    tryAcquire(documents, index + 1);\n                });\n\n            if (!isQueryAccepted) {\n                // We ran out of time.\n                throwTooManyRequestsError();\n            }\n        }\n    }\n\n    function throwArgumentValidationError(message) {\n        throw new Error(ErrorCodes.BadRequest, message);\n    }\n\n    function throwTooManyRequestsError() {\n        throw new Error(429, `The request could not be completed.`);\n    }\n}\n",
+                    "id": "acquireReindexJobs_594B7E5081646BBFE998B7DBFDB14C766DAF76B7C55839B0F49E64E60C0CE6E6"
+                }
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/storedProcedures",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/health/', variables('cosmosCollectionName'), '/hardDelete_E374DABF25D84F03ADEDA824FB3B62BA3442C7D2635C24A6B3C83F1AC137C8B5')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', variables('serviceName'), 'health', variables('cosmosCollectionName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('serviceName'), 'health')]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "body": "/**\n* This stored procedure provides the following functionality:\n* - Completely delete the document and all of its histories.\n*\n* @constructor\n* @param {string} resourceTypeName - The resource type name.\n* @param {string} resourceId - The resource id.\n* @param {boolean} keepCurrentVersion - Specifies if the current version of the resource should be kept.\n*/\n\nfunction hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {\n    const collection = getContext().getCollection();\n    const collectionLink = collection.getSelfLink();\n    const response = getContext().getResponse();\n\n    // Validate input\n    if (!resourceTypeName) {\n        throwArgumentValidationError(\"The resourceTypeName is undefined or null\");\n    }\n\n    if (!resourceId) {\n        throwArgumentValidationError(\"The resourceId is undefined or null\");\n    }\n\n    let deletedResourceIdList = new Array();\n\n    tryQueryAndHardDelete();\n\n    function tryQueryAndHardDelete() {\n        // Find the resource and all of its history.\n        let queryText = \"SELECT r._self, r.id FROM ROOT r WHERE r.resourceTypeName = @resourceTypeName AND r.resourceId = @resourceId\";\n\n        if(keepCurrentVersion === true){\n            queryText += \" AND r.isHistory = true\";\n        }\n\n        let query = {\n            query: queryText,\n            parameters: [{ name: \"@resourceTypeName\", value: resourceTypeName }, { name: \"@resourceId\", value: resourceId }]\n        };\n\n        let isQueryAccepted = collection.queryDocuments(\n            collectionLink,\n            query,\n            {},\n            function (err, documents, responseOptions) {\n                if (err) {\n                    throw err;\n                }\n\n                if (documents.length > 0) {\n                    // Delete the documents.\n                    tryHardDelete(documents);\n                } else {\n                    // There is no more documents so we are finished.\n                    response.setBody(deletedResourceIdList);\n                }\n            });\n\n        if (!isQueryAccepted) {\n            // We ran out of time.\n            throwTooManyRequestsError();\n        }\n    }\n\n    function tryHardDelete(documents) {\n        if (documents.length > 0) {\n            deletedResourceIdList.push(documents[0].id);\n\n            // Delete the first item.\n            var isAccepted = collection.deleteDocument(\n                documents[0]._self,\n                {},\n                function (err, responseOptions) {\n                    if (err) {\n                        throw err;\n                    }\n\n                    // Successfully deleted the item, continue deleting.\n                    documents.shift();\n                    tryHardDelete(documents);\n                });\n\n            if (!isAccepted) {\n                // We ran out of time.\n                throwTooManyRequestsError();\n            }\n        } else {\n            // If the documents are empty, query for more documents.\n            tryQueryAndHardDelete();\n        }\n    }\n\n    function throwArgumentValidationError(message) {\n        throw new Error(ErrorCodes.BadRequest, message);\n    }\n\n    function throwTooManyRequestsError() {\n        throw new Error(429, `The request could not be completed.`);\n    }\n}\n",
+                    "id": "hardDelete_E374DABF25D84F03ADEDA824FB3B62BA3442C7D2635C24A6B3C83F1AC137C8B5"
+                }
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/storedProcedures",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/health/', variables('cosmosCollectionName'), '/replaceSingleResource_DCEE03CAF05E37A4A02D1F2D00B1A4BE0E157B3AA0FEF9558B25556BDA8786E2')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', variables('serviceName'), 'health', variables('cosmosCollectionName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('serviceName'), 'health')]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "body": "/**\n* This stored procedure can be used to replace an existing document\n*\n* @constructor\n* @param {any} doc - The CosmosResourceWrapper to save\n* @param {string} matchVersionId - required etag to match against when replacing an existing document\n*/\nfunction replaceSingleResource(doc, matchVersionId) {\n    const collection = getContext().getCollection();\n    const collectionLink = collection.getSelfLink();\n    const response = getContext().getResponse();\n\n\n    // Validate input\n    if (!doc) {\n        throwArgumentValidationError(\"The document is undefined or null.\");\n    }\n\n    if (doc instanceof Array) {\n        throwArgumentValidationError(\"Input should not be an array.\");\n    }\n\n    if (stringIsNullOrEmpty(matchVersionId)) {\n        throwArgumentValidationError(\"Invalid VersionId provided.\");\n    }\n\n    let query = {\n        query: \"select * from root r where r.id = @id\",\n        parameters: [{ name: \"@id\", value: doc.id }]\n    };\n\n    let isQueryAccepted = collection.queryDocuments(\n        collection.getSelfLink(),\n        query,\n        function (err, documents) {\n            if (err) {\n                throw err;\n            }\n\n            let document = documents.length === 0 ? null : documents[0];\n\n            if (document === null ||\n                doc.isDeleted && document.isDeleted) { // don't create another version if already deleted\n                throw new Error(ErrorCodes.NotFound, \"Document not found.\");\n            }\n\n            // Check that the version passed in matches with current document version\n            if (document.version !== matchVersionId) {\n                throwPreconditionFailedError();\n            }\n\n            // Replace the primary record\n            doc.version = matchVersionId;\n            let selfLink = document._self;\n            let isAccepted = collection.replaceDocument(selfLink, doc, { disableAutomaticIdGeneration: true, etag: document._etag }, replacePrimaryCallback);\n\n            if (!isAccepted) {\n                throwRequestNotQueuedError();\n            }\n        });\n\n    if (!isQueryAccepted) {\n        throwRequestNotQueuedError();\n    }\n\n    function stringIsNullOrEmpty(str) {\n        return str === undefined || str === null || str === \"\";\n    }\n\n    function replacePrimaryCallback(err, createdDoc) {\n        if (err) {\n            if (err.number === ErrorCodes.Conflict ||\n                err.number === ErrorCodes.PreconditionFailed) {\n                throw createPreconditionFailedError();\n            } else {\n                throw err;\n            }\n        }\n\n        response.setBody(createdDoc);\n    }\n\n    function throwRequestNotQueuedError() {\n        throw new Error(429, \"Request could not be queued.\");\n    }\n\n    function throwPreconditionFailedError() {\n        throw new Error(ErrorCodes.PreconditionFailed, \"One of the specified pre-conditions is not met.\");\n    }\n\n    function throwArgumentValidationError(message) {\n        throw new Error(ErrorCodes.BadRequest, message);\n    }\n}\n",
+                    "id": "replaceSingleResource_DCEE03CAF05E37A4A02D1F2D00B1A4BE0E157B3AA0FEF9558B25556BDA8786E2"
+                }
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/throughputSettings",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/health/', variables('cosmosCollectionName'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', variables('serviceName'), 'health', variables('cosmosCollectionName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('serviceName'), 'health')]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]"
+            ],
+            "properties": {
+                "resource": {
+                    "throughput": 1000
+                }
+            }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "contentType": "text/plain",
+                "value": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), reference(concat('Microsoft.DocumentDb/databaseAccounts/', variables('serviceName'))).documentEndpoint, '')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', variables('serviceName'), 'health', variables('cosmosCollectionName'))]"
+            ]
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "contentType": "text/plain",
+                "value": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), '2015-04-08').primaryMasterKey, '')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers', variables('serviceName'), 'health', variables('cosmosCollectionName'))]"
+            ]
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
+            "apiVersion": "2022-11-15",
+            "name": "[concat(variables('serviceName'), '/', guid(uniqueString('CosmosDB', parameters('fhirVersion'), variables('serviceName'))))]",
+            "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+            "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName'))]",
+                "[variables('appServiceResourceId')]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[variables('cosmosDbDataContributerRoleId')]",
+                "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
+                "scope": "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
+            }
+        },
+        {
             "condition": "[and(equals(parameters('solutionType'),'FhirServerSqlServer'),equals(parameters('sqlServerNewOrExisting'), 'new'))]",
             "name": "[variables('sqlServerDerivedName')]",
             "type": "Microsoft.Sql/servers",
@@ -488,34 +675,6 @@
             },
             "dependsOn": [
                 "[variables('appServiceResourceId')]"
-            ]
-        },
-        {
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
-            "apiVersion": "2015-06-01",
-            "properties": {
-                "contentType": "text/plain",
-                "value": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), reference(concat('Microsoft.DocumentDb/databaseAccounts/', variables('serviceName'))).documentEndpoint, '')]"
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
-            ]
-        },
-        {
-            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
-            "apiVersion": "2015-06-01",
-            "properties": {
-                "contentType": "text/plain",
-                "value": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), '2015-04-08').primaryMasterKey, '')]"
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
             ]
         },
         {
