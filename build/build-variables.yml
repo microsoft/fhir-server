@@ -3,6 +3,7 @@
 
 variables:
   resourceTenantDomainSuffix: "azurewebsites.net"
+  resoluteOssTenantDomainSuffix: "resoluteopensource.onmicrosoft.com"
   buildConfiguration: 'Release' 
   defaultBuildFramework: 'net7.0' 
   azureSubscriptionEndpoint: 'docker-build'
@@ -30,7 +31,7 @@ variables:
   ConnectedServiceName: 'Microsoft Health Open Source Subscription'
   WindowsVmImage: 'windows-latest'
   LinuxVmImage: 'ubuntu-latest'  
-  TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(resourceTenantDomainSuffix)'
+  TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(resoluteOssTenantDomainSuffix)'
   # The following is set by a build Pipeline variable:
   # DefaultLinuxPool: 'Azure Pipelines'
   # SharedLinuxPool: 'Azure Pipelines'
