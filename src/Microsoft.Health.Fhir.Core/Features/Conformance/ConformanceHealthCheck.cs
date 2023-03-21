@@ -50,6 +50,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     return HealthCheckResult.Unhealthy("Failed to retrieve the capability statement.");
                 }
             }
+            catch (ArgumentNullException ex)
+            {
+                if (ex.StackTrace.Contains("UrlHelperFactory", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    // If the metadata document hasn't been initialized yet before health check is called the Url Helper factory will not have an action context from this call. The system is still healthy.
+                    return HealthCheckResult.Healthy("Successfully retrieved the capability statement.");
+                }
+
+                _logger.LogWarning(ex, "Failed to retrieve the capability statement.");
+
+                return HealthCheckResult.Unhealthy("Failed to retrieve the capability statement.");
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to retrieve the capability statement.");
