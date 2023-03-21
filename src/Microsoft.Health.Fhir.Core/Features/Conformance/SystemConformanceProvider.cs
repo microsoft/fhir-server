@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -87,16 +89,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
-                            foreach (IProvideCapability provider in providerFactory.Value)
+                            IEnumerable<IProvideCapability> providers = providerFactory.Value.DistinctBy(x => x.GetType());
+                            foreach (IProvideCapability provider in providers)
                             {
+                                Stopwatch watch = Stopwatch.StartNew();
                                 try
                                 {
+                                    _logger.LogTrace("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}'.", provider.ToString());
                                     provider.Build(_builder);
                                 }
                                 catch (Exception e)
                                 {
-                                    _logger.LogError(e, "SystemConformanceProvider: Failed running {ProviderName} when building a new CapabilityStatement.", provider.ToString());
+                                    _logger.LogError(e, "SystemConformanceProvider: Failed running '{ProviderName}' when building a new CapabilityStatement.", provider.ToString());
                                     throw;
+                                }
+                                finally
+                                {
+                                    _logger.LogTrace("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
                                 }
                             }
                         }

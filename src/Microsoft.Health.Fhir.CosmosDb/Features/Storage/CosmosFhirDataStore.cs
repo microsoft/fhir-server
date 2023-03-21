@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -630,22 +631,69 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            _logger.LogInformation("CosmosFhirDataStore. Populating Default Resource Interactions.");
-            builder = builder.PopulateDefaultResourceInteractions();
+            _logger.LogInformation("CosmosFhirDataStore. Building Capability Statement.");
 
-            _logger.LogInformation("CosmosFhirDataStore. Syncing Search Parameters.");
-            builder = builder.SyncSearchParameters();
+            Stopwatch watch = Stopwatch.StartNew();
+            try
+            {
+                builder = builder.PopulateDefaultResourceInteractions();
+                _logger.LogInformation("CosmosFhirDataStore. 'Default Resource Interactions' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "CosmosFhirDataStore. 'Default Resource Interactions' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                throw;
+            }
 
-            _logger.LogInformation("CosmosFhirDataStore. Adding Global Search Parameters.");
-            builder = builder.AddGlobalSearchParameters();
+            try
+            {
+                watch = Stopwatch.StartNew();
+                builder = builder.SyncSearchParameters();
+                _logger.LogInformation("CosmosFhirDataStore. 'Search Parameters' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "CosmosFhirDataStore. 'Search Parameters' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                throw;
+            }
 
-            _logger.LogInformation("CosmosFhirDataStore. Syncing Profiles.");
-            builder = builder.SyncProfiles();
+            try
+            {
+                watch = Stopwatch.StartNew();
+                builder = builder.AddGlobalSearchParameters();
+                _logger.LogInformation("CosmosFhirDataStore. 'Global Search Parameters' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "CosmosFhirDataStore. 'Global Search Parameters' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                throw;
+            }
+
+            try
+            {
+                watch = Stopwatch.StartNew();
+                builder = builder.SyncProfiles();
+                _logger.LogInformation("CosmosFhirDataStore. 'Sync Profiles' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "CosmosFhirDataStore. 'Sync Profiles' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                throw;
+            }
 
             if (_coreFeatures.SupportsBatch)
             {
-                _logger.LogInformation("CosmosFhirDataStore. Adding Global Interation.");
-                builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
+                try
+                {
+                    watch = Stopwatch.StartNew();
+                    builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
+                    _logger.LogInformation("CosmosFhirDataStore. 'Global Interaction' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "CosmosFhirDataStore. 'Global Interaction' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                    throw;
+                }
             }
         }
 
