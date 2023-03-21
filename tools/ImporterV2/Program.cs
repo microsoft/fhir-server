@@ -5,13 +5,13 @@
 
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.ImporterV2
+namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
 {
     public static class Program
     {
         public static async Task Main()
         {
-            await ImporterV2.Run();
+            await RegisterAndMonitorImport.Run();
         }
     }
 }

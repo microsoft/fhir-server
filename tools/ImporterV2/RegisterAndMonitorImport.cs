@@ -16,14 +16,15 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace Microsoft.Health.Fhir.ImporterV2
+namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
 {
-    internal static class ImporterV2
+    internal static class RegisterAndMonitorImport
     {
         private static readonly string TokenEndpoint = ConfigurationManager.AppSettings["TokenEndpoint"] ?? string.Empty;
         private static readonly string TokenGrantType = ConfigurationManager.AppSettings["grant_type"] ?? string.Empty;
@@ -42,22 +43,31 @@ namespace Microsoft.Health.Fhir.ImporterV2
         private static readonly string OutputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "importResults");
         private static readonly string OutputFileName = Path.Combine(OutputDirectory, "importer.txt");
         private static readonly string LocationUrlFileName = Path.Combine(OutputDirectory, "locationUrls.txt");
+        private static readonly string MonitorImportStatusEndpoint = ConfigurationManager.AppSettings["MonitorImportStatusEndpoint"] ?? string.Empty;
+
+        private static bool IsMonitorImportStatusEndpoint => !string.IsNullOrWhiteSpace(MonitorImportStatusEndpoint);
 
         internal static async Task Run()
         {
             try
             {
-                await Init();
+                if (IsMonitorImportStatusEndpoint)
+                {
+                    Console.WriteLine($"Getting the import status for {MonitorImportStatusEndpoint}{Environment.NewLine}");
 
-                // this may take too long and timeout so it may be worth commenting out if you have too many resources
-                // int currentResourceCount = await GetCurrentResourceCount();
-                // Console.WriteLine($"{currentResourceCount:N0} {ResourceType} found");
+                    // all attempted Urls for GetImportStatus are appended to the LocationUrlFileName file
+                    await GetImportStatus(MonitorImportStatusEndpoint);
+                }
+                else
+                {
+                    await Init();
 
-                // If it's ever needed to finish checking on a current import then add the full url here
-                // all attempted Urls for GetImportStatus should be saved to the LocationUrlFileName file
-                // await GetImportStatus("https://<your_fhir_instance>.fhir.azurehealthcareapis.com/_operations/import/32");
+                    // this may take too long and timeout so it may be worth commenting out if you have too many resources
+                    // int currentResourceCount = await GetCurrentResourceCount();
+                    // Console.WriteLine($"{currentResourceCount:N0} {ResourceType} found");
 
-                await RunImport();
+                    await RunImport();
+                }
             }
             catch (Exception e)
             {
@@ -113,7 +123,7 @@ namespace Microsoft.Health.Fhir.ImporterV2
                 File.Delete(OutputFileName);
             }
 
-            if (s_importedBlobNames != null)
+            if (s_importedBlobNames != null && !IsMonitorImportStatusEndpoint)
             {
                 await File.WriteAllTextAsync(OutputFileName, string.Join(Environment.NewLine, s_importedBlobNames));
                 Console.WriteLine($"Saved file: {OutputFileName}");
@@ -124,21 +134,33 @@ namespace Microsoft.Health.Fhir.ImporterV2
         {
             if (s_blobContainerClientSource != null)
             {
-                s_blobItems = s_blobContainerClientSource.GetBlobs().Where(_ => _.Name.EndsWith($"{ResourceType}.ndjson", true, CultureInfo.CurrentCulture)).ToList();
-                Console.WriteLine($"Total container BlobItems count = {s_blobItems.Count}");
-
-                foreach (string item in s_importedBlobNames)
+                try
                 {
-                    var blobItem = s_blobItems.Where(e => e.Name.Contains(item, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
-                    if (blobItem != null)
+                    s_blobItems = s_blobContainerClientSource.GetBlobs().Where(_ => _.Name.EndsWith($"{ResourceType}.ndjson", true, CultureInfo.CurrentCulture)).ToList();
+                    Console.WriteLine($"Total container BlobItems count = {s_blobItems.Count}");
+
+                    foreach (string item in s_importedBlobNames)
                     {
-                        s_blobItems.Remove(blobItem);
+                        var blobItem = s_blobItems.Where(e => e.Name.Contains(item, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+                        if (blobItem != null)
+                        {
+                            s_blobItems.Remove(blobItem);
+                        }
                     }
+
+                    s_blobItems = s_blobItems.Take(NumberOfBlobsForImport).ToList();
+
+                    Console.WriteLine($"Working set of BlobItems count = {s_blobItems.Count}");
                 }
+                catch (RequestFailedException e)
+                {
+                    if (e.Status == (int)HttpStatusCode.Forbidden)
+                    {
+                        Console.WriteLine($"Your connection string {ConnectionString} is invalid. Please verify and try again.{Environment.NewLine}");
+                    }
 
-                s_blobItems = s_blobItems.Take(NumberOfBlobsForImport).ToList();
-
-                Console.WriteLine($"Working set of BlobItems count = {s_blobItems.Count}");
+                    throw;
+                }
             }
         }
 

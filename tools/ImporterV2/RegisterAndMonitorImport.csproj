@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>Fhir.ImporterV2</AssemblyName>
-    <RootNamespace>Microsoft.Health.Fhir.ImporterV2</RootNamespace>
+    <AssemblyName>Fhir.RegisterAndMonitorImport</AssemblyName>
+    <RootNamespace>Microsoft.Health.Fhir.RegisterAndMonitorImport</RootNamespace>
     <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
