@@ -12,6 +12,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.PatientEverything)]
     public class EverythingOperationContinuationTokenTests
     {
         [Fact]
