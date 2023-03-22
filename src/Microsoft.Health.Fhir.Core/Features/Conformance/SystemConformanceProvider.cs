@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -74,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             if (_disposed)
             {
-                _logger.LogWarning("SystemConformanceProvider is already disposed.");
+                _logger.LogError("SystemConformanceProvider is already disposed.");
             }
 
             if (_listedCapabilityStatement == null)
@@ -89,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
-                            IEnumerable<IProvideCapability> providers = providerFactory.Value.DistinctBy(x => x.GetType());
+                            IEnumerable<IProvideCapability> providers = providerFactory.Value;
                             foreach (IProvideCapability provider in providers)
                             {
                                 Stopwatch watch = Stopwatch.StartNew();
@@ -140,11 +139,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                     if (_disposed)
                     {
-                        _logger.LogWarning("SystemConformanceProvider is already disposed.");
+                        _logger.LogError("SystemConformanceProvider is already disposed.");
                     }
 
                     if (_cancellationTokenSource.IsCancellationRequested)
                     {
+                        _logger.LogError("SystemConformanceProvider is canceled.");
+
                         return;
                     }
                 }
@@ -198,10 +199,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             _cancellationTokenSource.Dispose();
             _rebuilder = null;
-            _defaultCapabilitySemaphore?.Dispose();
-            _defaultCapabilitySemaphore = null;
-            _metadataSemaphore?.Dispose();
-            _metadataSemaphore = null;
+
+            // Stopped disposing '_defaultCapabilitySemaphore' to validate a null reference in prod.
+            // Stopped disposing '_metadataSemaphore' to validate a null reference in prod.
 
             _disposed = true;
 
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             if (_disposed)
             {
-                _logger.LogWarning("SystemConformanceProvider is already disposed.");
+                _logger.LogError("SystemConformanceProvider is already disposed.");
             }
 
             EnsureArg.IsNotNull(notification, nameof(notification));
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             if (_disposed)
             {
-                _logger.LogWarning("SystemConformanceProvider is already disposed.");
+                _logger.LogError("SystemConformanceProvider is already disposed.");
             }
 
             // There is a chance that the BackgroundLoop handler sets _metadata to null between when it is checked and returned, so the value is stored in a local variable.
