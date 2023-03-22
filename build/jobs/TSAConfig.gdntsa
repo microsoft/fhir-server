@@ -1,0 +1,11 @@
+{
+    "codebaseName": "FhirServer",
+    "notificationAliases": [
+        "bee72a5a.microsoft.com@amer.teams.ms"
+    ],
+    "instanceUrl": "https://microsofthealth.visualstudio.com",
+    "projectName": "Health",
+    "areaPath": "Health\\Healthcare APIs\\Olympus",
+    "iterationPath": "",
+    "allTools": true
+}
