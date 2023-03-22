@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private static SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
         private static SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
 
+        private readonly TimeSpan _backgroundLoopLoggingInterval = TimeSpan.FromMinutes(10);
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly int _rebuildDelay = 240; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
@@ -78,6 +79,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (_listedCapabilityStatement == null)
             {
+                _logger.LogInformation("SystemConformanceProvider: Initializing new Capability Statement.");
+
                 await _defaultCapabilitySemaphore.WaitAsync(cancellationToken);
 
                 try
@@ -94,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                                 Stopwatch watch = Stopwatch.StartNew();
                                 try
                                 {
-                                    _logger.LogTrace("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}'.", provider.ToString());
+                                    _logger.LogInformation("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}'.", provider.ToString());
                                     provider.Build(_builder);
                                 }
                                 catch (Exception e)
@@ -104,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                                 }
                                 finally
                                 {
-                                    _logger.LogTrace("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
+                                    _logger.LogInformation("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}' completed. Elapsed time {ElapsedTime}.", provider.ToString(), watch.Elapsed);
                                 }
                             }
                         }
@@ -133,19 +136,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
+                Stopwatch sw = Stopwatch.StartNew();
                 for (int i = 0; i < _rebuildDelay; i++)
                 {
                     await Task.Delay(TimeSpan.FromMinutes(1));
 
                     if (_disposed)
                     {
-                        _logger.LogError("SystemConformanceProvider is already disposed.");
+                        _logger.LogError("SystemConformanceProvider is already disposed. SystemConformanceProvider's BackgroudLoop is completed.");
                     }
 
                     if (_cancellationTokenSource.IsCancellationRequested)
                     {
-                        _logger.LogInformation("SystemConformanceProvider is canceled.");
+                        _logger.LogInformation("SystemConformanceProvider's BackgroudLoop is canceled.");
                         return;
+                    }
+
+                    if (sw.Elapsed >= _backgroundLoopLoggingInterval)
+                    {
+                        _logger.LogInformation("SystemConformanceProvider's BackgroudLoop is active and running.");
+                        sw.Restart();
                     }
                 }
 
