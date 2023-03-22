@@ -132,6 +132,7 @@ steps:
     GdnBreakGdnToolRoslynAnalyzers: true
 
 - task: TSAUpload@2
+  condition: and(succeeded(), eq($(SourceBranchName), 'main'))
   displayName: 'TSA upload'
   inputs:
     tsaVersion: 'TsaV2' 
