@@ -637,11 +637,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 builder = builder.PopulateDefaultResourceInteractions();
-                _logger.LogInformation("CosmosFhirDataStore. 'Default Resource Interactions' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+                _logger.LogInformation("CosmosFhirDataStore. 'Default Resource Interactions' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "CosmosFhirDataStore. 'Default Resource Interactions' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                _logger.LogError(e, "CosmosFhirDataStore. 'Default Resource Interactions' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
                 throw;
             }
 
@@ -649,11 +649,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 watch = Stopwatch.StartNew();
                 builder = builder.SyncSearchParameters();
-                _logger.LogInformation("CosmosFhirDataStore. 'Search Parameters' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+                _logger.LogInformation("CosmosFhirDataStore. 'Search Parameters' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "CosmosFhirDataStore. 'Search Parameters' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                _logger.LogError(e, "CosmosFhirDataStore. 'Search Parameters' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
                 throw;
             }
 
@@ -661,11 +661,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 watch = Stopwatch.StartNew();
                 builder = builder.AddGlobalSearchParameters();
-                _logger.LogInformation("CosmosFhirDataStore. 'Global Search Parameters' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+                _logger.LogInformation("CosmosFhirDataStore. 'Global Search Parameters' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "CosmosFhirDataStore. 'Global Search Parameters' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                _logger.LogError(e, "CosmosFhirDataStore. 'Global Search Parameters' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
                 throw;
             }
 
@@ -673,11 +673,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 watch = Stopwatch.StartNew();
                 builder = builder.SyncProfiles();
-                _logger.LogInformation("CosmosFhirDataStore. 'Sync Profiles' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+                _logger.LogInformation("CosmosFhirDataStore. 'Sync Profiles' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "CosmosFhirDataStore. 'Sync Profiles' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                _logger.LogError(e, "CosmosFhirDataStore. 'Sync Profiles' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
                 throw;
             }
 
@@ -687,11 +687,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     watch = Stopwatch.StartNew();
                     builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
-                    _logger.LogInformation("CosmosFhirDataStore. 'Global Interaction' built. Elapsed {ElapsedTime}.", watch.Elapsed);
+                    _logger.LogInformation("CosmosFhirDataStore. 'Global Interaction' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, "CosmosFhirDataStore. 'Global Interaction' failed. Elapsed {ElapsedTime}.", watch.Elapsed);
+                    _logger.LogError(e, "CosmosFhirDataStore. 'Global Interaction' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
                     throw;
                 }
             }
