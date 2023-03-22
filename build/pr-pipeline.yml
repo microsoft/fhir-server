@@ -168,7 +168,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(PrTestApplicationResource)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
@@ -188,7 +188,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(PrTestApplicationResource)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
@@ -209,7 +209,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(PrTestApplicationResource)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
@@ -229,7 +229,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(PrTestApplicationResource)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
@@ -250,7 +250,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(PrTestApplicationResource)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
@@ -270,7 +270,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(PrTestApplicationResource)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]
@@ -291,7 +291,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(PrTestApplicationResource)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
@@ -311,7 +311,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(PrTestApplicationResource)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerAdminPassword: $[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']]

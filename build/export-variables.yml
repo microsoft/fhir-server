@@ -6,3 +6,4 @@ variables:
     ResourceGroupName: '$(resourceGroupRoot)'
     TestEnvironmentName: 'OSS Export'
     ImageTag: '$(build.BuildNumber)'
+    resourceTenantDomainSuffix: "azurewebsites.net"

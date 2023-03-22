@@ -6,7 +6,7 @@ variables:
     DeploymentEnvironmentName: 'f$(build.BuildNumber)'
     TestEnvironmentName: 'OSS PR$(prName)'
     ImageTag: '$(build.BuildNumber)'
-    PrTestApplicationResource: 'https://$(DeploymentEnvironmentName).resoluteopensource.onmicrosoft.com'
+    resourceTenantDomainSuffix: "resoluteopensource.onmicrosoft.com"
 
     # The following is passed in from a Pipeline variable, this allows it to be overridden if required.
     # prName: $(system.pullRequest.pullRequestNumber)
