@@ -71,11 +71,29 @@ steps:
     suppressionsFile: 'CredScanSuppressions.json'
     verboseOutput: true
 
+- task: CSRF@1
+  inputs:
+      Path: '$(Build.SourcesDirectory)'
+      ToolVersion: Latest
+
+- task: UseDotNet@2
+  displayName: Use .NET Core sdk
+  inputs:
+    useGlobalJson: true
+
+- task: RoslynAnalyzers@3
+  inputs:
+    userProvideBuildInfo: 'msBuildInfo'
+    msBuildArchitecture: 'DotNetCore'
+    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build $(Build.SourcesDirectory)\Microsoft.Health.Fhir.sln'
+
 - task: SdtReport@2
   inputs:
     GdnExportAllTools: false
     GdnExportGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnExportGdnToolCredScan: true
+    GdnExportGdnToolCSRF: true
+    GdnExportGdnToolRoslynAnalyzers: true
 
 - task: PublishSecurityAnalysisLogs@3
   inputs:
@@ -89,7 +107,7 @@ steps:
     BinSkim: false
     CodesignValidation: false
     CredScan: true
-    CSRF: false
+    CSRF: true
     ESLint: false
     Flawfinder: false
     FortifySCA: false
@@ -97,7 +115,7 @@ steps:
     ModernCop: false
     MSRD: false
     PoliCheck: false
-    RoslynAnalyzers: false
+    RoslynAnalyzers: true
     SDLNativeRules: false
     Semmle: false
     SpotBugs: false
@@ -110,3 +128,15 @@ steps:
     GdnBreakAllTools: false
     GdnBreakGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnBreakGdnToolCredScan: true
+    GdnBreakGdnToolCSRF: true
+    GdnBreakGdnToolRoslynAnalyzers: true
+
+- task: TSAUpload@2
+  condition: and(succeeded(), eq('$(SourceBranchName)', 'main'))
+  displayName: 'TSA upload'
+  inputs:
+    tsaVersion: 'TsaV2' 
+    codebase: 'NewOrUpdate'
+    GdnPublishTsaOnboard: false
+    GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
+    GdnPublishTsaExportedResultsPublishable: true

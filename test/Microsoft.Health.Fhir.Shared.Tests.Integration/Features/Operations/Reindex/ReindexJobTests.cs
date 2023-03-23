@@ -42,6 +42,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -155,6 +156,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         public Task DisposeAsync()
         {
+            return Task.CompletedTask;
+        }
+
+        [Fact]
+        public Task GivenALegacyReindexJobRecord_WhenGettingJobStatus_ThenJobRecordShouldReturn()
+        {
+            string legacyJobRecord = Samples.GetJson("LegacyRawReindexJobRecord");
+            var reindexJobRecord = JsonConvert.DeserializeObject<ReindexJobRecord>(legacyJobRecord);
+            Assert.True(reindexJobRecord.ResourceCounts.Any());
             return Task.CompletedTask;
         }
 
@@ -983,7 +993,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var collection = new ServiceCollection();
             ServiceProvider services = collection.BuildServiceProvider();
 
-            var mediator = new Mediator(type => services.GetService(type));
+            var mediator = new Mediator(services);
 
             _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, () => _searchService, NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);

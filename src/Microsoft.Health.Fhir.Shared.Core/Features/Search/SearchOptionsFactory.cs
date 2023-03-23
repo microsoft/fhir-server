@@ -97,6 +97,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.QueryHints = queryHint;
             }
 
+            searchOptions.IgnoreSearchParamHash = queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.IgnoreSearchParamHash && _.Item2 != null);
+
             string continuationToken = null;
 
             var searchParams = new SearchParams();

@@ -11,7 +11,6 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;

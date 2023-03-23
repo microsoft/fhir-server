@@ -35,9 +35,11 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.JobManagement;
 using NSubstitute;
 using Xunit;
 
@@ -63,6 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
         private CosmosClient _cosmosClient;
+        private CosmosQueueClient _queueClient;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -81,6 +84,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 InitialCollectionThroughput = 1000,
             };
         }
+
+        public Container Container => _container;
 
         public async Task InitializeAsync()
         {
@@ -215,6 +220,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container);
+
+            _queueClient = new CosmosQueueClient(
+                () => _container.CreateMockScope(),
+                new CosmosQueryFactory(Substitute.For<ICosmosResponseProcessor>(), Substitute.For<ICosmosQueryLogger>()),
+                new CosmosDbDistributedLockFactory(() => _container.CreateMockScope(), NullLogger<CosmosDbDistributedLock>.Instance));
         }
 
         public async Task DisposeAsync()
@@ -282,6 +292,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(RequestContextAccessor<IFhirRequestContext>))
             {
                 return _fhirRequestContextAccessor;
+            }
+
+            if (serviceType == typeof(IQueueClient))
+            {
+                return _queueClient;
             }
 
             return null;

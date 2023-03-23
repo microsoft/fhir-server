@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>6.2.32</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.2.55</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -47,8 +47,7 @@
     <PackageVersion Include="Hl7.Fhir.Support.Poco" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.FhirPath" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="IdentityServer4" Version="4.1.2" />
-    <PackageVersion Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.1.0" />
-    <PackageVersion Include="MediatR" Version="11.1.0" />
+    <PackageVersion Include="MediatR" Version="12.0.1" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.20.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
@@ -58,7 +57,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.32.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.32.1" />
     <PackageVersion Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
@@ -89,13 +88,13 @@
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.3.1" />
+    <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.3.2" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.8089.0" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.13.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.14" />
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.2" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NSubstitute" Version="5.0.0" />
     <PackageVersion Include="Polly" Version="7.2.3" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.0.0" />
@@ -111,7 +110,7 @@
     <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="7.0.0" />
     <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageVersion Include="System.Net.Http" Version="4.3.4" />
-    <PackageVersion Include="System.Private.ServiceModel" Version="4.10.0" />
+    <PackageVersion Include="System.Private.ServiceModel" Version="4.10.1" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="7.0.1" />
     <PackageVersion Include="System.Text.Encodings.Web" Version="7.0.0" />
     <PackageVersion Include="xunit.extensibility.core" Version="2.4.2" />

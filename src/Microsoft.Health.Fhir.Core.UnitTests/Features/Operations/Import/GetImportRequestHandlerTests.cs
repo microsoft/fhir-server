@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             collection.Add(x => new GetImportRequestHandler(_queueClient, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
-            _mediator = new Mediator(type => provider.GetService(type));
+            _mediator = new Mediator(provider);
         }
 
         [Fact]

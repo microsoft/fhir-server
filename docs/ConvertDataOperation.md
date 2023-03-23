@@ -22,10 +22,12 @@ Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameter
 
 | Parameter Name      | Description | Accepted values |
 | ----------- | ----------- | ----------- |
-| inputData      | Data to be converted. | For `Hl7v2`: string <br> For `Ccda`: XML <br> For `Json`: JSON <br> For `Fhir`: JSON |
+| inputData      | Data to be converted. | For `Hl7v2`: string <br> For `Ccda`: XML <br> For `Json`: JSON <br> For `FHIR STU3`: JSON |
 | inputDataType   | Data type of input. | ```Hl7v2```, ``Ccda``, ``Json``, ``Fhir`` |
-| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | For default templates:<br> For `Hl7v2`: ```microsofthealth/fhirconverter:default``` or ``microsofthealth/hl7v2templates:default`` <br> For `Ccda`: ``microsofthealth/ccdatemplates:default`` <br> For `Json`: ``microsofthealth/jsontemplates:default``  <br> For `Fhir Stu3 to R4`: ``microsofthealth/stu3tor4templates:default`` <br><br> For customized templates: <br> \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
-| rootTemplate | The root template to use while transforming the data. | For **HL7v2**:<br>```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04```<br> For **C-CDA**:<br>```CCD```, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` <br> For **JSON**:<br> `Stu3ChargeItem`, `ExamplePatient` <br> For **FHIR**:<br> Name of the root template that is the same as resource name e.g., `Patient`, `Observation`, `Organization` |
+| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | For default templates:<br> For `Hl7v2`: ```microsofthealth/fhirconverter:default``` or ``microsofthealth/hl7v2templates:default`` <br> For `Ccda`: ``microsofthealth/ccdatemplates:default`` <br> For `Json`: ``microsofthealth/jsontemplates:default``  <br> For `FHIR STU3`: ``microsofthealth/stu3tor4templates:default`` <br><br> For customized templates: <br> \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
+| rootTemplate | The root template to use while transforming the data. | For **HL7v2**:<br>```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04```<br> For **C-CDA**:<br>```CCD```, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` <br> For **JSON**:<br> `Stu3ChargeItem`, `ExamplePatient` <br> For **FHIR STU3**:<br> STU3 Resource Name e.g., `Patient`, `Observation`, `Organization` |
+
+(*Note that the FHIR STU3 to R4 templates are "diff" Liquid templates that provide mappings of field differences only between STU3 resource and its equivalent resource in FHIR R4 standard.Some of the STU3 resources are renamed or removed from R4. Please refer to [Resource differences and constraints for STU3 to R4 conversion](https://github.com/microsoft/FHIR-Converter/blob/main/docs/Stu3R4-resources-differences.md).*)
 
 (*Note that the JSON templates are sample templates for use, not default templates that adhere to any pre-defined JSON message types. JSON does not have any standardized message types, unlike HL7v2 messages or C-CDA documents. Therefore, instead of default templates we provide you with some sample templates that you can use as a starting guide for your own customized templates.*)
 
@@ -89,6 +91,8 @@ You can use these default templates in the conversion call by passing ```microso
 ### 4. Customize templates
 
 You can obtain the latest templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/tree/main/data) github page. Use the FHIR Converter [Visual Studio Code extension](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-health-fhir-converter) to customize the templates as per your needs. You will first need to install [Visual Studio Code](https://code.visualstudio.com/) if do not have it already.
+
+(*Note that the FHIR Converter extension for Visual Studio Code is available for HL7v2, C-CDA and JSON Liquid templates. FHIR STU3 to R4 Liquid templates are currently not supported. *)
 
 ### 5. Publish your templates to Azure Container Registry (ACR)
 The FHIR server can read custom templates from the [ACR](https://azure.microsoft.com/en-us/services/container-registry/). Create a container registry, and use the [Template Management CLI](https://github.com/microsoft/FHIR-Converter/blob/main/docs/TemplateManagementCLI.md) tool to push the customized templates to the ACR.

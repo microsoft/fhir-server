@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    [Trait(Traits.Category, Categories.CompartmentSearch)]
+    [Trait(Traits.Category, Categories.PatientEverything)]
+    [Trait(Traits.Category, Categories.CompartmentSearch)] // Patient $everything calls Compartment Search internally.
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class EverythingOperationTests : SearchTestsBase<EverythingOperationTestFixture>
     {
@@ -108,11 +109,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenStartOrEndSpecified_WhenSearched_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?end=2010";
-#if R5
+
             await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Appointment, Fixture.Device);
-#else
-            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Appointment);
-#endif
         }
 
         [Fact]
@@ -214,9 +212,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(thirdBundle, Fixture.ObservationOfPatientReferencedBySeeAlsoLink);
 
+#if R5
+            // Starting from FHIR R5, "Devices" are included as part of Compartment Search.
+            // No need to run Phase 3 for FHIR R5.
+            Assert.Null(thirdBundle.Resource.NextLink);
+#else
             nextLink = thirdBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
             Assert.Empty(fourthBundle.Resource.Entry);
+#endif
         }
 
         [Fact]

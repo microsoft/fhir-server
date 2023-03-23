@@ -29,8 +29,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Trait(Traits.Category, Categories.PatientEverything)]
     public class PatientEverythingServiceTests
     {
+        private readonly IModelInfoProvider _modelInfoProvider = Substitute.For<IModelInfoProvider>();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly ISearchOptionsFactory _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
@@ -45,7 +47,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
 
         public PatientEverythingServiceTests()
         {
-            _patientEverythingService = new PatientEverythingService(() => _searchService.CreateMockScope(), _searchOptionsFactory, _searchParameterDefinitionManager, _compartmentDefinitionManager, _referenceSearchValueParser, _resourceDeserializer, _urlResolver, _fhirDataStore, _contextAccessor);
+            _patientEverythingService = new PatientEverythingService(
+                _modelInfoProvider,
+                () => _searchService.CreateMockScope(),
+                _searchOptionsFactory,
+                _searchParameterDefinitionManager,
+                _compartmentDefinitionManager,
+                _referenceSearchValueParser,
+                _resourceDeserializer,
+                _urlResolver,
+                _fhirDataStore,
+                _contextAccessor);
         }
 
         [Fact]

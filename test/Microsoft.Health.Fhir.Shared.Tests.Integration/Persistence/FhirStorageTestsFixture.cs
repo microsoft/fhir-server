@@ -45,6 +45,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using Xunit;
@@ -120,6 +121,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public GetResourceHandler GetResourceHandler { get; set; }
 
+        public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
+
         public void Dispose()
         {
             (_fixture as IDisposable)?.Dispose();
@@ -188,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ServiceProvider services = collection.BuildServiceProvider();
 
-            Mediator = new Mediator(type => services.GetService(type));
+            Mediator = new Mediator(services);
 
             Deserializer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
