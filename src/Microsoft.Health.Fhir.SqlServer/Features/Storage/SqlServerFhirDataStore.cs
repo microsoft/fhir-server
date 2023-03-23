@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
             _sqlConnectionString = sqlOptions.Value.ConnectionString;
-            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()+"-one";
+            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one";
             _adlsClient = GetAdlsContainer();
         }
 
