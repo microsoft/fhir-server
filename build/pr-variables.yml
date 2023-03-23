@@ -6,7 +6,35 @@ variables:
     DeploymentEnvironmentName: 'f$(build.BuildNumber)'
     TestEnvironmentName: 'OSS PR$(prName)'
     ImageTag: '$(build.BuildNumber)'
-    resourceTenantDomainSuffix: "resoluteopensource.onmicrosoft.com"
+
+    buildConfiguration: 'Release' 
+    defaultBuildFramework: 'net7.0' 
+    azureSubscriptionEndpoint: 'docker-build'
+    azureContainerRegistryName: 'healthplatformregistry'
+    azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
+    composeLocation: 'build/docker/docker-compose.yaml'
+    DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
+    DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
+    DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
+    DeploymentEnvironmentNameR4B: '$(DeploymentEnvironmentName)-r4b'
+    DeploymentEnvironmentNameR4BSql: '$(DeploymentEnvironmentNameR4B)-sql'
+    DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
+    DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
+    TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
+    # These variables are not used in the deployment scripts, but are used in the E2E tests files.
+    TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.azurewebsites.net'
+    TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentName)-r4.azurewebsites.net'
+    TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentName)-r4-sql.azurewebsites.net'
+    TestEnvironmentUrl_R4B: 'https://$(DeploymentEnvironmentName)-r4b.azurewebsites.net'
+    TestEnvironmentUrl_R4B_Sql: 'https://$(DeploymentEnvironmentName)-r4b-sql.azurewebsites.net'
+    TestEnvironmentUrl_R5: 'https://$(DeploymentEnvironmentName)-r5.azurewebsites.net'
+    TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.azurewebsites.net'
+    #-----------------------------------------------------------------------------------------
+    TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
+    ConnectedServiceName: 'Microsoft Health Open Source Subscription'
+    WindowsVmImage: 'windows-latest'
+    LinuxVmImage: 'ubuntu-latest'  
+    TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
 
     # The following is passed in from a Pipeline variable, this allows it to be overridden if required.
     # prName: $(system.pullRequest.pullRequestNumber)
