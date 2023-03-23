@@ -1,19 +1,5 @@
 jobs:
-- job: DeleteResourceGroup
-  displayName: 'Delete resource group'
-  pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - task: AzurePowerShell@4
-    displayName: 'Delete resource group'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
-      ScriptType: InlineScript
-      Inline: 'Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force'
-
-- template: ./cleanup-aad.yml
+- template: ./cleanup-resourcegroup-aad.yml
 
 - job: deleteImage
   displayName: 'Delete Image'
