@@ -4,32 +4,32 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public class ConformanceHealthCheck : IHealthCheck
     {
-        private readonly IConformanceProvider _systemConformanceProvider;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly IHttpClientFactory _clientFactory;
         private readonly ILogger<ConformanceHealthCheck> _logger;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CosmosHealthCheck"/> class.
-        /// </summary>
-        /// <param name="systemConformanceProvider">The provider for the capability statement/</param>
-        /// <param name="logger">The logger.</param>
         public ConformanceHealthCheck(
-            IConformanceProvider systemConformanceProvider,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            IHttpClientFactory clientFactory,
             ILogger<ConformanceHealthCheck> logger)
         {
-            EnsureArg.IsNotNull(systemConformanceProvider, nameof(systemConformanceProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _systemConformanceProvider = systemConformanceProvider;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _clientFactory = clientFactory;
             _logger = logger;
         }
 
@@ -37,30 +37,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             try
             {
-                var metadata = await _systemConformanceProvider.GetMetadata(cancellationToken);
+                using var client = _clientFactory.CreateClient();
+                var response = await client.GetAsync(new Uri(_fhirRequestContextAccessor.RequestContext.BaseUri, "metadata"), cancellationToken);
 
-                if (metadata != null)
+                if (response.StatusCode == HttpStatusCode.OK)
                 {
                     return HealthCheckResult.Healthy("Successfully retrieved the capability statement.");
                 }
                 else
                 {
-                    _logger.LogWarning("Capability statement was null.");
+                    _logger.LogWarning("Capability statement status was {Status}.", response.StatusCode);
 
                     return HealthCheckResult.Unhealthy("Failed to retrieve the capability statement.");
                 }
-            }
-            catch (ArgumentNullException ex)
-            {
-                if (ex.StackTrace.Contains("UrlHelperFactory", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    // If the metadata document hasn't been initialized yet before health check is called the Url Helper factory will not have an action context from this call. The system is still healthy.
-                    return HealthCheckResult.Healthy("Successfully retrieved the capability statement.");
-                }
-
-                _logger.LogWarning(ex, "Failed to retrieve the capability statement.");
-
-                return HealthCheckResult.Unhealthy("Failed to retrieve the capability statement.");
             }
             catch (Exception ex)
             {
