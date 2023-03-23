@@ -9,7 +9,6 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Resources;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public const string MergeResourcesDisabledFlagId = "MergeResources.IsDisabled";
         private static MergeResourcesFeatureFlag _mergeResourcesFeatureFlag;
         private static object _mergeResourcesFeatureFlagLocker = new object();
+        private static MergeResourcesOneResourcePerFile _mergeResourcesOneResourcePerFile;
         private static object _adlsContainerLocker = new object();
         private readonly string _adlsConnectionString;
         private readonly string _sqlConnectionString;
@@ -117,9 +117,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
+            if (_mergeResourcesOneResourcePerFile == null)
+            {
+                lock (_mergeResourcesFeatureFlagLocker)
+                {
+                    _mergeResourcesOneResourcePerFile ??= new MergeResourcesOneResourcePerFile(_sqlConnectionWrapperFactory);
+                }
+            }
+
             _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
             _sqlConnectionString = sqlOptions.Value.ConnectionString;
-            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant();
+            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant()+"-one";
             _adlsClient = GetAdlsContainer();
         }
 
@@ -281,7 +289,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (saveToAdls)
                         {
                             // save to adls first
-                            PutRawResourcesToAdls(mergeWrappers, minSurrId);
+                            if (_mergeResourcesOneResourcePerFile.IsEnabled())
+                            {
+                                PutRawResourcesToAdlsOneResourcePerFile(mergeWrappers);
+                            }
+                            else
+                            {
+                                PutRawResourcesToAdls(mergeWrappers, minSurrId);
+                            }
                         }
 
                         using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true); // TODO: Remove tran enlist when true bundle logic is in place.
@@ -330,6 +345,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static string GetBlobName(long transactionId)
         {
             return $"transaction-{transactionId}.tjson";
+        }
+
+        private void PutRawResourcesToAdlsOneResourcePerFile(IList<MergeResourceWrapper> resources)
+        {
+            var start = DateTime.UtcNow;
+            foreach (var resource in resources)
+            {
+                var blobName = GetBlobName(resource.ResourceWrapper.ResourceSurrogateId);
+                var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+            retry:
+                try
+                {
+                    using var stream = _adlsClient.GetBlockBlobClient(blobName).OpenWrite(true);
+                    using var writer = new StreamWriter(stream);
+                    resource.TransactionId = resource.ResourceWrapper.ResourceSurrogateId;
+                    resource.OffsetInFile = 0;
+                    var line = $"{resource.ResourceWrapper.ResourceTypeName}\t{resource.ResourceWrapper.ResourceId}\t{resource.ResourceWrapper.Version}\t{resource.ResourceWrapper.IsDeleted}\t{resource.ResourceWrapper.RawResource.Data}";
+                    writer.WriteLine(line);
+                    writer.Flush();
+                }
+                catch (Exception e)
+                {
+                    if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogError(e, $"Error writing to ADLS blob={{BlobName}}", blobName);
+                        Console.WriteLine(e);
+                        goto retry;
+                    }
+
+                    throw;
+                }
+            }
+
+            TryLogEvent("PutRawResourcesToAdls", "Warn", null, (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={resources.Count}", start, CancellationToken.None).Wait();
         }
 
         private void PutRawResourcesToAdls(IList<MergeResourceWrapper> resources, long transactionId)
@@ -1062,6 +1111,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return value == null ? 1000 : (int)(double)value;
         }
 
+        private static bool GetMergeResourcesOneResourcePerFile(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+        {
+            using var conn = sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.OneResourcePerFile'"; // call can be made before store is initialized
+            var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+            return value == null || (int)(double)value == 0;
+        }
+
         private class MergeResourcesFeatureFlag
         {
             private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -1103,6 +1161,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@Id", MergeResourcesDisabledFlagId);
                 var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
                 return value == null || (double)value == 0;
+            }
+        }
+
+        private class MergeResourcesOneResourcePerFile
+        {
+            private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+            private bool _isEnabled;
+            private DateTime? _lastUpdated;
+            private object _databaseAccessLocker = new object();
+
+            public MergeResourcesOneResourcePerFile(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+            {
+                _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            }
+
+            public bool IsEnabled()
+            {
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return _isEnabled;
+                }
+
+                lock (_databaseAccessLocker)
+                {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
+                    _isEnabled = GetMergeResourcesOneResourcePerFile(_sqlConnectionWrapperFactory);
+                    _lastUpdated = DateTime.UtcNow;
+                }
+
+                return _isEnabled;
             }
         }
     }
