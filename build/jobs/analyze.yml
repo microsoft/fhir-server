@@ -67,7 +67,7 @@ steps:
 - task: CredScan@3
   inputs:
     scanFolder: ${{ parameters.credScanDirectory }}
-    outputFormat: 'sarif'
+    outputFormat: 'pre'
     suppressionsFile: 'CredScanSuppressions.json'
     verboseOutput: true
 

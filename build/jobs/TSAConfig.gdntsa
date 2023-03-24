@@ -1,7 +1,8 @@
 {
     "codebaseName": "FhirServer",
     "notificationAliases": [
-        "bee72a5a.microsoft.com@amer.teams.ms"
+        "faa37700.microsoft.com@amer.teams.ms",
+        "fhirserverforazure@microsoft.com"
     ],
     "instanceUrl": "https://microsofthealth.visualstudio.com",
     "projectName": "Health",
