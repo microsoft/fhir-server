@@ -378,7 +378,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isPartialEntry,
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
-                            out Stream rawResourceStream,
+                            out byte[] rawResourceBytes,
                             out long? transactionId,
                             out int? offsetInFile);
                         numberOfColumnsRead = reader.FieldCount;
@@ -393,16 +393,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
 
                         var rawResource = string.Empty;
-                        if (rawResourceStream == null)
+                        if (rawResourceBytes == null)
                         {
                             missingResourceRefs.Add(Tuple.Create(transactionId.Value, offsetInFile.Value));
                         }
                         else
                         {
-                            await using (rawResourceStream)
-                            {
-                                rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-                            }
+                            using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         ////if (string.IsNullOrEmpty(rawResource))
@@ -535,85 +533,86 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="searchParamHashFilter">When not null then we filter using the searchParameterHash</param>
         /// <returns>All resources with surrogate ids greater than or equal to startId and less than or equal to endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
-        public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null)
+        public Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null)
         {
-            var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            throw new NotImplementedException();
+            ////var resourceTypeId = _model.GetResourceTypeId(resourceType);
+            ////try
+            ////{
+            ////    using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+            ////    using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-                VLatest.GetResourcesByTypeAndSurrogateIdRange.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, windowStartId, windowEndId);
-                LogSqlCommand(sqlCommandWrapper);
-                try
-                {
-                    using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+            ////    VLatest.GetResourcesByTypeAndSurrogateIdRange.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, windowStartId, windowEndId);
+            ////    LogSqlCommand(sqlCommandWrapper);
+            ////    try
+            ////    {
+            ////        using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                    var resources = new List<SearchResultEntry>();
-                    while (await reader.ReadAsync(cancellationToken))
-                    {
-                        PopulateResourceTableColumnsToRead(
-                            reader,
-                            out short _,
-                            out string resourceId,
-                            out int version,
-                            out bool isDeleted,
-                            out long resourceSurrogateId,
-                            out string requestMethod,
-                            out bool isMatch,
-                            out bool isPartialEntry,
-                            out bool isRawResourceMetaSet,
-                            out string searchParameterHash,
-                            out Stream rawResourceStream,
-                            out long? transactionId,
-                            out int? offsetInFile);
+            ////        var resources = new List<SearchResultEntry>();
+            ////        while (await reader.ReadAsync(cancellationToken))
+            ////        {
+            ////            PopulateResourceTableColumnsToRead(
+            ////                reader,
+            ////                out short _,
+            ////                out string resourceId,
+            ////                out int version,
+            ////                out bool isDeleted,
+            ////                out long resourceSurrogateId,
+            ////                out string requestMethod,
+            ////                out bool isMatch,
+            ////                out bool isPartialEntry,
+            ////                out bool isRawResourceMetaSet,
+            ////                out string searchParameterHash,
+            ////                out byte[] rawResourceBytes,
+            ////                out long? transactionId,
+            ////                out int? offsetInFile);
 
-                        // original sql was: AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
-                        if (!(searchParameterHash == null || searchParameterHash != searchParamHashFilter))
-                        {
-                            continue;
-                        }
+            ////            // original sql was: AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
+            ////            if (!(searchParameterHash == null || searchParameterHash != searchParamHashFilter))
+            ////            {
+            ////                continue;
+            ////            }
 
-                        string rawResource;
-                        using (rawResourceStream)
-                        {
-                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-                        }
+            ////            string rawResource;
+            ////            using (rawResourceStream)
+            ////            {
+            ////                rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+            ////            }
 
-                        if (string.IsNullOrEmpty(rawResource))
-                        {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
+            ////            if (string.IsNullOrEmpty(rawResource))
+            ////            {
+            ////                rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+            ////                _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+            ////            }
 
-                        resources.Add(new SearchResultEntry(
-                            new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                resourceType,
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                new ResourceRequest(requestMethod),
-                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                                isDeleted,
-                                null,
-                                null,
-                                null,
-                                searchParameterHash,
-                                resourceSurrogateId),
-                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
-                    }
+            ////            resources.Add(new SearchResultEntry(
+            ////                new ResourceWrapper(
+            ////                    resourceId,
+            ////                    version.ToString(CultureInfo.InvariantCulture),
+            ////                    resourceType,
+            ////                    new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+            ////                    new ResourceRequest(requestMethod),
+            ////                    new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+            ////                    isDeleted,
+            ////                    null,
+            ////                    null,
+            ////                    null,
+            ////                    searchParameterHash,
+            ////                    resourceSurrogateId),
+            ////                isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+            ////        }
 
-                    return new SearchResult(resources, null, null, new List<Tuple<string, string>>());
-                }
-                catch (SqlException)
-                {
-                    throw;
-                }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            ////        return new SearchResult(resources, null, null, new List<Tuple<string, string>>());
+            ////    }
+            ////    catch (SqlException)
+            ////    {
+            ////        throw;
+            ////    }
+            ////}
+            ////catch (Exception)
+            ////{
+            ////    throw;
+            ////}
         }
 
         public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
@@ -761,12 +760,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out bool isPartialEntry,
             out bool isRawResourceMetaSet,
             out string searchParameterHash,
-            out Stream rawResourceStream,
+            out byte[] rawResourceBytes,
             out long? transactionId,
             out int? offsetInFile)
         {
             (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
-                isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
+                isRawResourceMetaSet, searchParameterHash) = reader.ReadRow(
                 VLatest.Resource.ResourceTypeId,
                 VLatest.Resource.ResourceId,
                 VLatest.Resource.Version,
@@ -776,8 +775,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 _isMatch,
                 _isPartial,
                 VLatest.Resource.IsRawResourceMetaSet,
-                VLatest.Resource.SearchParamHash,
-                VLatest.Resource.RawResource);
+                VLatest.Resource.SearchParamHash);
+            var bytes = reader.GetSqlBytes(10);
+            rawResourceBytes = bytes.IsNull ? null : bytes.Value;
             transactionId = reader.Read(VLatest.Resource.TransactionId, 11);
             offsetInFile = reader.Read(VLatest.Resource.OffsetInFile, 12);
         }
