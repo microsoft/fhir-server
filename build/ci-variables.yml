@@ -8,3 +8,4 @@ variables:
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
     TestEnvironmentName: 'OSS CI'
     ImageTag: '$(build.BuildNumber)'
+    resourceTenantDomainSuffix: "azurewebsites.net"

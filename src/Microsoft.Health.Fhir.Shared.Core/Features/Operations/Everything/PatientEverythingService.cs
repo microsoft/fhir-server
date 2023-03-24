@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 case 0:
                     searchResult = await SearchIncludes(resourceId, parentPatientId, since, types, token, cancellationToken);
 
-                    if (!searchResult.Results.Any())
+                    if (!searchResult.Results.Any() && string.IsNullOrEmpty(searchResult.ContinuationToken))
                     {
                         phase = 1;
                         goto case 1;
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     }
 
                     searchResult = await SearchCompartmentWithDate(resourceId, start, end, since, types, encodedInternalContinuationToken, cancellationToken);
-                    if (!searchResult.Results.Any())
+                    if (!searchResult.Results.Any() && string.IsNullOrEmpty(searchResult.ContinuationToken))
                     {
                         phase = 2;
                         goto case 2;
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     // Previous versions of FHIR should still query for "Devices" explicitly.
                     if (_modelInfoProvider.Version < FhirSpecification.R5)
                     {
-                        if (!searchResult.Results.Any())
+                        if (!searchResult.Results.Any() && string.IsNullOrEmpty(searchResult.ContinuationToken))
                         {
                             phase = 3;
                             goto case 3;

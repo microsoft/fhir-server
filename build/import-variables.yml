@@ -1,9 +1,9 @@
 variables:
     ResourceGroupRegion: 'southcentralus'
-    resourceGroupRoot: 'msh-fhir-export'
+    resourceGroupRoot: 'msh-fhir-import'
     appServicePlanName: '$(resourceGroupRoot)-linux'
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
     ResourceGroupName: '$(resourceGroupRoot)'
-    TestEnvironmentName: 'OSS Export'
+    TestEnvironmentName: 'OSS Import'
     ImageTag: '$(build.BuildNumber)'
     resourceTenantDomainSuffix: "azurewebsites.net"
