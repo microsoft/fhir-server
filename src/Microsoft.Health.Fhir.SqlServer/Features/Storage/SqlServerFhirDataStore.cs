@@ -350,16 +350,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void PutRawResourcesToAdlsOneResourcePerFile(IList<MergeResourceWrapper> resources)
         {
             var start = DateTime.UtcNow;
-            foreach (var resource in resources)
+            Parallel.ForEach(resources, new ParallelOptions { MaxDegreeOfParallelism = 16 }, (resource) =>
             {
-                var blobName = GetBlobName(resource.ResourceWrapper.ResourceSurrogateId);
-                var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+                var blobName = GetBlobName(resource.ResourceSurrogateId);
             retry:
                 try
                 {
                     using var stream = _adlsClient.GetBlockBlobClient(blobName).OpenWrite(true);
                     using var writer = new StreamWriter(stream);
-                    resource.TransactionId = resource.ResourceWrapper.ResourceSurrogateId;
+                    resource.TransactionId = resource.ResourceSurrogateId;
                     resource.OffsetInFile = 0;
                     var line = $"{resource.ResourceWrapper.ResourceTypeName}\t{resource.ResourceWrapper.ResourceId}\t{resource.ResourceWrapper.Version}\t{resource.ResourceWrapper.IsDeleted}\t{resource.ResourceWrapper.RawResource.Data}";
                     writer.WriteLine(line);
@@ -376,9 +375,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     throw;
                 }
-            }
+            });
 
-            TryLogEvent("PutRawResourcesToAdls", "Warn", null, (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={resources.Count}", start, CancellationToken.None).Wait();
+            TryLogEvent("PutRawResourcesToAdlsOneResourcePerFile", "Warn", null, (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={resources.Count}", start, CancellationToken.None).Wait();
         }
 
         private void PutRawResourcesToAdls(IList<MergeResourceWrapper> resources, long transactionId)
@@ -1117,7 +1116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = conn.CreateRetrySqlCommand();
             cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.OneResourcePerFile'"; // call can be made before store is initialized
             var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
-            return value == null || (int)(double)value == 0;
+            return value != null && (int)(double)value == 1;
         }
 
         private class MergeResourcesFeatureFlag
