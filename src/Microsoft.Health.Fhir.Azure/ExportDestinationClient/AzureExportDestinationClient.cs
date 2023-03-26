@@ -146,14 +146,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             BlockBlobClient blockBlob = _blobContainer.GetBlockBlobClient(fileName);
 
-            using var stream = blockBlob.OpenWrite(true);
-            using var writer = new StreamWriter(stream);
+            ////using var stream = blockBlob.OpenWrite(true);
+            ////using var writer = new StreamWriter(stream);
 
-            var dataLines = _dataBuffers[fileName];
-            foreach (var line in dataLines)
-            {
-                writer.WriteLine(line);
-            }
+            ////var dataLines = _dataBuffers[fileName];
+            ////foreach (var line in dataLines)
+            ////{
+            ////    writer.WriteLine(line);
+            ////}
 
             return blockBlob.Uri;
         }
