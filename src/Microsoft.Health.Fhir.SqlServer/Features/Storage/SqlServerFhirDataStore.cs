@@ -366,10 +366,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
+                    TryLogEvent("PutRawResourcesToAdlsOneResourcePerFile", "Error", e.ToString(), start, CancellationToken.None).Wait();
                     if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogError(e, $"Error writing to ADLS blob={{BlobName}}", blobName);
-                        Console.WriteLine(e);
+                        Thread.Sleep(1000);
                         goto retry;
                     }
 
@@ -404,10 +404,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (Exception e)
             {
+                TryLogEvent("PutRawResourcesToAdls", "Error", e.ToString(), start, CancellationToken.None).Wait();
                 if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogError(e, $"Error writing to ADLS blob={{BlobName}}", blobName);
-                    Console.WriteLine(e);
+                    Thread.Sleep(1000);
                     goto retry;
                 }
 

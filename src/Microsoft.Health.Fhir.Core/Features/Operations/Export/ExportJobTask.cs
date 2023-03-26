@@ -739,7 +739,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     if (smallList.Count == batchSize)
                     {
                         using var store = _store();
-                        await store.Value.MergeAsync(smallList, CancellationToken.None);
+                        try
+                        {
+                            await store.Value.MergeAsync(smallList, CancellationToken.None);
+                        }
+                        catch (Exception e)
+                        {
+                            await store.Value.TryLogEvent("MergeAsync", "Error", e.ToString(), DateTime.UtcNow, CancellationToken.None);
+                            throw;
+                        }
+
                         smallList = new List<ResourceWrapperOperation>();
                     }
                 }
@@ -747,7 +756,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 if (smallList.Count > 0)
                 {
                     using var store = _store();
-                    await store.Value.MergeAsync(smallList, CancellationToken.None);
+                    try
+                    {
+                        await store.Value.MergeAsync(smallList, CancellationToken.None);
+                    }
+                    catch (Exception e)
+                    {
+                        await store.Value.TryLogEvent("MergeAsync", "Error", e.ToString(), DateTime.UtcNow, CancellationToken.None);
+                        throw;
+                    }
                 }
             }
 
