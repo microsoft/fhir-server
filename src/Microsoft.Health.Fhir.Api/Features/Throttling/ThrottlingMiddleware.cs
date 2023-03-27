@@ -88,17 +88,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             }
 
             // snapshot the configuration values to reduce the number of instructions that need to execute in the lock.
+            _concurrentRequestLimit = configuration.ConcurrentRequestLimit;
             if (_baseConfiguration["DataStore"].Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
             {
-                _concurrentRequestLimit = Math.Max(configuration.ConcurrentRequestLimit, (int)ThrottlingLimitDefault.Gen1);
+                _concurrentRequestLimit = Math.Max(_concurrentRequestLimit, (int)ThrottlingLimitDefault.Gen1);
             }
             else if (_baseConfiguration["DataStore"].Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
-                _concurrentRequestLimit = Math.Max(configuration.ConcurrentRequestLimit, (int)ThrottlingLimitDefault.Gen2);
-            }
-            else
-            {
-                _concurrentRequestLimit = configuration.ConcurrentRequestLimit;
+                _concurrentRequestLimit = Math.Max(_concurrentRequestLimit, (int)ThrottlingLimitDefault.Gen2);
             }
 
             _maxMillisecondsInQueue = configuration.MaxMillisecondsInQueue;
