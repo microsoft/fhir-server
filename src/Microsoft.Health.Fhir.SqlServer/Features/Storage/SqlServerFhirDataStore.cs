@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void PutRawResourcesToAdlsOneResourcePerFile(IList<MergeResourceWrapper> resources)
         {
             var start = DateTime.UtcNow;
-            Parallel.ForEach(resources, new ParallelOptions { MaxDegreeOfParallelism = 1 }, (resource) =>
+            Parallel.ForEach(resources, new ParallelOptions { MaxDegreeOfParallelism = 16 }, (resource) =>
             {
                 var blobName = GetBlobName(resource.ResourceSurrogateId);
             retry:
