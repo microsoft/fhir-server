@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
@@ -41,6 +42,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public static JobInfo LoadJobInfo(SqlDataReader sqlDataReader)
         {
+            EnsureArg.IsNotNull(sqlDataReader, nameof(sqlDataReader));
+
             var jobQueueTable = VLatest.JobQueue;
             long groupId = sqlDataReader.Read(jobQueueTable.GroupId, 0);
             long id = sqlDataReader.Read(jobQueueTable.JobId, 1);
