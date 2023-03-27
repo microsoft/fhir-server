@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
             _sqlConnectionString = sqlOptions.Value.ConnectionString;
-            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one";
+            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one-file";
             _adlsClient = GetAdlsContainer();
         }
 
@@ -356,10 +356,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             retry:
                 try
                 {
-                    using var stream = _adlsClient.GetBlockBlobClient(blobName).OpenWrite(true);
-                    using var writer = new StreamWriter(stream);
                     resource.TransactionId = resource.ResourceSurrogateId;
                     resource.OffsetInFile = 0;
+                    var fileClient = new DataLakeFileClient(_adlsConnectionString, _adlsContainer, blobName);
+                    using var stream = fileClient.OpenWrite(true);
+                    ////using var stream = _adlsClient.GetBlockBlobClient(blobName).OpenWrite(true);
+                    using var writer = new StreamWriter(stream);
                     var line = $"{resource.ResourceWrapper.ResourceTypeName}\t{resource.ResourceWrapper.ResourceId}\t{resource.ResourceWrapper.Version}\t{resource.ResourceWrapper.IsDeleted}\t{resource.ResourceWrapper.RawResource.Data}";
                     writer.WriteLine(line);
                     writer.Flush();

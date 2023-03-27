@@ -52,12 +52,12 @@ namespace Microsoft.Health.Fhir.Store.Export
 
         public static void Main(string[] args)
         {
-            if (args.Length == 0 || args[0] == "random")
+            if (args.Length == 1 && args[0] == "random")
             {
                 var count = args.Length > 1 ? int.Parse(args[1]) : 100;
                 RandomReads(count);
             }
-            else if (args[0] == "storage")
+            else if (args.Length == 0 || args[0] == "storage")
             {
                 var count = args.Length > 1 ? int.Parse(args[1]) : 100;
                 var bufferKB = args.Length > 2 ? int.Parse(args[2]) : 20;
@@ -172,13 +172,13 @@ namespace Microsoft.Health.Fhir.Store.Export
 
         public static void WriteAndReadAdls(int count, int bufferKB)
         {
-            GetContainer(BlobConnectionString, "testadls");
+            GetContainer(BlobConnectionString, "fhir-hs-new-one-file");
 
-            var fileName = "test/test/test.txt";
+            var fileName = "transaction-353229202.tjson";
 
             var swGlobal = Stopwatch.StartNew();
 
-            var fileClient = new DataLakeFileClient(BlobConnectionString, "testadls", fileName);
+            var fileClient = new DataLakeFileClient(BlobConnectionString, "fhir-hs-new-one-file", fileName);
 
             var offests = new List<int>();
             var offset = 0;
