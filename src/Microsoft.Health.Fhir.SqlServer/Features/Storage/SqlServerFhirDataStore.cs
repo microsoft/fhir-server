@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Globalization;
 using System.IO;
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
             _sqlConnectionString = sqlOptions.Value.ConnectionString;
-            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one-file";
+            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one";
             _adlsClient = GetAdlsContainer();
         }
 
@@ -350,7 +351,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void PutRawResourcesToAdlsOneResourcePerFile(IList<MergeResourceWrapper> resources)
         {
             var start = DateTime.UtcNow;
-            Parallel.ForEach(resources, new ParallelOptions { MaxDegreeOfParallelism = 16 }, (resource) =>
+            Parallel.ForEach(resources, new ParallelOptions { MaxDegreeOfParallelism = 1 }, (resource) =>
             {
                 var blobName = GetBlobName(resource.ResourceSurrogateId);
             retry:
@@ -358,13 +359,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     resource.TransactionId = resource.ResourceSurrogateId;
                     resource.OffsetInFile = 0;
-                    var fileClient = new DataLakeFileClient(_adlsConnectionString, _adlsContainer, blobName);
-                    using var stream = fileClient.OpenWrite(true);
+                    ////var fileClient = new DataLakeFileClient(_adlsConnectionString, _adlsContainer, blobName);
+                    ////using var stream = fileClient.OpenWrite(true);
                     ////using var stream = _adlsClient.GetBlockBlobClient(blobName).OpenWrite(true);
-                    using var writer = new StreamWriter(stream);
-                    var line = $"{resource.ResourceWrapper.ResourceTypeName}\t{resource.ResourceWrapper.ResourceId}\t{resource.ResourceWrapper.Version}\t{resource.ResourceWrapper.IsDeleted}\t{resource.ResourceWrapper.RawResource.Data}";
-                    writer.WriteLine(line);
-                    writer.Flush();
+                    ////var client = _adlsClient.GetBlockBlobClient(blobName);
+                    var line = $"{resource.ResourceWrapper.ResourceTypeName}\t{resource.ResourceWrapper.ResourceId}\t{resource.ResourceWrapper.Version}\t{resource.ResourceWrapper.IsDeleted}\t{resource.ResourceWrapper.RawResource.Data}{Environment.NewLine}";
+                    var bytes = Encoding.UTF8.GetBytes(line);
+                retryOnExist:
+                    try
+                    {
+                        _adlsClient.UploadBlob(blobName, new BinaryData(bytes));
+                    }
+                    catch (Exception e)
+                    {
+                        if (e.Message.Contains("exists", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            _adlsClient.GetBlockBlobClient(blobName).Delete();
+                            goto retryOnExist;
+                        }
+
+                        throw;
+                    }
+                    ////using var stream = client.OpenWrite(true);
+                    ////using var writer = new StreamWriter(stream);
+                    ////writer.WriteLine(line);
+                    ////writer.Flush();
                 }
                 catch (Exception e)
                 {
