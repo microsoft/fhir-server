@@ -71,5 +71,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the resource versioning policy.
         /// </summary>
         public VersioningConfiguration Versioning { get; set; } = new VersioningConfiguration();
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server supports the $status operation for SearchParameters.
+        /// </summary>
+        public bool SupportsSelectiveSearchParameters { get; set; } = false;
     }
 }
