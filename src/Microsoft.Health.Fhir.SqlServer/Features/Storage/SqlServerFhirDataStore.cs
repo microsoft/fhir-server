@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Globalization;
 using System.IO;
@@ -128,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
             _sqlConnectionString = sqlOptions.Value.ConnectionString;
-            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one";
+            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one-hash";
             _adlsClient = GetAdlsContainer();
         }
 
@@ -345,7 +344,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private static string GetBlobName(long transactionId)
         {
-            return $"transaction-{transactionId}.tjson";
+            return $"hash_{GetPermanentHashCode(transactionId)}_transaction-{transactionId}.ndjson";
+        }
+
+        private static string GetPermanentHashCode(long tr)
+        {
+            var hashCode = 0;
+            foreach (var c in tr.ToString()) // Don't convert to LINQ. This is 10% faster.
+            {
+                hashCode = unchecked((hashCode * 251) + c);
+            }
+
+            return (Math.Abs(hashCode) % 512).ToString().PadLeft(3, '0');
         }
 
         private void PutRawResourcesToAdlsOneResourcePerFile(IList<MergeResourceWrapper> resources)
