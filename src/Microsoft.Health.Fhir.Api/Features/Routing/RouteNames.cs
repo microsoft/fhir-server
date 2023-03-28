@@ -64,5 +64,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string MemberMatchOperationDefinition = "MemberMatchOperationDefinition";
 
         internal const string PurgeHistoryDefinition = "PurgeHistoryDefinition";
+
+        internal const string SearchParameterState = "SearchParameterState";
+
+        internal const string SearchParameterStateById = "SearchParameterStateById";
     }
 }
