@@ -682,6 +682,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
+            var batchSize = _mergeResourcesBatch.GetSize();
             var completeWrappers = new List<ResourceWrapper>();
             foreach (SearchResultEntry result in searchResults)
             {
@@ -715,9 +716,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
 
-                ////var start = DateTime.UtcNow;
-                _wrapperFactory.Update(resourceWrapper);
-                ////await _store().Value.TryLogEvent("SearchIndexesUpdate", "Warn", resourceWrapper.ResourceId, start, CancellationToken.None);
+                if (batchSize != 0)
+                {
+                    ////var start = DateTime.UtcNow;
+                    _wrapperFactory.Update(resourceWrapper);
+                    ////await _store().Value.TryLogEvent("SearchIndexesUpdate", "Warn", resourceWrapper.ResourceId, start, CancellationToken.None);
+                }
 
                 completeWrappers.Add(resourceWrapper);
             }
@@ -728,7 +732,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ////    await _store().Value.HardDeleteAsync(wrapper.ToResourceKey(), false, CancellationToken.None);
             ////}
 
-            var batchSize = _mergeResourcesBatch.GetSize();
             if (batchSize != 0)
             {
                 var smallList = new List<ResourceWrapperOperation>();
