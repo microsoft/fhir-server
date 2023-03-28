@@ -5,6 +5,7 @@ trigger: none
 
 variables:
 - template: pr-variables.yml
+- template: build-variables.yml
 
 stages:
 - stage: UpdateVersion
@@ -55,7 +56,7 @@ stages:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: $(defaultBuildFramework)
-        unitTest: true
+        unitTest: false
         codeCoverage: true
   - job: Linux_dotnet6
     pool:

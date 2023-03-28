@@ -5,5 +5,5 @@ variables:
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
     ResourceGroupName: '$(resourceGroupRoot)'
     TestEnvironmentName: 'OSS Export'
-    ImageTag: '$(build.BuildNumber)'
-    resourceTenantDomainSuffix: "azurewebsites.net"
+    ImageTag: 'master'
+    nuGetVersion: '5.8.1'
