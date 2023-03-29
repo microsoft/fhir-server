@@ -7,7 +7,7 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    internal interface IBundleOrchestrator<T>
+    public interface IBundleOrchestrator<T>
         where T : class
     {
         IBundleOrchestratorOperation<T> CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources);
