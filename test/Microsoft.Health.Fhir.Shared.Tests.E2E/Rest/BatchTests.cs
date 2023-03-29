@@ -21,7 +21,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Batch)]
+    [Trait(Traits.Category, Categories.Bundle)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class BatchTests : IClassFixture<HttpIntegrationTestFixture>
     {

@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: (string)null));
         }
 
-        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Category, Categories.Bundle)]
         [Trait(Traits.Priority, Priority.One)]
         [Fact]
         public async Task GivenABatch_WhenInvokedAtCosmosDb_MetricNotificationsShouldBeEmitted()
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Category, Categories.Bundle)]
         [Trait(Traits.Priority, Priority.One)]
         [Fact]
         public async Task GivenABatch_WhenInvokedAtSqlServer_MetricNotificationsShouldBeEmitted()

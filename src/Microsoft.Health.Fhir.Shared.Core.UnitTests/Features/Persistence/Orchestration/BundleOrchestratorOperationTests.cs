@@ -15,7 +15,8 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orchestration
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Batch)]
+    [Trait(Traits.Category, Categories.Bundle)]
+    [Trait(Traits.Category, Categories.BundleOrchestrator)]
     public class BundleOrchestratorOperationTests
     {
         private readonly object _dataLayer = new object();

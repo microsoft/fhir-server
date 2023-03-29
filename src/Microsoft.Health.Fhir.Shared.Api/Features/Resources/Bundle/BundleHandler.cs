@@ -78,6 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
+        private readonly bool _enabledBundleOrchestrator;
 
         /// <summary>
         /// Headers to propagate the the from the inner actions to the outer HTTP request.
@@ -142,8 +143,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+
+            _enabledBundleOrchestrator = true;
         }
 
+        /// <summary>
+        /// To be deprecated after migrating to Bundle Orchestrator.
+        /// </summary>
         private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
         {
             // List is not created initially since it doesn't create a list with _requestCount elements
@@ -205,7 +211,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
-                    await ExecuteAllRequests(responseBundle);
+                    if (_enabledBundleOrchestrator)
+                    {
+                        await ExecuteAllRequestsInParallelAsync(responseBundle, cancellationToken);
+                    }
+                    else
+                    {
+                        await ExecuteAllRequests(responseBundle);
+                    }
+
                     var response = new BundleResponse(responseBundle.ToResourceElement());
 
                     await PublishNotification(responseBundle, BundleType.Batch);
@@ -418,6 +432,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
+        /// <summary>
+        /// To be deprecated after migrating to Bundle Orchestrator.
+        /// </summary>
         private async Task<EntryComponent> ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
         {
             const int GCCollectTrigger = 150;
