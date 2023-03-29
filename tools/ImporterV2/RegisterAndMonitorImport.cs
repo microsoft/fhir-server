@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
         private static readonly string OutputFileName = Path.Combine(OutputDirectory, "importer.txt");
         private static readonly string LocationUrlFileName = Path.Combine(OutputDirectory, "locationUrls.txt");
         private static readonly string MonitorImportStatusEndpoint = ConfigurationManager.AppSettings["MonitorImportStatusEndpoint"] ?? string.Empty;
+        private static readonly bool UseBearerToken = bool.Parse(ConfigurationManager.AppSettings["UseBearerToken"]);
 
         private static bool IsMonitorImportStatusEndpoint => !string.IsNullOrWhiteSpace(MonitorImportStatusEndpoint);
 
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
 
                     foreach (string item in s_importedBlobNames)
                     {
-                        var blobItem = s_blobItems.Where(e => e.Name.Contains(item, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+                        BlobItem blobItem = s_blobItems.Where(e => e.Name.Contains(item, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
                         if (blobItem != null)
                         {
                             s_blobItems.Remove(blobItem);
@@ -179,7 +180,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
 
             var size = 0L;
 
-            foreach (var blob in s_blobItems)
+            foreach (BlobItem blob in s_blobItems)
             {
                 if (blob.Properties.ContentLength != null)
                 {
@@ -200,22 +201,21 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
 
             sb.Append("{\"name\": \"storageDetail\",\"part\": [{\"name\": \"type\",\"valueString\": \"azure-blob\"}]}]}");
 
-            Console.WriteLine($"TotalSize for blobs ={size:N0}");
+            Console.WriteLine($"TotalSize for blobs = {size:N0}");
 
             var json = sb.ToString();
             var data = new StringContent(json, Encoding.UTF8, "application/fhir+json");
             var url = $"{FhirEndpoint}/$import";
-            using var request = new HttpRequestMessage()
+            using var requestMessage = new HttpRequestMessage()
             {
                 RequestUri = new Uri(url),
                 Method = HttpMethod.Post,
                 Content = data,
             };
 
-            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/fhir+json"));
-            request.Headers.Add("Prefer", "respond-async");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetToken());
-            var response = await HttpClient.SendAsync(request);
+            requestMessage.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/fhir+json"));
+            requestMessage.Headers.Add("Prefer", "respond-async");
+            HttpResponseMessage response = await GetHttpResponseMessageAsync(requestMessage);
 
             Console.WriteLine($"response.IsSuccessStatusCode = {response.IsSuccessStatusCode}");
             string content = await response.Content.ReadAsStringAsync();
@@ -228,11 +228,21 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             }
         }
 
+        private static async Task<HttpResponseMessage> GetHttpResponseMessageAsync(HttpRequestMessage request)
+        {
+            if (UseBearerToken)
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetToken());
+            }
+
+            return await HttpClient.SendAsync(request, CancellationToken.None).ConfigureAwait(false);
+        }
+
         private static async Task GetImportStatus(string url)
         {
             await WriteLocationUrls(url);
 
-            TimeSpan delay = TimeSpan.FromMinutes(5);
+            var delay = TimeSpan.FromMinutes(5);
             var swTotalTime = new Stopwatch();
             var swSingleTime = new Stopwatch();
             swTotalTime.Start();
@@ -240,17 +250,16 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
 
             while (true)
             {
-                using var get = new HttpRequestMessage()
+                using var requestMessage = new HttpRequestMessage()
                 {
                     RequestUri = new Uri(url),
                     Method = HttpMethod.Get,
                 };
 
-                get.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetToken());
-                var response = await HttpClient.SendAsync(get, CancellationToken.None).ConfigureAwait(false);
+                HttpResponseMessage response = await GetHttpResponseMessageAsync(requestMessage);
                 string content = await response.Content.ReadAsStringAsync();
 
-                Console.WriteLine($"{Environment.NewLine}GET {get.RequestUri}");
+                Console.WriteLine($"{Environment.NewLine}GET {requestMessage.RequestUri}");
                 Console.WriteLine($"StatusCode = {response.StatusCode}");
 
                 ImportResponse importJson = TryParseJson(content);
@@ -337,7 +346,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
 
         private static void PrintResponse(List<ImportResponse.Json> response)
         {
-            foreach (var item in response)
+            foreach (ImportResponse.Json item in response)
             {
                 Console.WriteLine($"{string.Format("{0, 3}", response.IndexOf(item) + 1)} {string.Format("{0, 10}", item.Count.ToString("N0"))}   {item.InputUrl}");
             }
@@ -375,9 +384,8 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             try
             {
                 HttpClient.Timeout = TimeSpan.FromMinutes(5);
-                using var get = new HttpRequestMessage(HttpMethod.Get, $"{FhirEndpoint}/{ResourceType}?_summary=count");
-                get.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetToken());
-                using HttpResponseMessage response = await HttpClient.SendAsync(get);
+                using var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"{FhirEndpoint}/{ResourceType}?_summary=count");
+                using HttpResponseMessage response = await GetHttpResponseMessageAsync(requestMessage);
 
                 string content = await response.Content.ReadAsStringAsync();
                 if (string.IsNullOrEmpty(content))
@@ -404,11 +412,13 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
         private static async Task<string> GetToken()
         {
             string accessToken = string.Empty;
-            var parameters = new List<KeyValuePair<string, string>>();
-            parameters.Add(new KeyValuePair<string, string>("grant_type", TokenGrantType));
-            parameters.Add(new KeyValuePair<string, string>("resource", TokenResource));
-            parameters.Add(new KeyValuePair<string, string>("client_id", TokenClientId));
-            parameters.Add(new KeyValuePair<string, string>("client_secret", TokenClientSecret));
+            var parameters = new List<KeyValuePair<string, string>>
+            {
+                new KeyValuePair<string, string>("grant_type", TokenGrantType),
+                new KeyValuePair<string, string>("resource", TokenResource),
+                new KeyValuePair<string, string>("client_id", TokenClientId),
+                new KeyValuePair<string, string>("client_secret", TokenClientSecret),
+            };
 
             using var request = new HttpRequestMessage(HttpMethod.Post, TokenEndpoint)
             {
