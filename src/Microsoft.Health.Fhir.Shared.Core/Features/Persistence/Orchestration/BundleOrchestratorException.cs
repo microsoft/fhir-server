@@ -7,11 +7,16 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    internal interface IBatchOrchestrator<T>
-        where T : class
+    public sealed class BundleOrchestratorException : Exception
     {
-        IBatchOrchestratorOperation<T> CreateNewOperation(BatchOrchestratorOperationType type, string label, int expectedNumberOfResources);
+        public BundleOrchestratorException(string message)
+            : base(message)
+        {
+        }
 
-        bool RemoveOperation(Guid id);
+        public BundleOrchestratorException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
     }
 }

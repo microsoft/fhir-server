@@ -3,11 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public enum BatchOrchestratorOperationType
+    internal interface IBundleOrchestrator<T>
+        where T : class
     {
-        Batch,
-        Transaction,
+        IBundleOrchestratorOperation<T> CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources);
+
+        bool RemoveOperation(Guid id);
     }
 }

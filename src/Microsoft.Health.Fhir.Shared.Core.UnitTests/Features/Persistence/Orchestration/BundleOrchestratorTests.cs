@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Batch)]
-    public class BatchOrchestratorTests
+    public class BundleOrchestratorTests
     {
         private readonly object _dataLayer = new object();
 
@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             const string label = "label";
             const int expectedNumberOfResources = 100;
 
-            var batchOrchestrator = new BatchOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
             IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, label, expectedNumberOfResources);
 
             Assert.Equal(label, operation.Label);
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         [Fact]
         public void GivenAnOrchestrator_WhenAskedForAJobWithInvalidParameters_ReceiveArgumentExpections()
         {
-            var batchOrchestrator = new BatchOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
 
             Assert.Throws<ArgumentNullException>(() => batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, null, expectedNumberOfResources: 100));
 

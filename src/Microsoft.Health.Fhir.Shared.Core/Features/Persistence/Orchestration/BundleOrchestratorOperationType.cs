@@ -3,20 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public sealed class BatchOrchestratorOperationResource<T>
-        where T : class
+    public enum BundleOrchestratorOperationType
     {
-        public BatchOrchestratorOperationResource(T resource)
-        {
-            EnsureArg.IsNotNull(resource, nameof(resource));
-
-            Resource = resource;
-        }
-
-        public T Resource { get; private set; }
+        Batch,
+        Transaction,
     }
 }

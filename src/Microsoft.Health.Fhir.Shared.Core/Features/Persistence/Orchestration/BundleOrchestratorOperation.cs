@@ -12,7 +12,7 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public sealed class BatchOrchestratorOperation<T> : IBatchOrchestratorOperation<T>
+    public sealed class BundleOrchestratorOperation<T> : IBundleOrchestratorOperation<T>
         where T : class
     {
         private const int DelayTimeInMilliseconds = 10;
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private Task _mergeAsyncTask;
 
-        public BatchOrchestratorOperation(BatchOrchestratorOperationType type, string label, int expectedNumberOfResources, object dataLayer)
+        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources, object dataLayer)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             Type = type;
             Label = label;
             CreationTime = DateTime.UtcNow;
-            Status = BatchOrchestratorOperationStatus.Open;
+            Status = BundleOrchestratorOperationStatus.Open;
 
             OriginalExpectedNumberOfResources = expectedNumberOfResources;
             _currentExpectedNumberOfResources = expectedNumberOfResources;
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         public Guid Id { get; private set; }
 
-        public BatchOrchestratorOperationType Type { get; private set; }
+        public BundleOrchestratorOperationType Type { get; private set; }
 
         public string Label { get; private set; }
 
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         public DateTime CreationTime { get; private set; }
 
-        public BatchOrchestratorOperationStatus Status { get; private set; }
+        public BundleOrchestratorOperationStatus Status { get; private set; }
 
         public override string ToString()
         {
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 if (!_resources.Any())
                 {
-                    SetStatusSafe(BatchOrchestratorOperationStatus.WaitingForResources);
+                    SetStatusSafe(BundleOrchestratorOperationStatus.WaitingForResources);
                 }
 
                 _resources.Add(resource);
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
             catch (Exception)
             {
-                SetStatusSafe(BatchOrchestratorOperationStatus.Failed);
+                SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
                 // Add logging.
                 throw;
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 if (!_resources.Any())
                 {
-                    SetStatusSafe(BatchOrchestratorOperationStatus.WaitingForResources);
+                    SetStatusSafe(BundleOrchestratorOperationStatus.WaitingForResources);
                 }
 
                 Interlocked.Decrement(ref _currentExpectedNumberOfResources);
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
             catch (Exception)
             {
-                SetStatusSafe(BatchOrchestratorOperationStatus.Failed);
+                SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
                 // Add logging.
                 throw;
@@ -164,36 +164,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                 if (CurrentExpectedNumberOfResources == 0)
                 {
-                    SetStatusSafe(BatchOrchestratorOperationStatus.Canceled);
+                    SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
                 }
                 else
                 {
-                    SetStatusSafe(BatchOrchestratorOperationStatus.Processing);
+                    SetStatusSafe(BundleOrchestratorOperationStatus.Processing);
 
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    SetStatusSafe(BatchOrchestratorOperationStatus.Completed);
+                    SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
                 }
 
                 await Task.CompletedTask; // To be removed.
             }
             catch (OperationCanceledException)
             {
-                SetStatusSafe(BatchOrchestratorOperationStatus.Canceled);
+                SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
 
                 // Add logging.
                 throw;
             }
             catch (Exception)
             {
-                SetStatusSafe(BatchOrchestratorOperationStatus.Failed);
+                SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
                 // Add logging.
                 throw;
             }
         }
 
-        private void SetStatusSafe(BatchOrchestratorOperationStatus suggestedStatus)
+        private void SetStatusSafe(BundleOrchestratorOperationStatus suggestedStatus)
         {
             lock (_lock)
             {
@@ -201,25 +201,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 {
                     return;
                 }
-                else if (suggestedStatus == BatchOrchestratorOperationStatus.WaitingForResources && Status == BatchOrchestratorOperationStatus.Open)
+                else if (suggestedStatus == BundleOrchestratorOperationStatus.WaitingForResources && Status == BundleOrchestratorOperationStatus.Open)
                 {
-                    Status = BatchOrchestratorOperationStatus.WaitingForResources;
+                    Status = BundleOrchestratorOperationStatus.WaitingForResources;
                 }
-                else if (suggestedStatus == BatchOrchestratorOperationStatus.Processing && Status == BatchOrchestratorOperationStatus.WaitingForResources)
+                else if (suggestedStatus == BundleOrchestratorOperationStatus.Processing && Status == BundleOrchestratorOperationStatus.WaitingForResources)
                 {
-                    Status = BatchOrchestratorOperationStatus.Processing;
+                    Status = BundleOrchestratorOperationStatus.Processing;
                 }
-                else if (suggestedStatus == BatchOrchestratorOperationStatus.Completed && Status == BatchOrchestratorOperationStatus.Processing)
+                else if (suggestedStatus == BundleOrchestratorOperationStatus.Completed && Status == BundleOrchestratorOperationStatus.Processing)
                 {
-                    Status = BatchOrchestratorOperationStatus.Completed;
+                    Status = BundleOrchestratorOperationStatus.Completed;
                 }
-                else if (suggestedStatus == BatchOrchestratorOperationStatus.Canceled || suggestedStatus == BatchOrchestratorOperationStatus.Failed)
+                else if (suggestedStatus == BundleOrchestratorOperationStatus.Canceled || suggestedStatus == BundleOrchestratorOperationStatus.Failed)
                 {
                     Status = suggestedStatus;
                 }
                 else
                 {
-                    throw new BatchOrchestratorException($"Invalid status change. Current status '{Status}'. Suggested status '{suggestedStatus}'.");
+                    throw new BundleOrchestratorException($"Invalid status change. Current status '{Status}'. Suggested status '{suggestedStatus}'.");
                 }
             }
         }

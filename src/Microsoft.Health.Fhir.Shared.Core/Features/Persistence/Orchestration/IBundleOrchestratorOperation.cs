@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public interface IBatchOrchestratorOperation<T>
+    public interface IBundleOrchestratorOperation<T>
         where T : class
     {
         DateTime CreationTime { get; }
@@ -22,9 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         int OriginalExpectedNumberOfResources { get; }
 
-        BatchOrchestratorOperationStatus Status { get; }
+        BundleOrchestratorOperationStatus Status { get; }
 
-        BatchOrchestratorOperationType Type { get; }
+        BundleOrchestratorOperationType Type { get; }
 
         Task AppendResourceAsync(T resource, CancellationToken cancellationToken);
 
