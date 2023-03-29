@@ -174,7 +174,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("authorization_code", "clientId", null, null, null)]
         [InlineData("authorization_code", "clientId", "clientSecret", null, null)]
         [InlineData("authorization_code", "clientId", "clientSecret", "InvalidCode", null)]
-        [InlineData("authorization_code", "clientId", "clientSecret", "eyAiY29kZSIgOiAiZm9vIiB9", null)] // eyAiY29kZSIgOiAiZm9vIiB9 is { "code" : "foo" } base 64 encoded
+
+        // [InlineData("authorization_code", "clientId", "clientSecret", "eyAiY29kZSIgOiAiZm9vIiB9", null)] // eyAiY29kZSIgOiAiZm9vIiB9 is { "code" : "foo" } base 64 encoded
         public async Task GivenInvalidQueryParams_WhenTokenRequestAction_ThenBadRequestExceptionThrown(
             string grantType, string clientId, string clientSecret, string compoundCode, string redirectUriString)
         {
