@@ -8,7 +8,6 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -248,6 +247,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             services.AddHostedService<WatchdogsBackgroundService>();
+
+            // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
+            services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
+            services.AddSingleton<ISqlRetryService, SqlRetryService>();
 
             return fhirServerBuilder;
         }

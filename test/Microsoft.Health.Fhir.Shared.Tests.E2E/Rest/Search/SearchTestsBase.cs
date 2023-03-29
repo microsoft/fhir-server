@@ -94,55 +94,74 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             int pageSize = 10,
             params Resource[] expectedResources)
         {
-            FhirResponse<Bundle> fhirResponse = null;
-            try
+            string queryUrl = searchUrl;
+            bool numberOfResourcesIsGreaterThanExpected = false;
+
+            List<Resource> allResourcesReturned = new List<Resource>();
+            FhirResponse<Bundle> firstBundle = null;
+            Dictionary<string, int> pagingStatistics = new Dictionary<string, int>();
+            do
             {
-                fhirResponse = await Client.SearchAsync(searchUrl, customHeader);
-            }
-            catch (Exception ex)
-            {
-                if (_output != null)
+                // Part 1 - Query FHIR for results.
+                FhirResponse<Bundle> fhirBundleResponse = null;
+                try
                 {
-                    WriteSearchAsync(fhirResponse, "ExecuteAndValidateBundle", searchUrl, customHeader, ex);
+                    fhirBundleResponse = await Client.SearchAsync(queryUrl, customHeader);
+                }
+                catch (Exception ex)
+                {
+                    if (_output != null)
+                    {
+                        WriteSearchAsync(fhirBundleResponse, "ExecuteAndValidateBundle", queryUrl, customHeader, ex);
+                    }
+
+                    throw ex;
                 }
 
-                throw ex;
-            }
-
-            if (_output != null)
-            {
-                WriteSearchAsync(fhirResponse, "ExecuteAndValidateBundle", searchUrl, customHeader);
-            }
-
-            Bundle firstBundle = fhirResponse;
-
-            var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources[0..pageSize] : expectedResources;
-
-            ValidateBundle(firstBundle, selfLink, sort, invalidSortParameter, expectedFirstBundle);
-
-            var nextLink = firstBundle.NextLink?.ToString();
-            int pageNumber = 1;
-            bool checkedAllResources = false;
-            while (nextLink != null && !checkedAllResources)
-            {
-                Bundle nextBundle = await Client.SearchAsync(nextLink);
-
-                // Truncating host and appending continuation token
-                nextLink = selfLink + nextLink.Substring(_continuationToken.Match(nextLink).Index);
-                var remainingResources = expectedResources[(pageSize * pageNumber)..];
-                if (remainingResources.Length > pageSize)
+                if (_output != null)
                 {
-                    remainingResources = remainingResources[..pageSize];
+                    WriteSearchAsync(fhirBundleResponse, "ExecuteAndValidateBundle", queryUrl, customHeader);
+                }
+
+                if (firstBundle == null)
+                {
+                    firstBundle = fhirBundleResponse;
+                }
+
+                // Part 2 - Identify the correct 'selfLink' to be used during validations.
+                string validationSelfLink;
+                if (_continuationToken.Match(queryUrl).Success)
+                {
+                    // Truncating host and appending continuation token
+                    validationSelfLink = selfLink + queryUrl.Substring(_continuationToken.Match(queryUrl).Index);
                 }
                 else
                 {
-                    checkedAllResources = true;
+                    validationSelfLink = selfLink;
                 }
 
-                ValidateBundle(nextBundle, nextLink, sort, invalidSortParameter, remainingResources);
+                // Part 3 - Validade bundle.
+                int numberOfResourcesReturned = fhirBundleResponse.Resource.Entry.Count;
+                pagingStatistics.Add($"Page {pagingStatistics.Count}", numberOfResourcesReturned);
+                if (allResourcesReturned.Count + numberOfResourcesReturned > expectedResources.Length)
+                {
+                    // If more records then the expected are returned, no validation is required. There is already something wrong.
+                    numberOfResourcesIsGreaterThanExpected = true;
+                }
+                else
+                {
+                    Resource[] expectedBundle = expectedResources.Length > numberOfResourcesReturned ? expectedResources[allResourcesReturned.Count..(allResourcesReturned.Count + numberOfResourcesReturned)] : expectedResources;
+                    ValidateBundle(fhirBundleResponse, validationSelfLink, sort, invalidSortParameter, expectedBundle);
+                }
 
-                nextLink = nextBundle.NextLink?.ToString();
-                pageNumber++;
+                allResourcesReturned.AddRange(fhirBundleResponse.Resource.Entry.Select(e => e.Resource));
+                queryUrl = fhirBundleResponse.Resource.NextLink?.ToString();
+            }
+            while (!string.IsNullOrWhiteSpace(queryUrl));
+
+            if (numberOfResourcesIsGreaterThanExpected)
+            {
+                ThrowInvalidBundleResultXunitException(expectedResources, allResourcesReturned, pagingStatistics: pagingStatistics);
             }
 
             return firstBundle;
@@ -225,29 +244,47 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 Assert.Collection(
-                bundle.Entry.Select(e => e.Resource),
-                expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
+                    bundle.Entry.Select(e => e.Resource),
+                    expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
             }
             catch (XunitException)
             {
-                var sb = new StringBuilder("Expected count to be ").Append(expectedResources.Length).Append(" but was ").Append(bundle.Entry.Count).AppendLine(" . Contents:");
-                var fhirJsonSerializer = new FhirJsonSerializer(new SerializerSettings() { AppendNewLine = false, Pretty = false });
-                using var sw = new StringWriter(sb);
-
-                sb.AppendLine("Actual collection as below -");
-                foreach (var element in bundle.Entry.Select(e => e.Resource))
-                {
-                    sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
-                }
-
-                sb.AppendLine("Expected Collection as below -");
-                foreach (var element in expectedResources)
-                {
-                    sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
-                }
-
-                throw new XunitException(sb.ToString());
+                ThrowInvalidBundleResultXunitException(expectedResources, bundle.Entry.Select(e => e.Resource).ToArray());
             }
+        }
+
+        private void ThrowInvalidBundleResultXunitException(IReadOnlyList<Resource> expectedResources, IReadOnlyList<Resource> actualResources, IDictionary<string, int> pagingStatistics = null)
+        {
+            var sb = new StringBuilder("Expected count to be ");
+            sb.Append(expectedResources.Count);
+            sb.Append(" but was ");
+            sb.Append(actualResources.Count);
+            sb.AppendLine(" .");
+
+            if (pagingStatistics != null && pagingStatistics.Any())
+            {
+                sb.AppendLine("Paging statistics: ");
+                foreach (KeyValuePair<string, int> pageStatistics in pagingStatistics)
+                {
+                    sb.AppendLine($"   - {pageStatistics.Key} - Number of records: {pageStatistics.Value}");
+                }
+            }
+
+            var fhirJsonSerializer = new FhirJsonSerializer(new SerializerSettings() { AppendNewLine = false, Pretty = false });
+            using var sw = new StringWriter(sb);
+            sb.AppendLine("Actual collection as below -");
+            foreach (var element in actualResources)
+            {
+                sb.AppendLine(element.ToJson());
+            }
+
+            sb.AppendLine("Expected Collection as below -");
+            foreach (var element in expectedResources)
+            {
+                sb.AppendLine(element.ToJson());
+            }
+
+            throw new XunitException(sb.ToString());
         }
 
         protected OperationOutcome GetAndValidateOperationOutcome(Bundle bundle)

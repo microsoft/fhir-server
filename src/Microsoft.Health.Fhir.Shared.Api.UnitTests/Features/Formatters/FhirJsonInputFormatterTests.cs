@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
             var modelStateDictionary = new ModelStateDictionary();
 
-            var result = await ReadRequestBody(Samples.GetJson("ObservationWithInvalidStatus"), modelStateDictionary);
+            var result = await ReadRequestBody(Samples.GetJson("ObservationWithInvalidStatus"), modelStateDictionary, false);
 
             Assert.False(result.IsModelSet);
             Assert.Equal(1, modelStateDictionary.ErrorCount);
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
             var modelStateDictionary = new ModelStateDictionary();
 
-            var result = await ReadRequestBody(Samples.GetJson("ObservationWithNoCode"), modelStateDictionary);
+            var result = await ReadRequestBody(Samples.GetJson("ObservationWithNoCode"), modelStateDictionary, false);
 
             Assert.True(result.IsModelSet);
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
             var modelStateDictionary = new ModelStateDictionary();
 
-            var result = await ReadRequestBody("  ", modelStateDictionary);
+            var result = await ReadRequestBody("  ", modelStateDictionary, false);
 
             Assert.False(result.IsModelSet);
             Assert.Equal(1, modelStateDictionary.ErrorCount);
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         {
             var modelStateDictionary = new ModelStateDictionary();
             var patient = Samples.GetJson("PatientMissingResourceType");
-            var result = await ReadRequestBody(patient, modelStateDictionary);
+            var result = await ReadRequestBody(patient, modelStateDictionary, false);
 
             Assert.False(result.IsModelSet);
             Assert.Equal(1, modelStateDictionary.ErrorCount);
@@ -123,7 +123,39 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             }
         }
 
-        private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary)
+        [Fact]
+        public async Task GivenAResourceWithUnknownElements_WhenParsing_ThenFirstErrorShouldBeAddedToModelState()
+        {
+            var modelStateDictionary = new ModelStateDictionary();
+            var patient = Samples.GetJson("PatientWithUnknownElements");
+            var result = await ReadRequestBody(patient, modelStateDictionary, false);
+
+            Assert.Equal(1, modelStateDictionary.ErrorCount);
+
+            (_, ModelStateEntry entry) = modelStateDictionary.First();
+
+            Assert.Single(entry.Errors);
+            try
+            {
+                new FhirJsonParser().Parse<Resource>(patient);
+            }
+            catch (Exception ex)
+            {
+                Assert.Equal(string.Format(Api.Resources.ParsingError, ex.Message), entry.Errors.First().ErrorMessage);
+            }
+        }
+
+        [Fact]
+        public async Task GivenABundleWithUnknownElementsAndInvalidEnums_WhenParsing_ThenAllUnknownElementErrorShouldBeAddedToModelState()
+        {
+            var modelStateDictionary = new ModelStateDictionary();
+            var bundle = Samples.GetJson("Bundle-BatchWithInvalidEleEnums");
+            var result = await ReadRequestBody(bundle, modelStateDictionary, true);
+
+            Assert.Equal(4, modelStateDictionary.ErrorCount);
+        }
+
+        private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary, bool isBundle)
         {
             var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
 
@@ -137,6 +169,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                 modelStateDictionary,
                 metaData,
                 (stream, encoding) => new StreamReader(new MemoryStream(encoding.GetBytes(sampleJson))));
+
+            if (isBundle)
+            {
+                context.HttpContext.Request.Method = "POST";
+                context.HttpContext.Request.Path = "/";
+            }
 
             return await formatter.ReadRequestBodyAsync(context);
         }

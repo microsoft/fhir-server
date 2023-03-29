@@ -17,6 +17,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -84,6 +85,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                             x.Response.StatusCode = StatusCodes.Status408RequestTimeout;
                         }
                     },
+                    Substitute.For<IConfiguration>(),
                     Options.Create(_throttlingConfiguration),
                     Options.Create(new SecurityConfiguration { Enabled = _securityEnabled }),
                     NullLogger<ThrottlingMiddleware>.Instance));
@@ -234,6 +236,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
+                Substitute.For<IConfiguration>(),
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
                 NullLogger<ThrottlingMiddleware>.Instance);
@@ -250,6 +253,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
+                Substitute.For<IConfiguration>(),
                 Options.Create(_throttlingConfiguration),
                 Options.Create(new SecurityConfiguration()),
                 NullLogger<ThrottlingMiddleware>.Instance);

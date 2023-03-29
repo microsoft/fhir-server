@@ -165,8 +165,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task<int?> GetResourceCount(string identifier)
         {
-            FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_summary=count");
-            return result.Resource.Total;
+            try
+            {
+                FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_summary=count");
+
+                return result.Resource.Total;
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {_client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"A non-expected '{ex.GetType()}' was raised. Url: {_client.HttpClient.BaseAddress}. No Activity Id present. Error: {ex.Message}");
+            }
+
+            throw new NotImplementedException("Unreachable part of the code. The method should fail before reaching this part of the code.");
         }
     }
 }

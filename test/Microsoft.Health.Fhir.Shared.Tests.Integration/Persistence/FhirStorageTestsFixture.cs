@@ -45,6 +45,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using Xunit;
@@ -119,6 +120,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
 
         public GetResourceHandler GetResourceHandler { get; set; }
+
+        public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
 
         public void Dispose()
         {

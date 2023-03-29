@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
-            string searchParameterHash = null)
+            string searchParameterHash = null,
+            long resourceSurrogateId = 0)
            : this(
                  EnsureArg.IsNotNull(resource).Id,
                  resource.VersionId,
@@ -35,7 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  searchIndices,
                  compartmentIndices,
                  lastModifiedClaims,
-                 searchParameterHash)
+                 searchParameterHash,
+                 resourceSurrogateId)
         {
         }
 
@@ -50,7 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
-            string searchParameterHash = null)
+            string searchParameterHash = null,
+            long resourceSurrogateId = 0)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
@@ -67,12 +70,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             CompartmentIndices = compartmentIndices;
             LastModifiedClaims = lastModifiedClaims;
             SearchParameterHash = searchParameterHash;
+            ResourceSurrogateId = resourceSurrogateId;
         }
 
         [JsonConstructor]
         protected ResourceWrapper()
         {
         }
+
+        [JsonIgnore]
+        public long ResourceSurrogateId { get; internal set; }
 
         [JsonProperty(KnownResourceWrapperProperties.LastModified)]
         public DateTimeOffset LastModified { get; internal set; }

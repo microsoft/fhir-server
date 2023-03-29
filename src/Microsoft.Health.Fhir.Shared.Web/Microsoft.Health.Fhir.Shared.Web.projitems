@@ -14,13 +14,13 @@
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderConfiguration.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderRegistrationExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderUserConfiguration.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)KnownDataStores.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsConfig.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsApplicationBuilderExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsServicesCollectionExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Startup.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)UserAgentHeaderTelemetryInitializer.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)appsettings.Development.json">
