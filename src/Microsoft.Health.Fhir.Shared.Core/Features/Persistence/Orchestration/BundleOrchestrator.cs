@@ -9,37 +9,37 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public sealed class BatchOrchestrator<T> : IBatchOrchestrator<T>
+    public sealed class BundleOrchestrator<T> : IBundleOrchestrator<T>
         where T : class
     {
         /// <summary>
         /// Dictionary of current operations. At the end of an operation, it should be removed from this dictionary.
         /// Operations are indexed by their respective IDs.
         /// </summary>
-        private readonly ConcurrentDictionary<Guid, BatchOrchestratorOperation<T>> _operationsById;
+        private readonly ConcurrentDictionary<Guid, BundleOrchestratorOperation<T>> _operationsById;
 
         private readonly object _dataLayer;
 
-        public BatchOrchestrator(object datalayer)
+        public BundleOrchestrator(object datalayer)
         {
             EnsureArg.IsNotNull(datalayer, nameof(datalayer));
 
             // Todo: Inject the data layer in use (Cosmos, SQL).
             _dataLayer = datalayer;
 
-            _operationsById = new ConcurrentDictionary<Guid, BatchOrchestratorOperation<T>>();
+            _operationsById = new ConcurrentDictionary<Guid, BundleOrchestratorOperation<T>>();
         }
 
-        public IBatchOrchestratorOperation<T> CreateNewOperation(BatchOrchestratorOperationType type, string label, int expectedNumberOfResources)
+        public IBundleOrchestratorOperation<T> CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
-            var newJob = new BatchOrchestratorOperation<T>(type, label, expectedNumberOfResources, _dataLayer);
+            var newJob = new BundleOrchestratorOperation<T>(type, label, expectedNumberOfResources, _dataLayer);
 
             if (!_operationsById.TryAdd(newJob.Id, newJob))
             {
-                throw new BatchOrchestratorException($"A job with ID '{newJob.Id}' was already added to the queue.");
+                throw new BundleOrchestratorException($"A job with ID '{newJob.Id}' was already added to the queue.");
             }
 
             return newJob;
@@ -47,9 +47,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         public bool RemoveOperation(Guid id)
         {
-            if (!_operationsById.TryRemove(id, out BatchOrchestratorOperation<T> job))
+            if (!_operationsById.TryRemove(id, out BundleOrchestratorOperation<T> job))
             {
-                throw new BatchOrchestratorException($"A job with ID '{id}' was not found or unable to be removed from {nameof(BatchOrchestrator<T>)}.");
+                throw new BundleOrchestratorException($"A job with ID '{id}' was not found or unable to be removed from {nameof(BundleOrchestrator<T>)}.");
             }
 
             return true;

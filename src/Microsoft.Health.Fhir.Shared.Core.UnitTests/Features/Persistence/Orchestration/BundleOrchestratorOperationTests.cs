@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Batch)]
-    public class BatchOrchestratorOperationTests
+    public class BundleOrchestratorOperationTests
     {
         private readonly object _dataLayer = new object();
 
@@ -28,10 +28,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BatchOrchestrator<object>(_dataLayer);
-            IBatchOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BatchOrchestratorOperationType.Batch, "PUT", numberOfResources);
+            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "PUT", numberOfResources);
 
-            Assert.Equal(BatchOrchestratorOperationStatus.Open, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
             Task[] tasksWaitingForMergeAsync = new Task[numberOfResources];
@@ -47,11 +47,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
                     Task.WaitAll(tasksWaitingForMergeAsync);
 
                     // After waiting for all tasks, the operation should be completed.
-                    Assert.Equal(BatchOrchestratorOperationStatus.Completed, operation.Status);
+                    Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
                 }
                 else
                 {
-                    Assert.Equal(BatchOrchestratorOperationStatus.WaitingForResources, operation.Status);
+                    Assert.Equal(BundleOrchestratorOperationStatus.WaitingForResources, operation.Status);
                 }
             }
 
@@ -67,10 +67,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BatchOrchestrator<object>(_dataLayer);
-            IBatchOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BatchOrchestratorOperationType.Batch, "POST", numberOfResources);
+            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
-            Assert.Equal(BatchOrchestratorOperationStatus.Open, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
             List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             Task.WaitAll(tasksWaitingForMergeAsync.ToArray());
 
-            Assert.Equal(BatchOrchestratorOperationStatus.Completed, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
         }
@@ -95,10 +95,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BatchOrchestrator<object>(_dataLayer);
-            IBatchOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BatchOrchestratorOperationType.Batch, "POST", numberOfResources);
+            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
-            Assert.Equal(BatchOrchestratorOperationStatus.Open, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
             List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             Task.WaitAll(tasksWaitingForMergeAsync.ToArray());
 
-            Assert.Equal(BatchOrchestratorOperationStatus.Canceled, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
             Assert.Equal(0, operation.CurrentExpectedNumberOfResources);
         }
@@ -123,10 +123,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BatchOrchestrator<object>(_dataLayer);
-            IBatchOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BatchOrchestratorOperationType.Batch, "POST", numberOfResources);
+            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
-            Assert.Equal(BatchOrchestratorOperationStatus.Open, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
             List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             Task.WaitAll(tasksWaitingForMergeAsync.ToArray());
 
-            Assert.Equal(BatchOrchestratorOperationStatus.Completed, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Completed, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
             Assert.Equal(numberOfResources / 2, operation.CurrentExpectedNumberOfResources);
         }
@@ -160,10 +160,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             // Short cancellation time. This test should fail fast and throw a TaskCanceledException.
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-            var batchOrchestrator = new BatchOrchestrator<object>(_dataLayer);
-            IBatchOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BatchOrchestratorOperationType.Batch, "POST", expectedNumberOfResources: numberOfResources);
+            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", expectedNumberOfResources: numberOfResources);
 
-            Assert.Equal(BatchOrchestratorOperationStatus.Open, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
             List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             AggregateException age = Assert.Throws<AggregateException>(() => Task.WaitAll(tasksWaitingForMergeAsync.ToArray()));
 
             Assert.True(age.InnerException is TaskCanceledException);
-            Assert.Equal(BatchOrchestratorOperationStatus.Canceled, operation.Status);
+            Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
         }
