@@ -194,6 +194,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _logger.LogTrace("Successfully completed the job.");
             }
+            catch (JobSegmentCompletedException)
+            {
+                await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
+
+                _logger.LogTrace("Successfully completed a segment of the job.");
+            }
             catch (JobConflictException)
             {
                 // The export job was updated externally. There might be some additional resources that were exported
