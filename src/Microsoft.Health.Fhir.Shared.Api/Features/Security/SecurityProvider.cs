@@ -51,17 +51,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         {
             if (_securityConfiguration.Enabled)
             {
-                builder.Apply(statement =>
+                try
                 {
-                    if (_securityConfiguration.EnableAadSmartOnFhirProxy)
+                    builder.Apply(statement =>
                     {
-                        AddProxyOAuthSecurityService(statement, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
-                    }
-                    else
-                    {
-                        AddOAuthSecurityService(statement);
-                    }
-                });
+                        if (_securityConfiguration.EnableAadSmartOnFhirProxy)
+                        {
+                            AddProxyOAuthSecurityService(statement, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
+                        }
+                        else
+                        {
+                            AddOAuthSecurityService(statement);
+                        }
+                    });
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "SecurityProvider failed creating a new Capability Statement.");
+                    throw;
+                }
             }
         }
 

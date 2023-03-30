@@ -13,6 +13,7 @@ schedules:
     - main
 
 variables:
+- template: export-variables.yml
 - template: build-variables.yml
 
 stages:
@@ -36,141 +37,69 @@ stages:
         arguments: '--configuration $(buildConfiguration) /warnaserror -f $(defaultBuildFramework)'
     - template: ./jobs/package-integration-tests.yml
 
-- stage: exportRedeployStu3
-  displayName: 'Redeploy Export STU3 Site'
+- stage: redeployStu3
+  displayName: 'Redeploy STU3 Site'
   dependsOn: []
-  variables:
-  - template: export-variables.yml
   jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
 
-- stage: exportRedeployStu3Sql
-  displayName: 'Redeploy Export STU3 SQL Site'
+- stage: redeployStu3Sql
+  displayName: 'Redeploy STU3 SQL Site'
   dependsOn: []
-  variables:
-  - template: export-variables.yml
   jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
       subscription: $(ConnectedServiceName)
 
-- stage: exportRedeployR4
-  displayName: 'Redeploy Export R4 Site'
+- stage: redeployR4
+  displayName: 'Redeploy R4 Site'
   dependsOn: []
-  variables:
-  - template: export-variables.yml
   jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
 
-- stage: exportRedeployR4Sql
-  displayName: 'Redeploy Export R4 SQL Site'
+- stage: redeployR4Sql
+  displayName: 'Redeploy R4 SQL Site'
   dependsOn: []
-  variables:
-  - template: export-variables.yml
   jobs:
   - template: ./jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
 
-- stage: importRedeployStu3Sql
-  displayName: 'Redeploy Import STU3 SQL Site'
-  dependsOn: []
-  variables:
-  - template: import-variables.yml
-  jobs:
-  - template: ./jobs/restart-webapp.yml
-    parameters: 
-      webAppName: $(DeploymentEnvironmentNameSql)
-      subscription: $(ConnectedServiceName)
-
-- stage: importRedeployR4Sql
-  displayName: 'Redeploy Import R4 SQL Site'
-  dependsOn: []
-  variables:
-  - template: import-variables.yml
-  jobs:
-  - template: ./jobs/restart-webapp.yml
-    parameters: 
-      webAppName: $(DeploymentEnvironmentNameR4Sql)
-      subscription: $(ConnectedServiceName)
-
-- stage: testStu3Export
-  displayName: 'Run Stu3 Export Tests'
+- stage: testStu3
+  displayName: 'Run Stu3 Tests'
   dependsOn:
   - Build
-  - exportRedeployStu3
-  - exportRedeployStu3Sql
-  variables:
-  - template: export-variables.yml
+  - redeployStu3
+  - redeployStu3Sql
   jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
 
-- stage: testR4Export
-  displayName: 'Run R4 Export Tests'
+- stage: testR4
+  displayName: 'Run R4 Tests'
   dependsOn:
   - Build
-  - exportRedeployR4
-  - exportRedeployR4Sql
-  variables:
-  - template: export-variables.yml
+  - redeployR4
+  - redeployR4Sql
   jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
 
-- stage: testStu3Import
-  displayName: 'Run Stu3 Import Tests'
-  dependsOn:
-  - Build
-  - importRedeployStu3Sql
-  variables:
-  - template: import-variables.yml
-  jobs:
-  - template: ./jobs/run-import-tests.yml
-    parameters:
-      version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-
-- stage: testR4Import
-  displayName: 'Run R4 Import Tests'
-  dependsOn:
-  - Build
-  - importRedeployR4Sql
-  variables:
-  - template: import-variables.yml
-  jobs:
-  - template: ./jobs/run-import-tests.yml
-    parameters:
-      version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-
-- stage: cleanExportStorageAccounts
-  displayName: 'Clean Export Storage Accounts'
+- stage: cleanStorageAccounts
+  displayName: 'Clean Storage Accounts'
   dependsOn: []
-  variables:
-  - template: export-variables.yml
-  jobs:
-  - template: ./jobs/clean-storage-accounts.yml
-    parameters:
-      environmentName: $(DeploymentEnvironmentName)
-
-- stage: cleanImportStorageAccounts
-  displayName: 'Clean Import Storage Accounts'
-  dependsOn: []
-  variables:
-  - template: import-variables.yml
   jobs:
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
