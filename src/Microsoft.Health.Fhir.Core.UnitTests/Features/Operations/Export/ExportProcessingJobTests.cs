@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 progressResult = result;
             });
 
-            var expectedResults = GenerateJobRecord(OperationStatus.Completed);
+            var expectedResults = GenerateJobRecord(OperationStatus.Running);
 
             var queueClient = new TestQueueClient();
             var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
@@ -148,12 +148,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private IExportJobTask MakeMockJobWithProgressUpdate()
         {
             var mockJob = Substitute.For<IExportJobTask>();
-            mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
+            mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(async x =>
             {
                 var record = x.ArgAt<ExportJobRecord>(0);
                 record.Progress = new ExportJobProgress(_progressToken, 1);
-
-                return mockJob.UpdateExportJob(record, x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+                try
+                {
+                    await mockJob.UpdateExportJob(record, x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+                }
+                catch (JobSegmentCompletedException)
+                {
+                    record.Status = OperationStatus.Completed;
+                    await mockJob.UpdateExportJob(record, x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+                }
             });
 
             return mockJob;
