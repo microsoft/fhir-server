@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 }
                 else
                 {
-                    _logger.LogWarning("Capability statement was null.");
+                    _logger.LogError("Capability statement was null.");
 
                     return HealthCheckResult.Unhealthy("Failed to retrieve the capability statement.");
                 }
@@ -58,13 +58,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     return HealthCheckResult.Healthy("Successfully retrieved the capability statement.");
                 }
 
-                _logger.LogWarning(ex, "Failed to retrieve the capability statement.");
+                _logger.LogError(ex, "Failed to retrieve the capability statement.");
 
                 return HealthCheckResult.Unhealthy("Failed to retrieve the capability statement.");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to retrieve the capability statement.");
+                _logger.LogError(ex, "Failed to retrieve the capability statement.");
 
                 return HealthCheckResult.Unhealthy("Failed to retrieve the capability statement.");
             }
