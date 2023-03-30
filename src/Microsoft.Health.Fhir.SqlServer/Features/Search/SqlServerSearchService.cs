@@ -18,6 +18,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -39,6 +40,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using static System.Net.Mime.MediaTypeNames;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -347,9 +349,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
+                            var queryText = stringBuilder.ToString();
+                            var queryHash = RemoveParamHash(queryText).ComputeHash();
+
+                            if (CustomQueries.QueryStore.TryGetValue(queryHash, out var customQuery))
+                            {
+                                queryText = customQuery;
+                                sqlCommand.CommandType = CommandType.StoredProcedure;
+                            }
+
                             // Command text contains no direct user input.
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
-                            sqlCommand.CommandText = stringBuilder.ToString();
+                            sqlCommand.CommandText = queryText;
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
@@ -1060,6 +1071,19 @@ WHERE ResourceTypeId = @p0
             }
 
             return resourceType;
+        }
+
+        private static string RemoveParamHash(string queryText)
+        {
+            var lines = queryText.Split('\n');
+            if (lines[lines.Length - 2].StartsWith("/* HASH", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Join('\n', lines.Take(lines.Length - 2));
+            }
+            else
+            {
+                return queryText;
+            }
         }
 
         // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .
