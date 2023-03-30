@@ -159,14 +159,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [MemberData(nameof(GetParamsDataForGivenInvalidQueryParams_WhenCallbackRequestAction_ThenBadRequestExceptionThrown))]
+        [MemberData(nameof(GetMultipleInvalidParams))]
         public void GivenInvalidQueryParams_WhenCallbackRequestAction_ThenBadRequestExceptionThrown(
             string redirectUrl, string code, string state, string sessionState)
         {
             Assert.Throws<AadSmartOnFhirProxyBadRequestException>(() => _controller.Callback(redirectUrl, code, state, sessionState, null, null));
         }
 
-        public static IEnumerable<object[]> GetParamsDataForGivenInvalidQueryParams_WhenCallbackRequestAction_ThenBadRequestExceptionThrown()
+        public static IEnumerable<object[]> GetMultipleInvalidParams()
         {
             var foo = Convert.ToBase64String(Encoding.UTF8.GetBytes("foo"));
             var testUrl = Convert.ToBase64String(Encoding.UTF8.GetBytes("http://test.url"));
@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("authorization_code", "clientId", null, null, null)]
         [InlineData("authorization_code", "clientId", "clientSecret", null, null)]
         [InlineData("authorization_code", "clientId", "clientSecret", "InvalidCode", null)]
-        [MemberData(nameof(GetParamsDataForGivenInvalidQueryParams_WhenTokenRequestAction_ThenBadRequestExceptionThrown))]
+        [MemberData(nameof(GetInvalidParams))]
         public async Task GivenInvalidQueryParams_WhenTokenRequestAction_ThenBadRequestExceptionThrown(
             string grantType, string clientId, string clientSecret, string compoundCode, string redirectUriString)
         {
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<AadSmartOnFhirProxyBadRequestException>(() => _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret));
         }
 
-        public static IEnumerable<object[]> GetParamsDataForGivenInvalidQueryParams_WhenTokenRequestAction_ThenBadRequestExceptionThrown()
+        public static IEnumerable<object[]> GetInvalidParams()
         {
             var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes("{ \"code\" : \"foo\" }"));
             yield return new object[] { "authorization_code", "clientId", "clientSecret", encoded, null };
