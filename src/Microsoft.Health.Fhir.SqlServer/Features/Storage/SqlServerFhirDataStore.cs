@@ -382,6 +382,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (Exception e)
                     {
+                        TryLogEvent("PutRawResourcesToAdlsOneResourcePerFile", "Error", e.ToString(), start, CancellationToken.None).Wait();
                         if (e.Message.Contains("exists", StringComparison.InvariantCultureIgnoreCase))
                         {
                             _adlsClient.GetBlockBlobClient(blobName).Delete();

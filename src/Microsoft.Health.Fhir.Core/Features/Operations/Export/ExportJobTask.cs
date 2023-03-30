@@ -719,7 +719,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 if (batchSize != 0)
                 {
                     ////var start = DateTime.UtcNow;
-                    _wrapperFactory.Update(resourceWrapper);
+                    ////_wrapperFactory.Update(resourceWrapper);
                     ////await _store().Value.TryLogEvent("SearchIndexesUpdate", "Warn", resourceWrapper.ResourceId, start, CancellationToken.None);
                 }
 
