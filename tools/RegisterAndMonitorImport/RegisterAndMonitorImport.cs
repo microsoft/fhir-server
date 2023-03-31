@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
         private static readonly string ResourceType = ConfigurationManager.AppSettings["ResourceType"] ?? string.Empty;
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"] ?? string.Empty;
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"] ?? string.Empty;
-        private static readonly string FhirEndpoint = ConfigurationManager.AppSettings["FhirEndpoint"] ?? string.Empty;
+        private static readonly string FhirEndpoint = TokenResource;
         private static readonly int NumberOfBlobsForImport = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsForImport"] ?? "1");
         private static readonly TimeSpan ImportStatusDelay = TimeSpan.Parse(ConfigurationManager.AppSettings["ImportStatusDelay"]);
         private static readonly HttpClient HttpClient = new();

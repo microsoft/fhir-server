@@ -146,7 +146,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManage
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Store.Utils", "src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj", "{7A736E5F-DA6E-483F-AD5B-EE8F66828E36}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RegisterAndMonitorImport", "tools\ImporterV2\RegisterAndMonitorImport.csproj", "{E85BCB9A-5D6E-45AD-BE67-AEFA060FEBF1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RegisterAndMonitorImport", "tools\RegisterAndMonitorImport\RegisterAndMonitorImport.csproj", "{E85BCB9A-5D6E-45AD-BE67-AEFA060FEBF1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Importer", "tools\Importer\Importer.csproj", "{F6B94905-B496-46AD-B2A7-2ABCB0B2A6B4}"
 EndProject
