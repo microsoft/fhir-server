@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
         private static readonly string TokenGrantType = ConfigurationManager.AppSettings["grant_type"] ?? string.Empty;
         private static readonly string TokenClientId = ConfigurationManager.AppSettings["client_id"] ?? string.Empty;
         private static readonly string TokenClientSecret = ConfigurationManager.AppSettings["client_secret"] ?? string.Empty;
-        private static readonly string TokenResource = ConfigurationManager.AppSettings["resource"] ?? string.Empty;
+        private static readonly string TokenResource = ConfigurationManager.AppSettings["FhirEndpoint"] ?? string.Empty;
         private static readonly string ResourceType = ConfigurationManager.AppSettings["ResourceType"] ?? string.Empty;
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"] ?? string.Empty;
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"] ?? string.Empty;
