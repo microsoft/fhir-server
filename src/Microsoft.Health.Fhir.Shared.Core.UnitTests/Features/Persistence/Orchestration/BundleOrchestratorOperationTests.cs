@@ -7,9 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orchestration
@@ -19,7 +22,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
     [Trait(Traits.Category, Categories.BundleOrchestrator)]
     public class BundleOrchestratorOperationTests
     {
-        private readonly object _dataLayer = new object();
+        private readonly IScoped<IFhirDataStore> _dataStore = Substitute.For<IScoped<IFhirDataStore>>();
 
         [Theory]
         [InlineData(10)]
@@ -29,7 +32,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
             IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "PUT", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -68,7 +71,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
             IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -96,7 +99,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
             IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -124,7 +127,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
             IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -161,7 +164,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             // Short cancellation time. This test should fail fast and throw a TaskCanceledException.
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
             IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", expectedNumberOfResources: numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);

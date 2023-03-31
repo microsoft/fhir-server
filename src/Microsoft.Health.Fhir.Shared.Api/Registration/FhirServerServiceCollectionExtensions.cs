@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
@@ -139,7 +140,13 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
 
-            fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator<object>, BundleOrchestrator<object>>();
+            fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator<object>, BundleOrchestrator<object>>(
+                (service) =>
+                {
+                    IScoped<IFhirDataStore> dataStore = service.GetRequiredService(typeof(IScoped<IFhirDataStore>)) as IScoped<IFhirDataStore>;
+
+                    return new BundleOrchestrator<object>(isEnabled: enabledBundleOrchestratorOperations, dataStore: dataStore);
+                });
 
             return fhirServerBuilder;
         }

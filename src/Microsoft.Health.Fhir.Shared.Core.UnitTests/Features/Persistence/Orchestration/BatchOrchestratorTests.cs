@@ -4,9 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orchestration
@@ -16,7 +19,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
     [Trait(Traits.Category, Categories.BundleOrchestrator)]
     public class BatchOrchestratorTests
     {
-        private readonly object _dataLayer = new object();
+        private readonly IScoped<IFhirDataStore> _dataStore = Substitute.For<IScoped<IFhirDataStore>>();
 
         [Fact]
         public void GivenAnOrchestrator_WhenAskedForAJob_ReceiveANewJobBack()
@@ -24,7 +27,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             const string label = "label";
             const int expectedNumberOfResources = 100;
 
-            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
             IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, label, expectedNumberOfResources);
 
             Assert.Equal(label, operation.Label);
@@ -36,7 +39,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         [Fact]
         public void GivenAnOrchestrator_WhenAskedForAJobWithInvalidParameters_ReceiveArgumentExpections()
         {
-            var batchOrchestrator = new BundleOrchestrator<object>(_dataLayer);
+            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
 
             Assert.Throws<ArgumentNullException>(() => batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, null, expectedNumberOfResources: 100));
 

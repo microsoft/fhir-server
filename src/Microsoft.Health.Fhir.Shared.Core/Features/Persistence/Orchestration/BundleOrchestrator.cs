@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
+using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
@@ -18,24 +19,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private readonly ConcurrentDictionary<Guid, BundleOrchestratorOperation<T>> _operationsById;
 
-        private readonly object _dataLayer;
+        private readonly IScoped<IFhirDataStore> _dataStore;
 
-        public BundleOrchestrator(object datalayer)
+        public BundleOrchestrator(bool isEnabled, IScoped<IFhirDataStore> dataStore)
         {
-            EnsureArg.IsNotNull(datalayer, nameof(datalayer));
+            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
 
-            // Todo: Inject the data layer in use (Cosmos, SQL).
-            _dataLayer = datalayer;
+            _dataStore = dataStore;
 
             _operationsById = new ConcurrentDictionary<Guid, BundleOrchestratorOperation<T>>();
+
+            IsEnabled = isEnabled;
         }
+
+        public bool IsEnabled { get; }
 
         public IBundleOrchestratorOperation<T> CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
-            var newJob = new BundleOrchestratorOperation<T>(type, label, expectedNumberOfResources, _dataLayer);
+            var newJob = new BundleOrchestratorOperation<T>(type, label, expectedNumberOfResources, _dataStore);
 
             if (!_operationsById.TryAdd(newJob.Id, newJob))
             {
