@@ -9,3 +9,13 @@ This tool can perform the following operations.
 3. Run an $import job by consuming ndjson blob files from the configured container and posting them to a Paas endpoint.
 
 The app.config has descriptions for all of the necessary values that you will need to supply in order to run this tool.
+
+
+When running FHIR OSS be sure to have these configuration settings in the portal:  
+FhirServer__Operations__Import__Enabled = True  
+FhirServer__Operations__Import__InitialImportMode = True  
+FhirServer__Operations__Import__StorageAccountConnection = your_storageaccount_access_key_connection_string  
+FhirServer__Operations__IntegrationDataStore__StorageAccountConnection = your_storageaccount_access_key_connection_string  
+
+**You may need to remove this setting to get import to work**
+FhirServer__Operations__IntegrationDataStore__StorageAccountUri

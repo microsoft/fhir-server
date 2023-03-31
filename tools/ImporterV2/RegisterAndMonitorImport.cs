@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"] ?? string.Empty;
         private static readonly string FhirEndpoint = ConfigurationManager.AppSettings["FhirEndpoint"] ?? string.Empty;
         private static readonly int NumberOfBlobsForImport = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsForImport"] ?? "1");
+        private static readonly TimeSpan ImportStatusDelay = TimeSpan.Parse(ConfigurationManager.AppSettings["ImportStatusDelay"]);
         private static readonly HttpClient HttpClient = new();
         private static BlobContainerClient s_blobContainerClientSource;
         private static List<BlobItem> s_blobItems;
@@ -242,7 +243,6 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
         {
             await WriteLocationUrls(url);
 
-            var delay = TimeSpan.FromMinutes(5);
             var swTotalTime = new Stopwatch();
             var swSingleTime = new Stopwatch();
             swTotalTime.Start();
@@ -280,8 +280,8 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
                 }
                 else if (response.StatusCode == HttpStatusCode.Accepted)
                 {
-                    Console.WriteLine($"Total running time: {swTotalTime.Elapsed.Duration()} - awaiting {delay} before retry");
-                    await Task.Delay(delay);
+                    Console.WriteLine($"Total running time: {swTotalTime.Elapsed.Duration()} - awaiting {ImportStatusDelay} before retry");
+                    await Task.Delay(ImportStatusDelay);
                     continue;
                 }
                 else
