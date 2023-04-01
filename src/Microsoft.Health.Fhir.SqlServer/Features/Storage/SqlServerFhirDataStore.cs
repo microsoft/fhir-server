@@ -382,10 +382,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (Exception e)
                     {
-                        TryLogEvent("PutRawResourcesToAdlsOneResourcePerFile", "Error", e.ToString(), start, CancellationToken.None).Wait();
+                        TryLogEvent($"PutRawResourcesToAdlsOneResourcePerFile:{blobName}", "Error", e.ToString(), start, CancellationToken.None).Wait();
                         if (e.Message.Contains("exists", StringComparison.InvariantCultureIgnoreCase))
                         {
-                            _adlsClient.GetBlockBlobClient(blobName).Delete();
+                            try
+                            {
+                                _adlsClient.GetBlockBlobClient(blobName).Delete();
+                            }
+                            catch
+                            {
+                                TryLogEvent($"PutRawResourcesToAdlsOneResourcePerFile:{blobName}", "Error", e.ToString(), start, CancellationToken.None).Wait();
+                            }
+
                             goto retryOnExist;
                         }
 
@@ -398,7 +406,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    TryLogEvent("PutRawResourcesToAdlsOneResourcePerFile", "Error", e.ToString(), start, CancellationToken.None).Wait();
+                    TryLogEvent($"PutRawResourcesToAdlsOneResourcePerFile:{blobName}", "Error", e.ToString(), start, CancellationToken.None).Wait();
                     if (e.ToString().Contains("ConditionNotMet", StringComparison.OrdinalIgnoreCase))
                     {
                         Thread.Sleep(1000);
