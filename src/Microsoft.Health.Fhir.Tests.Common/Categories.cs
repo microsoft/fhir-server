@@ -71,6 +71,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Security = nameof(Security);
 
+        public const string SearchParameterStatus = nameof(SearchParameterStatus);
+
         /// <summary>
         /// Set of tests validating serialization and deserialization logic.
         /// </summary>
