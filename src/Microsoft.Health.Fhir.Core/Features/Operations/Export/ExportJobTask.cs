@@ -716,7 +716,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
 
-                if (batchSize != 0)
+                _wrapperFactory.Update(resourceWrapper);
+
+                if (batchSize == 0)
                 {
                     ////var start = DateTime.UtcNow;
                     ////_wrapperFactory.Update(resourceWrapper);
