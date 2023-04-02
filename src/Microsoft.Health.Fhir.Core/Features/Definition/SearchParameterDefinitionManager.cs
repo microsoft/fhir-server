@@ -223,6 +223,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             await EnsureInitializedAsync(cancellationToken);
         }
 
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByResourceTypes(ICollection<string> resourceTypes)
+        {
+            return TypeLookup.Where(t => resourceTypes.Contains(t.Key)).SelectMany(t => t.Value.Values);
+        }
+
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByUrls(ICollection<string> definitionUrls)
+        {
+            return UrlLookup.Where(t => definitionUrls.Contains(t.Key)).Select(t => t.Value);
+        }
+
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByCodes(ICollection<string> codes)
+        {
+            return UrlLookup.Where(t => codes.Contains(t.Value.Code)).Select(t => t.Value);
+        }
+
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByIds(ICollection<string> ids)
+        {
+            return UrlLookup.Where(t => ids.Contains(t.Value.Name)).Select(t => t.Value);
+        }
+
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
         {
             // now read in any previously POST'd SearchParameter resources

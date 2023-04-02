@@ -3,20 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.SearchParameterState
 {
     public class SearchParameterStateResponse
     {
-        public SearchParameterStateResponse(ResourceElement bundle)
+        public SearchParameterStateResponse(ResourceElement searchParameterInfos = null)
         {
-            EnsureArg.IsNotNull(bundle, nameof(bundle));
-
-            Bundle = bundle;
+            SearchParameters = searchParameterInfos;
         }
 
-        public ResourceElement Bundle { get; }
+        public ResourceElement SearchParameters { get; }
     }
 }

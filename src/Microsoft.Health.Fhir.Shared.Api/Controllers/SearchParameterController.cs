@@ -3,87 +3,116 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
-    public class SearchParameterController
+    /// <summary>
+    /// Search Parameter State Controller
+    /// </summary>
+    [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
+    public class SearchParameterController : Controller
     {
-        private ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;
         private readonly CoreFeatureConfiguration _coreFeaturesConfig;
 
-        public SearchParameterController(IMediator mediator, ISearchParameterDefinitionManager searchParameterDefinitionManager, IOptions<CoreFeatureConfiguration> coreFeatures)
+        public SearchParameterController(IMediator mediator, IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
 
             _mediator = mediator;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _coreFeaturesConfig = coreFeatures.Value;
         }
 
+        /// <summary>
+        /// Gets all search parameters with current status.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        /// <returns>Parameters resource containing search parameters matching search query. Returns all search parameters with current state if no search query provided. Along with Status for each result.</returns>
         [HttpGet]
-        [Route(KnownRoutes.SearchParameters + KnownRoutes.SearchParameterStatus)]
-        [AuditEventType(AuditEventSubType.Search)]
-        public async Task<IActionResult> GetSearchParameters(CancellationToken cancellationToken)
+        [Route(KnownRoutes.SearchParametersStatusQuery, Name = RouteNames.SearchParameterState)]
+        [AuditEventType(AuditEventSubType.SearchParameterStatus)]
+        [ValidateSearchParameterStateRequestAtrribute]
+        public async Task<IActionResult> GetSearchParametersStatus(CancellationToken cancellationToken)
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
 
-            // var searchParameterInfoList = new SearchParameterInfoList();
+            IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
+            SearchParameterStateResponse result = await _mediator.Send(CreateSearchParameterRequestFromQueryString(queries), cancellationToken);
 
-            // IEnumerable<SearchParameterInfo> searchParameterInfos = _searchParameterDefinitionManager.AllSearchParameters
-            //    .OrderBy(p => p.Name);
+            _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
 
-            // foreach (SearchParameterInfo searchParameterInfo in searchParameterInfos)
-            // {
-            //    searchParameterInfo.IsSupported = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo.Url);
-
-            // searchParameterInfoList.Add(searchParameterInfo);
-            // }
-            SearchParameterStateResponse result = await _mediator.Send(new SearchParameterStateRequest(string.Empty, string.Empty), cancellationToken);
-
-            return FhirResult.Create(result.Bundle);
-        }
-
-        [HttpGet]
-        [Route(KnownRoutes.SearchParametersResourceByType)]
-        [AuditEventType(AuditEventSubType.Search)]
-        public IActionResult GetSearchParametersForResourceType(string resourceType)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
-            CheckIfSearchParameterStatusIsEnabledAndRespond();
-
-            // var searchParameterInfoList = new SearchParameterInfoList();
-
-            // IEnumerable<SearchParameterInfo> searchParameterInfos = _searchParameterDefinitionManager.GetSearchParameters(resourceType)
-            //    .Select(p => new SearchParameterInfo(p))
-            //    .OrderBy(p => p.Name);
-
-            // foreach (SearchParameterInfo searchParameterInfo in searchParameterInfos)
-            // {
-            //    //searchParameterInfo.IsSupported = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo.Url
-            // }
-            return null;
+            return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
         }
 
         /// <summary>
-        /// Provide appropriate response if Search Parameter Status is not enabled
+        /// Gets search parameter with current state by resource id.
+        /// </summary>
+        /// <param name="idParameter">SearchParameter resource id</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        /// <returns>Parameters resource containing search parameter matching id with Status.</returns>
+        [HttpGet]
+        [Route(KnownRoutes.SearchParametersStatusById, Name = RouteNames.SearchParameterStateById)]
+        [AuditEventType(AuditEventSubType.SearchParameterStatus)]
+        [ValidateSearchParameterStateRequestAtrribute]
+        public async Task<IActionResult> GetSearchParametersStatusById(string idParameter, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(idParameter, nameof(idParameter));
+            CheckIfSearchParameterStatusIsEnabledAndRespond();
+
+            var request = new SearchParameterStateRequest(searchParameterId: new List<string>() { idParameter });
+            SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
+
+            _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
+
+            // p2 call regular search by id to get full resource back
+            // make sure it doesn't reset on FHIR server restart.
+            return FhirResult.Create(result.SearchParameters);
+        }
+
+        /// <summary>
+        /// Search for multiple Search Parameter Status using POST.
+        /// </summary>
+        /// <param name="inputParams">Parameters resource containing the search parameters needing a status looked up.</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        /// <returns>Parameters resource containing Search Parameters with Status.</returns>
+        [HttpPost]
+        [Route(KnownRoutes.SearchParameters + KnownRoutes.SearchParametersStatusPostQuery, Name = RouteNames.PostSearchParameterState)]
+        [ValidateParametersResource]
+        [AuditEventType(AuditEventSubType.SearchParameterStatus)]
+        public async Task<IActionResult> PostSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
+        {
+            CheckIfSearchParameterStatusIsEnabledAndRespond();
+            IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
+
+            SearchParameterStateResponse result = await _mediator.Send(CreateSearchParameterRequestFromQueryString(queries), cancellationToken);
+
+            // return parameters object type
+            return FhirResult.Create(result.SearchParameters);
+        }
+
+        /// <summary>
+        /// Provide appropriate response if Search Parameter Status feature is not enabled
         /// </summary>
         private void CheckIfSearchParameterStatusIsEnabledAndRespond()
         {
@@ -91,8 +120,52 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.SearchParameterStatus));
             }
+        }
 
-            return;
+        /// <summary>
+        /// Parses the query string parameters for search.
+        /// </summary>
+        /// <returns>The query string parameters for search from the request object.</returns>
+        private IReadOnlyList<Tuple<string, string>> GetQueriesForSearch()
+        {
+            return Request.GetQueriesForSearch();
+        }
+
+        /// <summary>
+        /// Parses query string for known parameters and returns a SearchParameterStateRequest object.
+        /// </summary>
+        /// <param name="queryString">Query string from http request</param>
+        /// <returns><see cref="SearchParameterStateRequest" containing parsed known values./>></returns>
+        private static SearchParameterStateRequest CreateSearchParameterRequestFromQueryString(IReadOnlyList<Tuple<string, string>> queryString)
+        {
+            var request = new SearchParameterStateRequest();
+            string[] urls = null;
+            string[] codes = null;
+            string[] resourceTypes = null;
+            string[] resourceIds = null;
+
+            foreach (var query in queryString)
+            {
+                switch (query.Item1.ToLowerInvariant())
+                {
+                    case SearchParameterStateProperties.Url:
+                        urls = query.Item2.Split(',');
+                        break;
+                    case SearchParameterStateProperties.Code:
+                        codes = query.Item2.Split(',');
+                        break;
+                    case SearchParameterStateProperties.ResourceType:
+                        resourceTypes = query.Item2.Split(',');
+                        break;
+                    case SearchParameterStateProperties.SearchParameterId:
+                        resourceIds = query.Item2.Split(',');
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            return new SearchParameterStateRequest(resourceIds, resourceTypes, codes, urls, queryString);
         }
     }
 }
