@@ -17,7 +17,7 @@ using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public abstract class Watchdog<T> : INotificationHandler<StorageInitializedNotification>
+    public abstract class WatchdogToBeDeprecated<T> : INotificationHandler<StorageInitializedNotification>
     {
         private readonly int? _minVersion;
         private readonly SchemaInformation _schemaInformation;
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private TimeSpan _timerDelay;
         private bool _storageReady;
 
-        protected Watchdog(
+        protected WatchdogToBeDeprecated(
             int? minVersion,
             Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        protected Watchdog()
+        protected WatchdogToBeDeprecated()
         {
             // this is used to get param names for testing
         }
