@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
             _sqlConnectionString = sqlOptions.Value.ConnectionString;
-            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one-hash-dir";
+            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one-type-dir";
             _adlsClient = GetAdlsContainer();
         }
 
@@ -342,9 +342,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private static string GetBlobName(long transactionId)
+        private string GetBlobName(short? resourceTypeId, long transactionId)
         {
-            return $"hash-{GetPermanentHashCode(transactionId)}/transaction-{transactionId}.ndjson";
+            return resourceTypeId == null
+                                ? $"hash-{GetPermanentHashCode(transactionId)}/transaction-{transactionId}.ndjson"
+                                : $"{_model.GetResourceTypeName(resourceTypeId.Value)}/transaction-{transactionId}.ndjson";
         }
 
         private static string GetPermanentHashCode(long tr)
@@ -363,7 +365,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var start = DateTime.UtcNow;
             Parallel.ForEach(resources, new ParallelOptions { MaxDegreeOfParallelism = 16 }, (resource) =>
             {
-                var blobName = GetBlobName(resource.ResourceSurrogateId);
+                var blobName = GetBlobName(_model.GetResourceTypeId(resource.ResourceWrapper.ResourceTypeName), resource.ResourceSurrogateId);
             retry:
                 try
                 {
@@ -423,8 +425,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private void PutRawResourcesToAdls(IList<MergeResourceWrapper> resources, long transactionId)
         {
             var start = DateTime.UtcNow;
-            var blobName = GetBlobName(transactionId);
             var eol = Encoding.UTF8.GetByteCount(Environment.NewLine);
+            var blobName = GetBlobName(null, transactionId);
         retry:
             try
             {
@@ -457,18 +459,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             TryLogEvent("PutRawResourcesToAdls", "Warn", null, (int)(DateTime.UtcNow - start).TotalMilliseconds, $"Resources={resources.Count}", start, CancellationToken.None).Wait();
         }
 
-        public string GetRawResourceFromAdls(long transactionId, int offsetInFile)
+        public string GetRawResourceFromAdls(short resourceTypeId, long transactionId, int offsetInFile)
         {
-            var blobName = GetBlobName(transactionId);
+            var blobName = GetBlobName(resourceTypeId, transactionId);
             using var reader = new StreamReader(_adlsClient.GetBlobClient(blobName).OpenRead(offsetInFile));
             var line = reader.ReadLine();
             return line.Split('\t')[4];
         }
 
-        public IDictionary<Tuple<long, int>, string> GetRawResourceFromAdls(IReadOnlyList<Tuple<long, int>> resourceRefs)
+        public IDictionary<Tuple<short, long, int>, string> GetRawResourceFromAdls(IReadOnlyList<Tuple<short, long, int>> resourceRefs)
         {
             var start = DateTime.UtcNow;
-            var results = new Dictionary<Tuple<long, int>, string>();
+            var results = new Dictionary<Tuple<short, long, int>, string>();
             if (resourceRefs == null || resourceRefs.Count == 0)
             {
                 return results;
@@ -492,11 +494,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ////    prevTran = transactionId;
             ////}
 
-            var resourceRefsByTransaction = resourceRefs.GroupBy(_ => _.Item1);
+            var resourceRefsByTransaction = resourceRefs.GroupBy(_ => new { ResourceTypeId = _.Item1, TransactionId = _.Item2 });
             foreach (var group in resourceRefsByTransaction)
             {
-                var transactionId = group.Key;
-                var blobName = GetBlobName(transactionId);
+                var blobName = GetBlobName(group.Key.ResourceTypeId, group.Key.TransactionId);
                 var fileClient = new DataLakeFileClient(_adlsConnectionString, _adlsContainer, blobName);
                 using var stream = fileClient.OpenRead(bufferSize: 1024 * 20);
                 using var reader = new StreamReader(stream);
@@ -771,8 +772,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count);
 
             using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-            var resources = new List<Tuple<ResourceWrapper, long?, int?>>();
-            var missingResourceRefs = new List<Tuple<long, int>>();
+            var resources = new List<Tuple<ResourceWrapper, short, long?, int?>>();
+            var missingResourceRefs = new List<Tuple<short, long, int>>();
             while (await reader.ReadAsync(cancellationToken))
             {
                 var table = VLatest.Resource;
@@ -792,7 +793,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var rawResource = string.Empty;
                 if (rawResourceBytes == null)
                 {
-                    missingResourceRefs.Add(Tuple.Create(transactionId.Value, offsetInFile.Value));
+                    missingResourceRefs.Add(Tuple.Create(resourceTypeId, transactionId.Value, offsetInFile.Value));
                 }
                 else
                 {
@@ -816,7 +817,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     IsHistory = isHistory,
                 };
 
-                resources.Add(Tuple.Create(resource, transactionId, offsetInFile));
+                resources.Add(Tuple.Create(resource, resourceTypeId, transactionId, offsetInFile));
             }
 
             await reader.NextResultAsync(cancellationToken);
@@ -826,7 +827,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 if (resource.Item1.RawResource.Data.Length == 0)
                 {
-                    resource.Item1.RawResource = new RawResource(missingRawResources[Tuple.Create(resource.Item2.Value, resource.Item3.Value)], resource.Item1.RawResource.Format, resource.Item1.RawResource.IsMetaSet);
+                    resource.Item1.RawResource = new RawResource(missingRawResources[Tuple.Create(resource.Item2, resource.Item3.Value, resource.Item4.Value)], resource.Item1.RawResource.Format, resource.Item1.RawResource.IsMetaSet);
                 }
             }
 

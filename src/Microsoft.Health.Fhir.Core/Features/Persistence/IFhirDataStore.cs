@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         Task TryLogEvent(string process, string status, string text, DateTime startDate, CancellationToken cancellationToken);
 
-        string GetRawResourceFromAdls(long transactionId, int offsetInFile);
+        string GetRawResourceFromAdls(short resourceTypeId, long transactionId, int offsetInFile);
 
-        IDictionary<Tuple<long, int>, string> GetRawResourceFromAdls(IReadOnlyList<Tuple<long, int>> resourceRefs);
+        IDictionary<Tuple<short, long, int>, string> GetRawResourceFromAdls(IReadOnlyList<Tuple<short, long, int>> resourceRefs);
 
         Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken);
 

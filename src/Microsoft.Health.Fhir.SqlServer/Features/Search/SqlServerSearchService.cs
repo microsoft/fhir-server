@@ -352,7 +352,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         return searchResult;
                     }
 
-                    var resources = new List<Tuple<SearchResultEntry, long?, int?>>(sqlSearchOptions.MaxItemCount);
+                    var resources = new List<Tuple<SearchResultEntry, short, long?, int?>>(sqlSearchOptions.MaxItemCount);
                     short? newContinuationType = null;
                     long? newContinuationId = null;
                     bool moreResults = false;
@@ -362,7 +362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     var isResultPartial = false;
                     int numberOfColumnsRead = 0;
 
-                    var missingResourceRefs = new List<Tuple<long, int>>();
+                    var missingResourceRefs = new List<Tuple<short, long, int>>();
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
@@ -395,7 +395,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         var rawResource = string.Empty;
                         if (rawResourceBytes == null)
                         {
-                            missingResourceRefs.Add(Tuple.Create(transactionId.Value, offsetInFile.Value));
+                            missingResourceRefs.Add(Tuple.Create(resourceTypeId, transactionId.Value, offsetInFile.Value));
                         }
                         else
                         {
@@ -454,6 +454,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         null,
                                         searchParameterHash),
                                     isMatch ? SearchEntryMode.Match : SearchEntryMode.Include),
+                                resourceTypeId,
                                 transactionId,
                                 offsetInFile));
                     }
@@ -466,7 +467,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         if (resource.Item1.Resource.RawResource.Data.Length == 0)
                         {
-                            resource.Item1.Resource.RawResource = new RawResource(missingRawResources[Tuple.Create(resource.Item2.Value, resource.Item3.Value)], resource.Item1.Resource.RawResource.Format, resource.Item1.Resource.RawResource.IsMetaSet);
+                            resource.Item1.Resource.RawResource = new RawResource(missingRawResources[Tuple.Create(resource.Item2, resource.Item3.Value, resource.Item4.Value)], resource.Item1.Resource.RawResource.Format, resource.Item1.Resource.RawResource.IsMetaSet);
                         }
                     }
 
