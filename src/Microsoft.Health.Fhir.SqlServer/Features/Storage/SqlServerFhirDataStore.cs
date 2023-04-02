@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _adlsConnectionString = adlsOptions.Value.StorageAccountConnection;
             _sqlConnectionString = sqlOptions.Value.ConnectionString;
-            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one-hash";
+            _adlsContainer = new SqlConnectionStringBuilder(_sqlConnectionString).InitialCatalog.Shorten(30).Replace("_", "-", StringComparison.InvariantCultureIgnoreCase).ToLowerInvariant() + "-one-hash-dir";
             _adlsClient = GetAdlsContainer();
         }
 
@@ -344,7 +344,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private static string GetBlobName(long transactionId)
         {
-            return $"hash_{GetPermanentHashCode(transactionId)}_transaction-{transactionId}.ndjson";
+            return $"hash-{GetPermanentHashCode(transactionId)}/transaction-{transactionId}.ndjson";
         }
 
         private static string GetPermanentHashCode(long tr)
