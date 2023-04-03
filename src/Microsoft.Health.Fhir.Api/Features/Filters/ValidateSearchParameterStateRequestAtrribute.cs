@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 if (!_supportedParams[context.HttpContext.Request.Method].Contains(key))
                 {
-                    throw new ArgumentException(string.Format(Core.Resources.UnsupportedSearchParameterStateQueryParameter, key));
+                    throw new BadRequestException(string.Format(Core.Resources.UnsupportedSearchParameterStateQueryParameter, key));
                 }
             }
         }
