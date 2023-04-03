@@ -190,6 +190,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
         }
 
+        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
+        {
+            return await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
+        }
+
         internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
             if (!updatedSearchParameterStatus.Any())
