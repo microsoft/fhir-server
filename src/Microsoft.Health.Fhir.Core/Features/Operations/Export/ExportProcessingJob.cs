@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 record = exportJobRecord;
                 progress.Report(JsonConvert.SerializeObject(exportJobRecord));
 
-                if (record.Status != OperationStatus.Completed && record.Status != OperationStatus.Failed)
+                if (record.Status == OperationStatus.Running)
                 {
                     // Update Export Job is called in three scenarios:
                     // 1. A page of search results is processed and there is a continuation token.
