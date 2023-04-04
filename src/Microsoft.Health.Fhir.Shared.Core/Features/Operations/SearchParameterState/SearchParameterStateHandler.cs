@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -49,39 +50,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             }
 
             IEnumerable<SearchParameterInfo> searchParameterResult = new List<SearchParameterInfo>();
-
-            if (request.ResourceTypes != null)
-            {
-                searchParameterResult = _searchParameterDefinitionManager.GetSearchParametersByResourceTypes(request.ResourceTypes);
-            }
-
-            if (request.Codes != null)
-            {
-                var codeResults = _searchParameterDefinitionManager.GetSearchParametersByCodes(request.Codes);
-                searchParameterResult = searchParameterResult.Any() ? searchParameterResult.IntersectBy(codeResults, sp => sp, new SearchParameterInfoEqualityComparer()) : codeResults;
-            }
-
-            if (request.Urls != null)
-            {
-                var urlResults = _searchParameterDefinitionManager.GetSearchParametersByUrls(request.Urls);
-                searchParameterResult = searchParameterResult.Any() ? searchParameterResult.IntersectBy(urlResults, sp => sp, new SearchParameterInfoEqualityComparer()) : urlResults;
-            }
-
-            if (request.SearchParameterId != null)
-            {
-                var idResults = _searchParameterDefinitionManager.GetSearchParametersByIds(request.SearchParameterId);
-                searchParameterResult = searchParameterResult.Any() ? searchParameterResult.IntersectBy(idResults, sp => sp, new SearchParameterInfoEqualityComparer()) : idResults;
-            }
-
-            if (!searchParameterResult.Any())
+            if (request.Queries.Count == 0)
             {
                 searchParameterResult = _searchParameterDefinitionManager.AllSearchParameters;
             }
+            else
+            {
+                List<IEnumerable<SearchParameterInfo>> results = new List<IEnumerable<SearchParameterInfo>>();
+                foreach (Tuple<string, string> query in request.Queries)
+                {
+                    string[] queryValues = query.Item2.Split(',');
 
-            return await GetSearchParameterState((ICollection<SearchParameterInfo>)searchParameterResult, cancellationToken);
+                    switch (query.Item1.ToLowerInvariant())
+                    {
+                        case SearchParameterStateProperties.ResourceType:
+                            results.Add(_searchParameterDefinitionManager.GetSearchParametersByResourceTypes(queryValues).DefaultIfEmpty());
+                            break;
+                        case SearchParameterStateProperties.Code:
+                            results.Add(_searchParameterDefinitionManager.GetSearchParametersByCodes(queryValues).DefaultIfEmpty());
+                            break;
+                        case SearchParameterStateProperties.Url:
+                            results.Add(_searchParameterDefinitionManager.GetSearchParametersByUrls(queryValues).DefaultIfEmpty());
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                searchParameterResult = IntersectAllIfEmpty(results);
+            }
+
+            return await GetSearchParameterStateAsync(searchParameterResult.ToList(), cancellationToken);
         }
 
-        private async Task<SearchParameterStateResponse> GetSearchParameterState(ICollection<SearchParameterInfo> searchParameterResult, CancellationToken cancellationToken = default)
+        private async Task<SearchParameterStateResponse> GetSearchParameterStateAsync(ICollection<SearchParameterInfo> searchParameterResult, CancellationToken cancellationToken = default)
         {
             if (searchParameterResult.Count == 0)
             {
@@ -91,9 +93,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             SearchParameterStateResponse response;
             Parameters parameters = new Parameters();
             IReadOnlyCollection<ResourceSearchParameterStatus> states = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            foreach (var searchParam in searchParameterResult)
+            foreach (SearchParameterInfo searchParam in searchParameterResult)
             {
-                var parts = new List<ParameterComponent>
+                try
+                {
+                    bool hasParamStatus = states.Any(s => s.Uri.Equals(searchParam.Url));
+
+                    List<ParameterComponent> parts = new List<ParameterComponent>
                 {
                     new ParameterComponent()
                     {
@@ -103,18 +109,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                     new ParameterComponent()
                     {
                         Name = SearchParameterStateProperties.Status,
-                        Value = new FhirString(states.Where(s => s.Uri.Equals(searchParam.Url)).First().Status.ToString()),
+                        Value = new FhirString(hasParamStatus ? states.Where(s => s.Uri.Equals(searchParam.Url)).First().Status.ToString() : SearchParameterStatus.Disabled.ToString()),
                     },
                 };
-                parameters.Parameter.Add(new Parameters.ParameterComponent()
+                    parameters.Parameter.Add(new Parameters.ParameterComponent()
+                    {
+                        Name = SearchParameterStateProperties.Name,
+                        Part = parts,
+                    });
+                }
+                catch (Exception e)
                 {
-                    Name = SearchParameterStateProperties.Name,
-                    Part = parts,
-                });
+                    Console.WriteLine(e);
+                }
             }
 
             response = new SearchParameterStateResponse(parameters.ToResourceElement());
             return response;
+        }
+
+        private static IEnumerable<SearchParameterInfo> IntersectAllIfEmpty(List<IEnumerable<SearchParameterInfo>> results)
+        {
+            IEnumerable<SearchParameterInfo> intersectedResults = null;
+
+            results = results.Where(l => l.Any()).ToList();
+
+            if (results.Count > 0)
+            {
+                intersectedResults = results.First();
+
+                for (int i = 1; i < results.Count; i++)
+                {
+                    intersectedResults = intersectedResults.IntersectBy(results.ElementAt(i), searchParameter => searchParameter, new SearchParameterInfoEqualityComparer());
+                }
+            }
+
+            return intersectedResults;
         }
     }
 }

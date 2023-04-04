@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             foreach (string key in queryKeys)
             {
-                if (!_supportedParams[context.HttpContext.Request.Method].Contains(key))
+                if (!_supportedParams[context.HttpContext.Request.Method].Contains(key.ToLowerInvariant()))
                 {
                     throw new BadRequestException(string.Format(Core.Resources.UnsupportedSearchParameterStateQueryParameter, key));
                 }

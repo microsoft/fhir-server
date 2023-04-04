@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> GetSearchParametersByIds(ICollection<string> ids)
         {
-            return UrlLookup.Where(t => ids.Contains(t.Value.Name)).Select(t => t.Value);
+            throw new NotImplementedException();
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)

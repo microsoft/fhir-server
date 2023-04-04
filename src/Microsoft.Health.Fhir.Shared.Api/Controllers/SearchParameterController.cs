@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -57,14 +56,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
 
-            IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
-            SearchParameterStateResponse result = await _mediator.Send(CreateSearchParameterRequestFromQueryString(queries), cancellationToken);
+            SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
+            SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
 
             _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
 
             return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
         }
 
+        /*
         /// <summary>
         /// Gets search parameter with current state by resource id.
         /// </summary>
@@ -89,6 +89,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // make sure it doesn't reset on FHIR server restart.
             return FhirResult.Create(result.SearchParameters);
         }
+        */
 
         /// <summary>
         /// Search for multiple Search Parameter Status using POST.
@@ -103,9 +104,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> PostSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
-            IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
+            SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
 
-            SearchParameterStateResponse result = await _mediator.Send(CreateSearchParameterRequestFromQueryString(queries), cancellationToken);
+            // add input params
+            SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
 
             // return parameters object type
             return FhirResult.Create(result.SearchParameters);
@@ -129,43 +131,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private IReadOnlyList<Tuple<string, string>> GetQueriesForSearch()
         {
             return Request.GetQueriesForSearch();
-        }
-
-        /// <summary>
-        /// Parses query string for known parameters and returns a SearchParameterStateRequest object.
-        /// </summary>
-        /// <param name="queryString">Query string from http request</param>
-        /// <returns><see cref="SearchParameterStateRequest" containing parsed known values./>></returns>
-        private static SearchParameterStateRequest CreateSearchParameterRequestFromQueryString(IReadOnlyList<Tuple<string, string>> queryString)
-        {
-            var request = new SearchParameterStateRequest();
-            string[] urls = null;
-            string[] codes = null;
-            string[] resourceTypes = null;
-            string[] resourceIds = null;
-
-            foreach (var query in queryString)
-            {
-                switch (query.Item1.ToLowerInvariant())
-                {
-                    case SearchParameterStateProperties.Url:
-                        urls = query.Item2.Split(',');
-                        break;
-                    case SearchParameterStateProperties.Code:
-                        codes = query.Item2.Split(',');
-                        break;
-                    case SearchParameterStateProperties.ResourceType:
-                        resourceTypes = query.Item2.Split(',');
-                        break;
-                    case SearchParameterStateProperties.SearchParameterId:
-                        resourceIds = query.Item2.Split(',');
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-            return new SearchParameterStateRequest(resourceIds, resourceTypes, codes, urls, queryString);
         }
     }
 }
