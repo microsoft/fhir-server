@@ -67,19 +67,5 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await _mediator.Received(1).Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken));
         }
-
-        /*
-        [Fact]
-        public async void GivenASearchParameterStatusRequest_WhenMediatorReturnsSearchParameterStatusResponse_ThenOkObjectResultShouldBeReturned()
-        {
-            var controllerContext = new ControllerContext() { HttpContext = _httpContext };
-            ParameterInfo parameterInfo = new ParameterInfo() { }
-            var response = new ResourceElement(;
-
-            _mediator.Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse();
-            var result = await _controller.GetSearchParametersStatus(default(CancellationToken));
-            Assert.IsType<OkObjectResult>(result);
-        }
-        */
     }
 }
